@@ -98,3 +98,51 @@ describe('social worker endpoints', () => {
     await expect(handleSocial('/social/line/reply', { threadId: 'line_U1234567890', text: 'a' }, env, { uid: 'u' })).rejects.toThrow('ถี่')
   })
 })
+
+import { lineChannels, parseLineThread, handleExtraLineWebhook, googlePlaces, shapePlace } from './social.js'
+describe('extra LINE OAs + Google Maps (v1.0.977)', () => {
+  const env = { LINE_CHANNEL_ACCESS_TOKEN: 'main', FIREBASE_PROJECT_ID: 'p', LINE_EXTRA_CHANNELS: JSON.stringify([{ id: 'showroom', name: 'LINE โชว์รูม', secret: 's1', token: 't1' }, { id: 'BAD ID', secret: 'x', token: 'y' }, { id: 'nosecret', token: 'y' }]) }
+  const sign = async (body, secret) => {
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+    const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body)))
+    let b = ''; sig.forEach(x => { b += String.fromCharCode(x) }); return btoa(b)
+  }
+  it('parses channel config and thread ids', () => {
+    expect(lineChannels(env).map(c => c.id)).toEqual(['showroom'])
+    expect(lineChannels({ LINE_EXTRA_CHANNELS: 'not json' })).toEqual([])
+    expect(lineThreadId('Uabc1234567', 'showroom')).toBe('line_showroom__Uabc1234567')
+    expect(parseLineThread('line_showroom__Uabc1234567')).toEqual({ channel: 'showroom', userId: 'Uabc1234567' })
+    expect(parseLineThread('line_Uabc1234567')).toEqual({ channel: '', userId: 'Uabc1234567' })
+    expect(parseLineThread('line_x')).toBe(null)
+  })
+  it('extra webhook checks signature and records with the channel token', async () => {
+    const body = JSON.stringify({ events: [{ type: 'message', source: { type: 'user', userId: 'Uabc1234567' }, message: { type: 'text', text: 'สนใจ' }, timestamp: 1 }] })
+    expect((await handleExtraLineWebhook(env, 'showroom', body, 'bad', async () => 'fs')).status).toBe(401)
+    expect((await handleExtraLineWebhook(env, 'nope', body, 'bad', async () => 'fs')).status).toBe(404)
+    const f = globalThis.fetch = vi.fn().mockResolvedValue(ok({ displayName: 'ลูกค้า' }))
+    const r = await handleExtraLineWebhook(env, 'showroom', body, await sign(body, 's1'), async () => 'fs')
+    expect(r).toEqual({ status: 200, body: { ok: true, saved: 1 } })
+    expect(f.mock.calls[0][1].headers.Authorization).toBe('Bearer t1')
+    expect(f.mock.calls.some(c => String(c[0]).includes('social_threads/line_showroom__Uabc1234567'))).toBe(true)
+  })
+  it('replies through the right OA', async () => {
+    const f = globalThis.fetch = vi.fn().mockResolvedValue(ok({}))
+    await lineReply(env, null, { threadId: 'line_showroom__Uabc1234567', text: 'สวัสดีครับ' })
+    expect(f.mock.calls[0][1].headers.Authorization).toBe('Bearer t1')
+    expect(JSON.parse(f.mock.calls[0][1].body).to).toBe('Uabc1234567')
+    await lineReply(env, null, { threadId: 'line_Uabc1234567', text: 'x' })
+    expect(f.mock.calls[1][1].headers.Authorization).toBe('Bearer main')
+    expect(await lineReply({ ...env, LINE_EXTRA_CHANNELS: '' }, null, { threadId: 'line_showroom__Uabc1234567', text: 'x' })).toEqual({ configured: false })
+  })
+  it('google places: not configured, shapes and caches', async () => {
+    expect(await googlePlaces({}, { query: 'โชว์รูม' })).toEqual({ configured: false, places: [] })
+    const f = globalThis.fetch = vi.fn().mockResolvedValue(ok({ places: [{ id: 'a', displayName: { text: 'โชว์รูม' }, rating: 4.6, userRatingCount: 120, reviews: [{ rating: 5, text: { text: 'ดีมาก' }, authorAttribution: { displayName: 'ก' } }] }] }))
+    const r = await googlePlaces({ GOOGLE_MAPS_API_KEY: 'k' }, { query: 'โชว์รูม' })
+    expect(r.places[0]).toMatchObject({ name: 'โชว์รูม', rating: 4.6, reviews: 120 })
+    expect(r.places[0].latest[0]).toMatchObject({ rating: 5, text: 'ดีมาก', author: 'ก' })
+    await googlePlaces({ GOOGLE_MAPS_API_KEY: 'k' }, { query: 'โชว์รูม' })
+    expect(f).toHaveBeenCalledTimes(1)
+    expect(shapePlace({}).rating).toBe(null)
+    await expect(googlePlaces({ GOOGLE_MAPS_API_KEY: 'k' }, { query: 'a' })).rejects.toThrow('2 ตัวอักษร')
+  })
+})

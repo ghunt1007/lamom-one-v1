@@ -33,3 +33,4 @@ export function shareLinks(text = '', link = '') {
     facebook: link ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}` : 'https://www.facebook.com/',
   }
 }
+export const googlePlaces = query => call('/social/google/places', { query })
