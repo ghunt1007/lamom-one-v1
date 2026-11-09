@@ -7,8 +7,8 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { TARGET_SEGMENTS, getSegmentMembers, getSegmentCount, reachableMembers } from '../../core/segments.js'
-import { sendSms, sendEmail, sendLineBroadcast, sendPush } from '../../utils/comms.js'
-import { lineMulticast } from '../../utils/socialApi.js'
+import { sendSms, sendEmail, sendPush } from '../../utils/comms.js'
+import { lineMulticast, lineBroadcastAll } from '../../utils/socialApi.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
@@ -156,7 +156,7 @@ export default async function BroadcastPage(container) {
           result = await lineMulticast(reachable.map(m => m.lineUserId), bc.message)
           recipients = reachable.length
         } else if (bc.channel === 'line') {
-          result = await sendLineBroadcast(bc.message)
+          result = await lineBroadcastAll(bc.message)
           recipients = null // Broadcast API ของ LINE ส่งถึงเพื่อน OA ทั้งหมด ฝั่งเราไม่ทราบจำนวนผู้รับจริง
         } else {
           if (bc.channel === 'sms') result = await sendSms(reachable.map(m => m.phone), bc.message)

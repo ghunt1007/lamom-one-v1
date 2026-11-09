@@ -503,7 +503,7 @@ export default async function CustomersPage(container) {
               </div>
               <div style="display:flex;flex-direction:column;gap:8px">
                 ${detail('📱 โทร', c.phone && String(c.phone).replace(/[^\d+]/g, '') ? `<a id="wk-tel" href="tel:${String(c.phone).replace(/[^\d+]/g, '')}" style="color:var(--primary)">${formatPhone(c.phone)}</a>` : (formatPhone(c.phone) || '-'))}
-                ${c.lineId ? detail('💚 LINE', escHtml(c.lineId)) : ''}
+                ${c.lineId || c.lineUserId ? detail('💚 LINE', escHtml(c.lineId || 'LINE OA') + (c.lineUserId ? ' <button class="btn btn-ghost btn-xs" id="wk-line-chat" title="เปิดห้องแชต LINE OA ของลูกค้าคนนี้">💬 แชต LINE</button>' : '')) : ''}
                 ${c.email ? detail('📧 Email', escHtml(c.email)) : ''}
                 ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-') + (c.isLost ? '' : ' <button class="btn btn-ghost btn-xs" id="wk-td-btn" title="นัดลูกค้ามาทดลองขับ">🚙 นัดทดลองขับ</button>'))}
                 ${(() => { const f = c.interestedModel ? modelFacts(c.interestedModel, getVehicles(), 4) : []; return f.length ? `<details style="margin:-2px 0 2px;font-size:0.76rem"><summary style="cursor:pointer;color:var(--primary)">📋 ราคา/สเปครุ่นนี้ (ไว้ตอบลูกค้า)</summary><div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${f.map(x => `<div style="padding:6px 8px;border-radius:8px;background:var(--surface-2);line-height:1.45">${escHtml(x)}</div>`).join('')}<div id="wk-promos"></div><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.66rem;color:var(--text-muted)">ราคาตั้งจากฐานข้อมูลรถ</span><button type="button" class="btn btn-secondary btn-xs" id="wk-facts-copy">📋 คัดลอกสเปคส่งลูกค้า</button></div>${calcHtml(c)}</div></details>` : '' })()}
@@ -637,6 +637,8 @@ export default async function CustomersPage(container) {
     el.querySelector('#wk-edit-btn')?.addEventListener('click', () => {
       close(); openForm(c, { onSaved: updated => openDetail(updated) })
     })
+    // (v1.0.1024) ลูกค้าที่ทักมาทาง LINE OA → เปิดห้องแชตในหน้าช่องทางโซเชียลได้เลย
+    el.querySelector('#wk-line-chat')?.addEventListener('click', () => { close(); navigate(`/marketing/channels?tab=inbox&open=${encodeURIComponent('line_' + String(c.lineUserId).replace(/[^A-Za-z0-9-]/g, ''))}`) })
     el.querySelector('#wk-promote-btn')?.addEventListener('click', async () => {
       try {
         const patch = { stage: 'pp', stageChangedAt: new Date().toISOString() }

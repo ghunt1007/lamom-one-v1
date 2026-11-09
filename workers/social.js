@@ -401,6 +401,21 @@ export async function lineMulticast(env, { userIds = [], text } = {}, role = '')
   return { configured: true, sent, failed, errors }
 }
 
+// (v1.0.1025) LINE Broadcast ถึงเพื่อน OA หลักทุกคน — ย้ายมาอยู่ worker นี้ (deploy อัตโนมัติทุกครั้งที่ merge และมี token LINE อยู่แล้ว)
+export async function lineBroadcast(env, { text } = {}, role = '') {
+  if (!MULTICAST_ROLES.includes(role)) throw new Error('เฉพาะผู้จัดการ/การตลาด/เจ้าของเท่านั้นที่ส่ง Broadcast ได้')
+  if (!env.LINE_CHANNEL_ACCESS_TOKEN) return { configured: false, error: 'LINE OA ยังไม่ได้ตั้งค่า' }
+  const msg = clip(text, MAX_TEXT).trim()
+  if (!msg) throw new Error('พิมพ์ข้อความก่อนส่ง')
+  const res = await fetch('https://api.line.me/v2/bot/message/broadcast', {
+    method: 'POST', headers: { Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: [{ type: 'text', text: msg }] }),
+  }).catch(() => null)
+  if (res?.ok) return { configured: true, sent: null, failed: 0, broadcast: true }
+  const d = res ? await res.json().catch(() => ({})) : {}
+  throw new Error(/limit|quota/i.test(d.message || '') ? 'โควตาข้อความ LINE OA เดือนนี้หมดแล้ว' : `LINE: ${d.message || res?.status || 'network error'}`)
+}
+
 // ── router ──────────────────────────────────────────────────────
 const writeLog = new Map()
 export function __resetSocialRate() { writeLog.clear(); placesCache.clear() }
@@ -413,7 +428,7 @@ function allowWrite(uid) {
 
 export async function handleSocial(path, body, env, ctx) {
   const { uid = '', role = '', name = '', getAccessToken } = ctx || {}
-  const writes = ['/social/meta/reply', '/social/meta/post', '/social/meta/ads/update', '/social/line/reply', '/social/line/multicast']
+  const writes = ['/social/meta/reply', '/social/meta/post', '/social/meta/ads/update', '/social/line/reply', '/social/line/multicast', '/social/line/broadcast']
   if (writes.includes(path) && !allowWrite(uid)) throw Object.assign(new Error('ส่งถี่เกินไป รอสักครู่แล้วลองใหม่'), { status: 429 })
   switch (path) {
     case '/social/status': return socialStatus(env)
@@ -423,6 +438,7 @@ export async function handleSocial(path, body, env, ctx) {
     case '/social/meta/ads': return metaAds(env)
     case '/social/meta/ads/update': return metaAdsUpdate(env, body, role)
     case '/social/line/multicast': return lineMulticast(env, body, role)
+    case '/social/line/broadcast': return lineBroadcast(env, body, role)
     case '/social/line/reply': return lineReply(env, getAccessToken ? await getAccessToken() : null, body, name)
     case '/social/google/places': return googlePlaces(env, body)
     default: return null
