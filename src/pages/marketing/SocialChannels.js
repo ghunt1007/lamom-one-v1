@@ -42,6 +42,10 @@ export default async function SocialChannelsPage(container) {
   let lineThreads = [], metaConvs = [], metaLoaded = false, metaLoading = false, metaErr = ''
   let filter = 'all', q = ''
   let openKey = '', lineMsgs = [], stopMsgs = null, replyDraft = ''
+  // (v1.0.1024) ห้องแชต LINE ↔ ลูกค้าในระบบ (จับจาก lineUserId) — มีแล้วขึ้น "ดูลูกค้า" แทน "เป็น Lead" กันลูกค้าซ้ำ
+  const linked = new Map() // threadId → customer | null
+  // ?open=<threadId> (จากหน้าลูกค้า) → เปิดห้องแชตนั้นเลยเมื่อโหลดรายการเสร็จ
+  let pendingOpen = new URLSearchParams(location.search || '').get('open') || ''
   let accounts = []
   // (v1.0.988) ผล Lead/จอง ต่อบัญชี (ลูกค้าที่เพิ่มแบบเลือก "จากบัญชีไหน")
   let accRes = null
@@ -95,6 +99,7 @@ export default async function SocialChannelsPage(container) {
   watchDocs('social_threads', [], 'lastAt', 'desc', 300, rows => {
     if (!alive()) return
     lineThreads = rows.filter(r => !r.deleted)
+    if (pendingOpen && lineThreads.some(r => r.id === pendingOpen)) { const k = `line:${pendingOpen}`; pendingOpen = ''; tab = 'inbox'; openThread(k); return }
     if (tab === 'inbox') render()
   })
   watchDocs('social_channels', [], 'createdAt', 'desc', 500, rows => {
@@ -202,7 +207,7 @@ export default async function SocialChannelsPage(container) {
       <div class="ch-th-head">
         <button type="button" class="btn btn-ghost btn-sm ch-back" id="ch-back">‹ กลับ</button>
         <div class="ch-th-name"><b>${KIND[i.kind].icon} ${esc(i.name)}</b><small>${esc(i.sub)}</small></div>
-        <button type="button" class="btn btn-secondary btn-sm" id="ch-lead">➕ เป็น Lead</button>
+        ${i.kind === 'line' && linked.get(i.id) ? `<button type="button" class="btn btn-secondary btn-sm" id="ch-cust">👤 ดูลูกค้า</button>` : `<button type="button" class="btn btn-secondary btn-sm" id="ch-lead">➕ เป็น Lead</button>`}
       </div>
       <div class="ch-msgs">${msgs.length ? msgs.map(m => `<div class="ch-msg ${m.mine ? 'mine' : ''}"><div>${esc(m.text)}</div><small>${m.at ? esc(timeAgo(m.at)) : ''}${m.by && m.mine ? ` · ${esc(m.by)}` : ''}</small></div>`).join('') : '<div class="ch-empty">ยังไม่มีข้อความ</div>'}</div>
       <div class="ch-reply">
@@ -226,6 +231,11 @@ export default async function SocialChannelsPage(container) {
       })
       const t = lineThreads.find(x => x.id === i.id)
       if (t?.unread) updateDocData('social_threads', i.id, { unread: false }).catch(() => {})
+      if (t?.userId && !linked.has(i.id)) {
+        listDocs('customers', [...companyScopeFilters(), ['lineUserId', '==', t.userId]], 'createdAt', 'desc', 5)
+          .then(r => { linked.set(i.id, r.find(c => !c.deleted) || null); if (alive() && openKey === key && linked.get(i.id)) render() })
+          .catch(() => {})
+      }
     }
     render()
   }
@@ -271,7 +281,9 @@ export default async function SocialChannelsPage(container) {
     const i = findItem(openKey); if (!i) return
     const msgs = i.kind === 'line' ? lineMsgs.filter(m => m.direction !== 'out').map(m => m.text) : (i.conv?.messages || []).filter(m => !m.mine).map(m => m.text)
     const source = i.kind === 'line' ? 'line' : i.kind === 'instagram' ? 'other' : 'facebook'
-    openQuickLead({ name: i.name, pasteText: `${i.name}\n${msgs.slice(-5).join('\n')}`.slice(0, 1500), source })
+    const userId = i.kind === 'line' ? lineThreads.find(x => x.id === i.id)?.userId : ''
+    openQuickLead({ name: i.name, pasteText: `${i.name}\n${msgs.slice(-5).join('\n')}`.slice(0, 1500), source, extra: userId ? { lineUserId: userId } : null })
+    if (userId) linked.delete(i.id)
   }
 
   // ── โพสต์ ──
@@ -597,6 +609,7 @@ export default async function SocialChannelsPage(container) {
     if (t.closest('#ch-send')) { sendReply(); return }
     if (t.closest('#ch-ai')) { aiDraft(); return }
     if (t.closest('#ch-lead')) { toLead(); return }
+    if (t.closest('#ch-cust')) { const c = linked.get(findItem(openKey)?.id); if (c) navigate(`/crm/customers?id=${encodeURIComponent(c.id)}`); return }
     if (t.closest('#ch-reload-meta')) { metaLoaded = false; loadMeta(); return }
     if (t.closest('#ps-go')) { doPost(); return }
     if (t.closest('#ps-ai')) { aiPost(); return }

@@ -106,7 +106,8 @@ function offerFirstReply(c, me) {
   })
 }
 
-export function openQuickLead({ onFull, pasteText = '', name = '', contact = '', model = '', source: initialSource = '' } = {}) {
+// extra = ฟิลด์เพิ่มของลูกค้าคนแรกที่บันทึก (เช่น lineUserId จากกล่องแชต LINE — ทำให้ส่ง LINE เฉพาะกลุ่มถึงคนนี้ได้)
+export function openQuickLead({ onFull, pasteText = '', name = '', contact = '', model = '', source: initialSource = '', extra = null } = {}) {
   const me = getState('user') || {}
   let source = QUICK_SOURCES.some(([k]) => k === initialSource) ? initialSource : 'walk-in'
   let existing = null
@@ -260,9 +261,10 @@ export function openQuickLead({ onFull, pasteText = '', name = '', contact = '',
     btns.forEach(b => { b.disabled = true })
     try {
       const acc = account && accountsForSource(accounts, source).some(a => a.id === account.id) ? { sourceAccountId: account.id, sourceAccountName: account.name || account.handle || '', sourceAccountLevel: account.level || 'team' } : {}
-      const doc = { ...lead, ...acc, ...(eventTag && source === 'event' ? { eventId: eventTag.id, eventName: eventTag.title || '' } : {}), stageChangedAt: new Date().toISOString(), companyId: myEffectiveCompanyId() }
+      const doc = { ...lead, ...(extra || {}), ...acc, ...(eventTag && source === 'event' ? { eventId: eventTag.id, eventName: eventTag.title || '' } : {}), stageChangedAt: new Date().toISOString(), companyId: myEffectiveCompanyId() }
       const id = await createDoc('customers', doc)
       if (existing) existing.unshift({ ...doc, id })
+      extra = null
       const fu = await scheduleLeadFollowups(doc, id)
       showToast(`✅ เพิ่ม ${name} แล้ว (${doc.stage === 'lead' ? 'Lead' : 'Prospect'})${fu ? ` · นัดติดตาม ${fu} ครั้ง` : ''}`, 'success')
       if (keepOpen) {
