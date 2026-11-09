@@ -248,3 +248,13 @@ export function eventSummaryText(e, m, br, dayLabel = d => d) {
     br.byDay.length > 1 ? `📅 รายวัน: ${br.byDay.map(d => `${dayLabel(d.day)} ${d.leads}`).join(' · ')}` : null,
   ].filter(Boolean).join('\n')
 }
+
+// (v1.0.995) คนนี้อยู่บูธวันนี้ไหม: มีชื่อในเวรวันนี้ · ถ้างานนี้ยังไม่จัดเวรวันนี้ ดูจากรายชื่อทีมที่ไป · ไม่มีทั้งคู่ = ถือว่าใช่ (แบบเดิม)
+export function onBoothToday(e, name, today) {
+  const k = s => String(s || '').replace(/^คุณ/, '').replace(/\s+/g, '').toLowerCase()
+  const me = k(name)
+  const shift = e?.shifts?.[today]
+  if (Array.isArray(shift) && shift.length) return !!me && shift.some(n => k(n) === me)
+  if (Array.isArray(e?.staff) && e.staff.length) return !!me && e.staff.some(n => k(n) === me)
+  return true
+}
