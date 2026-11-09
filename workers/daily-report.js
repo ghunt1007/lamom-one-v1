@@ -707,7 +707,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 
 // ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
 async function buildMorningData(env, accessToken) {
-  const [bookings, customers, followups, testDrives, programs, events, appointments] = await Promise.all([
+  const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted']),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
@@ -716,12 +716,13 @@ async function buildMorningData(env, accessToken) {
     runQuery(env, accessToken, 'sales_programs', null, null, 1000).catch(() => []),
     runQuery(env, accessToken, 'marketing_events', null, null, 300).catch(() => []),
     runQuery(env, accessToken, 'appointments', 'date', 'DESCENDING', 500, ['date', 'time', 'status', 'salesperson', 'custName', 'interestedIn', 'purpose', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'service_appointments', 'date', 'DESCENDING', 500, ['date', 'time', 'status', 'custName', 'model', 'plate', 'type', 'tech', 'deleted']).catch(() => []),
   ])
   // แก้สถานะไฟแนนซ์ที่ค้าง "รอผล" ของใบจองที่ไปถึงรอรถ/รอส่งมอบ/ส่งมอบแล้ว ให้เป็น "ผ่าน" ในฐานข้อมูลจริงทุกเช้า
   const fixes = bookings.filter(b => b.id && finPassPatch(b))
   if (fixes.length && await commitFinancePassed(env, accessToken, fixes.map(b => b.id))) fixes.forEach(b => { b.finStatus = 'ผ่าน' })
   const today = todayBangkok()
-  const data = { bookings, customers, followups, testDrives, programs, events, appointments }
+  const data = { bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts }
   return { today, data, text: buildMorningReminder(data, { today }), sections: buildMorningSections(data, { today }) }
 }
 
@@ -918,6 +919,7 @@ export function focusLines(p, limit = 3) {
   p.fin.forEach(f => push(f.rejected ? 76 : 60 + Math.min(10, f.days), f.rejected ? `หาไฟแนนซ์ใหม่ให้ ${f.name}` : `ตามผลไฟแนนซ์ ${f.name} (รอ ${f.days} วัน)`, f.name))
   p.unsched.forEach(d => push(d.missed ? 74 : 68, `โทรนัดวันส่งมอบ ${d.name}`, d.name))
   p.td.forEach(t => push(70, `ทดลองขับ ${t.name}${t.time ? ` เวลา ${t.time}` : ''}`, t.name))
+  ;(p.appt || []).forEach(a => push(71, `รับลูกค้านัดเข้าโชว์รูม ${a.name}${a.time ? ` เวลา ${a.time}` : ''}`, a.name))
   p.stale.filter(s => !s.hot).forEach(s => push(40 + Math.min(10, s.days), `ทักลูกค้าที่เงียบไป ${s.name} (${s.days} วัน)`, s.name))
   ;(p.promo || []).forEach(x => push(x.left !== null && x.left <= 2 ? 72 : 48, `บอกโปร ${x.name}${x.left === null ? ' (โปรใหม่)' : x.left === 0 ? ' (โปรหมดวันนี้)' : ` (โปรหมดใน ${x.left} วัน)`}`, x.name))
   p.income.forEach(i => push(45, `กรอกรายได้ ${i.name}`, i.name))
@@ -937,10 +939,21 @@ export function financeQueueLine(bookings = [], today) {
   return `💸 งานการเงินค้าง: ${parts.join(' · ')}`
 }
 
+// (v1.0.1015) งานศูนย์บริการวันนี้ (หน้านัดหมาย & เตือนเข้าศูนย์) — นัดที่ยังไม่ยกเลิก/ไม่ใช่ไม่มา เรียงตามเวลา
+export function serviceTodayLines(serviceAppts = [], today, max = 6) {
+  const t = (serviceAppts || []).filter(a => a && !a.deleted && (a.date || '').slice(0, 10) === today && !['cancelled', 'noshow'].includes(a.status))
+    .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
+  if (!t.length) return []
+  const rows = t.slice(0, max).map(a => `  - ${a.time ? a.time + ' · ' : ''}${a.custName || 'ลูกค้า'}${a.model ? ` (${a.model}${a.plate ? ' ' + a.plate : ''})` : a.plate ? ` (${a.plate})` : ''}${a.type ? ` · ${a.type}` : ''}${a.tech ? ` · ช่าง ${a.tech}` : ''}`)
+  if (t.length > max) rows.push(`  - …และอีก ${t.length - max} คัน`)
+  return [`🔧 นัดเข้าศูนย์บริการวันนี้: ${t.length} คัน`, ...rows]
+}
+
 export function buildMorningReminder(data, opts) {
   const { today } = opts
   const sections = buildMorningSections(data, opts).map(s => s.text)
   const finLine = financeQueueLine(data.bookings, today)
+  const svc = serviceTodayLines(data.serviceAppts, today)
 
   const text = [
     '☀️ LAMOM ONE เตือนงานเช้านี้',
@@ -949,6 +962,7 @@ export function buildMorningReminder(data, opts) {
     '',
     ...(sections.length ? sections.flatMap((s, i) => i ? ['', s] : [s]) : ['✅ ไม่มีงานค้าง ขอให้ขายดีทั้งวันครับ 🎉']),
     ...(finLine ? ['', finLine] : []),
+    ...(svc.length ? ['', ...svc] : []),
     '',
     '─────────────────────',
     '🤖 LAMOM ONE Auto Reminder',

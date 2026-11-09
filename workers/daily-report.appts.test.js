@@ -46,3 +46,28 @@ describe('18:00 showroom visit line (v1.0.1014)', async () => {
     expect(r1).toContain('นัดเข้าโชว์รูมวันนี้: 1 ราย · มาแล้ว 1')
   })
 })
+
+describe('service appointments in the 09:00 group reminder (v1.0.1015)', async () => {
+  const { serviceTodayLines, buildMorningReminder, focusLines } = await import('./daily-report.js')
+  const svc = [
+    { date: today, time: '13:00', status: 'scheduled', custName: 'ก', model: 'S07', plate: '1กข 123', type: 'เช็กระยะ', tech: 'ช่างเอ' },
+    { date: today, time: '09:00', status: 'confirmed', custName: 'ข' },
+    { date: today, time: '10:00', status: 'cancelled', custName: 'ยกเลิก' },
+    { date: '2026-11-11', status: 'scheduled', custName: 'พรุ่งนี้' },
+  ]
+  it('lists today\'s service visits by time', () => {
+    expect(serviceTodayLines(svc, today)).toEqual([
+      '🔧 นัดเข้าศูนย์บริการวันนี้: 2 คัน',
+      '  - 09:00 · ข',
+      '  - 13:00 · ก (S07 1กข 123) · เช็กระยะ · ช่าง ช่างเอ',
+    ])
+    expect(serviceTodayLines([], today)).toEqual([])
+  })
+  it('shows in the group reminder', () => {
+    expect(buildMorningReminder({ ...base, serviceAppts: svc }, { today })).toContain('🔧 นัดเข้าศูนย์บริการวันนี้: 2 คัน')
+  })
+  it('showroom visits count as a top focus', () => {
+    const p = { deliver: [], stale: [], fu: [], fin: [], unsched: [], td: [], appt: [{ name: 'คุณดี', time: '10:00' }], promo: [], income: [], stuck: [] }
+    expect(focusLines(p)).toContain('รับลูกค้านัดเข้าโชว์รูม คุณดี เวลา 10:00')
+  })
+})
