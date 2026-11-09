@@ -10,7 +10,7 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { normName, getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { buildMyDay, myDayDigest } from '../../utils/myDay.js'
 import { followupWindowFilters, quietDays } from '../../utils/customerFollowups.js'
-import { catalogContext, dealValue } from '../../utils/salesAi.js'
+import { catalogContext, dealValue, modelMatches } from '../../utils/salesAi.js'
 import { businessFacts, stockFacts, testDriveFacts } from '../../utils/bizFacts.js'
 import { programFacts, programEarnings, myBonusProgress, bookingCountDay } from '../../utils/salesPrograms.js'
 import { eventFacts } from '../../utils/marketingEvents.js'
@@ -25,6 +25,7 @@ import { navigate } from '../../core/router.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { isWhereQuestion, findPages, whereAnswer } from '../../utils/whereIs.js'
+import { campaignLeads } from '../../utils/campaignLeads.js'
 import { NAV } from '../../data/navMenu.js'
 
 const CATEGORIES = [
@@ -36,6 +37,7 @@ const CATEGORIES = [
   { label:'🚗 เทียบรุ่นรถ', q:'Deepal S05 กับ S07 ต่างกันยังไง เหมาะกับลูกค้าแบบไหน?' },
   { label:'🏆 ผลงานทีม', q:'เดือนนี้ใครจอง/ส่งมอบได้มากสุด เทียบกับเดือนก่อนเป็นยังไง Lead จากช่องทางไหนปิดได้ดีที่สุด และใครมีลูกค้าที่ไม่ได้ติดต่อนานควรรีบตาม?' },
   { label:'🚙 นัดลองขับ', q:'สัปดาห์นี้มีนัดทดลองขับกี่นัด ใครบ้าง ควรเตรียมอะไร และที่ผ่านมาลองขับแล้วจองกี่เปอร์เซ็นต์?' },
+  { label:'🎁 บอกโปรใครดี', q:'วันนี้ควรโทรบอกโปรลูกค้าคนไหนก่อน เพราะอะไร และร่างข้อความ LINE สั้นๆ ให้คนแรกหน่อย' },
   { label:'🎯 โปรเดือนนี้', q:'เดือนนี้มีแคมเปญ/ส่วนลด/ดอกเบี้ยไฟแนนซ์อะไรใช้ได้บ้าง รุ่นไหนคุ้มสุด ควรเสนอลูกค้าแบบไหน?' },
   { label:'📐 ตัวชี้วัดเดือนนี้', q:'สรุปตัวชี้วัดการขายเดือนนี้ (เป้า, คาดการณ์สิ้นเดือน, GP, AOV, Conversion) ตัวไหนน่าห่วงที่สุด และควรทำอะไร 3 ข้อ?' },
   { label:'🎪 ออกบูธได้ผลไหม', q:'งานออกบูธ/อีเวนต์ที่ผ่านมาได้ Lead และจองเท่าไร คุ้มงบไหม และงานที่กำลังจะมาควรเตรียมอะไร?' },
@@ -196,6 +198,14 @@ export default async function AiAssistantChatPage(container) {
         businessContext[`งานของ ${myName} วันนี้`] = myDayDigest(d)
         welcomeStats.todo = d.total
       }
+      // (v1.0.983) ลูกค้าที่ควรโทรบอกโปร (โปรใกล้หมด/โปรใหม่) — เกณฑ์เดียวกับหน้างานของฉันวันนี้ · เซลส์เห็นเฉพาะลูกค้าของตัวเอง
+      try {
+        const isMgr = isManagerRole()
+        const brandOf = m => modelMatches(m, getVehicles(), 1)[0]?.brand || ''
+        const rows = campaignLeads(programs.filter(p => !p.deleted), customers, { today, brandOf, mine: n => isMgr || !myName || normName(n) === normName(myName) })
+        if (rows.length) businessContext['ลูกค้าที่ควรโทรบอกโปรวันนี้ (โปรใกล้หมด/โปรใหม่)'] = rows.slice(0, 8).map(r =>
+          `${r.name} — ${r.model} · ${r.reason === 'ending' ? (r.left === 0 ? 'โปรหมดวันนี้' : `โปรหมดใน ${r.left} วัน`) : 'โปรใหม่'} · ${r.lines.join(', ')}${isMgr && r.c.assignedTo ? ` · ผู้ดูแล ${r.c.assignedTo}` : ''}`).join('\n') + (rows.length > 8 ? `\n…และอีก ${rows.length - 8} ราย (ดูทั้งหมดที่หน้างานของฉันวันนี้)` : '')
+      } catch { /* ข้อมูลเสริม */ }
     } catch (e) { businessContext = {} }
   }
 
