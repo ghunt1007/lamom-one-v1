@@ -65,10 +65,10 @@ export default async function BroadcastPage(container) {
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('📨 Broadcast ทั้งหมด', broadcasts.length, 'primary')}
+          ${kpi('📨 ทั้งหมด', broadcasts.length, 'primary')}
           ${kpi('✅ ส่งแล้ว', sent, 'success')}
-          ${kpi('👥 ส่งสำเร็จรวม', totalSuccess.toLocaleString(), 'primary')}
-          ${kpi('❌ ล้มเหลวรวม', totalFailed.toLocaleString(), totalFailed > 0 ? 'danger' : 'secondary')}
+          ${kpi('👥 ถึงผู้รับ', totalSuccess.toLocaleString(), 'primary')}
+          ${kpi('❌ ล้มเหลว', totalFailed.toLocaleString(), totalFailed > 0 ? 'danger' : 'secondary')}
         </div>
 
         <div style="display:flex;flex-direction:column;gap:12px">
