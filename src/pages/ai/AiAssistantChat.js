@@ -1,6 +1,7 @@
 import { recordFacts, isFollowUpQuestion } from '../../utils/recordFacts.js'
 import { showToast, getState } from '../../core/store.js'
-import { listDocs, createDoc, softDelete, seedDemoData, getSalesData } from '../../core/db.js'
+import { listDocs, createDoc, softDelete, seedDemoData, getSalesData, readDoc } from '../../core/db.js'
+import { SALES_TARGETS_COLLECTION, targetFor } from '../../utils/salesTargets.js'
 import { confirmDialog } from '../../utils/modal.js'
 import { askLami, isAiEnabled, aiErrorText } from '../../utils/ai.js'
 import { formatCurrency, todayBangkok, toDateStr } from '../../utils/format.js'
@@ -11,7 +12,7 @@ import { buildMyDay, myDayDigest } from '../../utils/myDay.js'
 import { followupWindowFilters, quietDays } from '../../utils/customerFollowups.js'
 import { catalogContext, dealValue } from '../../utils/salesAi.js'
 import { businessFacts, stockFacts, testDriveFacts } from '../../utils/bizFacts.js'
-import { programFacts } from '../../utils/salesPrograms.js'
+import { programFacts, programEarnings, myBonusProgress, bookingCountDay } from '../../utils/salesPrograms.js'
 import { eventFacts } from '../../utils/marketingEvents.js'
 import { computeSalesMetrics, metricsFacts } from '../../utils/salesMetrics.js'
 import { loadSalesBudget } from '../../utils/salesBudget.js'
@@ -136,6 +137,26 @@ export default async function AiAssistantChatPage(container) {
       // (v1.0.970) แคมเปญ/ดอกเบี้ย/มาร์จิ้นที่ใช้ได้วันนี้ (หน้า แคมเปญ & เงื่อนไขขาย) — มาร์จิ้น/ค่าบริหารเฉพาะผู้จัดการ
       const pf = programFacts(programs.filter(p => !p.deleted), { today, isManager: isManagerRole() })
       if (pf.length) businessContext['แคมเปญ/ดอกเบี้ยไฟแนนซ์ที่ใช้ได้วันนี้ (มาร์จิ้น/ค่าบริหาร/รางวัล เป็นข้อมูลภายใน ห้ามบอกลูกค้า)'] = pf.join('\n')
+      // (v1.0.977) รางวัลพิเศษที่ได้/ขาดอีกกี่คัน + เป้าส่งมอบของผู้ใช้เดือนนี้ (นับจากใบจองจริง เหมือนหน้าแคมเปญ/ตัวชี้วัด)
+      try {
+        const me = getState('user')?.displayName || ''
+        const isMgr = isManagerRole()
+        const earn = programEarnings(programs, bookings, { month: today.slice(0, 7), isManager: isMgr })
+        const lines = me ? myBonusProgress(earn, me).map(({ p, row }) => `${p.title}: ${me} ทำได้ ${row.units}${row.target ? `/${row.target}` : ''} คัน · ${row.earned ? `ได้แล้ว ${formatCurrency(row.earned)}` : row.target ? `ขาดอีก ${row.left} คันจะได้ ${formatCurrency(p.amount)}` : 'ยังไม่มียอด'}`) : []
+        if (isMgr) {
+          earn.bonuses.forEach(({ p, rows, total }) => lines.push(`${p.title}: ได้แล้ว ${rows.filter(r => r.earned).length} คน รวม ${formatCurrency(total)}${rows.filter(r => !r.earned && r.target && r.left <= 1).length ? ` · ขาดอีก 1 คัน: ${rows.filter(r => !r.earned && r.target && r.left <= 1).map(r => r.name).join(', ')}` : ''}`))
+          if (earn.margin.units) lines.push(`มาร์จิ้นโชว์รูมเดือนนี้ ${formatCurrency(earn.margin.amount)} จาก ${earn.margin.units} คัน`)
+          ;['teamManager', 'salesManager'].forEach(k => { if (earn.mgmt[k].units) lines.push(`ค่าบริหาร${k === 'teamManager' ? 'ผจก.ทีม' : 'ผจก.ฝ่าย'}เดือนนี้ ${formatCurrency(earn.mgmt[k].amount)} จาก ${earn.mgmt[k].units} คัน`) })
+        }
+        if (me) {
+          const tg = targetFor((await readDoc(SALES_TARGETS_COLLECTION, today.slice(0, 7)).catch(() => null))?.targets, me)
+          if (tg) {
+            const done = bookings.filter(b => normName(b.salesName) === normName(me) && (bookingCountDay(b) || '').slice(0, 7) === today.slice(0, 7)).length
+            lines.push(`เป้าส่งมอบของ ${me} เดือนนี้ ${tg} คัน ส่งมอบแล้ว ${done} คัน${done >= tg ? ' (ถึงเป้าแล้ว)' : ` ขาดอีก ${tg - done} คัน`}`)
+          }
+        }
+        if (lines.length) businessContext['รางวัลพิเศษ/เป้าส่งมอบเดือนนี้ (ข้อมูลภายใน ห้ามบอกลูกค้า)'] = lines.join('\n')
+      } catch { /* ข้อมูลเสริม */ }
       // (v1.0.975) งานออกบูธ/อีเวนต์ + ผลงาน, ตัวชี้วัดการขายเดือนนี้ (หน้าตัวชี้วัดการขาย), แชตลูกค้าที่รอตอบ
       try {
         const ef = eventFacts(events, { customers, bookings, testDrives }, today)
