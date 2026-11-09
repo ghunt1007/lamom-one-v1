@@ -38,6 +38,7 @@ import { handleNotify } from './notify.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
 import { campaignLeads } from '../src/utils/campaignLeads.js'
+import { financeQueue } from '../src/utils/financeQueue.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
@@ -901,18 +902,13 @@ export function focusLines(p, limit = 3) {
   return out.sort((a, b) => b.score - a.score).filter(x => !seen.has(x.who) && seen.add(x.who)).map(x => x.text).slice(0, limit)
 }
 
-// (v1.0.1009) งานฝ่ายการเงินที่ค้าง — เซลส์แจ้งตรวจยอดโอนแล้วรออยู่ / ถอนจองแล้วยังไม่คืนเงินจอง (นิยามเดียวกับหน้า /finance/refund)
+// (v1.0.1009) งานฝ่ายการเงินที่ค้าง — ตรรกะอยู่ที่ src/utils/financeQueue.js (หน้าภาพรวมการเงินใช้ตัวเดียวกัน)
 export function financeQueueLine(bookings = [], today) {
-  const live = bookings.filter(b => b && !b.deleted)
-  const verify = live.filter(b => b.paymentVerifyStatus === 'รอการเงินยืนยัน')
-  const dep = b => Number(b.bookingDeposit) || Number(b.down) || 0
-  const refund = live.filter(b => b.status === 'ถอนจอง' && (b.refundStatus || (dep(b) > 0 && !b.rightsOnly ? 'รอคืนเงิน' : '')) === 'รอคืนเงิน')
-  if (!verify.length && !refund.length) return null
-  const oldest = verify.reduce((m, b) => { const d = b.paymentVerifyRequestedAt ? Math.floor((Date.parse(today + 'T00:00:00Z') - Date.parse(String(b.paymentVerifyRequestedAt).slice(0, 10) + 'T00:00:00Z')) / 86400000) : 0; return Math.max(m, d || 0) }, 0)
-  const amt = refund.reduce((s, b) => s + (Number(b.refundAmount) || dep(b)), 0)
+  const q = financeQueue(bookings, today)
+  if (!q.total) return null
   const parts = []
-  if (verify.length) parts.push(`รอยืนยันยอดโอน ${verify.length} ใบ${oldest > 0 ? ` (นานสุด ${oldest} วัน)` : ''}`)
-  if (refund.length) parts.push(`รอคืนเงินจอง ${refund.length} ใบ${amt ? ` ${fmtBaht(amt)}` : ''}`)
+  if (q.verify.length) parts.push(`รอยืนยันยอดโอน ${q.verify.length} ใบ${q.oldestDays > 0 ? ` (นานสุด ${q.oldestDays} วัน)` : ''}`)
+  if (q.refund.length) parts.push(`รอคืนเงินจอง ${q.refund.length} ใบ${q.refundAmt ? ` ${fmtBaht(q.refundAmt)}` : ''}`)
   return `💸 งานการเงินค้าง: ${parts.join(' · ')}`
 }
 

@@ -123,7 +123,9 @@ export const PAGE_COLLECTIONS = {
  "/marketing": [
   "marketing_campaigns"
  ],
- "/finance": [],
+ "/finance": [
+  "bookings"
+ ],
  "/finance/margin": [],
  "/finance/gp-foc": [],
  "/finance/commission": [

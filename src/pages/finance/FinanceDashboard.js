@@ -1,8 +1,12 @@
-import { seedDemoData, getSalesData } from '../../core/db.js'
+import { seedDemoData, getSalesData, listDocs } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
+import { financeQueue } from '../../utils/financeQueue.js'
 import { navigate } from '../../core/router.js'
 import { formatCurrency, todayBangkok } from '../../utils/format.js'
 
 const QUICK_LINKS = [
+  { icon:'↩️', label:'ยืนยันยอดโอน & คืนเงินจอง', sub:'งานจากเซลส์', path:'/finance/refund', color:'danger' },
+  { icon:'📋', label:'ติดตามไฟแนนซ์', sub:'Finance Tracker', path:'/finance/tracker', color:'accent' },
   { icon:'📊', label:'กำไรต่อคัน', sub:'Margin', path:'/finance/margin', color:'success' },
   { icon:'🏆', label:'ค่าคอมเซลส์', sub:'Commission', path:'/finance/commission', color:'accent' },
   { icon:'💎', label:'กำไรรวมและของแถม', sub:'GP & FOC', path:'/finance/gp-foc', color:'primary' },
@@ -34,6 +38,9 @@ export default async function FinanceDashboard(container) {
         </div>
       </div>
 
+      <!-- (v1.0.1010) งานที่รอการเงินอยู่ — ขึ้นบนสุดเฉพาะเมื่อมีค้าง -->
+      <div id="fin-queue"></div>
+
       <!-- KPI skeleton -->
       <div class="kpi-grid" id="fin-kpis" style="margin-bottom:16px">
         ${[...Array(4)].map(() => `<div class="skeleton" style="height:88px;border-radius:var(--radius-lg)"></div>`).join('')}
@@ -64,7 +71,26 @@ export default async function FinanceDashboard(container) {
   if (container.__routerGen !== myGen) return
 
   let sales = []
-  try { sales = await getSalesData() } catch {}
+  let bookings = []
+  ;[sales, bookings] = await Promise.all([
+    getSalesData().catch(() => []),
+    listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => []),
+  ])
+  const q = financeQueue(bookings, todayBangkok())
+  const qEl = document.getElementById('fin-queue')
+  if (qEl && q.total) {
+    qEl.innerHTML = `<div class="card card-lift" data-nav="/finance/refund" style="padding:14px 16px;margin-bottom:16px;cursor:pointer;border-left:4px solid var(--danger);display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div style="font-size:1.6rem">💸</div>
+      <div style="flex:1 1 220px;min-width:0">
+        <div style="font-weight:800">งานรอการเงิน ${q.total} เรื่อง</div>
+        <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.6">${[
+          q.verify.length ? `รอยืนยันยอดโอน <b style="color:var(--warning)">${q.verify.length}</b> ใบ${q.oldestDays > 0 ? ` (นานสุด ${q.oldestDays} วัน)` : ''}` : '',
+          q.refund.length ? `รอคืนเงินจอง <b style="color:var(--danger)">${q.refund.length}</b> ใบ${q.refundAmt ? ` · ${formatCurrency(q.refundAmt)}` : ''}` : '',
+        ].filter(Boolean).join(' · ')}</div>
+      </div>
+      <span class="btn btn-primary btn-sm">จัดการ ›</span>
+    </div>`
+  }
 
   if (container.__routerGen !== myGen) return
 
