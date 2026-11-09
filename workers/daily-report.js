@@ -34,6 +34,9 @@
 import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser } from './nightly-backup.js'
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
 import { handleSocial, recordLineInbound, handleExtraLineWebhook } from './social.js'
+// (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
+import { normalizeProgram } from '../src/utils/salesPrograms.js'
+import { campaignLeads } from '../src/utils/campaignLeads.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
@@ -633,18 +636,19 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 
 // ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
 async function buildMorningData(env, accessToken) {
-  const [bookings, customers, followups, testDrives] = await Promise.all([
+  const [bookings, customers, followups, testDrives, programs] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted']),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'time', 'status', 'staff', 'customerName', 'model', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'sales_programs', null, null, 1000).catch(() => []),
   ])
   // แก้สถานะไฟแนนซ์ที่ค้าง "รอผล" ของใบจองที่ไปถึงรอรถ/รอส่งมอบ/ส่งมอบแล้ว ให้เป็น "ผ่าน" ในฐานข้อมูลจริงทุกเช้า
   const fixes = bookings.filter(b => b.id && finPassPatch(b))
   if (fixes.length && await commitFinancePassed(env, accessToken, fixes.map(b => b.id))) fixes.forEach(b => { b.finStatus = 'ผ่าน' })
   const today = todayBangkok()
-  const data = { bookings, customers, followups, testDrives }
+  const data = { bookings, customers, followups, testDrives, programs }
   return { today, data, text: buildMorningReminder(data, { today }), sections: buildMorningSections(data, { today }) }
 }
 
@@ -688,7 +692,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
   const alive = rows => (rows || []).filter(r => r && !r.deleted)
   const dayNum = d => { const [y, m, dd] = d.split('-').map(Number); return Date.UTC(y, m - 1, dd) / 86400000 }
   const people = {}
-  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { deliver: [], unsched: [], td: [], fin: [], stale: [], fu: [], income: [], stuck: [] })
+  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { deliver: [], unsched: [], td: [], fin: [], stale: [], fu: [], income: [], stuck: [], promo: [] })
 
   alive(data.customers)
     .filter(c => (c.stage === 'lead' || c.stage === 'pp') && !c.isLost)
@@ -698,6 +702,11 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
       const days = dayNum(today) - dayNum(last)
       if (days >= staleDays) person(c.assignedTo).stale.push({ name: [c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ', days, model: c.interestedModel, hot: c.temperature === 'hot' })
     })
+  // 🎁 Lead ที่สนใจรุ่นซึ่งโปรจะหมดใน 7 วัน/โปรเพิ่งเริ่ม → โทรบอกโปร (เกณฑ์เดียวกับหน้า "งานของฉันวันนี้")
+  try {
+    const progs = (data.programs || []).filter(r => r && !r.deleted).map(r => ({ ...normalizeProgram(r), id: r.id }))
+    if (progs.length) campaignLeads(progs, alive(data.customers), { today }).forEach(r => person(r.c.assignedTo).promo.push({ name: r.name, model: r.model, left: r.reason === 'ending' ? r.left : null }))
+  } catch (e) { console.error('promo leads', e) }
   // นัดติดตาม Lead อัตโนมัติ (autoLead) ของลูกค้าที่จองไปแล้ว/เสียดีลแล้ว ไม่ต้องเตือนต่อ
   const custById = new Map((data.customers || []).map(c => [c.id, c]))
   const autoDone = f => {
@@ -760,7 +769,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
     return shown
   }
   return Object.entries(people)
-    .map(([n, p]) => ({ n, p, total: p.deliver.length + p.unsched.length + p.td.length + p.fin.length + p.stale.length + p.fu.length + p.income.length + p.stuck.length }))
+    .map(([n, p]) => ({ n, p, total: p.deliver.length + p.unsched.length + p.td.length + p.fin.length + p.stale.length + p.fu.length + p.income.length + p.stuck.length + p.promo.length }))
     .filter(x => x.total)
     .sort((a, b) => b.total - a.total || a.n.localeCompare(b.n))
     .map(({ n, p }) => {
@@ -784,6 +793,10 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
         p.stale.sort((a, b) => Number(b.hot) - Number(a.hot) || b.days - a.days)
         out.push(`  🧲 Lead ไม่ได้ติดตามเกิน ${staleDays} วัน: ${p.stale.length} ราย`, ...list(p.stale.map(s => `${s.hot ? '🔴 ' : ''}${s.name}${s.model ? ` (${s.model})` : ''} · ${s.days} วัน`)))
       }
+      if (p.promo.length) {
+        p.promo.sort((a, b) => (a.left ?? 99) - (b.left ?? 99))
+        out.push(`  🎁 บอกโปรลูกค้า (โปรใกล้หมด/โปรใหม่): ${p.promo.length} ราย`, ...list(p.promo.map(x => `${x.name}${x.model ? ` (${x.model})` : ''} · ${x.left === null ? 'โปรใหม่' : x.left === 0 ? 'โปรหมดวันนี้' : `โปรหมดใน ${x.left} วัน`}`)))
+      }
       if (p.fu.length) out.push(`  📞 Follow-up วันนี้/เลยกำหนด: ${p.fu.length} ราย`, ...list(p.fu.map(f => `${f.name}${f.late ? ' ⚠️ เลยกำหนด' : ''}`)))
       if (p.income.length) out.push(`  💰 ส่งมอบแล้วยังไม่กรอกรายได้: ${p.income.length} คัน`, ...list(p.income.map(i => `${i.name}${i.model ? ` (${i.model})` : ''}`)))
       if (p.stuck.length) {
@@ -806,6 +819,7 @@ export function focusLines(p, limit = 3) {
   p.unsched.forEach(d => push(d.missed ? 74 : 68, `โทรนัดวันส่งมอบ ${d.name}`, d.name))
   p.td.forEach(t => push(70, `ทดลองขับ ${t.name}${t.time ? ` เวลา ${t.time}` : ''}`, t.name))
   p.stale.filter(s => !s.hot).forEach(s => push(40 + Math.min(10, s.days), `ทักลูกค้าที่เงียบไป ${s.name} (${s.days} วัน)`, s.name))
+  ;(p.promo || []).forEach(x => push(x.left !== null && x.left <= 2 ? 72 : 48, `บอกโปร ${x.name}${x.left === null ? ' (โปรใหม่)' : x.left === 0 ? ' (โปรหมดวันนี้)' : ` (โปรหมดใน ${x.left} วัน)`}`, x.name))
   p.income.forEach(i => push(45, `กรอกรายได้ ${i.name}`, i.name))
   p.stuck.forEach(b => push(30, `เคลียร์ใบจอง ${b.name} (ค้าง ${b.days} วัน)`, b.name))
   const seen = new Set()
