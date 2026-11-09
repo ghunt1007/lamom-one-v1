@@ -35,7 +35,7 @@ import { getVehicles } from '../../data/vehicleDatabase.js'
 const NUDGE_MAX = 8
 const SECTION_PREVIEW = 5
 // ชื่อสั้นบนแถบกระโดดไปหมวด (ตาม icon ของหมวด)
-const JUMP_LABEL = { '📞': 'นัดติดตาม', '🚙': 'ลองขับ', '🧲': 'Lead ใหม่', '🔴': 'Hot', '⏰': 'ไม่ได้ตาม', '🔄': 'ติดต่อใหม่', '📆': 'ยังไม่นัดส่ง', '🚗': 'ส่งมอบ', '🏦': 'ไฟแนนซ์', '💰': 'กรอกรายได้', '⏳': 'ใบจองค้าง', '🎁': 'โปรใกล้หมด' }
+const JUMP_LABEL = { '📞': 'นัดติดตาม', '🚙': 'ลองขับ', '🏬': 'นัดโชว์รูม', '🧲': 'Lead ใหม่', '🔴': 'Hot', '⏰': 'ไม่ได้ตาม', '🔄': 'ติดต่อใหม่', '📆': 'ยังไม่นัดส่ง', '🚗': 'ส่งมอบ', '🏦': 'ไฟแนนซ์', '💰': 'กรอกรายได้', '⏳': 'ใบจองค้าง', '🎁': 'โปรใกล้หมด' }
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
 
@@ -59,14 +59,15 @@ export default async function MyDayPage(container) {
 
   async function load() {
     const f = companyScopeFilters()
-    const [customers, followups, bookings, testDrives] = await Promise.all([
+    const [customers, followups, bookings, testDrives, appointments] = await Promise.all([
       listAllDocs('customers', f, 'createdAt', 'desc').catch(() => null),
       listDocs('followups', [...f, ...followupWindowFilters(todayBangkok())], 'dueDate', 'asc', 2000).catch(() => null),
       listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => null),
       listDocs('test_drives', f, 'date', 'desc', 200).catch(() => []),
+      listDocs('appointments', f, 'date', 'desc', 200).catch(() => []),
     ])
     if (!customers || !followups || !bookings) showToast('โหลดข้อมูลบางส่วนไม่สำเร็จ', 'warning')
-    data = { customers: customers || [], followups: followups || [], bookings: bookings || [], testDrives: testDrives || [] }
+    data = { customers: customers || [], followups: followups || [], bookings: bookings || [], testDrives: testDrives || [], appointments: appointments || [] }
     try { targets = (await readDoc(SALES_TARGETS_COLLECTION, todayBangkok().slice(0, 7)))?.targets || {} } catch { targets = {} }
     // แคมเปญเดือนนี้ → หา Lead ที่ควรโทรบอกโปร (โหลดไม่ได้ = ไม่แสดงหมวดนี้)
     try { programs = (await listDocs('sales_programs', [], 'dateFrom', 'desc', 1000)).filter(r => !r.deleted).map(r => ({ ...normalizeProgram(r), id: r.id })) } catch { programs = [] }
@@ -292,7 +293,7 @@ export default async function MyDayPage(container) {
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
-          <div><div class="page-title">☀️ งานของฉันวันนี้</div><div class="page-subtitle">${hello} · ${formatDate(today)} · ${d.total ? `มีงานค้าง ${d.total} รายการ` : 'ไม่มีงานค้าง 🎉'}${d.tomorrow ? ` · พรุ่งนี้มีนัด ${d.tomorrow} ราย` : ''}${d.contactedToday ? ` · วันนี้ติดต่อแล้ว ${d.contactedToday} ราย 💪` : ''}</div></div>
+          <div><div class="page-title">☀️ งานของฉันวันนี้</div><div class="page-subtitle">${hello} · ${formatDate(today)} · ${d.total ? `มีงานค้าง ${d.total} รายการ` : 'ไม่มีงานค้าง 🎉'}${d.testDrives.length + d.appts.length ? ` · วันนี้มีนัดลูกค้า ${d.testDrives.length + d.appts.length} ราย` : ''}${d.tomorrow ? ` · พรุ่งนี้มีนัด ${d.tomorrow} ราย` : ''}${d.contactedToday ? ` · วันนี้ติดต่อแล้ว ${d.contactedToday} ราย 💪` : ''}</div></div>
           <div class="page-actions">
             ${canPick ? `<select class="input" id="md-seller" style="width:auto"><option value="all">ทุกคน</option>${sellerNames().map(n => `<option value="${escHtml(n)}" ${n === seller ? 'selected' : ''}>${escHtml(n)}</option>`).join('')}</select>` : ''}
             <button class="btn btn-secondary btn-sm" id="md-programs" title="แคมเปญ ดอกเบี้ย มาร์จิ้น ค่าบริหาร เงินรางวัล">🎯 โปร & เงินพิเศษ</button>
@@ -328,6 +329,11 @@ export default async function MyDayPage(container) {
           `${escHtml(t.time || '')} · ${escHtml(t.customerName || 'ลูกค้า')}`,
           `${escHtml(t.model || '')}${ownerTag(t.staff)}`,
           `${callBtn(t.phone)}<button class="btn btn-secondary btn-xs md-td">🚗 ทดลองขับ</button>`), 'primary') : ''}
+
+        ${d.appts.length ? section('🏬', 'นัดลูกค้าเข้าโชว์รูมวันนี้', 'ลูกค้ามาถึงแล้วกด 🏪 ที่หน้านัดหมาย', d.appts, a => line(
+          `${escHtml(a.time || '')} · ${escHtml(a.custName || 'ลูกค้า')}${a.status === 'confirmed' ? ' <span class="badge badge-success" style="font-size:0.62rem">ยืนยันแล้ว</span>' : ''}`,
+          `${escHtml(a.purpose || '')}${a.interestedIn ? ` · ${escHtml(a.interestedIn)}` : ''}${ownerTag(a.salesperson)}`,
+          `${callBtn(a.phone)}<button class="btn btn-secondary btn-xs md-appt">📅 นัดหมาย</button>`), 'primary') : ''}
 
         ${promoRows.length ? section('🎁', 'บอกโปรลูกค้า (โปรใกล้หมด/โปรใหม่)', 'กด 💬 ได้ข้อความพร้อมส่ง', promoRows, r => line(
           `${escHtml(r.name)} <span class="badge badge-${r.reason === 'ending' ? 'danger' : 'success'}" style="font-size:0.62rem">${r.reason === 'ending' ? (r.left === 0 ? 'หมดวันนี้' : `หมดใน ${r.left} วัน`) : 'โปรใหม่'}</span>`,
@@ -423,6 +429,7 @@ export default async function MyDayPage(container) {
     $$('.md-bk').forEach(b => b.addEventListener('click', () => navigate(b.dataset.id ? `/crm/bookings?id=${encodeURIComponent(b.dataset.id)}` : '/crm/bookings')))
     $$('.md-cal').forEach(b => b.addEventListener('click', () => navigate('/dms/delivery-calendar')))
     $$('.md-td').forEach(b => b.addEventListener('click', () => navigate('/crm/testdrive')))
+    $$('.md-appt').forEach(b => b.addEventListener('click', () => navigate('/crm/showroom')))
     $$('.md-plan').forEach(b => b.addEventListener('click', () => {
       const c = data.customers.find(x => x.id === b.dataset.id)
       if (c) openAddFollowup(c, { me: me.displayName || '', onSaved: f => { data.followups.push(f); render() } })
