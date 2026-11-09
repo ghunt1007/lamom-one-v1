@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   normalizeProgram, validateProgram, parseModels, isActiveOn, overlapsMonth, liveState, matchesCar,
   programsForCar, bestRates, carSummary, copyToNextMonth, monthlyInstallment, fromLegacyRateSheet,
-  programFacts, shiftMonth, monthBounds, rangeLabel,
+  programFacts, shiftMonth, monthBounds, rangeLabel, nextMonthGap,
 } from './salesPrograms.js'
 
 const P = o => ({ id: Math.random().toString(36).slice(2), ...normalizeProgram(o) })
@@ -168,5 +168,21 @@ describe('programEarnings (v1.0.976)', () => {
     expect(bookingCountDay({ status: 'รอรถ', deliveryDate: '2026-11-01' })).toBe('')
     expect(bookingCountDay({ status: 'ส่งมอบแล้ว', deliveryDate: { seconds: Date.UTC(2026, 10, 1, 20) / 1000 } })).toBe('2026-11-02')
     expect(countedBookings({ ...base, models: [] }, bookings, { from: '2026-11-04', to: '2026-11-30' }).length).toBe(3)
+  })
+})
+
+describe('nextMonthGap', () => {
+  const p = (dateFrom, dateTo) => ({ dateFrom, dateTo })
+  it('เตือนเฉพาะ 7 วันสุดท้ายของเดือน เมื่อเดือนหน้ายังว่าง', () => {
+    const progs = [p('2026-11-01', '2026-11-30')]
+    expect(nextMonthGap(progs, '2026-11-20')).toBe(null)
+    expect(nextMonthGap(progs, '2026-11-24')).toEqual({ month: '2026-12', carry: 1 })
+    expect(nextMonthGap(progs, '2026-11-30')).toEqual({ month: '2026-12', carry: 1 })
+  })
+  it('ไม่เตือนถ้าเดือนหน้ามีแคมเปญแล้ว หรือเดือนนี้ไม่มีอะไรให้ใช้ต่อ', () => {
+    expect(nextMonthGap([p('2026-11-01', '2026-11-30'), p('2026-12-01', '2026-12-31')], '2026-11-28')).toBe(null)
+    expect(nextMonthGap([p('2026-11-01', '2026-12-15')], '2026-11-28')).toBe(null)
+    expect(nextMonthGap([], '2026-11-28')).toBe(null)
+    expect(nextMonthGap([{ ...p('2026-11-01', '2026-11-30'), deleted: true }], '2026-11-28')).toBe(null)
   })
 })

@@ -13,7 +13,7 @@ vi.mock('../../core/db.js', () => ({
   readDoc: async () => null,
 }))
 vi.mock('../../core/companyScope.js', () => ({ companyScopeFilters: () => [], myEffectiveCompanyId: () => null }))
-vi.mock('../../core/hierarchy.js', () => ({ getVisibilityScope: async () => ({ unrestricted: true }), scopeIncludesRecord: () => true, normName: s => String(s || '').trim() }))
+vi.mock('../../core/hierarchy.js', () => ({ getVisibilityScope: async () => ({ unrestricted: true }), scopeIncludesRecord: () => true, normName: s => String(s || '').trim(), isProgramOwner: () => false }))
 vi.mock('../../core/store.js', () => ({ showToast: () => {}, getState: () => ({ displayName: 'เซลส์ A' }) }))
 vi.mock('../../utils/modal.js', () => ({ openModal: () => {} }))
 vi.mock('../../core/router.js', () => ({ navigate: () => {} }))

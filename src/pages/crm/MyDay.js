@@ -26,7 +26,8 @@ import { classifyLostReason } from '../../utils/lostReason.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml } from '../../utils/escape.js'
-import { normalizeProgram } from '../../utils/salesPrograms.js'
+import { normalizeProgram, nextMonthGap, monthLabelTh } from '../../utils/salesPrograms.js'
+import { isManagerRole } from '../../utils/managerRole.js'
 import { campaignLeads, campaignMessage } from '../../utils/campaignLeads.js'
 import { modelMatches } from '../../utils/salesAi.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
@@ -264,6 +265,7 @@ export default async function MyDayPage(container) {
           ${stat('📅', 'นัดพรุ่งนี้', d.tomorrow || 0, 'primary')}
         </div>
         <div id="md-jump"></div>
+        ${(() => { const g = isManagerRole() && nextMonthGap(programs, today); return g ? `<div class="card" style="padding:10px 14px;margin-bottom:12px;border-left:3px solid var(--warning);display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div style="flex:1 1 220px;min-width:0">🎯 <b>${monthLabelTh(g.month)}</b> ยังไม่มีโปร/ดอกเบี้ย · เดือนนี้มี ${g.carry} รายการ ใช้ต่อได้ในปุ่มเดียว</div><button class="btn btn-primary btn-sm" id="md-nextmonth" data-month="${g.month}">📄 ตั้งโปรเดือนหน้า</button></div>` : '' })()}
         ${focusCard(d)}
         ${teamCard(today)}
         ${goalCard(today)}
@@ -344,6 +346,7 @@ export default async function MyDayPage(container) {
     container.querySelector('#md-seller')?.addEventListener('change', e => { seller = e.target.value; render() })
     $$('.md-more').forEach(b => b.addEventListener('click', () => { expanded.add(b.dataset.key); const y = window.scrollY; render(); window.scrollTo(0, y) }))
     container.querySelector('#md-programs')?.addEventListener('click', () => navigate('/crm/programs'))
+    container.querySelector('#md-nextmonth')?.addEventListener('click', e => navigate('/crm/programs?month=' + e.currentTarget.dataset.month))
     container.querySelector('#md-reload').addEventListener('click', async () => { await load(); render() })
     container.querySelector('#md-speak')?.addEventListener('click', async e => {
       const btn = e.currentTarget
