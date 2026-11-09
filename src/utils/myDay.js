@@ -161,6 +161,7 @@ export function topPriorities(d, limit = 3, { short = false } = {}) {
   }
   const car = b => carOf(b)
   ;(d.newLeads || []).forEach(c => add({ key: 'new:' + c.id, icon: '🧲', title: `โทรหา Lead ใหม่ ${nm(c)}`, why: `เข้ามาวันนี้${leadWait(c) ? ` (${leadWait(c).label})` : ''}${c.interestedModel ? ` สนใจ ${c.interestedModel}` : ''} · โทรภายในชั่วโมงแรกโอกาสปิดสูงสุด`, score: c.lastContactAt && bangkokDate(c.lastContactAt) === bangkokDate(c.createdAt) ? 20 : 100, customerId: c.id, phone: c.phone }))
+  ;(d.lineWaiting || []).forEach(w => add({ key: 'line:' + w.id, icon: '💬', title: `ตอบ LINE ${nm(w)}`, why: `ทักมายังไม่มีใครตอบ${w.text ? `: "${String(w.text).slice(0, 40)}"` : ''}`, score: 88, customerId: w.customerId, lineThread: w.id }))
   ;(d.deliveries || []).filter(b => b.inDays === 0).forEach(b => add({ key: 'dlv:' + b.id, icon: '🚗', title: `ส่งมอบรถ ${nm(b)} วันนี้`, why: `${car(b) || 'รถ'}${b.deliveryTime ? ` เวลา ${b.deliveryTime}` : ''} · เช็กรถและเอกสารให้พร้อม`, score: 95, bookingId: b.id, phone: b.phone || b.custPhone }))
   ;(d.hotNoPlan || []).forEach(c => add({ key: 'hot:' + c.id, icon: '🔴', title: `นัดลูกค้า Hot ${nm(c)}`, why: 'สนใจมากแต่ยังไม่มีนัดครั้งถัดไป', score: 90, customerId: c.id, phone: c.phone }))
   ;(d.followups || []).forEach(f => add({ key: 'fu:' + f.id, icon: '📞', title: `ติดต่อ ${nm(f)}`, why: `${f.purpose || 'นัดติดตาม'}${f.late > 0 ? ` · เลยกำหนด ${f.late} วัน` : ' · ครบกำหนดวันนี้'}`, score: 78 + Math.min(10, f.late || 0), customerId: f.customerId, phone: f.phone }))
@@ -176,7 +177,9 @@ export function topPriorities(d, limit = 3, { short = false } = {}) {
     const who = it.customerId || it.bookingId || it.key
     if (seen.has(who)) continue
     seen.add(who)
-    out.push(it)
+    // ลูกค้าคนเดียวกันที่ทัก LINE รอตอบอยู่ด้วย (เช่น Lead ใหม่ที่ทักมาทาง LINE) → งานนี้มีปุ่ม 💬 ตอบ ด้วย
+    const lw = it.customerId && (d.lineWaiting || []).find(w => w.customerId === it.customerId)
+    out.push(lw && !it.lineThread ? { ...it, lineThread: lw.id } : it)
     if (out.length >= limit) break
   }
   return out
@@ -206,6 +209,7 @@ export function myDayDigest(d) {
     ...(d.testDrives || []).map(t => ({ time: t.time, text: `ทดลองขับ ${t.customerName || 'ลูกค้า'}${t.model ? ` (${t.model})` : ''}` })),
     ...(d.appts || []).map(a => ({ time: a.time, text: `เข้าโชว์รูม ${a.custName || 'ลูกค้า'}${a.interestedIn ? ` (${a.interestedIn})` : ''}` })),
   ].sort((x, y) => String(x.time || '').localeCompare(String(y.time || '')))
+  if ((d.lineWaiting || []).length) lines.push(`ลูกค้าทัก LINE รอตอบ ${d.lineWaiting.length} ราย: ${d.lineWaiting.slice(0, 5).map(w => String(w.name || 'ลูกค้า').split(/\s+/)[0]).join(', ')}`)
   if (appts.length) lines.push(`นัดลูกค้าวันนี้ ${appts.length} ราย: ${appts.slice(0, 6).map(x => `${x.time ? x.time + ' ' : ''}${x.text}`).join(' · ')}`)
   const top = topPriorities(d, 5, { short: true })
   if (top.length) {

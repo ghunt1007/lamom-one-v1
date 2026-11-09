@@ -22,3 +22,16 @@ describe('My Day: customers waiting on LINE (v1.0.1026)', () => {
     expect(buildMyDay({ customers, lineThreads: t }, { today: '2026-11-10' }).lineWaiting).toEqual([])
   })
 })
+
+describe('LINE waiting in priorities + LAMI digest (v1.0.1028)', () => {
+  it('ranks an unanswered LINE chat near the top and mentions it in the digest', async () => {
+    const { topPriorities, myDayDigest } = await import('./myDay.js')
+    const d = buildMyDay({
+      customers: [{ id: 'c1', firstName: 'เอ', lastName: 'ใจดี', assignedTo: 'x', lineUserId: 'U1', stage: 'pp' }],
+      lineThreads: [{ id: 'line_U1', platform: 'line', userId: 'U1', unread: true, lastDirection: 'in', lastText: 'สนใจครับ' }],
+    }, { today: '2026-11-10' })
+    const top = topPriorities(d, 3)
+    expect(top[0]).toMatchObject({ icon: '💬', customerId: 'c1', lineThread: 'line_U1' })
+    expect(myDayDigest(d)).toContain('ลูกค้าทัก LINE รอตอบ 1 ราย: เอ')
+  })
+})
