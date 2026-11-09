@@ -129,3 +129,6 @@
 .ch-place > .btn { align-self: flex-start; }
 .ch-maps-chips .ch-chip { white-space: nowrap; flex-shrink: 0; }
 button.ch-acc-res { cursor: pointer; color: var(--primary); } button.ch-acc-res:hover { background: var(--surface-2); }
+/* (v1.0.996) ค่าโฆษณาต่อบัญชี */
+.ch-acc-spend { font-size: 0.72rem; color: var(--text-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ch-spend-sum { margin: 6px 0 8px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); font-size: 0.82rem; line-height: 1.5; }

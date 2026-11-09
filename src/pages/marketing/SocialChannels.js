@@ -13,7 +13,7 @@ import { copyText } from '../../utils/copyText.js'
 import { myName } from '../../utils/myName.js'
 import { isManagerRole } from '../../utils/managerRole.js'
 import { myEffectiveCompanyId, companyScopeFilters } from '../../core/companyScope.js'
-import { accountResults } from '../../utils/socialAccounts.js'
+import { accountResults, accountSpend, withSpend, spendSummary } from '../../utils/socialAccounts.js'
 import { navigate } from '../../core/router.js'
 import { getSalesStaff } from '../../data/masterData.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
@@ -426,6 +426,7 @@ export default async function SocialChannelsPage(container) {
         ${missing.length ? `<button class="btn btn-secondary btn-sm" id="acc-import">⬇️ เพิ่มเพจที่เชื่อมแล้ว ${missing.length} เพจ</button>` : ''}
       </div>
       <small class="ch-muted" style="display:block;margin-bottom:4px">🧲 = Lead ที่เข้ามาเดือนนี้ · 📝 = ในนั้นจองแล้ว — นับจากลูกค้าที่กด “➕ Lead” แล้วเลือก “จากบัญชีไหน”</small>
+      ${(() => { const t = spendSummary(accounts, accRes, thisMonth); return t.spend ? `<div class="ch-spend-sum">💸 ค่าโฆษณาเดือนนี้ <b>${formatCurrency(t.spend)}</b> (${t.paid} บัญชี) · 🧲 ${t.leads} Lead${t.cpl != null ? ` · <b>${formatCurrency(t.cpl)}</b>/Lead` : ''}${t.cpb != null ? ` · <b>${formatCurrency(t.cpb)}</b>/จอง` : ''}</div>` : '' })()}
       <small class="ch-muted">รวมบัญชีโซเชียลของทีม โชว์รูม และเซลส์แต่ละคนไว้ที่เดียว (ไม่เก็บรหัสผ่าน/โทเค็น) — ✅ = เชื่อมกับแอปแล้ว แชต/โพสต์จากแอปได้</small>
       ${Object.entries(LEVELS).map(([lv, label]) => {
         const rows = accounts.filter(a => (a.level || 'team') === lv)
@@ -435,6 +436,7 @@ export default async function SocialChannelsPage(container) {
               <div class="ch-acc-main"><b>${esc(ACCOUNT_PLATFORMS[a.platform] || a.platform)} · ${esc(a.name || '')}</b>
                 <small>${[a.owner ? `ผู้ดูแล ${esc(a.owner)}` : '', a.handle ? esc(a.handle) : ''].filter(Boolean).join(' · ')}</small></div>
               ${(() => { const r = accRes?.[a.id]; return r ? (r.allLeads ? `<button type="button" class="ch-acc-res" data-acc-cust="${esc(a.id)}" data-acc-name="${esc(a.name || '')}" title="Lead ที่เข้ามาเดือนนี้ · ในนั้นจองแล้ว (รวมทั้งหมด ${r.allLeads} Lead / จอง ${r.allBooked}) — แตะเพื่อดูรายชื่อลูกค้า">🧲 ${r.leads} · 📝 ${r.booked} ›</button>` : `<span class="ch-acc-res" title="ยังไม่มี Lead จากบัญชีนี้">🧲 0 · 📝 0</span>`) : '' })()}
+              ${(() => { const sp = accountSpend(a, thisMonth); if (!sp) return ''; const l = accRes?.[a.id]?.leads || 0; return `<span class="ch-acc-spend" title="ค่าโฆษณาที่ใส่ไว้เดือนนี้ · ต้นทุนต่อ Lead">💸 ${formatCurrency(sp)}${l ? ` · ${formatCurrency(Math.round(sp / l))}/Lead` : ''}</span>` })()}
               <span class="ch-st ${c ? 'on' : ''}">${c ? '✅ เชื่อมแล้ว' : '⚪ บันทึกไว้'}</span>
               <span class="ch-acc-a">${a.url ? `<a class="btn btn-ghost btn-sm" href="${esc(a.url)}" target="_blank" rel="noopener">เปิด ↗</a>` : ''}<button class="btn btn-ghost btn-sm" data-acc-edit="${esc(a.id)}">แก้ไข</button></span>
             </div>` }).join('')}</div>` : '<div class="ch-muted">— ยังไม่มี —</div>'}</div>`
@@ -452,6 +454,8 @@ export default async function SocialChannelsPage(container) {
         <label class="input-label">@ชื่อผู้ใช้ / LINE ID</label><input class="input" id="af-handle" value="${esc(a.handle || '')}" placeholder="@lamom">
         <label class="input-label">ลิงก์</label><input class="input" id="af-url" value="${esc(a.url || '')}" placeholder="https://…">
         <label class="input-label">หมายเหตุ</label><input class="input" id="af-note" value="${esc(a.note || '')}">
+        <label class="input-label">💸 ค่าโฆษณา/บูสต์โพสต์เดือนนี้ (บาท)</label><input class="input" id="af-spend" type="number" min="0" step="100" inputmode="numeric" value="${accountSpend(a, thisMonth) || ''}" placeholder="0 = ไม่ได้ยิงแอด">
+        <small class="ch-muted">ใส่ยอดที่จ่ายจริง แอปจะคิดต้นทุนต่อ Lead / ต่อการจองให้เอง</small>
         <small class="ch-muted">ห้ามใส่รหัสผ่านหรือโทเค็นที่นี่</small>
       </div>`,
       footer: `${a.id ? '<button class="btn btn-ghost" id="af-del" style="color:var(--danger)">ลบ</button>' : ''}<button class="btn btn-secondary" id="af-cancel">ยกเลิก</button><button class="btn btn-primary" id="af-save">💾 บันทึก</button>`,
@@ -466,7 +470,7 @@ export default async function SocialChannelsPage(container) {
       const url = v('af-url')
       if (!v('af-name')) { showToast('ใส่ชื่อบัญชีก่อน', 'error'); return }
       if (url && !/^https?:\/\//.test(url)) { showToast('ลิงก์ต้องขึ้นต้นด้วย https://', 'error'); return }
-      const doc = { platform: v('af-pf'), level: v('af-lv'), name: v('af-name'), owner: v('af-owner'), handle: v('af-handle'), url, note: v('af-note') }
+      const doc = { platform: v('af-pf'), level: v('af-lv'), name: v('af-name'), owner: v('af-owner'), handle: v('af-handle'), url, note: v('af-note'), spend: withSpend(a, thisMonth, v('af-spend')) }
       try {
         if (a.id) await updateDocData('social_channels', a.id, doc)
         else await createDoc('social_channels', { ...doc, companyId: myEffectiveCompanyId(), createdBy: myName() })
