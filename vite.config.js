@@ -9,7 +9,6 @@ export default defineConfig({
         manualChunks(id) {
           if (id.includes('node_modules/firebase')) return 'firebase'
           if (id.includes('node_modules/xlsx'))     return 'xlsx'
-          if (id.includes('vehicleDatabase'))       return 'vehicleDatabase'
         }
       }
     }
