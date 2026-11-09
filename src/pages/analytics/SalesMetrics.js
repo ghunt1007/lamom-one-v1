@@ -128,7 +128,7 @@ export default async function SalesMetricsPage(container) {
     const pTotal = p.lead + p.prospect + p.booking + p.delivered || 1
     const mixTotal = m.mix.B2B.n + m.mix.B2C.n + m.mix.B2G.n
     const empty = !src.bookings.length && !src.customers.length
-    $('#sm-body').innerHTML = empty ? `<div class="empty-state"><div class="empty-icon">📐</div><div class="empty-title">ยังไม่มีใบจองหรือลูกค้าในระบบ</div><div class="empty-desc">พอมีข้อมูลจากหน้าลูกค้า/จองรถ ตัวชี้วัดจะขึ้นเองทั้งหมด</div></div>` : `
+    $('#sm-body').innerHTML = empty ? `<div class="empty-state"><div class="empty-icon">📐</div><div class="empty-title">${scope.unrestricted || scope.companyOnly ? 'ยังไม่มีใบจองหรือลูกค้าในระบบ' : 'ยังไม่มีใบจองหรือลูกค้าที่คุณ/ทีมดูแล'}</div><div class="empty-desc">พอมีข้อมูลจากหน้าลูกค้า/จองรถ ตัวชี้วัดจะขึ้นเองทั้งหมด</div></div>` : `
       ${vsLine}
       <div class="sm-sec"><div class="sm-sh">🎯 เป้า & คาดการณ์</div><div class="sm-grid">
         <div class="sm-card">${head('target')}
