@@ -14,7 +14,7 @@ import { catalogContext, dealValue, modelMatches } from '../../utils/salesAi.js'
 import { businessFacts, stockFacts, testDriveFacts } from '../../utils/bizFacts.js'
 import { programFacts, programEarnings, myBonusProgress, bookingCountDay } from '../../utils/salesPrograms.js'
 import { eventFacts } from '../../utils/marketingEvents.js'
-import { computeSalesMetrics, metricsFacts } from '../../utils/salesMetrics.js'
+import { computeSalesMetrics, metricsFacts, compareRange } from '../../utils/salesMetrics.js'
 import { loadSalesBudget } from '../../utils/salesBudget.js'
 import { isManagerRole } from '../../utils/managerRole.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
@@ -165,7 +165,9 @@ export default async function AiAssistantChatPage(container) {
       try {
         const ef = eventFacts(events, { customers, bookings, testDrives }, today)
         if (ef.length) businessContext['งานออกบูธ/อีเวนต์ (หน้าตารางออกบูธ)'] = ef.join('\n')
-        const mf = metricsFacts(computeSalesMetrics({ bookings, customers, budget, vehicles: getVehicles(), jobCards: jobs, testDrives }, { today, period: 'month' }))
+        const msrc = { bookings, customers, budget, vehicles: getVehicles(), jobCards: jobs, testDrives }
+        const cr = compareRange('month', today)
+        const mf = metricsFacts(computeSalesMetrics(msrc, { today, period: 'month' }), computeSalesMetrics(msrc, { today, range: cr }), cr.label)
         if (mf.length) businessContext['ตัวชี้วัดการขายเดือนนี้ (หน้าตัวชี้วัดการขาย)'] = mf.join('\n')
         const waiting = threads.filter(t => !t.deleted && t.lastDirection === 'in')
         if (waiting.length) businessContext['แชตลูกค้า LINE OA ที่รอตอบ (หน้าช่องทางโซเชียล)'] = `${waiting.length} ราย: ${waiting.slice(0, 5).map(t => `${t.name || 'ลูกค้า'} "${String(t.lastText || '').slice(0, 40)}"`).join(' · ')}`

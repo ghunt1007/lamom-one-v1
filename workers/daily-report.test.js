@@ -1250,3 +1250,25 @@ describe('เทียบช่วงเดียวกันเดือนก�
     expect(vsLast(0, 0, lm)).toBe('')
   })
 })
+
+describe('รางวัลพิเศษในข้อความ LINE (v1.0.990)', async () => {
+  const { sellerBonus, sellerGoal, buildPersonalReminder } = await import('./daily-report.js')
+  const data = {
+    programs: [
+      { id: 'p1', type: 'bonus', title: 'ส่งมอบ 2 คัน รับ 5,000', dateFrom: '2026-11-01', dateTo: '2026-11-30', amount: 5000, targetUnits: 2, bonusFor: 'all', status: 'active', countBy: 'delivered' },
+      { id: 'p2', type: 'bonus', title: 'ทีมรวม', dateFrom: '2026-11-01', dateTo: '2026-11-30', amount: 9000, targetUnits: 5, bonusFor: 'team', status: 'active' },
+    ],
+    bookings: [{ salesName: 'เซลส์ ก', status: 'ส่งมอบแล้ว', cutDate: '2026-11-03', model: 'S05' }],
+  }
+  it('บอกขาดอีกกี่คัน · ไม่รวมรางวัลทีม', () => {
+    expect(sellerBonus(data, 'เซลส์ ก', '2026-11-09')).toEqual(['🏆 ส่งมอบ 2 คัน รับ 5,000: 1/2 คัน · อีก 1 คัน ได้ ฿5,000'])
+    expect(sellerBonus({ bookings: [] }, 'เซลส์ ก', '2026-11-09')).toEqual([])
+  })
+  it('ไม่มีเป้าแต่มีรางวัล ก็ยังแสดงในข้อความเช้า', () => {
+    const g = sellerGoal(data, {}, 'เซลส์ ก', '2026-11-09')
+    expect(g).toMatchObject({ target: 0 })
+    const t = buildPersonalReminder({ text: '👤 เซลส์ ก', focus: [] }, '2026-11-09', '', g)
+    expect(t).toContain('อีก 1 คัน ได้ ฿5,000')
+    expect(t).not.toContain('🎯 เป้าเดือนนี้')
+  })
+})

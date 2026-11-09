@@ -124,3 +124,16 @@ describe('compareRange / pctChange (v1.0.989)', async () => {
     expect(m.forecast).toBe(null)
   })
 })
+
+describe('metricsFacts เทียบช่วงก่อน (v1.0.990)', async () => {
+  const { metricsFacts, computeSalesMetrics, compareRange } = await import('./salesMetrics.js')
+  it('ใส่บรรทัดเทียบเมื่อช่วงก่อนมีข้อมูล', () => {
+    const src = { bookings: [{ bookingDate: '2026-10-05', price: 1000000, status: 'จอง' }, { bookingDate: '2026-11-03', price: 1500000, status: 'จอง' }] }
+    const m = computeSalesMetrics(src, { today: '2026-11-09' })
+    const cr = compareRange('month', '2026-11-09')
+    const f = metricsFacts(m, computeSalesMetrics(src, { today: '2026-11-09', range: cr }), cr.label)
+    expect(f.at(-1)).toContain('เทียบ1–9 เดือนก่อน: จอง 1 คัน')
+    expect(f.at(-1)).toContain('+50%')
+    expect(metricsFacts(m).some(l => l.startsWith('เทียบ'))).toBe(false)
+  })
+})
