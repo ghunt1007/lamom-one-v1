@@ -483,16 +483,18 @@ export default async function BookingsPage(container) {
     const filtered = getFiltered()
     const statusCounts = getStatusCounts()
     const statusTotal = Object.values(statusCounts).reduce((s, n) => s + n, 0)
+    // (v1.0.1007) ตัวเลขสรุป/การ์ดยี่ห้อนับจากใบจองที่ผู้ใช้เห็นจริง (เดิมนับทั้งโชว์รูม เซลส์เห็น "แสดง 0 / 28" กับมูลค่า 8 ล้านที่ตัวเองไม่มีสักใบ)
+    const visible = ownScopeActive ? bookings.filter(b => scopeIncludesRecord(visScope, b.salesName, b)) : bookings
     const actionCount = bookings.filter(b => matchesFilters(b, { ignoreStatus: true }) && needsAction(b)).length
-    const activeAll = bookings.filter(b => ACTIVE_PIPELINE.includes(b.status))
+    const activeAll = visible.filter(b => ACTIVE_PIPELINE.includes(b.status))
     const pipelineVal = activeAll.reduce((s, b) => s + (b.price || 0), 0)
     // เดิม new Date().toISOString().slice(0,7) คืนเดือนตาม UTC เสมอ — แก้ให้ยึดเดือนไทยจริงจาก todayBangkok()
     const curMonth = todayBangkok().slice(0, 7)
-    const delMonth = bookings.filter(b => TERMINAL_STATUSES.slice(0, 2).includes(b.status) && (b.cutDate || b.deliveryDate || '').startsWith(curMonth)).length
-    const urgentCount = bookings.filter(isUrgent).length
-    const noIncomeCount = bookings.filter(b => needsIncome(b) && (!ownScopeActive || scopeIncludesRecord(visScope, b.salesName, b))).length
-    const deliveredAll = bookings.filter(b => b.status === 'ส่งมอบแล้ว')
-    const activeNonTerminal = bookings.filter(b => !['ถอนจอง', 'ยกเลิก', 'ส่งมอบแล้ว'].includes(b.status))
+    const delMonth = visible.filter(b => TERMINAL_STATUSES.slice(0, 2).includes(b.status) && (b.cutDate || b.deliveryDate || '').startsWith(curMonth)).length
+    const urgentCount = visible.filter(isUrgent).length
+    const noIncomeCount = visible.filter(b => needsIncome(b)).length
+    const deliveredAll = visible.filter(b => b.status === 'ส่งมอบแล้ว')
+    const activeNonTerminal = visible.filter(b => !['ถอนจอง', 'ยกเลิก', 'ส่งมอบแล้ว'].includes(b.status))
 
     // สถานะที่ไม่มีใบจองเลยไม่ต้องโชว์ (เดิม 11 ปุ่ม ล้นลงมาหลายบรรทัด ส่วนใหญ่เป็น (0)) — ยกเว้นตัวที่เลือกอยู่
     const knownSt = getBookingStatus()
@@ -521,7 +523,7 @@ export default async function BookingsPage(container) {
     </div>`
 
     // ทุกยี่ห้อที่มีการคีย์จองเข้ามาต้องขึ้นการ์ด — ยี่ห้อหลักเรียงก่อน ยี่ห้ออื่น (เช่น Toyota) ต่อท้าย
-    const detectedBrands = [...new Set(bookings.map(b => detectBrand(b.brand, b.model)).filter(Boolean))]
+    const detectedBrands = [...new Set(visible.map(b => detectBrand(b.brand, b.model)).filter(Boolean))]
     const brandsWithBookings = [...BRANDS.filter(br => detectedBrands.includes(br)), ...detectedBrands.filter(br => !BRANDS.includes(br))]
     const brandKpi = brandsWithBookings.map(br => {
       const c = BRAND_COLORS[br] || '#94a3b8'
@@ -550,7 +552,7 @@ export default async function BookingsPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">ยอดจอง / ยอดขาย${urgentCount > 0 && window._bkUrgentOnly ? ' <span style="font-size:0.7rem;background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.4);border-radius:6px;padding:1px 7px;vertical-align:middle;font-weight:700">🔥 เฉพาะด่วน</span>' : ''}</div>
-            <div class="page-subtitle">แสดง ${filtered.length} / ${bookings.length} รายการ</div>
+            <div class="page-subtitle">แสดง ${filtered.length} / ${visible.length} รายการ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-ghost btn-sm pa-more" id="bk-refresh">🔄 รีเฟรช</button>
