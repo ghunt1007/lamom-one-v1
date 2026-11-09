@@ -6,6 +6,7 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { carOf } from '../../utils/carLabel.js'
 
 const BRANDS = ['BYD','MG','Neta','ORA','AION','GWM','Chery']
 const STATUS_MAP = {
@@ -177,7 +178,7 @@ export default async function StockValuationPage(container) {
               return `<tr>
                 <td style="font-family:monospace;font-size:0.78rem">${escHtml(s.id)}</td>
                 <td>
-                  <div style="font-weight:700;font-size:0.85rem">${escHtml(s.brand)} ${escHtml(s.model)}</div>
+                  <div style="font-weight:700;font-size:0.85rem">${escHtml(carOf(s))}</div>
                   <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(s.variant)}</div>
                 </td>
                 <td>

@@ -8,6 +8,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { carOf } from '../../utils/carLabel.js'
 
 const WARRANTY_STATUS = {
   active:   { label: 'มีผล', color: 'success' },
@@ -240,7 +241,7 @@ export default async function WarrantyManagementPage(container) {
                 </td>
                 <td>
                   <div style="font-weight:600;font-size:0.85rem">${escHtml(w.vehiclePlate)}</div>
-                  <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(w.brand)} ${escHtml(w.model)} ${w.year}</div>
+                  <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(carOf(w))} ${w.year}</div>
                 </td>
                 <td><span style="font-size:0.82rem">${tp?.icon} ${tp?.label}</span></td>
                 <td style="font-size:0.83rem">${formatDate(w.endDate)}</td>
@@ -311,7 +312,7 @@ export default async function WarrantyManagementPage(container) {
             <div style="display:flex;justify-content:space-between;align-items:flex-start">
               <div>
                 <div style="font-weight:700;font-size:0.92rem">${escHtml(w.customerName)} — ${escHtml(w.vehiclePlate)}</div>
-                <div style="font-size:0.8rem;color:var(--text-muted)">${escHtml(w.brand)} ${escHtml(w.model)} · ${tp?.icon} ${tp?.label}</div>
+                <div style="font-size:0.8rem;color:var(--text-muted)">${escHtml(carOf(w))} · ${tp?.icon} ${tp?.label}</div>
                 <div style="font-size:0.8rem;margin-top:6px">หมดอายุ: <strong>${formatDate(w.endDate)}</strong> · เหลือ <strong style="color:var(--warning)">${days} วัน</strong></div>
               </div>
               <div style="display:flex;gap:6px">

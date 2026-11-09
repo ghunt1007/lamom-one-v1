@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { carOf } from '../../utils/carLabel.js'
 
 const JOB_STATUS = {
   waiting:    { label: '⏳ รอรับรถ',      badge: 'primary' },
@@ -175,7 +176,7 @@ export default async function JobCardsPage(container) {
           <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(j.phone||'')}</div>
         </td>
         <td>
-          <div style="font-size:0.85rem">${escHtml(j.brand)} ${escHtml(j.model)}</div>
+          <div style="font-size:0.85rem">${escHtml(carOf(j))}</div>
           <div style="font-size:0.72rem;color:var(--text-muted);font-family:monospace">${escHtml(j.plate||'')}</div>
         </td>
         <td style="font-size:0.78rem">${JOB_TYPE[j.type] || escHtml(j.type)}</td>
@@ -212,7 +213,7 @@ export default async function JobCardsPage(container) {
             </div>
             ${dRow('👤','ลูกค้า',j.custName)}
             ${dRow('📱','โทร',j.phone||'-')}
-            ${dRow('🚗','รถ',`${j.brand} ${j.model}`)}
+            ${dRow('🚗','รถ',carOf(j))}
             ${dRow('🔢','ทะเบียน',j.plate||'-')}
             ${dRow('🛣','เลขไมล์',`${(j.mileage||0).toLocaleString()} km`)}
             ${dRow('🔑','VIN',j.vin||'-')}
@@ -380,7 +381,7 @@ export default async function JobCardsPage(container) {
   if (prefillData) openForm(null, prefillData)
   document.getElementById('job-search').addEventListener('input', e => { search = e.target.value.toLowerCase(); applyFilter() })
   document.getElementById('job-export').addEventListener('click', () => {
-    exportToExcel(jobs.map(j => ({ เลขงาน:j.jobNo, ลูกค้า:j.custName, โทร:j.phone, รถ:`${j.brand} ${j.model}`, ทะเบียน:j.plate, ประเภท:JOB_TYPE[j.type]||j.type, สถานะ:JOB_STATUS[j.status]?.label||j.status, ช่าง:j.techName, เบย์:j.bay, ค่าแรง:j.labor, วันที่:formatDate(j.createdAt) })), `jobs-${todayBangkok()}.xlsx`, 'Job Cards')
+    exportToExcel(jobs.map(j => ({ เลขงาน:j.jobNo, ลูกค้า:j.custName, โทร:j.phone, รถ:carOf(j), ทะเบียน:j.plate, ประเภท:JOB_TYPE[j.type]||j.type, สถานะ:JOB_STATUS[j.status]?.label||j.status, ช่าง:j.techName, เบย์:j.bay, ค่าแรง:j.labor, วันที่:formatDate(j.createdAt) })), `jobs-${todayBangkok()}.xlsx`, 'Job Cards')
     showToast('Export แล้ว', 'success')
   })
   document.querySelectorAll('.jf-btn').forEach(btn => btn.addEventListener('click', () => {

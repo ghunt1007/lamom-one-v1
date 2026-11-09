@@ -241,7 +241,7 @@ export default async function RecallTrackerPage(container) {
           )).slice(0, 8)
           el.querySelector('#av-results').innerHTML = matches.map((b, i) => `
             <button type="button" class="btn btn-xs btn-secondary av-pick" data-i="${i}" style="text-align:left;justify-content:flex-start">
-              ${escHtml(b.custName)} · ${escHtml(b.brand)} ${escHtml(b.model)} · VIN ${escHtml((b.vin||'').slice(-8))}
+              ${escHtml(b.custName)} · ${escHtml(carOf(b))} · VIN ${escHtml((b.vin||'').slice(-8))}
             </button>`).join('') || '<div style="font-size:0.72rem;color:var(--text-muted)">ไม่พบ</div>'
           el.querySelectorAll('.av-pick').forEach(btn => btn.addEventListener('click', () => {
             const b = matches[parseInt(btn.dataset.i)]

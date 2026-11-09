@@ -419,7 +419,7 @@ export default async function StockPage(container) {
             </div>
             <div style="font-family:monospace;font-size:0.63rem;color:var(--text-muted);word-break:break-all;margin-bottom:12px;padding:0 4px">${escHtml(v.vin)}</div>
             <div style="background:var(--surface-2);border-radius:8px;padding:10px;text-align:left;font-size:0.76rem">
-              <div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--text-muted)">รุ่น</span><strong>${escHtml(v.brand)} ${escHtml(v.model)} ${escHtml(v.variant)}</strong></div>
+              <div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--text-muted)">รุ่น</span><strong>${escHtml(carOf(v, true))}</strong></div>
               <div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--text-muted)">สี</span><span>${escHtml(v.color)}</span></div>
               <div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--text-muted)">สถานะ</span><span>${STATUS[v.status]?.label || escHtml(v.status)}</span></div>
               <div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--text-muted)">ราคา</span><strong style="color:var(--success)">${formatCurrency(v.price)}</strong></div>

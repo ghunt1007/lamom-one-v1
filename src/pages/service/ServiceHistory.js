@@ -8,6 +8,7 @@ import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { carOf } from '../../utils/carLabel.js'
 
 const JOB_STATUS = {
   pending:    { label: 'รอรับ', color: 'warning' },
@@ -100,7 +101,7 @@ export default async function ServiceHistoryPage(container) {
                   <td style="font-family:monospace;font-weight:700;font-size:0.8rem">${escHtml(r.id)}</td>
                   <td>
                     <div style="font-weight:600;font-size:0.85rem">${escHtml(r.customerName)}</div>
-                    <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(r.brand)} ${escHtml(r.model)} · ${escHtml(r.plate)} · ${r.mileage.toLocaleString()} กม.</div>
+                    <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(carOf(r))} · ${escHtml(r.plate)} · ${r.mileage.toLocaleString()} กม.</div>
                   </td>
                   <td>
                     <span class="badge badge-secondary" style="font-size:0.68rem">${escHtml(SERVICE_TYPES[r.type]||r.type)}</span>

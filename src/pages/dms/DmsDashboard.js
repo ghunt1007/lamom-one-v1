@@ -3,6 +3,7 @@ import { navigate } from '../../core/router.js'
 import { formatCurrency } from '../../utils/format.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
+import { carOf } from '../../utils/carLabel.js'
 
 const QUICK_LINKS = [
   { icon:'📦', label:'สต็อกรถ', sub:'จัดการสินค้าคงคลัง', path:'/dms/stock', color:'primary' },
@@ -139,7 +140,7 @@ export default async function DmsDashboard(container) {
       <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer" data-nav="/dms/stock">
         <span style="font-size:1rem">🚗</span>
         <div style="flex:1;min-width:0">
-          <span style="font-weight:600;font-size:0.85rem">${escHtml(v.brand)} ${escHtml(v.model)}</span>
+          <span style="font-weight:600;font-size:0.85rem">${escHtml(carOf(v))}</span>
           <span style="font-size:0.75rem;color:var(--text-muted);margin-left:6px">${escHtml(v.color || '')}</span>
         </div>
         <span class="badge badge-${STATUS_COLOR[v.status] || 'primary'}" style="font-size:0.68rem">${escHtml(v.status)}</span>

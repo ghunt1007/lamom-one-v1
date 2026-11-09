@@ -11,6 +11,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { carOf } from '../../utils/carLabel.js'
 
 const BRANDS = ['DEEPAL', 'AION', 'OMODA & JAECOO', 'SUZUKI', 'NISSAN']
 const BRAND_ICONS = { DEEPAL: '🔵', AION: '🟢', 'OMODA & JAECOO': '🟡', SUZUKI: '🔴', NISSAN: '🟣' }
@@ -121,7 +122,7 @@ export default async function MaintenanceSchedulePage(container) {
     document.querySelectorAll('.ms-del').forEach(btn => btn.addEventListener('click', async () => {
       const s = schedules.find(x => x.id === btn.dataset.id)
       if (!s) return
-      const ok = await confirmDialog({ title: '🗑️ ลบระยะเช็ค', message: `ยืนยันลบ "${escHtml(s.brand)} ${escHtml(s.model)} — ${escHtml(intervalLabel(s))}"?`, confirmText: 'ลบ', danger: true })
+      const ok = await confirmDialog({ title: '🗑️ ลบระยะเช็ค', message: `ยืนยันลบ "${escHtml(carOf(s))} — ${escHtml(intervalLabel(s))}"?`, confirmText: 'ลบ', danger: true })
       if (!ok) return
       await softDelete('maintenance_schedules', s.id)
       showToast('🗑️ ลบแล้ว', 'success')
@@ -140,7 +141,7 @@ export default async function MaintenanceSchedulePage(container) {
     return `<div class="card" style="padding:16px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
         <span style="font-size:1.1rem">${BRAND_ICONS[g.brand]||'🏷️'}</span>
-        <span style="font-weight:700;font-size:0.95rem">${escHtml(g.brand)} ${escHtml(g.model)}</span>
+        <span style="font-weight:700;font-size:0.95rem">${escHtml(carOf(g))}</span>
         <span class="badge badge-secondary" style="font-size:0.65rem">${g.entries.length} ระยะ</span>
       </div>
       <div class="table-wrap"><table>

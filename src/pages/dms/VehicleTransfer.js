@@ -186,7 +186,7 @@ export default async function VehicleTransferPage(container) {
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">เลือกรถจากสต็อกจริง *</label>
             <select class="input" id="tf-vehicle">
               <option value="">— เลือกรถ —</option>
-              ${realVehicles.map(v => `<option value="${escHtml(v.id)}">${escHtml(v.brand)} ${escHtml(v.model)} ${escHtml(v.variant||'')} · ${escHtml(v.color||'')} · VIN ${escHtml((v.vin||'').slice(-6)||'-')} · อยู่ที่ ${escHtml(v.location||'-')}</option>`).join('')}
+              ${realVehicles.map(v => `<option value="${escHtml(v.id)}">${escHtml(carOf(v, true))} · ${escHtml(v.color||'')} · VIN ${escHtml((v.vin||'').slice(-6)||'-')} · อยู่ที่ ${escHtml(v.location||'-')}</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">ทะเบียน (ถ้ามี)</label><input class="input" id="tf-plate" placeholder="กก 1234"></div>
