@@ -32,3 +32,14 @@ describe('ไฟแนนซ์ผ่านอัตโนมัติ (worker)'
     expect(sec.text.match(/อภิชาติ/g)).toHaveLength(1)
   })
 })
+
+describe('เวรบูธในเตือนเช้า', () => {
+  it('คนที่มีเวรวันนี้ได้บรรทัดเวรบูธ และขึ้นเป็นเรื่องแรกที่ต้องทำ', async () => {
+    const { focusLines } = await import('./daily-report.js')
+    const today = '2026-11-28'
+    const events = [{ id: 'e1', title: 'Motor Expo', venue: 'อิมแพ็ค', shifts: { [today]: ['เซลส์ เอ'], '2026-11-29': ['เซลส์ บี'] } }]
+    const secs = buildMorningSections({ bookings: [], customers: [], followups: [], testDrives: [], events }, { today })
+    expect(secs.map(s => s.name)).toEqual(['เซลส์ เอ'])
+    expect(secs[0].text).toContain('🗓 เวรออกบูธวันนี้: Motor Expo @ อิมแพ็ค')
+  })
+})

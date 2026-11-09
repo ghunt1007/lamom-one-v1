@@ -127,7 +127,7 @@ export function eventCalendarItems(list, today) {
     days.forEach((d, i) => out.push({
       key: `mev:${e.id}:${d}`, kind: 'booth', date: d, time: i === 0 ? (e.startTime || '') : '',
       title: `${t.icon} ${e.title || t.label}${days.length > 1 ? ` (วันที่ ${i + 1}/${days.length})` : ''}`,
-      sub: [t.label, e.venue].filter(Boolean).join(' · '),
+      sub: [t.label, e.venue, (e.shifts?.[d] || []).length ? `เวร: ${e.shifts[d].join(', ')}` : ''].filter(Boolean).join(' · '),
       owner: '', done: d < today, shared: true, nav: '/marketing/events?id=' + e.id, rec: e,
     }))
   })
@@ -151,4 +151,66 @@ export function eventFacts(events = [], data = {}, today) {
     lines.push(`จบแล้ว: ${e.title || typeOf(e.type).label} (${e.startDate}) Lead ${m.leads} จอง ${m.bookings}${m.cost ? ` ใช้งบ ${fmt(m.cost)} บาท` : ''}${m.costPerLead ? ` ต่อ Lead ${fmt(m.costPerLead)}` : ''}${m.roi ? ` ROI ${m.roi} เท่า` : ''}`)
   })
   return lines
+}
+
+// ── (v1.0.987) เวรบูธรายวัน + เช็กลิสต์เตรียมงาน ──
+// shifts = { 'YYYY-MM-DD': ['ชื่อ', ...] } · งานยาวหลายวัน (เช่น Motor Expo 12 วัน) ทีมสลับกันไปทีละวัน
+export function normalizeShifts(raw, days) {
+  const ok = new Set(days || [])
+  const out = {}
+  if (raw && typeof raw === 'object') for (const [d, list] of Object.entries(raw)) {
+    if (ok.size && !ok.has(d)) continue
+    const names = [...new Set((Array.isArray(list) ? list : []).map(x => String(x ?? '').trim()).filter(Boolean))]
+    if (names.length) out[d] = names
+  }
+  return out
+}
+const isWeekend = ymd => { const w = new Date(ymd + 'T00:00:00Z').getUTCDay(); return w === 0 || w === 6 }
+// จัดเวรอัตโนมัติ: วันละ perDay คน (เสาร์-อาทิตย์ +1 ถ้ามีคนพอ) ให้ทุกคนได้จำนวนวันใกล้เคียงกัน
+// และไม่ให้คนเดิมติดกันหลายวันถ้าเลี่ยงได้
+export function autoRoster(days, staff, perDay = 2) {
+  const people = [...new Set((staff || []).map(s => String(s).trim()).filter(Boolean))]
+  const out = {}
+  if (!people.length) return out
+  const count = Object.fromEntries(people.map(p => [p, 0]))
+  let prev = new Set()
+  for (const d of days || []) {
+    const need = Math.min(people.length, Math.max(1, perDay) + (isWeekend(d) && people.length > perDay ? 1 : 0))
+    const pick = [...people].sort((a, b) => count[a] - count[b] || (prev.has(a) - prev.has(b)) || people.indexOf(a) - people.indexOf(b)).slice(0, need)
+    pick.forEach(p => count[p]++)
+    out[d] = pick
+    prev = new Set(pick)
+  }
+  return out
+}
+export function shiftsOn(e, ymd) {
+  return (e?.shifts && Array.isArray(e.shifts[ymd]) ? e.shifts[ymd] : [])
+}
+// สรุปว่าแต่ละคนได้กี่วัน (เรียงมากไปน้อย)
+export function shiftCounts(shifts) {
+  const c = {}
+  Object.values(shifts || {}).forEach(list => (list || []).forEach(n => { c[n] = (c[n] || 0) + 1 }))
+  return Object.entries(c).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'th'))
+}
+
+const PREP_BASE = ['รถโชว์ + ล้าง/เติมไฟ/น้ำมันก่อนวันงาน', 'โบรชัวร์ + ตารางสเปค/ราคา', 'โปร ดอกเบี้ย & ส่วนลดล่าสุด (พิมพ์แจก)', 'ป้าย / แบ็คดรอป / ธง', 'QR เก็บ Lead + ฟอร์มลงทะเบียน', 'ของแจก / ของรางวัล', 'ใบจอง + เครื่องรูดบัตร/QR รับเงินจอง', 'ตารางเวรทีม + เบอร์ติดต่อผู้จัดงาน']
+const PREP_EXTRA = {
+  expo: ['บัตรผ่าน/บัตรจอดรถทีมงาน', 'ชุดยูนิฟอร์มทีม', 'ปลั๊กพ่วง + ที่ชาร์จมือถือ', 'นัดลูกค้าเก่ามาเยี่ยมบูธ'],
+  motorshow: ['บัตรผ่าน/บัตรจอดรถทีมงาน', 'ชุดยูนิฟอร์มทีม', 'ปลั๊กพ่วง + ที่ชาร์จมือถือ', 'นัดลูกค้าเก่ามาเยี่ยมบูธ'],
+  testdrive: ['รถทดลองขับ + ประกันครอบคลุม', 'เส้นทางทดลองขับ', 'สำเนาใบขับขี่ลูกค้า (ฟอร์ม)'],
+  launch: ['ไฮไลต์รุ่นใหม่ / สคริปต์พรีเซนต์', 'เชิญลูกค้า Hot Lead ล่วงหน้า', 'ถ่ายรูป/ไลฟ์ลงเพจ'],
+  vip: ['รายชื่อแขก VIP + ยืนยันการมา', 'ของที่ระลึก VIP'],
+  online: ['สคริปต์ไลฟ์ + โปรเฉพาะไลฟ์', 'อุปกรณ์ไลฟ์ (ไฟ/ไมค์/ขาตั้ง)'],
+}
+export function defaultChecklist(type) {
+  const extra = PREP_EXTRA[type] || []
+  const base = type === 'online' ? PREP_BASE.filter(x => /โปร|QR/.test(x)) : PREP_BASE
+  return [...base, ...extra].map(t => ({ t, done: false }))
+}
+export function normalizeChecklist(raw) {
+  return (Array.isArray(raw) ? raw : []).map(x => ({ t: String(x?.t ?? '').trim(), done: !!x?.done })).filter(x => x.t)
+}
+export function prepProgress(list) {
+  const l = normalizeChecklist(list)
+  return { done: l.filter(x => x.done).length, total: l.length }
 }

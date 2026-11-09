@@ -13,8 +13,10 @@ import { escHtml as esc } from '../../utils/escape.js'
 import { getSalesStaff } from '../../data/masterData.js'
 import { openQuickLead } from '../../utils/quickLead.js'
 import { navigate } from '../../core/router.js'
+import { copyText } from '../../utils/copyText.js'
 import {
   EVENT_TYPES, EVENT_TYPE_ORDER, EVENT_STATUS, typeOf, autoStatus, eventMetrics, normalizeEvent, eventDays,
+  normalizeShifts, autoRoster, shiftCounts, defaultChecklist, normalizeChecklist, prepProgress,
 } from '../../utils/marketingEvents.js'
 
 const COL = 'marketing_events'
@@ -126,6 +128,7 @@ export default async function EventManagementPage(container) {
       <div class="ev-meta">📅 ${esc(dateRange(e))}${days > 1 ? ` (${days} วัน)` : ''}${e.startTime ? ` · ⏰ ${esc(e.startTime)}${e.endTime ? '–' + esc(e.endTime) : ''}` : ''}</div>
       ${e.venue ? `<div class="ev-meta">📍 ${esc(e.venue)}</div>` : ''}
       ${e.staff?.length ? `<div class="ev-meta">👥 ${esc(e.staff.join(', '))}</div>` : ''}
+      ${(() => { const today_ = (e.shifts || {})[today]; const pp = prepProgress(e.checklist); return (today_?.length && s === 'ongoing' ? `<div class="ev-meta">🗓 เวรวันนี้: ${esc(today_.join(', '))}</div>` : '') + (pp.total && s !== 'done' ? `<div class="ev-meta">✅ เตรียมงาน ${pp.done}/${pp.total}</div>` : '') })()}
       ${showResult ? `<div class="ev-kpis">
         <div><span>Lead</span><b>${m.leads}${e.targetLeads ? `<small>/${e.targetLeads}</small>` : ''}</b>${bar(m.leadTargetPct, 'Lead เทียบเป้า')}</div>
         <div><span>ทดลองขับ</span><b>${m.testDrives}</b></div>
@@ -173,10 +176,13 @@ export default async function EventManagementPage(container) {
         <div class="ev-h">ลูกค้าจากงานนี้ (${leads.length})</div>
         ${leads.length ? `<div class="ev-leads">${leads.slice(0, 60).map(c => `<button type="button" class="ev-lead" data-cust="${esc(c.id)}"><b>${first(c)}</b><span>${esc(STAGE[c.stage] || c.stage || '')}${c.interestedModel ? ' · ' + esc(c.interestedModel) : ''}${c.assignedTo ? ' · ' + esc(c.assignedTo) : ''}</span></button>`).join('')}</div>`
           : '<div class="ev-meta">ยังไม่มีลูกค้าที่ติดป้ายงานนี้ — ระหว่างงานกด “➕ Lead” ที่แถบบน (ปุ่มงานนี้จะถูกเลือกไว้ให้)</div>'}
+        <div id="evd-roster"></div>
+        <div id="evd-prep"></div>
         ${e.lessons ? `<div class="ev-h">สิ่งที่ได้เรียนรู้</div><div class="ev-note">${esc(e.lessons)}</div>` : ''}
       </div>`,
       footer: `<button class="btn btn-ghost" id="evd-del">🗑 ลบ</button><button class="btn btn-secondary" id="evd-edit">✏️ แก้ / ใส่ผล</button>${autoStatus(e, today) === 'ongoing' ? '<button class="btn btn-primary" id="evd-lead">➕ Lead จากงานนี้</button>' : ''}`,
     })
+    bindPrep(el, e)
     el.querySelector('#evd-edit').addEventListener('click', () => { close(); openForm(e) })
     el.querySelector('#evd-lead')?.addEventListener('click', () => { close(); openQuickLead() })
     el.querySelector('#evd-del').addEventListener('click', async () => {
@@ -184,6 +190,75 @@ export default async function EventManagementPage(container) {
       try { await softDelete(COL, e.id); showToast('ลบแล้ว', 'success'); close() } catch { showToast('ลบไม่สำเร็จ', 'error') }
     })
     el.querySelectorAll('[data-cust]').forEach(b => b.addEventListener('click', () => { close(); navigate('/crm/customers?id=' + b.dataset.cust) }))
+  }
+
+  // ── (v1.0.987) เวรบูธรายวัน + เช็กลิสต์เตรียมงาน (แก้ได้จากหน้ารายละเอียดเลย ไม่ต้องเปิดฟอร์ม) ──
+  const WD = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
+  const MO = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+  const dayLabel = d => { const x = new Date(d + 'T00:00:00Z'); return `${WD[x.getUTCDay()]} ${x.getUTCDate()} ${MO[x.getUTCMonth()]}` }
+  function bindPrep(el, e) {
+    const days = eventDays(e)
+    let shifts = normalizeShifts(e.shifts, days)
+    let list = normalizeChecklist(e.checklist)
+    const pool = () => [...new Set([...(e.staff || []), ...Object.values(shifts).flat()])].length ? [...new Set([...(e.staff || []), ...Object.values(shifts).flat()])] : getSalesStaff()
+    const save = async patch => { try { await updateDocData(COL, e.id, patch); Object.assign(e, patch) } catch { showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', 'error') } }
+    const rosterBox = el.querySelector('#evd-roster')
+    const prepBox = el.querySelector('#evd-prep')
+    function drawRoster() {
+      if (!days.length) { rosterBox.innerHTML = ''; return }
+      const counts = shiftCounts(shifts)
+      const per = Math.min(3, Math.max(1, Math.round((pool().length || 2) / 2)))
+      rosterBox.innerHTML = `<div class="ev-h ev-h-row"><span>🗓 เวรบูธรายวัน</span><span class="ev-h-acts">
+          <select class="input ev-per" id="evr-per" aria-label="คนต่อวัน">${[1, 2, 3, 4, 5].map(n => `<option value="${n}"${n === per ? ' selected' : ''}>${n} คน/วัน</option>`).join('')}</select>
+          <button type="button" class="btn btn-secondary btn-xs" id="evr-auto">🔀 จัดเวรให้</button>
+          ${counts.length ? '<button type="button" class="btn btn-ghost btn-xs" id="evr-copy">📋 คัดลอก</button>' : ''}</span></div>
+        <div class="ev-roster">${days.map(d => `<button type="button" class="ev-shift${d === today ? ' is-today' : ''}" data-day="${d}"><b>${dayLabel(d)}</b><span>${(shifts[d] || []).length ? esc(shifts[d].join(', ')) : '<i>แตะเพื่อเลือกคน</i>'}</span></button>`).join('')}</div>
+        ${counts.length ? `<div class="ev-meta">รวม: ${counts.map(([n, c]) => `${esc(n)} ${c} วัน`).join(' · ')}</div>` : `<div class="ev-meta">ยังไม่ได้จัดเวร — กด “🔀 จัดเวรให้” ระบบแบ่งให้ทุกคนได้วันเท่าๆกัน (เสาร์-อาทิตย์เพิ่ม 1 คน) แล้วแก้รายวันได้</div>`}`
+    }
+    function drawPrep() {
+      const pp = prepProgress(list)
+      prepBox.innerHTML = `<div class="ev-h ev-h-row"><span>✅ เตรียมงาน${pp.total ? ` ${pp.done}/${pp.total}` : ''}</span></div>
+        ${list.length ? `<div class="ev-check">${list.map((x, i) => `<label class="ev-ck${x.done ? ' on' : ''}"><input type="checkbox" data-ck="${i}"${x.done ? ' checked' : ''}><span>${esc(x.t)}</span><button type="button" class="ev-ck-rm" data-rm="${i}" aria-label="ลบ">✕</button></label>`).join('')}</div>
+          <div class="ev-ck-add"><input class="input" id="evc-new" placeholder="เพิ่มรายการ เช่น เต็นท์ 3x3"><button type="button" class="btn btn-secondary btn-xs" id="evc-add">＋ เพิ่ม</button></div>`
+        : `<button type="button" class="btn btn-secondary btn-sm" id="evc-make">📝 สร้างเช็กลิสต์${typeOf(e.type).label}</button>`}`
+    }
+    drawRoster(); drawPrep()
+    rosterBox.addEventListener('click', async ev => {
+      if (ev.target.closest('#evr-auto')) {
+        if (Object.keys(shifts).length && !(await confirmDialog({ title: 'จัดเวรใหม่ทั้งหมด?', message: 'เวรที่จัดไว้จะถูกแทนที่', confirmText: '🔀 จัดใหม่' }))) return
+        const people = pool()
+        if (!people.length) { showToast('ใส่ "ทีมที่ไป" ในงานนี้ก่อน (กด ✏️ แก้)', 'error'); return }
+        shifts = autoRoster(days, people, +rosterBox.querySelector('#evr-per').value || 2)
+        await save({ shifts }); drawRoster(); showToast('🔀 จัดเวรแล้ว แตะวันไหนเพื่อแก้ได้', 'success'); return
+      }
+      if (ev.target.closest('#evr-copy')) {
+        const txt = [`🗓 เวร ${e.title}${e.venue ? ' @ ' + e.venue : ''}`, ...days.map(d => `${dayLabel(d)}: ${(shifts[d] || []).join(', ') || '-'}`)].join('\n')
+        copyText(txt, '📋 คัดลอกตารางเวรแล้ว วางในกลุ่ม LINE ได้เลย'); return
+      }
+      const b = ev.target.closest('[data-day]'); if (!b) return
+      const d = b.dataset.day
+      const people = pool(); const cur = new Set(shifts[d] || [])
+      const m = openModal({ title: `🗓 เวร ${dayLabel(d)}`, size: 'sm',
+        body: `<div class="ev-pickday">${people.map(n => `<label class="ev-ck${cur.has(n) ? ' on' : ''}"><input type="checkbox" value="${esc(n)}"${cur.has(n) ? ' checked' : ''}><span>${esc(n)}</span></label>`).join('') || '<div class="ev-meta">ยังไม่มีรายชื่อทีม</div>'}</div>`,
+        footer: '<button class="btn btn-secondary" id="evp-c">ยกเลิก</button><button class="btn btn-primary" id="evp-s">💾 บันทึก</button>' })
+      m.el.querySelector('#evp-c').addEventListener('click', m.close)
+      m.el.querySelector('#evp-s').addEventListener('click', async () => {
+        const pick = [...m.el.querySelectorAll('input:checked')].map(x => x.value)
+        if (pick.length) shifts[d] = pick; else delete shifts[d]
+        await save({ shifts }); m.close(); drawRoster()
+      })
+    })
+    prepBox.addEventListener('click', async ev => {
+      if (ev.target.closest('#evc-make')) { list = defaultChecklist(e.type); await save({ checklist: list }); drawPrep(); return }
+      if (ev.target.closest('#evc-add')) { const i = prepBox.querySelector('#evc-new'); const t = i.value.trim(); if (!t) return; list.push({ t, done: false }); await save({ checklist: list }); drawPrep(); prepBox.querySelector('#evc-new')?.focus(); return }
+      const rm = ev.target.closest('[data-rm]')
+      if (rm) { ev.preventDefault(); list.splice(+rm.dataset.rm, 1); await save({ checklist: list }); drawPrep() }
+    })
+    prepBox.addEventListener('change', async ev => {
+      const c = ev.target.closest('[data-ck]'); if (!c) return
+      list[+c.dataset.ck].done = c.checked; await save({ checklist: list }); drawPrep()
+    })
+    prepBox.addEventListener('keydown', ev => { if (ev.target.id === 'evc-new' && ev.key === 'Enter') { ev.preventDefault(); prepBox.querySelector('#evc-add').click() } })
   }
 
   // ── ฟอร์ม ──
