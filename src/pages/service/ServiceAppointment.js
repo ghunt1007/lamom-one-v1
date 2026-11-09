@@ -106,7 +106,7 @@ export default async function ServiceAppointmentPage(container) {
             ${['day','week','list'].map(m => `<button class="btn btn-sm ${viewMode===m?'btn-primary':'btn-secondary'} vm-btn" data-m="${m}">${{day:'วัน',week:'สัปดาห์',list:'รายการ'}[m]}</button>`).join('')}
           </div>
           ${viewMode !== 'list' ? `<input type="date" class="input" id="view-date" value="${__escA(viewDate)}" style="width:160px">` : ''}
-          <div style="display:flex;gap:4px;margin-left:auto">
+          <div style="display:flex;gap:4px;margin-left:auto;flex-wrap:wrap;max-width:100%">
             <button class="btn btn-sm ${statusFilter==='all'?'btn-primary':'btn-secondary'} sf-btn" data-s="all">ทั้งหมด</button>
             ${Object.entries(APPT_STATUS).slice(0,4).map(([k,v]) => `<button class="btn btn-sm ${statusFilter===k?'btn-primary':'btn-secondary'} sf-btn" data-s="${k}">${v.label}</button>`).join('')}
           </div>
