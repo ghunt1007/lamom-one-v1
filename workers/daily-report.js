@@ -470,9 +470,12 @@ async function buildReportText(env, accessToken) {
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'deleted']),
     runQuery(env, accessToken, 'team_targets', null, null, 500, ['period', 'metric', 'target']),
   ])
-  const events = await runQuery(env, accessToken, 'marketing_events', null, null, 300, ['title', 'venue', 'startDate', 'endDate', 'status', 'targetLeads', 'deleted']).catch(() => [])
+  const [events, socialAccounts] = await Promise.all([
+    runQuery(env, accessToken, 'marketing_events', null, null, 300, ['title', 'venue', 'startDate', 'endDate', 'status', 'targetLeads', 'budget', 'spent', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'social_channels', null, null, 300, ['spend', 'deleted']).catch(() => []),
+  ])
   const followups = [...fuPending, ...fuDone]
-  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events }, {
+  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts }, {
     today: todayBangkok(),
     time: new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }).format(new Date()),
     defaultTarget: parseInt(env.MONTHLY_DELIVERY_TARGET) || 0,
@@ -500,6 +503,18 @@ export function vsLast(cur, prev, lm) {
   if (!cur && !prev) return ''
   const diff = cur - prev
   return ` (1–${lm.days} เดือนก่อน ${prev}${diff ? ` ${diff > 0 ? '▲' : '▼'}${Math.abs(diff)}` : ' เท่ากัน'})`
+}
+
+// (v1.0.1000) ค่าการตลาดเดือนนี้ = ค่าโฆษณาที่ใส่ในบัญชีโซเชียล (spend.YYYY-MM) + ค่างานออกบูธที่เริ่มเดือนนี้ (spent หรืองบ)
+// ÷ ใบจองเดือนนี้ = ต้นทุนต่อใบจอง (สูตรเดียวกับ CAC ในหน้าตัวชี้วัด) · ไม่มีค่าใช้จ่าย = ไม่แสดง
+export function marketingSpendLine(accounts, events, today, bookedMonth) {
+  const ym = today.slice(0, 7)
+  const n = v => { const x = Number(v); return Number.isFinite(x) && x > 0 ? x : 0 }
+  const ad = (accounts || []).filter(a => a && !a.deleted).reduce((s, a) => s + n(a.spend?.[ym]), 0)
+  const ev = (events || []).filter(e => e && !e.deleted && String(e.startDate || '').slice(0, 7) === ym).reduce((s, e) => s + (n(e.spent) || n(e.budget)), 0)
+  if (!ad && !ev) return ''
+  const b = v => '฿' + Math.round(v).toLocaleString('en-US')
+  return `  • 💸 ค่าการตลาดเดือนนี้: ${b(ad + ev)}${ad && ev ? ` (โฆษณา ${b(ad)} + ออกบูธ ${b(ev)})` : ''}${bookedMonth ? ` · ต่อใบจอง ${b((ad + ev) / bookedMonth)}` : ''}`
 }
 
 // (v1.0.994) งานออกบูธที่จัดอยู่วันนี้: Lead วันนี้/รวมทั้งงาน แยกรายคน (ใช้ eventId ที่ติดตอนกด ➕ Lead ระหว่างงาน)
@@ -636,6 +651,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     '📋 การจอง',
     `  • จองใหม่วันนี้: ${newBkToday} คัน`,
     `  • จองใหม่เดือนนี้: ${newBkMonth} คัน${vsLast(newBkMonth, newBkLm, lm)}`,
+    marketingSpendLine(data.socialAccounts, data.events, today, newBkMonth) || null,
     '',
     '🚗 สถานะปัจจุบัน',
     ...PENDING_STATUSES.filter(s => cnt(s) > 0 || PENDING_ALWAYS_SHOWN.includes(s)).map(s => `  • ${s}: ${cnt(s)} คัน`),
