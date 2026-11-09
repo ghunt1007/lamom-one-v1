@@ -22,6 +22,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { scheduleQuoteFollowup } from '../../utils/quoteFollowup.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
 import { programsForCar, carSummary, bestRates, CUSTOMER_TYPES, PROGRAM_TYPES, rangeLabel, normalizeProgram } from '../../utils/salesPrograms.js'
@@ -480,7 +481,7 @@ export default async function QuotationBuilderPage(container) {
             <div id="qf-custom-list" style="margin-top:6px;display:flex;flex-direction:column;gap:4px"></div>
           </div>
 
-          <div class="input-group"><label class="input-label">เซลส์</label><select class="input" id="qf-sales">${getSalesStaff().map(s => `<option ${s === (prefill?.salesperson || myDisplayName) ? 'selected' : ''}>${escHtml(s)}</option>`).join('')}</select></div>
+          <div class="input-group"><label class="input-label">เซลส์</label><select class="input" id="qf-sales">${salesOptionsHtml(getSalesStaff(), { current: prefill?.salesperson || '', me: myDisplayName, isSales: getState('user')?.role === 'sales' })}</select></div>
           <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="qf-notes" placeholder="บันทึก..."></div>
 
           <div class="input-group" style="grid-column:1/-1;background:var(--bg-2);border-radius:var(--radius-sm);padding:10px">

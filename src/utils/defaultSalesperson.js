@@ -9,3 +9,15 @@ export function defaultSalesperson(options, me, { addIfMissing = true } = {}) {
   if (hit) return { options, selected: hit }
   return addIfMissing ? { options: [me, ...options], selected: me } : { options, selected: '' }
 }
+
+// (v1.0.1019) <option> ของช่องเลือกเซลส์ในฟอร์มต่างๆ — ใช้ค่าเดิมของเอกสารถ้ามี (ไม่มีในรายชื่อก็ยังคงไว้ ไม่เปลี่ยนเป็นคนแรกเงียบๆ)
+// ไม่มีค่าเดิม = เลือกตัวเองตาม defaultSalesperson · blank = มีตัวเลือก "-" ว่างไว้บนสุด
+export function salesOptionsHtml(staff, { current = '', me = '', isSales = false, blank = false } = {}) {
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  let options = [...(staff || [])], selected = ''
+  if (String(current || '').trim()) {
+    selected = current
+    if (!options.includes(current)) options = [current, ...options]
+  } else ({ options, selected } = defaultSalesperson(options, me, { addIfMissing: isSales }))
+  return (blank ? `<option value="">-</option>` : '') + options.map(s => `<option value="${esc(s)}"${s === selected ? ' selected' : ''}>${esc(s)}</option>`).join('')
+}

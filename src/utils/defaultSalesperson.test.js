@@ -13,3 +13,19 @@ describe('defaultSalesperson', () => {
     expect(defaultSalesperson(opts, 'เจ้าของ', { addIfMissing: false })).toEqual({ options: opts, selected: '' })
   })
 })
+
+describe('salesOptionsHtml', async () => {
+  const { salesOptionsHtml } = await import('./defaultSalesperson.js')
+  const staff = ['สมชาย ใจดี', 'บี']
+  it('keeps the record value even if not in the staff list', () => {
+    const h = salesOptionsHtml(staff, { current: 'คนเก่า', me: 'บี' })
+    expect(h.startsWith('<option value="คนเก่า" selected>')).toBe(true)
+  })
+  it('defaults to me by first name', () => {
+    expect(salesOptionsHtml(staff, { me: 'สมชาย' })).toContain('<option value="สมชาย ใจดี" selected>')
+  })
+  it('blank option and escaping', () => {
+    const h = salesOptionsHtml(['a"b'], { blank: true })
+    expect(h).toBe('<option value="">-</option><option value="a&quot;b">a&quot;b</option>')
+  })
+})
