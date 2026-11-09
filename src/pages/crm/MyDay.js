@@ -26,11 +26,15 @@ import { classifyLostReason } from '../../utils/lostReason.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml } from '../../utils/escape.js'
+import { normalizeProgram } from '../../utils/salesPrograms.js'
+import { campaignLeads, campaignMessage } from '../../utils/campaignLeads.js'
+import { modelMatches } from '../../utils/salesAi.js'
+import { getVehicles } from '../../data/vehicleDatabase.js'
 
 const NUDGE_MAX = 8
 const SECTION_PREVIEW = 5
 // ชื่อสั้นบนแถบกระโดดไปหมวด (ตาม icon ของหมวด)
-const JUMP_LABEL = { '📞': 'นัดติดตาม', '🚙': 'ลองขับ', '🧲': 'Lead ใหม่', '🔴': 'Hot', '⏰': 'ไม่ได้ตาม', '🔄': 'ติดต่อใหม่', '📆': 'ยังไม่นัดส่ง', '🚗': 'ส่งมอบ', '🏦': 'ไฟแนนซ์', '💰': 'กรอกรายได้', '⏳': 'ใบจองค้าง' }
+const JUMP_LABEL = { '📞': 'นัดติดตาม', '🚙': 'ลองขับ', '🧲': 'Lead ใหม่', '🔴': 'Hot', '⏰': 'ไม่ได้ตาม', '🔄': 'ติดต่อใหม่', '📆': 'ยังไม่นัดส่ง', '🚗': 'ส่งมอบ', '🏦': 'ไฟแนนซ์', '💰': 'กรอกรายได้', '⏳': 'ใบจองค้าง', '🎁': 'โปรใกล้หมด' }
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
 
@@ -45,6 +49,7 @@ export default async function MyDayPage(container) {
   let targets = {}
   let lineRegistered = true
   let staff = []
+  let programs = []
 
   container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
   const scope = await getVisibilityScope()
@@ -61,6 +66,8 @@ export default async function MyDayPage(container) {
     if (!customers || !followups || !bookings) showToast('โหลดข้อมูลบางส่วนไม่สำเร็จ', 'warning')
     data = { customers: customers || [], followups: followups || [], bookings: bookings || [], testDrives: testDrives || [] }
     try { targets = (await readDoc(SALES_TARGETS_COLLECTION, todayBangkok().slice(0, 7)))?.targets || {} } catch { targets = {} }
+    // แคมเปญเดือนนี้ → หา Lead ที่ควรโทรบอกโปร (โหลดไม่ได้ = ไม่แสดงหมวดนี้)
+    try { programs = (await listDocs('sales_programs', [], 'dateFrom', 'desc', 1000)).filter(r => !r.deleted).map(r => ({ ...normalizeProgram(r), id: r.id })) } catch { programs = [] }
     try { staff = staffChoices(await listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 1000)) } catch { staff = [] }
     // ลงทะเบียนรับงานทาง LINE แล้วหรือยัง (ทัก LINE OA พิมพ์ "ลงทะเบียน ชื่อ") — โหลดไม่ได้ = ไม่แสดงคำแนะนำ
     try {
@@ -169,6 +176,7 @@ export default async function MyDayPage(container) {
     </div>`
   }
 
+  let promoRows = []
   let lastDay = { stale: [], revisit: [] }
   // AI ร่างข้อความ LINE ทักลูกค้าที่เงียบหลายคนพร้อมกัน — เซลส์อ่าน/แก้ แล้วคัดลอกไปส่งเอง (ไม่ส่งอัตโนมัติ)
   async function openNudgeDrafts(list) {
@@ -225,6 +233,8 @@ export default async function MyDayPage(container) {
     // ลูกค้า Hot ที่อยู่ในหมวด "Lead ใหม่วันนี้" / "ไม่ได้ติดตาม" แล้ว ไม่ต้องขึ้นซ้ำอีกหมวด (มีปุ่ม 📅 นัด อยู่แล้ว)
     const listed = new Set([...d.newLeads, ...d.stale].map(c => c.id))
     const hotOnly = d.hotNoPlan.filter(c => !listed.has(c.id))
+    const brandOf = m => modelMatches(m, getVehicles(), 1)[0]?.brand || ''
+    promoRows = campaignLeads(programs, data.customers, { today, mine, brandOf })
     // ความคืบหน้าวันนี้ = ลูกค้าที่ติดต่อแล้ว เทียบกับ (ติดต่อแล้ว + งานค้าง)
     const doneToday = d.contactedToday || 0
     const pct = doneToday + d.total ? Math.round(doneToday / (doneToday + d.total) * 100) : 100
@@ -267,6 +277,10 @@ export default async function MyDayPage(container) {
           `${escHtml(t.model || '')}${ownerTag(t.staff)}`,
           `${callBtn(t.phone)}<button class="btn btn-secondary btn-xs md-td">🚗 ทดลองขับ</button>`), 'primary') : ''}
 
+        ${promoRows.length ? section('🎁', 'บอกโปรลูกค้า (โปรใกล้หมด/โปรใหม่)', 'กด 💬 ได้ข้อความพร้อมส่ง', promoRows, r => line(
+          `${escHtml(r.name)} <span class="badge badge-${r.reason === 'ending' ? 'danger' : 'success'}" style="font-size:0.62rem">${r.reason === 'ending' ? (r.left === 0 ? 'หมดวันนี้' : `หมดใน ${r.left} วัน`) : 'โปรใหม่'}</span>`,
+          `${escHtml(r.model)} · ${escHtml(r.lines.join(' · '))}${ownerTag(r.c.assignedTo)}`,
+          `${callBtn(r.c.phone, r.c.id)}<button class="btn btn-primary btn-xs md-promo" data-id="${escHtml(r.c.id)}">💬 ข้อความ</button><button class="btn btn-ghost btn-xs md-open" data-id="${escHtml(r.c.id)}">เปิด</button>`), 'warning') : ''}
         ${section('🧲', 'Lead ใหม่วันนี้', 'โทรหาภายในวันนี้ โอกาสปิดสูงสุด', d.newLeads, c => line(
           `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''}${waitTag(c)}`,
           `${escHtml(SOURCE_LABEL[c.source] || c.source || '')}${c.phone ? ` · ${escHtml(c.phone)}` : c.lineId ? ` · ${escHtml(c.lineId)}` : ''}${ownerTag(c.assignedTo)}`,
@@ -368,6 +382,22 @@ export default async function MyDayPage(container) {
       el.querySelector('#rv-close').addEventListener('click', close)
       el.querySelector('#rv-copy').addEventListener('click', async () => {
         if (await copyText(el.querySelector('#rv-msg').value, '📋 คัดลอกแล้ว ส่งแล้วกด ✅ ติดต่อแล้ว', 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง')) close()
+      })
+    }))
+    $$('.md-promo').forEach(b => b.addEventListener('click', () => {
+      const r = promoRows.find(x => x.c.id === b.dataset.id)
+      if (!r) return
+      const { el, close } = openModal({
+        title: `🎁 บอกโปร ${escHtml(r.name)}`, size: 'sm',
+        body: `<div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:6px">${escHtml(r.list.map(p => p.title).join(' · '))} · แก้ข้อความได้ก่อนคัดลอก</div><textarea class="input" id="pm-msg" data-no-mic rows="6" style="width:100%;font-size:16px">${escHtml(campaignMessage(r))}</textarea>`,
+        footer: `<button class="btn btn-secondary" id="pm-close">ปิด</button><button class="btn btn-primary" id="pm-copy">📋 คัดลอกไปส่ง</button>`,
+      })
+      el.querySelector('#pm-close').addEventListener('click', close)
+      el.querySelector('#pm-copy').addEventListener('click', async () => {
+        if (!(await copyText(el.querySelector('#pm-msg').value, '📋 คัดลอกแล้ว วางในแชต LINE ของลูกค้าได้เลย', 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง'))) return
+        close()
+        // ส่งแล้ว = ติดต่อลูกค้าวันนี้ (ไม่ต้องกดบันทึกอีกรอบ)
+        if (await touchCustomerContact(r.c.id)) { r.c.updatedAt = new Date().toISOString(); r.c.lastContactAt = r.c.updatedAt; render() }
       })
     }))
     $$('.md-replan').forEach(btn => btn.addEventListener('click', () => {

@@ -1,3 +1,4 @@
+import { toDateStr } from './format.js'
 import { carLabel } from './carLabel.js'
 // (v1.0.913) LAMI ตอบเรื่องลูกค้า/ใบจอง "รายคน" ได้ — เช่น "มานีถึงไหนแล้ว" "ใบจอง SKT2605 สถานะอะไร"
 // "รถของคุณสมชายส่งมอบเมื่อไหร่" "เบอร์ 0890000027 คือใคร คุยล่าสุดเมื่อไหร่"
@@ -18,10 +19,7 @@ const dayNum = d => { const t = Date.parse(String(d || '').slice(0, 10) + 'T00:0
 const ymd = v => {
   if (!v) return ''
   if (typeof v === 'string') return v.slice(0, 10)
-  if (typeof v.toDate === 'function') { try { return v.toDate().toISOString().slice(0, 10) } catch { return '' } }
-  if (v instanceof Date) return v.toISOString().slice(0, 10)
-  if (typeof v.seconds === 'number') return new Date(v.seconds * 1000).toISOString().slice(0, 10)
-  return ''
+  return toDateStr(v)
 }
 // วันที่แบบไทยใช้ formatDate ตัวเดียวกับทั้งแอป (ไม่เขียนสูตรซ้ำ)
 export function thaiDate(d) {
