@@ -8,6 +8,24 @@ import { getSalesStaff } from '../../data/masterData.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { findDuplicate } from '../../utils/quickLead.js'
+import { touchCustomerContact } from '../../utils/customerContact.js'
+
+// (v1.0.1013) ลูกค้ามาถึงโชว์รูม → ถ้ามีในรายชื่อลูกค้าแล้ว บันทึกว่าติดต่อวันนี้ (หลุดจาก "Lead เงียบ") ·
+// ถ้ายังไม่มี เปิดฟอร์ม + Lead ที่กรอกชื่อ/เบอร์/รุ่นให้แล้ว กดบันทึกทีเดียว
+async function afterArrived(a) {
+  if (!a?.phone) return
+  let customers = []
+  try { customers = await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 3000) } catch { return }
+  const c = findDuplicate({ phone: a.phone }, customers)
+  if (c) {
+    if (await touchCustomerContact(c.id)) showToast(`🏪 บันทึกว่า ${c.firstName || a.custName || 'ลูกค้า'} มาโชว์รูมวันนี้แล้ว`, 'success')
+    return
+  }
+  const { openQuickLead } = await import('../../utils/quickLead.js')
+  openQuickLead({ name: a.custName || '', contact: a.phone, model: a.interestedIn || '', source: 'walk-in' })
+  showToast('🧲 ลูกค้ายังไม่อยู่ในรายชื่อ — กรอกให้แล้ว กดบันทึกได้เลย', 'info')
+}
 
 const APPT_STATUS = {
   scheduled:  { label: 'นัดแล้ว', color: 'primary' },
@@ -140,6 +158,7 @@ export default async function ShowroomAppointmentPage(container) {
           await updateDocData('appointments', a.id, { status: btn.dataset.s })
           showToast('✅ อัพเดตแล้ว', 'success')
           await loadData()
+          if (btn.dataset.s === 'arrived') afterArrived(a)
         } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     })
@@ -305,6 +324,7 @@ export default async function ShowroomAppointmentPage(container) {
         document.querySelector('.modal-overlay')?.remove()
         showToast('✅ อัพเดตแล้ว', 'success')
         await loadData()
+        if (btn.dataset.s === 'arrived') afterArrived(a)
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }) })
     document.querySelector('.edit-det-btn')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openForm(a) })

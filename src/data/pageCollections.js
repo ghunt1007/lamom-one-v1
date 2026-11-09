@@ -326,7 +326,8 @@ export const PAGE_COLLECTIONS = {
  ],
  "/settings/master-data": [],
  "/crm/showroom": [
-  "appointments"
+  "appointments",
+  "customers"
  ],
  "/service/warranty": [
   "bookings",
@@ -842,6 +843,7 @@ export const PAGE_COLLECTIONS = {
   "five_s_areas"
  ],
  "/ai/ask": [
+  "appointments",
   "bookings",
   "chat_ai_assistant",
   "csat",

@@ -95,7 +95,7 @@ export default async function AiAssistantChatPage(container) {
     try {
       const today = todayBangkok()
       const thisMonth = today.slice(0, 7)
-      const [sales, vehicles, customers, debts, csat, staff, jobs, followups, bookings, testDrives, programs, events, budget, threads, socialAccts] = await Promise.all([
+      const [sales, vehicles, customers, debts, csat, staff, jobs, followups, bookings, testDrives, programs, events, budget, threads, socialAccts, showroomAppts] = await Promise.all([
         getSalesData().catch(() => []),
         listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => []),
         listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
@@ -111,6 +111,7 @@ export default async function AiAssistantChatPage(container) {
         loadSalesBudget(+today.slice(0, 4)).catch(() => null),
         listDocs('social_threads', [], 'lastAt', 'desc', 200).catch(() => []),
         listDocs('social_channels', [], 'createdAt', 'desc', 300).catch(() => []),
+        listDocs('appointments', companyScopeFilters(), 'date', 'desc', 200).catch(() => []),
       ])
       const monthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
       // totalIncome ต่อใบจอง = กำไรสุทธิจริง (แพทเทิร์นเดียวกับ Margin.js/Commission.js/MarketingROI.js
@@ -206,7 +207,7 @@ export default async function AiAssistantChatPage(container) {
       const myName = getState('user')?.displayName
       if (myName) {
         const mine = n => normName(n) === normName(myName)
-        const d = buildMyDay({ customers, followups, bookings, testDrives }, { today, mine })
+        const d = buildMyDay({ customers, followups, bookings, testDrives, appointments: showroomAppts }, { today, mine })
         businessContext[`งานของ ${myName} วันนี้`] = myDayDigest(d)
         welcomeStats.todo = d.total
       }

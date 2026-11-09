@@ -193,6 +193,12 @@ export function myDayDigest(d) {
     `Lead ใหม่วันนี้ ${(d.newLeads || []).length} · นัดติดตามถึงกำหนด/เลยกำหนด ${(d.followups || []).length} · Lead เงียบเกิน ${STALE_LEAD_DAYS} วัน ${(d.stale || []).length} · ลูกค้า Hot ไม่มีนัด ${(d.hotNoPlan || []).length}`,
     `ไฟแนนซ์รอผล/ไม่ผ่าน ${(d.finance || []).length} · รถพร้อมส่งยังไม่นัด ${(d.unscheduled || []).length} · ส่งมอบ 7 วันข้างหน้า ${(d.deliveries || []).length} · ยังไม่กรอกรายได้ ${(d.income || []).length}`,
   ]
+  // (v1.0.1013) นัดลูกค้าวันนี้ (ทดลองขับ + เข้าโชว์รูม) เรียงตามเวลา
+  const appts = [
+    ...(d.testDrives || []).map(t => ({ time: t.time, text: `ทดลองขับ ${t.customerName || 'ลูกค้า'}${t.model ? ` (${t.model})` : ''}` })),
+    ...(d.appts || []).map(a => ({ time: a.time, text: `เข้าโชว์รูม ${a.custName || 'ลูกค้า'}${a.interestedIn ? ` (${a.interestedIn})` : ''}` })),
+  ].sort((x, y) => String(x.time || '').localeCompare(String(y.time || '')))
+  if (appts.length) lines.push(`นัดลูกค้าวันนี้ ${appts.length} ราย: ${appts.slice(0, 6).map(x => `${x.time ? x.time + ' ' : ''}${x.text}`).join(' · ')}`)
   const top = topPriorities(d, 5, { short: true })
   if (top.length) {
     lines.push('งานที่ควรทำก่อน (ระบบจัดลำดับแล้ว):')
