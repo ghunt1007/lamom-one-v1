@@ -12,7 +12,7 @@ import { parseLeadText, maskContacts, buildLeadNamePrompt, parseLeadNameReply } 
 import { firstReplyMessage } from './bookingNotify.js'
 import { copyText } from './copyText.js'
 import { escHtml } from './escape.js'
-import { eventsForLeadTag, typeOf } from './marketingEvents.js'
+import { eventsForLeadTag, typeOf, onBoothToday } from './marketingEvents.js'
 import { todayBangkok } from './format.js'
 import { accountsForSource, defaultAccount } from './socialAccounts.js'
 
@@ -131,7 +131,9 @@ export function openQuickLead({ onFull, pasteText = '', name = '', source: initi
     if (!evs.length || !box) return
     box.insertAdjacentHTML('afterbegin', evs.map(e => `<button type="button" class="btn btn-sm ql-src btn-secondary" data-k="event" data-ev="${escHtml(e.id)}" title="${escHtml(e.venue || '')}">${typeOf(e.type).icon} ${escHtml(String(e.title || typeOf(e.type).label).slice(0, 28))}</button>`).join(''))
     eventsById = Object.fromEntries(evs.map(e => [e.id, e]))
-    if (!initialSource) box.querySelector('[data-ev]')?.click()
+    // (v1.0.995) เลือกงานไว้ให้เฉพาะคนที่อยู่บูธวันนี้ (มีเวรวันนี้ / อยู่ในทีมงานเมื่อยังไม่จัดเวร) — คนที่อยู่โชว์รูมเพิ่ม Walk-in ระหว่างงาน จะไม่ถูกนับเป็น Lead ของงานผิดๆ
+    const mine = evs.find(e => onBoothToday(e, me.displayName, todayBangkok()))
+    if (!initialSource && mine) box.querySelector(`[data-ev="${CSS.escape(mine.id)}"]`)?.click()
   }).catch(() => {})
   // โหลดลูกค้าล่าสุดไว้เช็คซ้ำ (ไม่บล็อกการเปิดฟอร์ม — ถ้าโหลดไม่ทันก็บันทึกได้ตามปกติ)
   const loaded = listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000).then(r => {

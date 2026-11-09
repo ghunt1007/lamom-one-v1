@@ -107,3 +107,15 @@ describe('eventBreakdown / eventSummaryText (v1.0.992)', async () => {
     expect(t).not.toMatch(/\d{9,}/)
   })
 })
+
+describe('onBoothToday (v1.0.995)', async () => {
+  const { onBoothToday } = await import('./marketingEvents.js')
+  it('เวรวันนี้ > ทีมที่ไป > ไม่มีข้อมูล', () => {
+    const e = { shifts: { '2026-11-09': ['เซลส์ หนึ่ง', 'เซลส์ สอง'] }, staff: ['เซลส์ หนึ่ง', 'เซลส์ สาม'] }
+    expect(onBoothToday(e, 'คุณเซลส์ หนึ่ง', '2026-11-09')).toBe(true)
+    expect(onBoothToday(e, 'เซลส์ สาม', '2026-11-09')).toBe(false)
+    expect(onBoothToday(e, 'เซลส์ สาม', '2026-11-10')).toBe(true)
+    expect(onBoothToday(e, 'เซลส์ สอง', '2026-11-10')).toBe(false)
+    expect(onBoothToday({}, 'ใครก็ได้', '2026-11-10')).toBe(true)
+  })
+})
