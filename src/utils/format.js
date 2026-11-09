@@ -7,6 +7,7 @@
 export function toDate(v) {
   if (!v) return null
   if (v?.toDate) return v.toDate()  // Firestore Timestamp
+  if (typeof v?.seconds === 'number') return new Date(v.seconds * 1000)  // Timestamp ที่ผ่าน JSON/cache มาแล้ว
   const d = new Date(v)
   return isNaN(d.getTime()) ? null : d
 }
@@ -39,9 +40,12 @@ export function nowBangkokTime() {
 // เรียก .slice(0,10) ตรงๆ กับ field อย่าง createdAt/updatedAt ซึ่ง createDoc()/updateDocData() เขียนเป็น
 // Firestore serverTimestamp() object เสมอ ไม่ใช่ string การเรียก .slice() ตรงๆ จะพัง (TypeError) ทันทีที่
 // เอกสารนั้นมีอยู่จริง — บั๊กคลาสนี้เจอซ้ำหลายจุดทั่วระบบเพราะ collection ส่วนใหญ่ไม่มีข้อมูลจริงมาก่อน
+// (v1.0.979) ตัดวันตามเวลาไทย ไม่ใช่ UTC — เดิมรายการที่บันทึกตอน 00:00–06:59 น. ถูกนับเป็นของ "เมื่อวาน"
+// (ไทยไม่มีเวลาออมแสง จึงบวก 7 ชม. ได้ตรงๆ) · ค่าที่เป็นวันที่ล้วน 'YYYY-MM-DD' ได้วันเดิมเสมอ
 export function toDateStr(v) {
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v
   const d = toDate(v)
-  return d ? d.toISOString().slice(0, 10) : ''
+  return d ? new Date(d.getTime() + 7 * 3600e3).toISOString().slice(0, 10) : ''
 }
 
 export function formatDate(dateStr) {

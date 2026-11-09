@@ -12,6 +12,7 @@ import { getState } from './store.js'
 import { syncRagChunk, RAG_SOURCE_COLLECTIONS } from '../utils/rag.js'
 import { companyScopeFilters } from './companyScope.js'
 import { finPassPatch, FIN_PASSED_STATUSES } from '../utils/finance.js'
+import { toDateStr } from '../utils/format.js'
 
 // ── Input sanitization — strip stored XSS before Firestore writes ──
 // เดิม export แค่ผ่าน createDoc()/updateDocData() เท่านั้น — จุดที่เขียน Firestore ตรงๆนอก db.js (เช่น
@@ -499,7 +500,7 @@ export async function getSalesData() {
       id: b.id, bookingNo: b.bookingNo,
       // b.createdAt คือ Firestore serverTimestamp() object เสมอ (ไม่ใช่ string) — .slice() ตรงๆ จะพัง
       // ถ้าเคสไหนไปถึง fallback สุดท้ายนี้จริง (ปกติไม่ถึงเพราะ bookingDate มีเสมอ) ต้อง .toDate() ก่อน
-      date: b.actualDeliveryDate || b.cutDate || b.bookingDate || (b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0)).toISOString().slice(0, 10),
+      date: b.actualDeliveryDate || b.cutDate || b.bookingDate || toDateStr(b.createdAt || 0),
       // บางหน้าเรียก s.bookingDate / s.deliveryDate / s.custPhone — เดิมไม่มีใน object นี้ ทำให้หน้าพวกนั้น
       // (สรุปผู้บริหาร, ภาษี, ลูกค้าเสี่ยงหาย, วันครบรอบ ฯลฯ) ได้ค่าว่างตลอด ใส่ให้ครบที่นี่ที่เดียว
       bookingDate: b.bookingDate || '',

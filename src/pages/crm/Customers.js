@@ -23,7 +23,8 @@ import {
 import { aiSalesCloser, isAiEnabled, suggestCustomerReply } from '../../utils/ai.js'
 import { buildCustomerBrief, addDaysIso, catalogContext, modelFacts, modelMatches } from '../../utils/salesAi.js'
 import { flatMonthly } from '../../utils/installment.js'
-import { normalizeProgram, programsForCar, carSummary, PROGRAM_TYPES, CUSTOMER_TYPES } from '../../utils/salesPrograms.js'
+import { normalizeProgram, carSummary, PROGRAM_TYPES } from '../../utils/salesPrograms.js'
+import { customerPrograms, promoLines } from '../../utils/campaignLeads.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { maskContacts } from '../../utils/leadText.js'
 import { enhanceMics, bindMic, hasSpeechInput } from '../../utils/micInput.js'
@@ -105,16 +106,9 @@ function loadPrograms() {
   return __progCache
 }
 function customerPromos(c, programs) {
-  if (!c.interestedModel) return null
   const brand = modelMatches(c.interestedModel, getVehicles(), 1)[0]?.brand || ''
-  const list = programsForCar(programs, { brand, model: c.interestedModel, date: todayBangkok(), isManager: false }).filter(p => CUSTOMER_TYPES.includes(p.type))
-  if (!list.length) return null
-  const s = carSummary(list)
-  const lines = []
-  if (s.customerCash) lines.push(`ส่วนลดรวม ${s.customerCash.toLocaleString('en-US')} บาท`)
-  if (s.bestRate) lines.push(`ดอกเบี้ยพิเศษ ${s.bestRate.rate}% ดาวน์ ${s.bestRate.down}% ${s.bestRate.months} งวด${s.bestRate.financeCo ? ` (${s.bestRate.financeCo})` : ''}`)
-  ;[...new Set(s.gifts)].forEach(g => lines.push(`แถม ${g}`))
-  return { list, s, lines }
+  const list = customerPrograms(programs, c.interestedModel, { brand, today: todayBangkok() })
+  return list.length ? { list, s: carSummary(list), lines: promoLines(list) } : null
 }
 async function fillPromos(root, c) {
   const box = root.querySelector('#wk-promos')
