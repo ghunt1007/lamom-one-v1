@@ -24,6 +24,7 @@ export const metaPost = payload => call('/social/meta/post', payload)
 export const metaAds = () => call('/social/meta/ads')
 export const metaAdsUpdate = payload => call('/social/meta/ads/update', payload)
 export const lineReply = (threadId, text) => call('/social/line/reply', { threadId, text })
+export const lineMulticast = (userIds, text) => call('/social/line/multicast', { userIds, text })
 
 // ลิงก์แชร์ด้วยบัญชีส่วนตัว (ทำได้ทุกคนโดยไม่ต้องใช้ API — คนกดแชร์เองจากเครื่องตัวเอง)
 export function shareLinks(text = '', link = '') {
