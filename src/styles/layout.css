@@ -608,7 +608,8 @@
   .fin-mini { grid-template-columns: 1fr 1fr !important; }
   .fin-mini > :last-child:nth-child(odd) { grid-column: 1 / -1; }
   /* เงินยาว (฿41,656,000) ย่อตามความกว้างการ์ดให้อยู่บรรทัดเดียว แทนการหักครึ่งตัวเลข */
-  .kpi-grid > .kpi-card .kpi-value { font-size: clamp(0.85rem, 14cqi, 1.3rem) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* ตัวเลขไม่มีช่องว่างจึงไม่หักกลาง · ข้อความต่อท้าย เช่น "(18%)" ขึ้นบรรทัดใหม่แทนการถูกตัดเป็น … */
+  .kpi-grid > .kpi-card .kpi-value { font-size: clamp(0.85rem, 14cqi, 1.3rem) !important; white-space: normal; overflow-wrap: normal; word-break: normal; line-height: 1.2; }
 }
 
 /* จอสัมผัส: ไม่ต้องโชว์คำแนะนำปุ่มคีย์บอร์ด (↑↓ / Esc) ในหน้าค้นหา */
@@ -813,7 +814,13 @@
 .kpi-grid.kpi-quiet > .kpi-card { padding: 6px 10px !important; min-height: 0 !important; }
 #main-content .kpi-grid.kpi-quiet > :last-child { grid-column: auto !important; }
 .kpi-grid.kpi-quiet .kpi-value { font-size: 1rem !important; margin: 2px 0 0 !important; }
-.kpi-grid.kpi-quiet .kpi-title { font-size: 0.62rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* มือถือแคบ: 5–6 ช่องแบ่งเป็นแถวละ 3 (เดิม 5 ช่องแถวเดียว หัวข้อแคบจนอ่านไม่ออก) */
+@media (max-width: 480px) {
+  #main-content .kpi-grid.kpi-quiet:has(> :nth-child(5):last-child), #main-content .kpi-grid.kpi-quiet:has(> :nth-child(6):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .kpi-grid.kpi-quiet .kpi-value { white-space: normal; line-height: 1.15; }
+}
+/* หัวข้อขึ้นได้ 3 บรรทัด (เดิมบรรทัดเดียวแล้วถูกตัดเป็น "…" อ่านไม่รู้เรื่อง เช่น "ส่งสำเ…") */
+.kpi-grid.kpi-quiet .kpi-title { font-size: 0.62rem !important; white-space: normal; overflow: hidden; line-height: 1.25; letter-spacing: 0 !important; text-transform: none; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 .kpi-grid.kpi-quiet .kpi-sub, .kpi-grid.kpi-quiet .kpi-change { display: none !important; }
 /* ช่องที่เป็น 0 ในแถวที่มีตัวเลขจริง — จาง + ตัวเลขสีเทา (ไม่ให้ 0 สีแดง/เขียวแย่งสายตา) */
 .kpi-card.kpi-zero { opacity: 0.6; }
