@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   normalizeProgram, validateProgram, parseModels, isActiveOn, overlapsMonth, liveState, matchesCar,
   programsForCar, bestRates, carSummary, copyToNextMonth, monthlyInstallment, fromLegacyRateSheet,
-  programFacts, shiftMonth, monthBounds, rangeLabel, nextMonthGap,
+  programFacts, shiftMonth, monthBounds, rangeLabel, nextMonthGap, supersededBy, dayBefore,
 } from './salesPrograms.js'
 
 const P = o => ({ id: Math.random().toString(36).slice(2), ...normalizeProgram(o) })
@@ -184,5 +184,26 @@ describe('nextMonthGap', () => {
     expect(nextMonthGap([p('2026-11-01', '2026-12-15')], '2026-11-28')).toBe(null)
     expect(nextMonthGap([], '2026-11-28')).toBe(null)
     expect(nextMonthGap([{ ...p('2026-11-01', '2026-11-30'), deleted: true }], '2026-11-28')).toBe(null)
+  })
+})
+
+describe('supersededBy', () => {
+  const base = { type: 'finance', brand: 'DEEPAL', financeCo: 'KK', models: [], dateFrom: '2026-11-01', dateTo: '2026-11-30' }
+  it('เจอแคมเปญไฟแนนซ์บริษัทเดียวกันที่ยังใช้อยู่', () => {
+    const old = { ...base, id: 'a' }
+    expect(supersededBy({ ...base, dateFrom: '2026-11-16' }, [old]).map(p => p.id)).toEqual(['a'])
+    expect(dayBefore('2026-11-16')).toBe('2026-11-15')
+    expect(dayBefore('2026-12-01')).toBe('2026-11-30')
+  })
+  it('ไม่นับคนละบริษัท/คนละรุ่น/จบไปแล้ว/มาร์จิ้น', () => {
+    const list = [
+      { ...base, id: 'b', financeCo: 'TISCO' },
+      { ...base, id: 'c', dateTo: '2026-11-10' },
+      { ...base, id: 'd', type: 'brand', financeCo: '', models: ['S05'] },
+    ]
+    expect(supersededBy({ ...base, dateFrom: '2026-11-16' }, list)).toEqual([])
+    expect(supersededBy({ ...base, type: 'brand', financeCo: '', models: ['S07'], dateFrom: '2026-11-16' }, list)).toEqual([])
+    expect(supersededBy({ ...base, type: 'brand', financeCo: '', models: ['S05'], dateFrom: '2026-11-16' }, list).map(p => p.id)).toEqual(['d'])
+    expect(supersededBy({ ...base, type: 'margin', dateFrom: '2026-11-16' }, [{ ...base, type: 'margin', id: 'e' }])).toEqual([])
   })
 })

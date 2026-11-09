@@ -366,3 +366,19 @@ export function nextMonthGap(programs, today, days = 7) {
   const carry = live.filter(p => overlapsMonth(p, ym)).length
   return carry ? { month: next, carry } : null
 }
+
+// (v1.0.986) ออกแคมเปญใหม่กลางเดือนมาแทนของเดิม (เช่น ไฟแนนซ์ออกเรทรอบ 2) → หาแคมเปญเดิมที่ควรปิด
+// เดิม = ประเภทเดียวกัน ยี่ห้อเดียวกัน (ไฟแนนซ์: บริษัทเดียวกันด้วย) รุ่นทับกัน ยังใช้อยู่ในวันเริ่มของอันใหม่ และเริ่มก่อน
+export function dayBefore(ymd) {
+  const d = new Date(Date.UTC(+ymd.slice(0, 4), +ymd.slice(5, 7) - 1, +ymd.slice(8, 10) - 1))
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`
+}
+export function supersededBy(next, list) {
+  if (!next?.dateFrom || ['margin', 'mgmtfee', 'bonus'].includes(next.type)) return []
+  const models = new Set((next.models || []).map(norm))
+  const sameCars = p => !models.size || !p.models?.length || p.models.some(m => models.has(norm(m)))
+  return (list || []).filter(p => p && !p.deleted && !p.legacy && p.status !== 'draft' && p.id !== next.id
+    && p.type === next.type && norm(p.brand) === norm(next.brand)
+    && (p.type !== 'finance' || norm(p.financeCo) === norm(next.financeCo))
+    && sameCars(p) && p.dateFrom && p.dateFrom < next.dateFrom && (!p.dateTo || p.dateTo >= next.dateFrom))
+}
