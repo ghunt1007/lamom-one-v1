@@ -12,6 +12,7 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
+import './quoteCampaigns.css'
 import { exportToExcel } from '../../utils/importExport.js'
 import { navigate } from '../../core/router.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
@@ -23,6 +24,10 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { programsForCar, carSummary, bestRates, CUSTOMER_TYPES, PROGRAM_TYPES, rangeLabel, normalizeProgram } from '../../utils/salesPrograms.js'
+
+// (v1.0.976) อ่านค่าตัวเลขจากช่อง — ช่องว่างใช้ค่าเริ่มต้น แต่ 0 คือ 0 จริง (เดิม 0% กลายเป็น 2.99%)
+const numIn = (id, dflt = 0) => { const v = document.getElementById(id)?.value; if (v == null || String(v).trim() === '') return dflt; const n = Number(v); return Number.isFinite(n) ? n : dflt }
 
 const QT_STATUS = {
   draft:    { label: 'ร่าง', color: 'secondary' },
@@ -303,6 +308,52 @@ export default async function QuotationBuilderPage(container) {
     const customerId = prefill?.customerId || null
     const matchedVehicle = matchVehicle(prefill?.interestedModel)
     let customAccessories = [] // {name, price} — อุปกรณ์พิมพ์เองนอกแคตตาล็อก
+    // (v1.0.976) แคมเปญที่ใช้ได้วันนี้ (จากหน้า "แคมเปญ & เงื่อนไขขาย") — กดใช้ได้ทันที ไม่ต้องพิมพ์ส่วนลด/ดอกเบี้ยเอง
+    let programs = []
+    let appliedIds = []
+    let appliedFinanceCo = ''
+    listDocs('sales_programs', [], 'dateFrom', 'desc', 1000).then(rows => { programs = rows.filter(r => !r.deleted).map(r => ({ ...normalizeProgram(r), id: r.id })); renderPrograms() }).catch(() => {})
+    function programState() {
+      const v = getVehicles().find(m => m.id === currentVehicleId())
+      if (!v) return null
+      const list = programsForCar(programs, { brand: v.brand, model: v.model, date: todayBangkok(), isManager: false }).filter(p => CUSTOMER_TYPES.includes(p.type))
+      const s = carSummary(list)
+      const gross = (v.price || 0) + numIn('qf-regfee') - s.customerCash - numIn('qf-tradein')
+      const downPct = gross > 0 ? Math.round(numIn('qf-down') / gross * 100) : 0
+      const best = bestRates(list, { down: numIn('qf-down') ? downPct : null, months: numIn('qf-term', 60) })[0] || null
+      return { list, s, best, downPct }
+    }
+    function renderPrograms() {
+      const box = document.getElementById('qf-programs')
+      if (!box) return
+      const st = programState()
+      if (!st || !st.list.length) { box.innerHTML = programs.length ? '<div class="qf-pg-empty">ยังไม่มีแคมเปญที่ใช้ได้วันนี้สำหรับรุ่นนี้</div>' : ''; return }
+      const { list, s, best } = st
+      const html = `<div class="qf-pg-h">🎯 แคมเปญที่ใช้ได้วันนี้ <small>${list.length} รายการ</small></div>
+        ${list.map(p => `<div class="qf-pg-i"><span>${PROGRAM_TYPES[p.type].icon}</span><div><b>${escHtml(p.title)}</b><small>${[p.amount && p.type !== 'finance' ? 'ลด ' + formatCurrency(p.amount) : '', p.gift ? 'แถม ' + escHtml(p.gift) : '', p.type === 'finance' && p.rates?.length ? escHtml(p.financeCo) + ' ' + p.rates.map(r => `${r.rate}% (ดาวน์ ${r.down}% ${r.months} งวด)`).slice(0, 3).join(', ') : '', escHtml(rangeLabel(p))].filter(Boolean).join(' · ')}</small></div></div>`).join('')}
+        <div class="qf-pg-sum">${s.customerCash ? `ส่วนลดรวม <b>${formatCurrency(s.customerCash)}</b>` : ''}${best ? ` · ดอกเบี้ยดีสุด <b>${best.rate}%</b> ${escHtml(best.financeCo || '')}` : ''}${s.gifts.length ? ` · แถม ${escHtml(s.gifts.join(', '))}` : ''}</div>
+`
+      // ปุ่มสร้างครั้งเดียว วาดใหม่แค่ส่วนรายละเอียด — ไม่งั้นกดปุ่มหลังพิมพ์ช่องดาวน์ ปุ่มถูกแทนที่ตอน blur แล้วกดไม่ติด
+      if (!box.querySelector('.qf-pg')) {
+        box.innerHTML = '<div class="qf-pg"><div class="qf-pg-body"></div><button type="button" class="btn btn-sm btn-primary" id="qf-pg-apply">✨ ใช้แคมเปญทั้งหมด</button></div>'
+        box.querySelector('#qf-pg-apply').addEventListener('click', applyPrograms)
+      }
+      const body = box.querySelector('.qf-pg-body')
+      if (body.__html !== html) { body.innerHTML = html; body.__html = html }
+    }
+    function applyPrograms() {
+      {
+        const cur = programState(); if (!cur) return
+        if (cur.s.customerCash) document.getElementById('qf-discount').value = cur.s.customerCash
+        if (cur.best) { document.getElementById('qf-rate').value = cur.best.rate; appliedFinanceCo = cur.best.financeCo || '' }
+        const notes = document.getElementById('qf-notes')
+        const giftTxt = cur.s.gifts.length ? 'แถม ' + cur.s.gifts.join(', ') : ''
+        if (giftTxt && notes && !notes.value.includes(giftTxt)) notes.value = [notes.value.trim(), giftTxt].filter(Boolean).join(' · ')
+        appliedIds = cur.list.map(p => p.id).filter(Boolean)
+        updateSummary()
+        showToast('✅ ใส่ส่วนลด/ดอกเบี้ย/ของแถมจากแคมเปญแล้ว', 'success')
+      }
+    }
 
     function currentVehicleId() { return document.getElementById('qf-vehicle')?.value }
 
@@ -376,7 +427,9 @@ export default async function QuotationBuilderPage(container) {
         ${row('ส่วนลด', discount ? ('- ' + formatCurrency(discount)) : '-')}
         ${row('เทิร์นอิน', tradeIn ? ('- ' + formatCurrency(tradeIn)) : '-')}
         <div style="display:flex;justify-content:space-between;padding-top:6px;font-weight:700;font-size:0.9rem"><span>ราคาสุทธิ</span><span style="color:var(--success)">${formatCurrency(finalPrice)}</span></div>
+        ${(() => { const down = numIn('qf-down'), term = numIn('qf-term', 60), rate = numIn('qf-rate', 2.99), loan = finalPrice - down; return loan > 0 && down > 0 ? `<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:2px 8px;padding-top:4px;font-size:0.82rem"><span>ยอดจัด ${formatCurrency(loan)} · ${term} งวด · ${rate}%</span><b>งวดละ ~${formatCurrency(Math.round(loan * (1 + rate / 100 * term / 12) / term))}</b></div>` : '' })()}
       `
+      renderPrograms()
     }
 
     openModal({
@@ -399,6 +452,7 @@ export default async function QuotationBuilderPage(container) {
           <div class="input-group"><label class="input-label">เงินดาวน์ (บาท)</label><input type="number" class="input" id="qf-down" placeholder="200000"></div>
           <div class="input-group"><label class="input-label">ระยะผ่อน (เดือน)</label><select class="input" id="qf-term"><option>48</option><option selected>60</option><option>72</option></select></div>
           <div class="input-group"><label class="input-label">ดอกเบี้ย (%/ปี)</label><input type="number" class="input" id="qf-rate" value="2.99" step="0.01"></div>
+          <div id="qf-programs" style="grid-column:1/-1"></div>
 
           <div class="input-group" style="grid-column:1/-1">
             <label class="input-label">อุปกรณ์เสริม (จากรายการ) — ราคาอาจต่างกันตามรุ่นรถที่เลือก</label>
@@ -440,19 +494,19 @@ export default async function QuotationBuilderPage(container) {
         if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
         const vehicleId = document.getElementById('qf-vehicle')?.value
         const vehicle = getVehicles().find(m => m.id === vehicleId)
-        const regFee = +document.getElementById('qf-regfee')?.value || 0
-        const discount = +document.getElementById('qf-discount')?.value || 0
-        const tradeIn = +document.getElementById('qf-tradein')?.value || 0
-        const downPayment = +document.getElementById('qf-down')?.value || 0
-        const term = +document.getElementById('qf-term')?.value || 60
-        const rate = +document.getElementById('qf-rate')?.value || 2.99
+        const regFee = numIn('qf-regfee')
+        const discount = numIn('qf-discount')
+        const tradeIn = numIn('qf-tradein')
+        const downPayment = numIn('qf-down')
+        const term = numIn('qf-term', 60) || 60
+        const rate = numIn('qf-rate', 2.99)
         const { paid, free } = collectCatalogAcc(vehicleId)
         const customItems = customAccessories.map(c => ({ id: null, name: c.name, price: c.price, free: false, source: 'custom' }))
         const accessories = [...paid, ...free, ...customItems]
         const accTotal = paid.reduce((a, i) => a + i.price, 0) + customItems.reduce((a, i) => a + i.price, 0)
         const finalPrice = (vehicle?.price || 0) + regFee + accTotal - discount - tradeIn
         const loanAmount = finalPrice - downPayment
-        const monthly = Math.round(loanAmount * (1 + rate / 100 * term / 12) / term)
+        const monthly = loanAmount > 0 ? Math.round(loanAmount * (1 + rate / 100 * term / 12) / term) : 0
         try {
           await createDoc('quotations', {
             customerId: customerId || null,
@@ -463,6 +517,7 @@ export default async function QuotationBuilderPage(container) {
             regFee,
             downPayment, term, rate, accessories,
             discount, tradeIn, finalPrice, monthlyPayment: monthly,
+            programIds: appliedIds, financeCo: appliedFinanceCo,
             status: 'draft', createdDate: addDays(0), validUntil: addDays(30),
             salesperson: document.getElementById('qf-sales')?.value || '',
             notes: document.getElementById('qf-notes')?.value || '',

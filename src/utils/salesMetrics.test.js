@@ -22,7 +22,7 @@ describe('sales metrics', () => {
   it('target, GMV and AOV for this month (cancelled excluded)', () => {
     expect(m.units).toEqual({ booked: 2, delivered: 1, cancelled: 1 })
     expect(m.gmv).toBe(2200000)
-    expect(m.target).toEqual({ revenue: 2000000, units: 4, revenuePct: 110, unitsPct: 50 })
+    expect(m.target).toEqual({ revenue: 2000000, units: 4, revenuePct: 110, unitsPct: 50, basis: 'booked' })
     expect(m.aov).toBe(1100000)
   })
   it('GP uses real cost and RevShare finance commission', () => {
@@ -77,5 +77,27 @@ describe('metricsFacts', () => {
     expect(f[0]).toContain('จอง 2 คัน')
     expect(f.some(x => x.includes('เป้า') && x.includes('110%'))).toBe(true)
     expect(metricsFacts(null)).toEqual([])
+  })
+})
+
+describe('per-person quota (v1.0.976)', () => {
+  const s2 = { ...src, personTargets: { 'นายเอ': 2, 'บี': 1, 'ซี': 3 } }
+  it('quota table compares delivered with delivery target', () => {
+    const m = computeSalesMetrics(s2, { today })
+    const by = Object.fromEntries(m.quota.map(q => [q.key, q]))
+    expect(by['เอ']).toMatchObject({ target: 2, delivered: 1, booked: 1, pct: 50, left: 1 })
+    expect(by['บี']).toMatchObject({ target: 1, delivered: 0, booked: 1, pct: 0 })
+    expect(by['ซี']).toMatchObject({ target: 3, delivered: 0, pct: 0 })
+  })
+  it('person view uses their own delivery target', () => {
+    const m = computeSalesMetrics(s2, { today, who: 'เอ' })
+    expect(m.target).toMatchObject({ units: 2, unitsPct: 50, basis: 'delivered' })
+  })
+})
+
+describe('team target falls back to sum of person targets', () => {
+  it('uses delivery basis when no company budget', () => {
+    const m = computeSalesMetrics({ ...src, budget: null, personTargets: { 'เอ': 2, 'บี': 2 } }, { today })
+    expect(m.target).toMatchObject({ units: 4, unitsPct: 25, basis: 'delivered' })
   })
 })

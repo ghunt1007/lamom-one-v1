@@ -78,6 +78,33 @@ export function computeSalesMetrics(src = {}, { today, period = 'month', who = '
     revenue: tgtRev || null, units: tgtUnits || null,
     revenuePct: tgtRev ? Math.round(gmv / tgtRev * 100) : null,
     unitsPct: tgtUnits ? Math.round(booked.length / tgtUnits * 100) : null,
+    basis: 'booked',
+  }
+  // (v1.0.976) เป้ารายคน = เป้าส่งมอบจากหน้า "รายได้รายเซลส์" (sales_targets) รวมทุกเดือนในช่วง — src.personTargets = { 'ชื่อ': คัน }
+  const pt = src.personTargets || {}
+  const ptOf = key => Object.entries(pt).reduce((a, [n, v]) => a + (normName(n) === key ? num(v) : 0), 0)
+  if (who) {
+    const u = ptOf(who)
+    if (u) Object.assign(target, { units: u, unitsPct: Math.round(delivered.length / u * 100), basis: 'delivered' })
+  }
+  // ตารางเป้า/ทำได้รายคน (ดูทั้งทีม) — นับส่งมอบเทียบเป้าส่งมอบ + จองในช่วง
+  const quotaMap = new Map()
+  const qRow = (name) => { const k = normName(name); if (!k) return null; if (!quotaMap.has(k)) quotaMap.set(k, { key: k, name: String(name).trim(), target: 0, delivered: 0, booked: 0 }); return quotaMap.get(k) }
+  Object.entries(pt).forEach(([n, v]) => { const r = qRow(n); if (r) r.target += num(v) })
+  const allValid = live(src.bookings).filter(b => !CANCELLED.includes(b.status))
+  allValid.forEach(b => {
+    const d = inRange(deliveryDay(b), r), k = inRange(bookingDay(b), r)
+    if (!d && !k) return
+    const row = qRow(b.salesName); if (!row) return
+    if (d) row.delivered++
+    if (k) row.booked++
+  })
+  const quota = [...quotaMap.values()].map(q => ({ ...q, pct: q.target ? Math.round(q.delivered / q.target * 100) : null, left: Math.max(0, q.target - q.delivered) }))
+    .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1) || b.delivered - a.delivered || a.name.localeCompare(b.name, 'th'))
+  // ไม่มีเป้าบริษัท แต่มีเป้ารายคน → ใช้ผลรวมเป้าส่งมอบรายคนเป็นเป้าทีม
+  if (!who && !target.units && !target.revenue) {
+    const sumT = quota.reduce((x, q) => x + q.target, 0)
+    if (sumT) Object.assign(target, { units: sumT, unitsPct: Math.round(delivered.length / sumT * 100), basis: 'delivered' })
   }
 
   // Forecast — เดือนปัจจุบัน: จังหวะการจอง × จำนวนวัน + ดีลที่กำลังคุย (มูลค่า × โอกาสปิด ปรับลดครึ่งเพราะไม่ใช่ทุกดีลจะปิดในเดือน)
@@ -186,7 +213,7 @@ export function computeSalesMetrics(src = {}, { today, period = 'month', who = '
   return {
     range: r,
     units: { booked: booked.length, delivered: delivered.length, cancelled: cancelled.length },
-    target, forecast, gmv, grossProfit, revShare, pipeline, conversion, aov, salesCycle, mix, crossSell, upSell, kpi, crm,
+    target, forecast, gmv, grossProfit, revShare, pipeline, conversion, aov, salesCycle, mix, crossSell, upSell, kpi, crm, quota,
     lead: { total: pipeline.lead, new: newCust.filter(c => c.stage === 'lead').length },
     prospect: { total: pipeline.prospect, hot: openCust.filter(c => c.stage === 'pp' && heuristicScore(c).score >= 80).length },
     churn, ltv,

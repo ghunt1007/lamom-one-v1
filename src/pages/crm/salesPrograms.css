@@ -93,3 +93,29 @@
 @media (max-width: 520px) {
   .sp-form { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ผลตอบแทนเดือนนี้ (v1.0.976) */
+.sp-earn { padding: 12px 14px; margin-bottom: 14px; }
+.sp-earn > summary { cursor: pointer; font-weight: 700; font-size: 0.92rem; list-style: none; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.sp-earn > summary::-webkit-details-marker { display: none; }
+.sp-earn > summary::after { content: '▾'; margin-left: auto; color: var(--text-3); }
+.sp-earn:not([open]) > summary::after { content: '▸'; }
+.sp-earn > summary small { font-weight: 400; font-size: 0.74rem; color: var(--text-3); }
+.sp-earn .sp-f-sum { margin-top: 10px; }
+.sp-eb { margin-top: 12px; }
+.sp-eb-h { font-weight: 600; font-size: 0.84rem; margin-bottom: 4px; overflow-wrap: anywhere; }
+.sp-eb-h small { font-weight: 400; color: var(--text-3); font-size: 0.72rem; }
+.sp-er { display: grid; grid-template-columns: minmax(0, 1.3fr) auto minmax(60px, 1fr) minmax(0, 1.2fr); gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 0.8rem; }
+.sp-er:last-child { border-bottom: 0; }
+.sp-er-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-er-u { font-variant-numeric: tabular-nums; color: var(--text-2); white-space: nowrap; }
+.sp-er-m { text-align: right; color: var(--text-2); font-size: 0.76rem; }
+.sp-er-m.ok { color: var(--success); font-weight: 700; }
+.sp-prog { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.sp-prog i { display: block; height: 100%; background: var(--warning); border-radius: 3px; }
+.sp-prog i.ok { background: var(--success); }
+@media (max-width: 520px) {
+  .sp-er { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; }
+  .sp-er .sp-prog { grid-column: 1 / -1; }
+  .sp-er-m { grid-column: 1 / -1; text-align: left; }
+}

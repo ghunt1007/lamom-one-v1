@@ -1,0 +1,12 @@
+/* แคมเปญในฟอร์มใบเสนอราคา (v1.0.976) */
+.qf-pg { border: 1px solid color-mix(in srgb, var(--primary) 40%, var(--border)); background: color-mix(in srgb, var(--primary) 6%, var(--surface)); border-radius: var(--radius-md); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.qf-pg-h { font-weight: 700; font-size: 0.86rem; }
+.qf-pg-h small { font-weight: 400; color: var(--text-3); font-size: 0.74rem; }
+.qf-pg-i { display: flex; gap: 8px; align-items: flex-start; min-width: 0; font-size: 0.8rem; }
+.qf-pg-i > div { min-width: 0; }
+.qf-pg-i b { display: block; }
+.qf-pg-i small { display: block; color: var(--text-3); font-size: 0.74rem; overflow-wrap: anywhere; }
+.qf-pg-sum { font-size: 0.8rem; color: var(--text-2); overflow-wrap: anywhere; }
+.qf-pg .btn { align-self: flex-start; }
+.qf-pg-empty { font-size: 0.76rem; color: var(--text-3); }
+.qf-pg-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }

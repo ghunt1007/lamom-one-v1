@@ -7,7 +7,8 @@ import './salesPrograms.css'
 import { watchDocs, createDoc, updateDocData, softDelete, listDocs } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 import { isManagerRole } from '../../utils/managerRole.js'
-import { myEffectiveCompanyId } from '../../core/companyScope.js'
+import { myEffectiveCompanyId, companyScopeFilters } from '../../core/companyScope.js'
+import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { todayBangkok, formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { escHtml } from '../../utils/escape.js'
@@ -21,7 +22,7 @@ import {
   PROGRAM_TYPES, TYPE_ORDER, CUSTOMER_TYPES, MGMT_ROLES, BONUS_FOR,
   normalizeProgram, validateProgram, overlapsMonth, liveState, daysLeft, rangeLabel, monthBounds, shiftMonth, monthLabelTh,
   sortPrograms, programsForCar, carSummary, copyToNextMonth, monthlyInstallment, canSeeType,
-  fromLegacyRateSheet, fromLegacyPromotion,
+  fromLegacyRateSheet, fromLegacyPromotion, programEarnings, myBonusProgress, COUNT_BY,
 } from '../../utils/salesPrograms.js'
 
 const COL = 'sales_programs'
@@ -80,6 +81,7 @@ export default async function SalesProgramsPage(container) {
         </div>
       </div>
       <div class="sp-chips chip-scroll" id="sp-chips"></div>
+      <div id="sp-earn"></div>
       <div id="sp-list"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>
     </div>`
 
@@ -104,9 +106,16 @@ export default async function SalesProgramsPage(container) {
 
   const all = () => [...programs, ...legacy].filter(p => canSeeType(p.type, isManager))
 
+  // ใบจองจริง (ตามสิทธิ์การมองเห็น) — ใช้คำนวณรางวัล/มาร์จิ้น/ค่าบริหารที่ได้จริงในเดือนนี้
+  let bookings = null
+  Promise.all([getVisibilityScope().catch(() => null), listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => [])])
+    .then(([scope, rows]) => { bookings = rows.filter(b => !b.deleted && scopeIncludesRecord(scope, b.salesName, b)); if (alive() && loaded) renderEarn() })
+  let earnOpen = lsGet('sp-earn-open', '1') === '1'
+
   // ── วาด ──
   function render() {
     renderFinder()
+    renderEarn()
     $('#sp-month').textContent = monthLabelTh(month)
     const inMonth = all().filter(p => overlapsMonth(p, month))
     const counts = Object.fromEntries(visibleTypes.map(t => [t, inMonth.filter(p => p.type === t).length]))
@@ -128,6 +137,41 @@ export default async function SalesProgramsPage(container) {
         <div class="sp-group-h t-${t}"><span>${PROGRAM_TYPES[t].icon} ${PROGRAM_TYPES[t].label}</span><button class="btn btn-ghost btn-sm" data-add="${t}">＋ เพิ่ม</button></div>
         <div class="sp-cards">${shown.filter(p => p.type === t).map(card).join('')}</div>
       </div>`).join('')
+  }
+
+  // ── ผลตอบแทนเดือนนี้ (นับรถจริง) ──
+  function renderEarn() {
+    const box = $('#sp-earn')
+    if (!box) return
+    const relevant = all().filter(p => ['bonus', 'margin', 'mgmtfee'].includes(p.type) && overlapsMonth(p, month) && p.status !== 'draft')
+    if (!relevant.length || !bookings) { box.innerHTML = ''; return }
+    const e = programEarnings(relevant, bookings, { month, staff: getSalesStaff(), isManager })
+    const me = myName('')
+    const bar = (pct, ok) => `<div class="sp-prog"><i class="${ok ? 'ok' : ''}" style="width:${Math.max(3, pct ?? 0)}%"></i></div>`
+    const rowHtml = (p, r) => {
+      const ok = r.earned > 0
+      const msg = ok ? `✅ ได้ ${baht(r.earned)}` : r.target ? `อีก <b>${r.left}</b> คัน ได้ ${baht(p.amount)}` : 'ยังไม่มียอด'
+      return `<div class="sp-er"><div class="sp-er-n">${escHtml(r.name)}</div><div class="sp-er-u">${r.units}${r.target ? `/${r.target}` : ''} คัน</div>${r.target ? bar(r.pct, ok) : '<div></div>'}<div class="sp-er-m${ok ? ' ok' : ''}">${msg}</div></div>`
+    }
+    let body = ''
+    if (isManager) {
+      const bonusTotal = e.bonuses.reduce((a, b) => a + b.total, 0)
+      const tiles = [
+        e.bonuses.length ? `<div class="sp-f-tile"><span>🏆 รางวัลพิเศษที่ได้แล้ว</span><b>${baht(bonusTotal)}</b><small>${e.bonuses.length} รางวัล</small></div>` : '',
+        relevant.some(p => p.type === 'margin') ? `<div class="sp-f-tile is-internal"><span>💹 มาร์จิ้นโชว์รูม</span><b>${baht(e.margin.amount)}</b><small>จาก ${e.margin.units} คัน</small></div>` : '',
+        relevant.some(p => p.type === 'mgmtfee' && p.role !== 'salesManager') ? `<div class="sp-f-tile is-internal"><span>🧑‍💼 ค่าบริหาร ผจก.ทีม</span><b>${baht(e.mgmt.teamManager.amount)}</b><small>จาก ${e.mgmt.teamManager.units} คัน</small></div>` : '',
+        relevant.some(p => p.type === 'mgmtfee' && p.role === 'salesManager') ? `<div class="sp-f-tile is-internal"><span>🧑‍💼 ค่าบริหาร ผจก.ฝ่าย</span><b>${baht(e.mgmt.salesManager.amount)}</b><small>จาก ${e.mgmt.salesManager.units} คัน</small></div>` : '',
+      ].join('')
+      body = `<div class="sp-f-sum">${tiles}</div>` + e.bonuses.map(({ p, rows }) => `
+        <div class="sp-eb"><div class="sp-eb-h">🏆 ${escHtml(p.title)} <small>${escHtml(rangeLabel(p))} · ${escHtml(COUNT_BY[p.countBy] || COUNT_BY.delivered)}</small></div>
+        ${rows.length ? rows.slice(0, 12).map(r => rowHtml(p, r)).join('') + (rows.length > 12 ? `<div class="sp-f-hint">และอีก ${rows.length - 12} คน</div>` : '') : '<div class="sp-f-hint">ยังไม่มียอด</div>'}</div>`).join('')
+    } else {
+      const mine = myBonusProgress(e, me)
+      if (!mine.length) { box.innerHTML = ''; return }
+      body = mine.map(({ p, row }) => `<div class="sp-eb"><div class="sp-eb-h">🏆 ${escHtml(p.title)} <small>${escHtml(rangeLabel(p))}</small></div>${rowHtml(p, { ...row, name: 'ของฉัน' })}</div>`).join('')
+    }
+    box.innerHTML = `<details class="card sp-earn"${earnOpen ? ' open' : ''}><summary>💰 ${isManager ? 'ผลตอบแทนจากแคมเปญ' : 'รางวัลของฉัน'} — ${escHtml(monthLabelTh(month))} <small>นับจากใบจองจริง</small></summary>${body}</details>`
+    box.querySelector('details').addEventListener('toggle', ev => { earnOpen = ev.target.open; lsSet('sp-earn-open', earnOpen ? '1' : '0') })
   }
 
   function stateBadge(p) {
@@ -297,6 +341,7 @@ export default async function SalesProgramsPage(container) {
         <div class="input-group sp-x" data-for="bonus"><label class="input-label">ได้เมื่อขายถึง (คัน · ว่าง = ทุกคัน)</label><input class="input" type="number" id="f-target" value="${v.targetUnits || ''}"></div>
         <div class="input-group sp-x" data-for="bonus"><label class="input-label">ให้ใคร</label><select class="input" id="f-bfor">${Object.entries(BONUS_FOR).map(([k, l]) => `<option value="${k}"${k === v.bonusFor ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
         <div class="input-group sp-x" data-for="bonus"><label class="input-label">ชื่อ (ถ้าเฉพาะคน/ทีม) · ผู้ให้รางวัล</label><div class="sp-form-2"><input class="input" id="f-bowner" list="f-staff-dl" value="${escHtml(v.type === 'bonus' ? v.owner || '' : '')}" placeholder="ชื่อ"><input class="input" id="f-sponsor" value="${escHtml(v.sponsor || '')}" placeholder="เช่น แบรนด์ / โชว์รูม"></div></div>
+        <div class="input-group sp-x" data-for="bonus margin mgmtfee"><label class="input-label">นับยอดจาก</label><select class="input" id="f-countby">${Object.entries(COUNT_BY).map(([k, l]) => `<option value="${k}"${k === (v.countBy || 'delivered') ? ' selected' : ''}>${l}ในช่วงแคมเปญ</option>`).join('')}</select></div>
         <div class="input-group sp-full"><label class="input-label">เงื่อนไข</label><textarea class="input" id="f-cond" rows="3" placeholder="เช่น เฉพาะจองและออกรถภายในเดือนนี้ · สีขาว/ดำ · จำกัด 10 คัน">${escHtml(v.conditions || '')}</textarea></div>
         <label class="sp-full sp-check"><input type="checkbox" id="f-draft"${v.status === 'draft' ? ' checked' : ''}> เก็บเป็นร่าง (ยังไม่ประกาศใช้)</label>
       </div>`,
@@ -331,6 +376,7 @@ export default async function SalesProgramsPage(container) {
         percent: q('#f-pct').value, role: q('#f-role').value,
         owner: t === 'bonus' ? q('#f-bowner').value : q('#f-owner').value,
         bonusFor: q('#f-bfor').value, targetUnits: q('#f-target').value, sponsor: q('#f-sponsor').value,
+        countBy: q('#f-countby').value,
       })
       const err = validateProgram(data)
       if (err) { showToast('❗ ' + err, 'error'); return }
