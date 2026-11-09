@@ -1,6 +1,7 @@
 import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
+import { defaultSalesperson } from '../../utils/defaultSalesperson.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
@@ -56,6 +57,7 @@ function salespersonOptions() {
   const staff = getSalesStaff()
   return [...staff, 'ยังไม่ระบุ']
 }
+
 
 export default async function ShowroomAppointmentPage(container) {
   const myGen = container.__routerGen
@@ -276,7 +278,7 @@ export default async function ShowroomAppointmentPage(container) {
         <div class="grid-2">
           <div class="input-group"><label class="input-label">เซลส์ผู้ดูแล</label>
             <select class="input" id="sa-sales">
-              ${salespersonOptions().map(s => `<option value="${escHtml(s)}" ${appt?.salesperson===s?'selected':''}>${escHtml(s)}</option>`).join('')}
+              ${(() => { const d = appt ? { options: salespersonOptions(), selected: appt.salesperson } : defaultSalesperson(salespersonOptions(), getState('user')?.displayName || '', { addIfMissing: getState('user')?.role === 'sales' }); return d.options.map(s => `<option value="${escHtml(s)}" ${d.selected===s?'selected':''}>${escHtml(s)}</option>`).join('') })()}
             </select>
           </div>
           <div class="input-group"><label class="input-label">ช่องทางที่มา</label>
@@ -291,6 +293,18 @@ export default async function ShowroomAppointmentPage(container) {
       footer: `<button class="btn btn-secondary" id="sa-c">ยกเลิก</button><button class="btn btn-primary" id="sa-s">💾 บันทึก</button>`
     })
     el.querySelector('#sa-c').addEventListener('click', close)
+    // (v1.0.1018) ใส่เบอร์ลูกค้าที่มีในระบบแล้ว → เติมชื่อ/รุ่นที่สนใจให้ (ช่องที่ยังว่างเท่านั้น)
+    if (!appt) el.querySelector('#sa-phone').addEventListener('change', async e => {
+      const phone = e.target.value.trim(); if (phone.replace(/\D/g, '').length < 9) return
+      try {
+        const c = findDuplicate({ phone }, await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 3000))
+        if (!c) return
+        const nm = el.querySelector('#sa-name'), md = el.querySelector('#sa-interest')
+        if (nm && !nm.value.trim()) nm.value = [c.firstName, c.lastName].filter(Boolean).join(' ')
+        if (md && !md.value.trim() && c.interestedModel) md.value = c.interestedModel
+        showToast(`👤 พบลูกค้าในระบบ: ${c.firstName || ''}${c.assignedTo ? ` (ผู้ดูแล ${c.assignedTo})` : ''}`, 'info')
+      } catch {}
+    })
     el.querySelector('#sa-s').addEventListener('click', async (e) => {
       const custName = el.querySelector('#sa-name').value.trim()
       const phone = el.querySelector('#sa-phone').value.trim()
