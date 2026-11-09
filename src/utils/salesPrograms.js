@@ -83,6 +83,7 @@ export function normalizeProgram(raw = {}) {
     p.targetUnits = Math.round(num(raw.targetUnits))
     p.sponsor = str(raw.sponsor)
   }
+  if (['bonus', 'margin', 'mgmtfee'].includes(type)) p.countBy = raw.countBy === 'booked' ? 'booked' : 'delivered'
   return p
 }
 
@@ -264,4 +265,90 @@ export function programLine(p) {
 export function programFacts(list, { today, isManager = false, max = 25 } = {}) {
   const active = sortPrograms((list || []).filter(p => canSeeType(p.type, isManager) && isActiveOn(p, today)))
   return active.slice(0, max).map(programLine)
+}
+
+// ── (v1.0.976) ผลตอบแทนจากแคมเปญ: นับรถจริงจากใบจอง → รางวัลพิเศษ (ความคืบหน้ารายคน) · มาร์จิ้น · ค่าบริหาร ──
+// นับตาม countBy ของแต่ละรายการ: 'delivered' (ส่งมอบ/ตัดตัวเลขในช่วงแคมเปญ — ค่าเริ่มต้น) หรือ 'booked' (วันที่จอง)
+// รถต้องตรงยี่ห้อ/รุ่นของแคมเปญ · ใบจองที่ถอน/ยกเลิกไม่นับ
+const CANCELLED_ST = ['ถอนจอง', 'ยกเลิก']
+const DELIVERED_ST = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
+const NAME_PREFIX = /^(นางสาว|นาง|นาย|น\.ส\.|คุณ|mrs\.?|mr\.?|ms\.?|miss)\s*/i
+export const personKey = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(NAME_PREFIX, '').trim()
+const ymdOf = v => {
+  if (!v) return ''
+  if (typeof v === 'string') return ymdRe.test(v.slice(0, 10)) ? v.slice(0, 10) : ''
+  const d = typeof v.toDate === 'function' ? v.toDate() : (typeof v.seconds === 'number' ? new Date(v.seconds * 1000) : (v instanceof Date ? v : null))
+  if (!d || isNaN(d)) return ''
+  return new Date(d.getTime() + 7 * 3600e3).toISOString().slice(0, 10) // เวลาไทย
+}
+export const COUNT_BY = { delivered: 'นับรถที่ส่งมอบ', booked: 'นับรถที่จอง' }
+export function bookingCountDay(b, countBy = 'delivered') {
+  if (!b || b.deleted || CANCELLED_ST.includes(b.status)) return ''
+  if (countBy === 'booked') return ymdOf(b.bookingDate) || ymdOf(b.createdAt)
+  if (!DELIVERED_ST.includes(b.status)) return ''
+  return ymdOf(b.actualDeliveryDate) || ymdOf(b.cutDate) || ymdOf(b.deliveryDate)
+}
+// ใบจองที่นับเข้าแคมเปญนี้ (ภายในช่วงวันของแคมเปญ ∩ ช่วงที่ดู)
+export function countedBookings(p, bookings, { from = '', to = '' } = {}) {
+  const a = [p.dateFrom, from].filter(Boolean).sort().pop() || ''
+  const z = [p.dateTo, to].filter(Boolean).sort()[0] || ''
+  return (bookings || []).filter(b => {
+    const d = bookingCountDay(b, p.countBy)
+    return d && (!a || d >= a) && (!z || d <= z) && matchesCar(p, b.brand, b.model)
+  })
+}
+const rewardFor = (p, units) => (p.targetUnits ? (units >= p.targetUnits ? p.amount : 0) : p.amount * units)
+
+// คืน { bonuses:[{p, rows:[{name,key,units,target,left,pct,earned}] , total}], margin:{units,amount}, mgmt:{teamManager,salesManager}, perPerson: Map(key→{name,bonus}) }
+// staff = รายชื่อเซลส์ (ชื่อ) ใช้กับรางวัล "เซลส์ทุกคน" ให้คนที่ยังไม่มียอดก็เห็น 0
+export function programEarnings(programs, bookings, { month, staff = [], isManager = false } = {}) {
+  const [from, to] = monthBounds(month)
+  const list = (programs || []).filter(p => !p.deleted && p.status !== 'draft' && overlapsMonth(p, month) && canSeeType(p.type, isManager))
+  const out = { bonuses: [], margin: { units: 0, amount: 0, items: [] }, mgmt: { teamManager: { units: 0, amount: 0 }, salesManager: { units: 0, amount: 0 } }, perPerson: new Map() }
+  const names = new Map()
+  const addName = n => { const k = personKey(n); if (k && !names.has(k)) names.set(k, String(n).trim()) }
+  staff.forEach(addName)
+  ;(bookings || []).forEach(b => addName(b.salesName))
+  list.filter(p => p.type === 'bonus').forEach(p => {
+    const hits = countedBookings(p, bookings, { from, to })
+    let rows = []
+    if (p.bonusFor === 'team' || p.bonusFor === 'manager') {
+      const units = hits.length
+      rows = [{ name: p.bonusFor === 'team' ? (p.owner || 'ทั้งทีม') : (p.owner || 'ผู้จัดการ'), key: '', units }]
+    } else {
+      const by = new Map()
+      hits.forEach(b => { const k = personKey(b.salesName); if (k) by.set(k, (by.get(k) || 0) + 1) })
+      const keys = p.bonusFor === 'person' && p.owner ? [personKey(p.owner)] : [...new Set([...names.keys(), ...by.keys()])]
+      rows = keys.filter(Boolean).map(k => ({ name: names.get(k) || (p.owner || k), key: k, units: by.get(k) || 0 }))
+    }
+    rows = rows.map(r => {
+      const target = p.targetUnits || 0
+      const earned = rewardFor(p, r.units)
+      return { ...r, target, left: target ? Math.max(0, target - r.units) : 0, pct: target ? Math.min(100, Math.round(r.units / target * 100)) : null, earned }
+    }).sort((a, b) => b.earned - a.earned || b.units - a.units || a.name.localeCompare(b.name, 'th'))
+    rows.forEach(r => { if (r.key) { const pp = out.perPerson.get(r.key) || { name: r.name, bonus: 0 }; pp.bonus += r.earned; out.perPerson.set(r.key, pp) } })
+    out.bonuses.push({ p, rows, total: rows.reduce((a, r) => a + r.earned, 0) })
+  })
+  list.filter(p => p.type === 'margin').forEach(p => {
+    const hits = countedBookings(p, bookings, { from, to })
+    const amount = hits.reduce((a, b) => a + (p.amount || 0) + (p.percent ? num(b.price) * p.percent / 100 : 0), 0)
+    out.margin.units += hits.length
+    out.margin.amount += amount
+    out.margin.items.push({ p, units: hits.length, amount: Math.round(amount) })
+  })
+  list.filter(p => p.type === 'mgmtfee').forEach(p => {
+    const hits = countedBookings(p, bookings, { from, to })
+    const m = out.mgmt[p.role] || out.mgmt.teamManager
+    m.units += hits.length
+    m.amount += hits.length * (p.amount || 0)
+  })
+  out.margin.amount = Math.round(out.margin.amount)
+  return out
+}
+
+// ความคืบหน้ารางวัลของคนเดียว (ใช้ใน "งานของฉัน"/LAMI) — คืนเฉพาะรายการที่ยังไม่ได้และมีเป้า หรือได้แล้ว
+export function myBonusProgress(earn, name) {
+  const k = personKey(name)
+  if (!k) return []
+  return earn.bonuses.map(({ p, rows }) => ({ p, row: rows.find(r => r.key === k) })).filter(x => x.row)
 }

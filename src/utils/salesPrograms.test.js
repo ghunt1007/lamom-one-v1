@@ -133,3 +133,40 @@ describe('misc', () => {
     expect([p.dateFrom, p.dateTo, p.financeCo, p.legacy]).toEqual(['2026-07-01', '2026-07-31', 'SCB', '/finance/rate-sheets'])
   })
 })
+
+import { programEarnings, bookingCountDay, countedBookings, myBonusProgress } from './salesPrograms.js'
+describe('programEarnings (v1.0.976)', () => {
+  const bk = (salesName, status, deliveryDate, model = 'S07', extra = {}) => ({ salesName, status, deliveryDate, bookingDate: '2026-11-02', brand: 'DEEPAL', model, price: 1000000, ...extra })
+  const bookings = [
+    bk('นายเอ', 'ส่งมอบแล้ว', '2026-11-03'), bk('เอ', 'ส่งมอบแล้ว', '2026-11-10'), bk('เอ', 'ส่งมอบแล้ว', '2026-11-11', 'L07'),
+    bk('บี', 'ส่งมอบแล้ว', '2026-11-05'), bk('บี', 'ถอนจอง', '2026-11-05'), bk('บี', 'รอรถ', ''),
+    bk('ซี', 'ส่งมอบแล้ว', '2026-10-30'),
+  ]
+  const base = { dateFrom: '2026-11-01', dateTo: '2026-11-30', brand: 'DEEPAL', models: ['S07'], status: 'active' }
+  it('counts delivered units per person, skips cancelled and other models', () => {
+    const e = programEarnings([{ ...base, type: 'bonus', title: 'ขาย 2 คันรับ 5,000', amount: 5000, targetUnits: 2, bonusFor: 'all' }], bookings, { month: '2026-11', staff: ['ดี'] })
+    const rows = e.bonuses[0].rows
+    expect(rows.find(r => r.key === 'เอ')).toMatchObject({ units: 2, earned: 5000, left: 0 })
+    expect(rows.find(r => r.key === 'บี')).toMatchObject({ units: 1, earned: 0, left: 1, pct: 50 })
+    expect(rows.find(r => r.key === 'ดี')).toMatchObject({ units: 0, earned: 0 })
+    expect(e.bonuses[0].total).toBe(5000)
+    expect(myBonusProgress(e, 'คุณเอ')[0].row.earned).toBe(5000)
+  })
+  it('no target = amount per unit; booked mode counts booking date', () => {
+    const e = programEarnings([{ ...base, type: 'bonus', title: 'คันละ 1,000', amount: 1000, bonusFor: 'person', owner: 'บี', countBy: 'booked' }], bookings, { month: '2026-11' })
+    expect(e.bonuses[0].rows).toEqual([expect.objectContaining({ key: 'บี', units: 2, earned: 2000 })])
+  })
+  it('margin and management fee from delivered units (managers only)', () => {
+    const progs = [{ ...base, models: [], type: 'margin', title: 'm', amount: 10000, percent: 1 }, { ...base, models: [], type: 'mgmtfee', role: 'salesManager', title: 'f', amount: 2000 }]
+    const e = programEarnings(progs, bookings, { month: '2026-11', isManager: true })
+    expect(e.margin.units).toBe(4)
+    expect(e.margin.amount).toBe(4 * 20000)
+    expect(e.mgmt.salesManager).toEqual({ units: 4, amount: 8000 })
+    expect(programEarnings(progs, bookings, { month: '2026-11', isManager: false }).margin.units).toBe(0)
+  })
+  it('bookingCountDay handles timestamps and status', () => {
+    expect(bookingCountDay({ status: 'รอรถ', deliveryDate: '2026-11-01' })).toBe('')
+    expect(bookingCountDay({ status: 'ส่งมอบแล้ว', deliveryDate: { seconds: Date.UTC(2026, 10, 1, 20) / 1000 } })).toBe('2026-11-02')
+    expect(countedBookings({ ...base, models: [] }, bookings, { from: '2026-11-04', to: '2026-11-30' }).length).toBe(3)
+  })
+})

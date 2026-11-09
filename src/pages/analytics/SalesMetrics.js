@@ -3,7 +3,8 @@
 // Cross-sell · Up-sell · CRM · Lead · Prospect · Churn · LTV — ทุกตัวมาจากข้อมูลจริง (utils/salesMetrics.js)
 // แตะ ⓘ อ่านความหมาย · "ดูละเอียด" ไปหน้าที่มีอยู่แล้วของเรื่องนั้น (ไม่สร้างหน้าซ้ำ)
 import './salesMetrics.css'
-import { listDocs } from '../../core/db.js'
+import { listDocs, readDoc } from '../../core/db.js'
+import { SALES_TARGETS_COLLECTION } from '../../utils/salesTargets.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { todayBangkok, formatCurrency } from '../../utils/format.js'
@@ -11,7 +12,7 @@ import { escHtml as esc } from '../../utils/escape.js'
 import { navigate } from '../../core/router.js'
 import { loadSalesBudget } from '../../utils/salesBudget.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
-import { computeSalesMetrics, METRIC_INFO, normName } from '../../utils/salesMetrics.js'
+import { computeSalesMetrics, METRIC_INFO, normName, periodRange } from '../../utils/salesMetrics.js'
 
 const PERIODS = { month: 'เดือนนี้', prev: 'เดือนก่อน', quarter: 'ไตรมาสนี้', year: 'ปีนี้' }
 const lsGet = (k, d) => { try { return localStorage.getItem(k) ?? d } catch { return d } }
@@ -85,6 +86,27 @@ export default async function SalesMetricsPage(container) {
   const link = (path, label = 'ดูละเอียด') => `<button type="button" class="sm-link" data-nav="${path}">${label} ›</button>`
   const bar = (p, cls = '') => p == null ? '' : `<div class="sm-prog ${cls}"><i style="width:${Math.max(2, Math.min(100, p))}%" class="${p >= 100 ? 'ok' : p >= 70 ? 'mid' : ''}"></i></div>`
 
+  // เป้ารายคน/ทีม (ส่งมอบ) — จาก sales_targets ของแต่ละเดือนในช่วงที่ดู
+  const tgtCache = {}
+  async function loadPersonTargets() {
+    const r = periodRange(period, today)
+    const months = (r.fullMonths || r.months).map(m => `${r.year}-${String(m).padStart(2, '0')}`)
+    const docs = await Promise.all(months.map(ym => ym in tgtCache ? tgtCache[ym] : readDoc(SALES_TARGETS_COLLECTION, ym).then(d => (tgtCache[ym] = d?.targets || {})).catch(() => (tgtCache[ym] = {}))))
+    const merged = {}
+    docs.forEach(t => Object.entries(t || {}).forEach(([n, v]) => { merged[n] = (merged[n] || 0) + (Number(v) || 0) }))
+    src.personTargets = merged
+  }
+  function quotaHtml(m) {
+    const rows = m.quota.filter(q => (q.target || q.delivered || q.booked) && scopeIncludesRecord(scope, q.name, null))
+    const withT = rows.filter(q => q.target)
+    if (!withT.length) return `<div class="sm-card sm-wide sm-quota"><div class="sm-th"><span><b>Quota</b> เป้ารายคน</span></div><div class="sm-s">ยังไม่ได้ตั้งเป้าส่งมอบรายคน${PERIODS[period] ? 'ใน' + esc(PERIODS[period]) : ''} — ตั้งครั้งเดียวต่อเดือน แล้วทุกคนเห็นว่าขาดอีกกี่คัน</div>${link('/crm/sales-income', 'ตั้งเป้ารายคน')}</div>`
+    const tot = rows.reduce((a, q) => ({ t: a.t + q.target, d: a.d + q.delivered, b: a.b + q.booked }), { t: 0, d: 0, b: 0 })
+    return `<div class="sm-card sm-wide sm-quota"><div class="sm-th"><span><b>Quota</b> เป้าส่งมอบรายคน · ${esc(PERIODS[period])}</span></div>
+      <div class="sm-q-r sm-q-tot"><div class="sm-q-n">👥 รวมทีม</div><div class="sm-q-u"><b>${tot.d}</b>/${tot.t} คัน</div>${bar(tot.t ? Math.round(tot.d / tot.t * 100) : 0)}<div class="sm-q-m">${tot.t ? Math.round(tot.d / tot.t * 100) + '%' : '—'} · จอง ${tot.b}</div></div>
+      ${rows.slice(0, 40).map(q => `<div class="sm-q-r"><div class="sm-q-n">${esc(q.name)}</div><div class="sm-q-u"><b>${q.delivered}</b>/${q.target || '—'} คัน</div>${q.target ? bar(q.pct) : '<div></div>'}<div class="sm-q-m">${q.target ? (q.left ? `ขาด ${q.left}` : '✅ ถึงเป้า') : 'ไม่มีเป้า'} · จอง ${q.booked}</div></div>`).join('')}
+      ${link('/crm/sales-income', 'ตั้ง/แก้เป้ารายคน')}</div>`
+  }
+
   function render() {
     container.querySelectorAll('.sm-seg [data-p]').forEach(b => b.classList.toggle('on', b.dataset.p === period))
     const m = computeSalesMetrics(src, { today, period, who })
@@ -95,18 +117,22 @@ export default async function SalesMetricsPage(container) {
     $('#sm-body').innerHTML = empty ? `<div class="empty-state"><div class="empty-icon">📐</div><div class="empty-title">ยังไม่มีใบจองหรือลูกค้าในระบบ</div><div class="empty-desc">พอมีข้อมูลจากหน้าลูกค้า/จองรถ ตัวชี้วัดจะขึ้นเองทั้งหมด</div></div>` : `
       <div class="sm-sec"><div class="sm-sh">🎯 เป้า & คาดการณ์</div><div class="sm-grid">
         <div class="sm-card">${head('target')}
-          ${m.target.units || m.target.revenue ? `
+          ${m.target.basis === 'delivered' ? `
+            <div class="sm-v">${m.units.delivered}<small> / ${m.target.units} คัน (ส่งมอบ)</small></div>${bar(m.target.unitsPct)}
+            <div class="sm-s">${m.target.unitsPct >= 100 ? '✅ ถึงเป้าแล้ว' : `ขาดอีก ${Math.max(0, m.target.units - m.units.delivered)} คัน`} · จองในช่วงนี้ ${m.units.booked} คัน</div>`
+            : m.target.units || m.target.revenue ? `
             <div class="sm-v">${m.units.booked}<small> / ${m.target.units ?? '—'} คัน</small></div>${bar(m.target.unitsPct)}
             <div class="sm-s">ยอดจอง ${short(m.gmv)} จากเป้า ${short(m.target.revenue)} (${pct(m.target.revenuePct)})</div>`
-            : `<div class="sm-v sm-muted">${who ? 'เป้ารายคนยังไม่มี' : 'ยังไม่ได้ตั้งเป้า'}</div><div class="sm-s">${who ? 'ดูเป้ารวมได้ที่ “ทั้งทีม”' : 'ตั้งเป้ารายเดือนครั้งเดียว ใช้ได้ทั้งปี'}</div>`}
-          ${link('/finance/sales-budget', who ? 'หน้าเป้ายอดขาย' : 'ตั้ง/แก้เป้า')}</div>
+            : `<div class="sm-v sm-muted">${who ? 'ยังไม่ได้ตั้งเป้าคนนี้' : 'ยังไม่ได้ตั้งเป้า'}</div><div class="sm-s">${who ? 'หัวหน้าตั้งเป้าส่งมอบรายคนได้ที่หน้า “รายได้รายเซลส์”' : 'ตั้งเป้ารายเดือนครั้งเดียว ใช้ได้ทั้งปี'}</div>`}
+          ${who ? link('/crm/sales-income', 'ตั้งเป้ารายคน') : link('/finance/sales-budget', 'ตั้ง/แก้เป้า')}</div>
         <div class="sm-card">${head('forecast')}
           ${m.forecast ? `<div class="sm-v">${m.forecast.units}<small> คัน · ${short(m.forecast.revenue)}</small></div>
             <div class="sm-s">ผ่านไป ${m.forecast.daysPassed}/${m.forecast.daysInMonth} วัน · จังหวะตอนนี้ ~${m.forecast.pace} คัน · ดีลที่คุยอยู่คิดเป็น ~${m.forecast.pipelineUnits} คัน</div>
             ${m.target.units ? bar(Math.round(m.forecast.units / m.target.units * 100)) + `<div class="sm-s">${m.forecast.units >= m.target.units ? '✅ คาดว่าถึงเป้า' : `⚠️ คาดว่าขาดเป้า ${m.target.units - m.forecast.units} คัน`}</div>` : ''}`
             : '<div class="sm-v sm-muted">ดูได้เฉพาะ “เดือนนี้”</div>'}
           ${link('/analytics/forecast')}</div>
-      </div></div>
+      </div>
+      ${!who ? quotaHtml(m) : ''}</div>
 
       <div class="sm-sec"><div class="sm-sh">💰 ยอดขาย & กำไร</div><div class="sm-grid">
         <div class="sm-card">${head('gmv')}<div class="sm-v">${short(m.gmv)}</div><div class="sm-s">${m.units.booked} ใบจอง${m.units.cancelled ? ` · ถอนจอง ${m.units.cancelled}` : ''}</div></div>
@@ -156,7 +182,7 @@ export default async function SalesMetricsPage(container) {
   }
 
   // ── เหตุการณ์ ──
-  container.querySelector('.sm-seg').addEventListener('click', e => { const b = e.target.closest('[data-p]'); if (b) { period = b.dataset.p; lsSet('sm-period', period); render() } })
+  container.querySelector('.sm-seg').addEventListener('click', async e => { const b = e.target.closest('[data-p]'); if (b) { period = b.dataset.p; lsSet('sm-period', period); await loadPersonTargets(); if (alive()) render() } })
   sel.addEventListener('change', () => { who = sel.value; render() })
   $('#sm-body').addEventListener('click', e => {
     const i = e.target.closest('[data-info]')
@@ -173,5 +199,7 @@ export default async function SalesMetricsPage(container) {
     const q = `สรุปตัวชี้วัดการขาย${PERIODS[period]}${who ? ' ของ ' + (names.find(x => x[0] === who)?.[1] || '') : ''} ให้หน่อย: จอง ${m.units.booked} คัน เป้า ${m.target.units ?? '-'} คัน, GMV ${Math.round(m.gmv)}, AOV ${m.aov ?? '-'}, GP ${m.grossProfit.pct ?? '-'}%, อัตราปิด ${m.conversion.pct ?? '-'}%, วงจรขาย ${m.salesCycle.avg ?? '-'} วัน, Lead ${m.lead.total} Prospect ${m.prospect.total}, ขายพ่วง ${m.crossSell.pct ?? '-'}%, อัปเซล ${m.upSell.pct ?? '-'}%, ลูกค้าหาย ${m.churn.pct ?? '-'}% — จุดไหนดี จุดไหนต้องแก้ และควรทำอะไร 3 ข้อสัปดาห์นี้`
     navigate('/ai/ask?q=' + encodeURIComponent(q))
   })
+  await loadPersonTargets()
+  if (!alive()) return
   render()
 }

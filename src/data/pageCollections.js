@@ -30,6 +30,7 @@ export const PAGE_COLLECTIONS = {
   "customers"
  ],
  "/crm/programs": [
+  "bookings",
   "finance_rate_sheets",
   "promotions",
   "sales_programs"
@@ -417,7 +418,8 @@ export const PAGE_COLLECTIONS = {
   "vehicles"
  ],
  "/crm/quotation": [
-  "quotations"
+  "quotations",
+  "sales_programs"
  ],
  "/settings/audit": [],
  "/settings/errors": [],
