@@ -463,15 +463,16 @@ async function buildReportText(env, accessToken) {
   const fuFields = ['dueDate', 'status', 'customerId', 'updatedAt', 'deleted']
   const [bookings, customers, fuPending, fuDone, testDrives, teamTargets] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deliveryDate', 'deliveryTime', 'custName', 'model', 'cancelReason', 'deleted']),
-    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'assignedTo', 'temperature', 'isLost', 'lostAt', 'lostReason', 'lastContactAt', 'deleted']),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'assignedTo', 'temperature', 'isLost', 'lostAt', 'lostReason', 'lastContactAt', 'eventId', 'deleted']),
     // แยกดึงนัดค้าง/นัดที่ทำแล้ว — ถ้าดึงรวมแบบจำกัดจำนวน พอนัดอัตโนมัติสะสมเยอะจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, fuFields, ['status', 'pending']),
     runQuery(env, accessToken, 'followups', null, null, 5000, fuFields, ['status', 'done']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'deleted']),
     runQuery(env, accessToken, 'team_targets', null, null, 500, ['period', 'metric', 'target']),
   ])
+  const events = await runQuery(env, accessToken, 'marketing_events', null, null, 300, ['title', 'venue', 'startDate', 'endDate', 'status', 'targetLeads', 'deleted']).catch(() => [])
   const followups = [...fuPending, ...fuDone]
-  return buildReport({ bookings, customers, followups, testDrives, teamTargets }, {
+  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events }, {
     today: todayBangkok(),
     time: new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }).format(new Date()),
     defaultTarget: parseInt(env.MONTHLY_DELIVERY_TARGET) || 0,
@@ -499,6 +500,22 @@ export function vsLast(cur, prev, lm) {
   if (!cur && !prev) return ''
   const diff = cur - prev
   return ` (1–${lm.days} เดือนก่อน ${prev}${diff ? ` ${diff > 0 ? '▲' : '▼'}${Math.abs(diff)}` : ' เท่ากัน'})`
+}
+
+// (v1.0.994) งานออกบูธที่จัดอยู่วันนี้: Lead วันนี้/รวมทั้งงาน แยกรายคน (ใช้ eventId ที่ติดตอนกด ➕ Lead ระหว่างงาน)
+export function boothTodayLines(events, customers, today) {
+  const out = []
+  ;(events || []).filter(e => e && !e.deleted && e.status !== 'cancelled' && e.startDate && e.startDate.slice(0, 10) <= today && (e.endDate || e.startDate).slice(0, 10) >= today)
+    .forEach(e => {
+      const all = (customers || []).filter(c => c && !c.deleted && c.eventId === e.id)
+      const todays = all.filter(c => toBangkokDate(c.createdAt) === today)
+      const by = {}
+      todays.forEach(c => { const n = (c.assignedTo || '').trim() || '(ไม่ระบุ)'; by[n] = (by[n] || 0) + 1 })
+      const who = Object.entries(by).sort((a, b) => b[1] - a[1]).map(([n, v]) => `${n} ${v}`).join(' · ')
+      out.push(`  • ${e.title || 'งานออกบูธ'}${e.venue ? ` @ ${e.venue}` : ''}: Lead วันนี้ ${todays.length} ราย · รวมทั้งงาน ${all.length}${Number(e.targetLeads) ? `/${Number(e.targetLeads)}` : ''}`)
+      if (who) out.push(`    ${who}`)
+    })
+  return out
 }
 
 export function buildReport(data, { today, time, defaultTarget = 0 }) {
@@ -614,6 +631,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     `  • Follow-up วันนี้: ${followUpToday} ราย`,
     followUpOverdue ? `  • ⚠️ Follow-up เลยกำหนด: ${followUpOverdue} ราย` : null,
     `  • ทดลองขับวันนี้: ${testDriveToday} ราย`,
+    ...(() => { const b = boothTodayLines(data.events, customers, today); return b.length ? ['', '🎪 ออกบูธวันนี้', ...b] : [] })(),
     '',
     '📋 การจอง',
     `  • จองใหม่วันนี้: ${newBkToday} คัน`,

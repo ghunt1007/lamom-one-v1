@@ -1272,3 +1272,28 @@ describe('รางวัลพิเศษในข้อความ LINE (v1.
     expect(t).not.toContain('🎯 เป้าเดือนนี้')
   })
 })
+
+describe('ออกบูธวันนี้ในรายงาน 18:00 (v1.0.994)', async () => {
+  const { boothTodayLines, buildReport } = await import('./daily-report.js')
+  const events = [
+    { id: 'ex', title: 'Motor Expo', venue: 'อิมแพ็ค', startDate: '2026-11-07', endDate: '2026-11-12', targetLeads: 150 },
+    { id: 'old', title: 'งานเก่า', startDate: '2026-10-01', endDate: '2026-10-02' },
+  ]
+  const customers = [
+    { id: 'a', eventId: 'ex', assignedTo: 'เซลส์ ก', createdAt: '2026-11-09T03:00:00Z', stage: 'lead' },
+    { id: 'b', eventId: 'ex', assignedTo: 'เซลส์ ก', createdAt: '2026-11-09T05:00:00Z', stage: 'lead' },
+    { id: 'c', eventId: 'ex', assignedTo: 'เซลส์ ข', createdAt: '2026-11-08T05:00:00Z', stage: 'lead' },
+  ]
+  it('เฉพาะงานที่จัดอยู่วันนี้ · แยกรายคน', () => {
+    expect(boothTodayLines(events, customers, '2026-11-09')).toEqual([
+      '  • Motor Expo @ อิมแพ็ค: Lead วันนี้ 2 ราย · รวมทั้งงาน 3/150',
+      '    เซลส์ ก 2',
+    ])
+    expect(boothTodayLines(events, customers, '2026-11-20')).toEqual([])
+  })
+  it('อยู่ในรายงาน 18:00', () => {
+    const t = buildReport({ bookings: [], customers, followups: [], testDrives: [], teamTargets: [], events }, { today: '2026-11-09', time: '18:00' })
+    expect(t).toContain('🎪 ออกบูธวันนี้')
+    expect(buildReport({ bookings: [], customers, followups: [], testDrives: [], teamTargets: [] }, { today: '2026-11-09', time: '18:00' })).not.toContain('🎪')
+  })
+})
