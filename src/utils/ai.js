@@ -684,3 +684,17 @@ function buildPrompt(msg, context) {
 function generateFallbackReply() {
   return 'LAMI ต้องล็อกอินก่อนถึงจะตอบจากข้อมูลจริงได้ครับ 🤖'
 }
+
+// ── (v1.0.985) อ่านบัตรประชาชนไทย → กรอกชื่อ/ที่อยู่/เลขบัตรในใบจองให้ ──
+// ส่งรูปไปอ่านอย่างเดียว ไม่เก็บรูปไว้ที่ไหน · ผลลัพธ์ผ่าน parseIdCardReply (ตรวจหลักเลขบัตร) ก่อนกรอก
+const ID_CARD_PROMPT = `อ่านรูปบัตรประจำตัวประชาชนไทยที่แนบมา แล้วตอบเป็น JSON object เดียวเท่านั้น:
+{"title":"คำนำหน้า เช่น นาย/นาง/นางสาว","firstName":"ชื่อ ภาษาไทย","lastName":"นามสกุล ภาษาไทย","nid":"เลขประจำตัวประชาชน 13 หลัก ตัวเลขล้วน","address":"ที่อยู่ตามบัตรทั้งบรรทัด ภาษาไทย","province":"จังหวัด (ไม่ต้องมี จ.)","birthDate":"วันเกิด YYYY-MM-DD ปี พ.ศ. ตามบัตร"}
+อ่านไม่ชัดช่องไหนให้ใส่ "" ห้ามเดา · ถ้าไม่ใช่บัตรประชาชนไทยให้ตอบ {}`
+
+export async function analyzeIdCard(imageBase64, mimeType = 'image/jpeg') {
+  const data = await callProxy('/generate', {
+    contents: [{ role: 'user', parts: [{ inlineData: { mimeType, data: imageBase64 } }, { text: ID_CARD_PROMPT }] }],
+    generationConfig: { maxOutputTokens: 2000, temperature: 0 },
+  })
+  return answerText(data) || '{}'
+}
