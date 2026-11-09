@@ -49,3 +49,15 @@ describe('ค่าโฆษณาต่อบัญชี (v1.0.996)', () => {
     expect(spendSummary(acc, {}, '2026-11')).toMatchObject({ cpl: null, cpb: null })
   })
 })
+
+import { accountFacts } from './socialAccounts.js'
+describe('accountFacts (v1.0.997)', () => {
+  it('บอก Lead/จอง/ค่าโฆษณาต่อบัญชี ข้ามบัญชีที่ไม่มีอะไร', () => {
+    const acc = [{ id: 'a', name: 'เพจทีม', platform: 'facebook', level: 'team', spend: { '2026-11': 3000 } }, { id: 'b', name: 'TikTok หนึ่ง', platform: 'tiktok', level: 'sales', owner: 'หนึ่ง' }, { id: 'c', name: 'เงียบ', platform: 'line' }]
+    const f = accountFacts(acc, { a: { leads: 6, booked: 2 }, b: { leads: 9, booked: 1 } }, '2026-11')
+    expect(f[0]).toBe('TikTok หนึ่ง (tiktok · ของเซลส์ · หนึ่ง): Lead 9 จอง 1')
+    expect(f[1]).toBe('เพจทีม (facebook · ของทีม): Lead 6 จอง 2 · ค่าโฆษณา ฿3,000 = ฿500/Lead · ฿1,500/จอง')
+    expect(f[2]).toContain('รวมบัญชีที่ยิงแอด 1 บัญชี')
+    expect(f.join()).not.toContain('เงียบ')
+  })
+})

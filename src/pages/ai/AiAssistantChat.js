@@ -15,6 +15,7 @@ import { businessFacts, stockFacts, testDriveFacts } from '../../utils/bizFacts.
 import { programFacts, programEarnings, myBonusProgress, bookingCountDay } from '../../utils/salesPrograms.js'
 import { eventFacts } from '../../utils/marketingEvents.js'
 import { computeSalesMetrics, metricsFacts, compareRange } from '../../utils/salesMetrics.js'
+import { accountFacts, accountResults } from '../../utils/socialAccounts.js'
 import { loadSalesBudget } from '../../utils/salesBudget.js'
 import { isManagerRole } from '../../utils/managerRole.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
@@ -93,7 +94,7 @@ export default async function AiAssistantChatPage(container) {
     try {
       const today = todayBangkok()
       const thisMonth = today.slice(0, 7)
-      const [sales, vehicles, customers, debts, csat, staff, jobs, followups, bookings, testDrives, programs, events, budget, threads] = await Promise.all([
+      const [sales, vehicles, customers, debts, csat, staff, jobs, followups, bookings, testDrives, programs, events, budget, threads, socialAccts] = await Promise.all([
         getSalesData().catch(() => []),
         listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => []),
         listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
@@ -108,6 +109,7 @@ export default async function AiAssistantChatPage(container) {
         listDocs('marketing_events', [], 'startDate', 'desc', 100).catch(() => []),
         loadSalesBudget(+today.slice(0, 4)).catch(() => null),
         listDocs('social_threads', [], 'lastAt', 'desc', 200).catch(() => []),
+        listDocs('social_channels', [], 'createdAt', 'desc', 300).catch(() => []),
       ])
       const monthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
       // totalIncome ต่อใบจอง = กำไรสุทธิจริง (แพทเทิร์นเดียวกับ Margin.js/Commission.js/MarketingROI.js
@@ -169,6 +171,8 @@ export default async function AiAssistantChatPage(container) {
         const cr = compareRange('month', today)
         const mf = metricsFacts(computeSalesMetrics(msrc, { today, period: 'month' }), computeSalesMetrics(msrc, { today, range: cr }), cr.label)
         if (mf.length) businessContext['ตัวชี้วัดการขายเดือนนี้ (หน้าตัวชี้วัดการขาย)'] = mf.join('\n')
+        const af = accountFacts(socialAccts, accountResults(customers, today.slice(0, 7)), today.slice(0, 7))
+        if (af.length) businessContext['Lead/ค่าโฆษณาต่อบัญชีโซเชียลเดือนนี้ (หน้าช่องทางโซเชียล › บัญชี)'] = af.join('\n')
         const waiting = threads.filter(t => !t.deleted && t.lastDirection === 'in')
         if (waiting.length) businessContext['แชตลูกค้า LINE OA ที่รอตอบ (หน้าช่องทางโซเชียล)'] = `${waiting.length} ราย: ${waiting.slice(0, 5).map(t => `${t.name || 'ลูกค้า'} "${String(t.lastText || '').slice(0, 40)}"`).join(' · ')}`
       } catch { /* ข้อมูลเสริม ไม่มีก็ตอบได้ */ }
