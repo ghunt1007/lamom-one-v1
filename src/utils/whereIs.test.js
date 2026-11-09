@@ -27,3 +27,11 @@ describe('global search falls back to team wording', () => {
     expect(matchMenuPages(NAV, 'จองรถ')[0].path).toBe('/crm/bookings')
   })
 })
+
+describe('finance aliases (v1.0.1011)', () => {
+  it('finds the refund/verify page by team words', async () => {
+    const { NAV } = await import('../data/navMenu.js')
+    expect(findPages('ยืนยันยอดโอนอยู่ตรงไหน', NAV)[0]?.path).toBe('/finance/refund')
+    expect(findPages('คืนเงินจองทำตรงไหน', NAV)[0]?.path).toBe('/finance/refund')
+  })
+})

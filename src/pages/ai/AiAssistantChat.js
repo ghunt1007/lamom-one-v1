@@ -18,6 +18,7 @@ import { computeSalesMetrics, metricsFacts, compareRange } from '../../utils/sal
 import { accountFacts, accountResults } from '../../utils/socialAccounts.js'
 import { loadSalesBudget } from '../../utils/salesBudget.js'
 import { isManagerRole } from '../../utils/managerRole.js'
+import { financeQueue } from '../../utils/financeQueue.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { formatAiText } from '../../utils/aiFormat.js'
 import { pageLinksFor } from '../../utils/aiPageLinks.js'
@@ -173,6 +174,11 @@ export default async function AiAssistantChatPage(container) {
         if (mf.length) businessContext['ตัวชี้วัดการขายเดือนนี้ (หน้าตัวชี้วัดการขาย)'] = mf.join('\n')
         const af = accountFacts(socialAccts, accountResults(customers, today.slice(0, 7)), today.slice(0, 7))
         if (af.length) businessContext['Lead/ค่าโฆษณาต่อบัญชีโซเชียลเดือนนี้ (หน้าช่องทางโซเชียล › บัญชี)'] = af.join('\n')
+        // (v1.0.1011) งานรอการเงิน (ยืนยันยอดโอน/คืนเงินจอง) — เฉพาะผู้บริหาร/การเงิน
+        if (isManagerRole() || getState('user')?.role === 'finance') {
+          const fq = financeQueue(bookings, today)
+          if (fq.total) businessContext['งานรอการเงิน (หน้าการเงิน › ยืนยันยอดโอน & คืนเงินจอง)'] = `รอยืนยันยอดโอน ${fq.verify.length} ใบ${fq.oldestDays ? ` (นานสุด ${fq.oldestDays} วัน)` : ''} · รอคืนเงินจอง ${fq.refund.length} ใบ รวม ${formatCurrency(fq.refundAmt)}`
+        }
         const waiting = threads.filter(t => !t.deleted && t.lastDirection === 'in')
         if (waiting.length) businessContext['แชตลูกค้า LINE OA ที่รอตอบ (หน้าช่องทางโซเชียล)'] = `${waiting.length} ราย: ${waiting.slice(0, 5).map(t => `${t.name || 'ลูกค้า'} "${String(t.lastText || '').slice(0, 40)}"`).join(' · ')}`
       } catch { /* ข้อมูลเสริม ไม่มีก็ตอบได้ */ }
