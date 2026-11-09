@@ -43,13 +43,14 @@ export function mapSource(raw) {
   if (!s) return 'other'
   if (/facebook|fb|เฟส/.test(s)) return 'facebook'
   if (/tiktok|ติ๊กต็อก/.test(s)) return 'tiktok'
+  if (/instagram|ไอจี|^ig$/.test(s)) return 'instagram'
   if (/line|ไลน์/.test(s)) return 'line'
   if (/walk|หน้าร้าน|โชว์รูม/.test(s)) return 'walk-in'
   if (/refer|แนะนำ/.test(s)) return 'referral'
   if (/google|กูเกิล/.test(s)) return 'google'
   if (/web|เว็บ/.test(s)) return 'website'
   if (/phone|โทร/.test(s)) return 'phone'
-  return ['facebook', 'line', 'tiktok', 'walk-in', 'referral', 'google', 'website', 'phone', 'other'].includes(s) ? s : 'other'
+  return ['facebook', 'line', 'tiktok', 'instagram', 'walk-in', 'referral', 'google', 'website', 'phone', 'other'].includes(s) ? s : 'other'
 }
 
 // rows = แถวจากไฟล์ (object ตามหัวคอลัมน์), existing = ลูกค้าที่มีในระบบ

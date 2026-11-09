@@ -287,6 +287,7 @@ export const PAGE_COLLECTIONS = {
   "social_posts"
  ],
  "/marketing/channels": [
+  "customers",
   "social_channels",
   "social_messages",
   "social_posts",

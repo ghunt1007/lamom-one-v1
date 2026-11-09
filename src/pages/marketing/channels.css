@@ -17,6 +17,7 @@
 .ch-row { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin: 6px 0 10px; }
 .ch-st { font-size: 0.72rem; color: var(--text-3); white-space: nowrap; }
 .ch-st.on { color: var(--success); font-weight: 600; }
+.ch-acc-res { font-size: 0.72rem; color: var(--text-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 /* inbox */
 .ch-inbox { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 10px; min-height: 60vh; }
