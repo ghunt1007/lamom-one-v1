@@ -12,8 +12,11 @@ export const PLATFORM_GUIDE = [
   {
     key: 'line', icon: '💚', name: 'LINE OA', statusKey: 'line',
     can: ['ลูกค้าทัก LINE OA → ข้อความเข้ากล่องแชตรวมในแอปทันที', 'ตอบลูกค้าจากแอปได้ (ใครตอบ ระบบจำไว้)', 'สร้าง Lead อัตโนมัติจากคนที่ทักมา + แจกเซลส์ (เปิดไว้แล้วถ้าตั้ง AUTO_LEAD_FROM_LINE)', 'ส่งข้อความหาเพื่อนทั้งหมด (Broadcast) จากหน้า LINE OA'],
-    setup: ['เชื่อมไว้แล้ว (ใช้ตัวเดียวกับรายงาน 18:00) — ไม่ต้องทำอะไรเพิ่ม', 'ใน LINE OA Manager → ตั้งค่า → การตอบกลับ: เปิดทั้ง "แชต" และ "Webhook" เพื่อให้ตอบได้ทั้งในแอป LINE OA และใน LAMOM'],
-    cannot: ['ดึงแชตเก่าย้อนหลังไม่ได้ (LINE ไม่มี API) — เห็นเฉพาะข้อความที่เข้ามาหลังเปิดใช้', 'LINE ส่วนตัวของเซลส์เชื่อมไม่ได้ (ไม่มี API) — ใช้ปุ่ม "แชร์ทาง LINE" แทน', 'ข้อความที่ตอบจากแอปนับโควตา LINE OA (แพ็กเกจฟรี 300 ข้อความ/เดือน) — ตอบในแอป LINE OA เองไม่นับ', 'ตอนนี้รองรับ LINE OA หลัก 1 บัญชี (OA ของเซลส์แต่ละคนบันทึกไว้ในแท็บบัญชีได้ แต่แชตยังไม่เข้า)'],
+    setup: ['OA หลักเชื่อมไว้แล้ว (ตัวเดียวกับรายงาน 18:00) — ไม่ต้องทำอะไรเพิ่ม', 'ใน LINE OA Manager → ตั้งค่า → การตอบกลับ: เปิดทั้ง "แชต" และ "Webhook" เพื่อให้ตอบได้ทั้งในแอป LINE OA และใน LAMOM',
+      'เพิ่ม OA ของโชว์รูม/ทีม/เซลส์แต่ละคน: ในแต่ละ OA → LINE Developers → Messaging API → คัดลอก Channel secret และกด Issue Channel access token',
+      'ตั้ง Secret ชื่อ LINE_EXTRA_CHANNELS เป็นรายการเดียว เช่น [{"id":"showroom","name":"LINE โชว์รูม","secret":"…","token":"…"},{"id":"sale-a","name":"LINE เซลส์ เอ","secret":"…","token":"…"}] (id ใช้ a-z 0-9 - เท่านั้น)',
+      'ตั้ง Webhook URL ของแต่ละ OA เป็น https://lamom-daily-report.ghunt1007.workers.dev/line/webhook/<id> (เช่น …/line/webhook/showroom) แล้วกด Verify และเปิด Use webhook'],
+    cannot: ['ดึงแชตเก่าย้อนหลังไม่ได้ (LINE ไม่มี API) — เห็นเฉพาะข้อความที่เข้ามาหลังเปิดใช้', 'LINE ส่วนตัวของเซลส์เชื่อมไม่ได้ (ไม่มี API) — ใช้ปุ่ม "แชร์ทาง LINE" แทน', 'ข้อความที่ตอบจากแอปนับโควตา LINE OA (แพ็กเกจฟรี 300 ข้อความ/เดือน) — ตอบในแอป LINE OA เองไม่นับ', 'OA เพิ่มเติม (โชว์รูม/ทีม/เซลส์) ใช้เก็บและตอบแชตลูกค้า — คำสั่งของเซลส์และรายงานประจำวันยังใช้ OA หลักตัวเดียว'],
   },
   {
     key: 'facebook', icon: '📘', name: 'Facebook เพจ (Messenger)', statusKey: 'meta',
@@ -48,8 +51,8 @@ export const PLATFORM_GUIDE = [
   },
   {
     key: 'google', icon: '📍', name: 'Google Business / Google Maps', statusKey: 'google',
-    can: ['ตอนนี้: บันทึกลิงก์หน้าร้าน Google Maps และปุ่มขอรีวิวในหน้ารีวิวลูกค้า', 'เมื่อได้รับอนุมัติ API: ดูและตอบรีวิว, โพสต์อัปเดต, ดูยอดโทร/ขอเส้นทาง/คลิกเว็บ'],
-    setup: ['business.google.com → ยืนยันโชว์รูมให้เรียบร้อย (ขึ้น "ยืนยันแล้ว")', 'ขอสิทธิ์ Business Profile API ผ่านแบบฟอร์มของ Google (ใช้เวลาหลายวัน) แล้วบอก Claude ให้ต่อระบบ'],
+    can: ['แท็บ 📍 Google Maps: ค้นหาโชว์รูมเราและคู่แข่ง ดูคะแนนดาว จำนวนรีวิว และรีวิวล่าสุด 5 รายการ', 'ให้ AI ร่างคำตอบรีวิว แล้วกดเปิด Google Maps ไปวางตอบ', 'เมื่อได้รับอนุมัติ Business Profile API: ตอบรีวิวจากแอปโดยตรง, โพสต์อัปเดต, ดูยอดโทร/ขอเส้นทาง'],
+    setup: ['console.cloud.google.com → เลือกโปรเจกต์ (หรือสร้างใหม่) → APIs & Services → Library → เปิด "Places API (New)"', 'Credentials → Create credentials → API key → Edit → API restrictions: เลือก Places API (New) อย่างเดียว', 'คัดลอกคีย์ → ตั้งเป็น Secret ชื่อ GOOGLE_MAPS_API_KEY (Google ให้ใช้ฟรีเดือนละหลายพันครั้ง ระบบจำผลค้นหาไว้ 6 ชม. เพื่อประหยัด)', '(ถ้าต้องการตอบรีวิวจากแอป) business.google.com ยืนยันโชว์รูม → ขอสิทธิ์ Business Profile API ผ่านแบบฟอร์มของ Google แล้วบอก Claude'],
     cannot: ['แชตผ่าน Google (Business Messages) Google ปิดบริการแล้วตั้งแต่ปี 2024', 'ลบรีวิวลูกค้าเองไม่ได้ (รายงานรีวิวไม่เหมาะสมได้เท่านั้น)', 'ซื้ออันดับใน Google Maps ไม่ได้'],
   },
 ]

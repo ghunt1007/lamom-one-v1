@@ -105,3 +105,25 @@
   .ch-list { max-height: none; }
   .ch-camp-k { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Google Maps (v1.0.977) */
+.ch-maps { display: flex; flex-direction: column; gap: 10px; }
+.ch-maps-bar { display: flex; gap: 8px; align-items: center; }
+.ch-maps-bar .input { flex: 1; min-width: 0; }
+.ch-maps-chips { display: flex; gap: 6px; overflow-x: auto; flex-wrap: nowrap; }
+.ch-place { display: flex; flex-direction: column; gap: 10px; }
+.ch-place-h { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.ch-place-h > div:first-child { min-width: 0; }
+.ch-place-h b { display: block; overflow-wrap: anywhere; }
+.ch-place-h small { display: block; color: var(--text-3); font-size: 0.76rem; overflow-wrap: anywhere; }
+.ch-place-r { text-align: right; flex-shrink: 0; }
+.ch-place-r b { font-size: 1.5rem; line-height: 1; }
+.ch-place-r small { display: block; }
+.ch-stars { color: #F5B301; letter-spacing: 1px; font-size: 0.85rem; white-space: nowrap; }
+.ch-revs { display: flex; flex-direction: column; gap: 8px; }
+.ch-rev { border-left: 3px solid var(--success); padding: 4px 10px; font-size: 0.82rem; overflow-wrap: anywhere; }
+.ch-rev.low { border-left-color: var(--danger); }
+.ch-rev-h { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.ch-rev-h small { color: var(--text-3); font-size: 0.72rem; }
+.ch-place > .btn { align-self: flex-start; }
+.ch-maps-chips .ch-chip { white-space: nowrap; flex-shrink: 0; }

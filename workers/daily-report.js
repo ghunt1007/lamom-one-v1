@@ -33,7 +33,7 @@
 
 import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser } from './nightly-backup.js'
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
-import { handleSocial, recordLineInbound } from './social.js'
+import { handleSocial, recordLineInbound, handleExtraLineWebhook } from './social.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
@@ -63,6 +63,11 @@ export default {
 
     try {
       if (request.method === 'POST' && url.pathname === '/line/webhook') return await handleLineWebhook(request, env, cors)
+      // (v1.0.977) LINE OA เพิ่มเติม (ทีม/โชว์รูม/เซลส์) — เก็บแชตลูกค้าเข้ากล่องรวม
+      if (request.method === 'POST' && url.pathname.startsWith('/line/webhook/')) {
+        const r = await handleExtraLineWebhook(env, url.pathname.slice('/line/webhook/'.length), await request.text(), request.headers.get('X-Line-Signature') || '', () => getFirestoreAccessToken(env))
+        return json(r.body, r.status, cors)
+      }
       // ?kind=morning = ข้อความเตือนตอนเช้า (ไม่ใส่ = รายงานสรุป 18:00 เหมือนเดิม)
       const morning = url.searchParams.get('kind') === 'morning'
       // สำรองข้อมูล: /backup/latest = ดาวน์โหลดชุดล่าสุด, /backup/run = สำรองขึ้นคลาวด์ตอนนี้ (เจ้าของโปรแกรมเท่านั้น)

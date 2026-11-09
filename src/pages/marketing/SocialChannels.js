@@ -18,10 +18,10 @@ import { getVehicles } from '../../data/vehicleDatabase.js'
 import { suggestCustomerReply, generateSocialContent, aiErrorText } from '../../utils/ai.js'
 import { catalogContext } from '../../utils/salesAi.js'
 import { openQuickLead } from '../../utils/quickLead.js'
-import { socialStatus, metaInbox, metaReply, metaPost, metaAds, metaAdsUpdate, lineReply, shareLinks } from '../../utils/socialApi.js'
+import { socialStatus, metaInbox, metaReply, metaPost, metaAds, metaAdsUpdate, lineReply, shareLinks, googlePlaces } from '../../utils/socialApi.js'
 import { PLATFORM_GUIDE, SECRET_STEPS, LEVELS, ACCOUNT_PLATFORMS } from '../../utils/socialGuide.js'
 
-const TABS = { inbox: '💬 แชตรวม', post: '📝 โพสต์', ads: '📣 โฆษณา', accounts: '👥 บัญชี', guide: '🧭 วิธีเชื่อม' }
+const TABS = { inbox: '💬 แชตรวม', post: '📝 โพสต์', ads: '📣 โฆษณา', maps: '📍 Google Maps', accounts: '👥 บัญชี', guide: '🧭 วิธีเชื่อม' }
 const KIND = { line: { icon: '💚', label: 'LINE' }, messenger: { icon: '📘', label: 'Messenger' }, instagram: { icon: '📸', label: 'IG' } }
 const lsGet = (k, d) => { try { return localStorage.getItem(k) ?? d } catch { return d } }
 const lsSet = (k, v) => { try { localStorage.setItem(k, v) } catch {} }
@@ -33,7 +33,8 @@ export default async function SocialChannelsPage(container) {
   const alive = () => container.__routerGen === myGen && container.isConnected
   const manager = isManagerRole()
 
-  let tab = TABS[lsGet('ch-tab', '')] ? lsGet('ch-tab', 'inbox') : 'inbox'
+  const urlTab = new URLSearchParams(location.search || '').get('tab')
+  let tab = TABS[urlTab] ? urlTab : TABS[lsGet('ch-tab', '')] ? lsGet('ch-tab', 'inbox') : 'inbox'
   let status = null, statusErr = '', statusLoading = true
   let lineThreads = [], metaConvs = [], metaLoaded = false, metaLoading = false, metaErr = ''
   let filter = 'all', q = ''
@@ -100,12 +101,12 @@ export default async function SocialChannelsPage(container) {
     const pages = s.meta?.pages || []
     const pill = (ok, label, extra = '') => `<span class="ch-pill ${ok ? 'ok' : ''}">${ok ? '✅' : '⚪'} ${label}${extra}</span>`
     el.innerHTML = [
-      pill(s.line?.configured, '💚 LINE OA'),
+      pill(s.line?.configured, '💚 LINE OA', s.line?.extra?.length ? ` + อีก ${s.line.extra.length} บัญชี` : ''),
       pill(s.meta?.configured && pages.length, '📘 Facebook', pages.length ? ` · ${pages.length} เพจ` : ''),
       pill(pages.some(p => p.ig), '📸 Instagram', pages.filter(p => p.ig).length ? ` · ${pages.filter(p => p.ig).length} บัญชี` : ''),
       pill(s.metaAds?.configured, '📣 โฆษณา Meta'),
       pill(false, '🎵 TikTok'),
-      pill(false, '📍 Google Maps'),
+      pill(s.google?.configured, '📍 Google Maps'),
       s.meta?.error ? `<span class="ch-pill bad">⚠️ ${esc(s.meta.error)}</span>` : '',
     ].join('')
   }
@@ -125,6 +126,7 @@ export default async function SocialChannelsPage(container) {
     else if (tab === 'post') el.innerHTML = postHtml()
     else if (tab === 'ads') el.innerHTML = adsHtml()
     else if (tab === 'accounts') el.innerHTML = accountsHtml()
+    else if (tab === 'maps') el.innerHTML = mapsHtml()
     else el.innerHTML = guideHtml()
     if (tab === 'inbox') { const t = el.querySelector('.ch-msgs'); if (t) t.scrollTop = t.scrollHeight }
     if (focusId) { const f = container.querySelector('#' + focusId); if (f) { f.focus(); try { if (caret != null) f.setSelectionRange(caret, caret) } catch {} } }
@@ -133,13 +135,14 @@ export default async function SocialChannelsPage(container) {
 
   // ── แชตรวม ──
   function items() {
-    const line = lineThreads.map(t => ({ key: `line:${t.id}`, kind: 'line', id: t.id, name: t.name || 'ลูกค้า LINE', snippet: t.lastText || '', at: ms(t.lastAt), unread: !!t.unread, needsReply: t.lastDirection === 'in', sub: 'LINE OA' }))
+    const line = lineThreads.map(t => ({ key: `line:${t.id}`, kind: 'line', id: t.id, name: t.name || 'ลูกค้า LINE', snippet: t.lastText || '', at: ms(t.lastAt), unread: !!t.unread, needsReply: t.lastDirection === 'in', sub: t.channelName || 'LINE OA', chan: t.channel || 'main' }))
     const meta = metaConvs.map(c => {
       const last = c.messages[c.messages.length - 1]
       return { key: `${c.kind}:${c.id}`, kind: c.kind, id: c.id, name: c.withName, snippet: last?.text || '', at: ms(c.at), unread: c.unread > 0, needsReply: last ? !last.mine : false, sub: c.pageName, conv: c }
     })
     let all = [...line, ...meta].sort((a, b) => b.at - a.at)
     if (filter === 'reply') all = all.filter(i => i.needsReply)
+    else if (filter.startsWith('oa:')) all = all.filter(i => i.kind === 'line' && i.chan === filter.slice(3))
     else if (filter !== 'all') all = all.filter(i => i.kind === filter)
     const qq = q.trim().toLowerCase()
     if (qq) all = all.filter(i => `${i.name} ${i.snippet} ${i.sub}`.toLowerCase().includes(qq))
@@ -149,7 +152,10 @@ export default async function SocialChannelsPage(container) {
     const list = items()
     const cur = list.find(i => i.key === openKey) || (openKey ? findItem(openKey) : null)
     const counts = { all: lineThreads.length + metaConvs.length, reply: [...lineThreads.filter(t => t.lastDirection === 'in'), ...metaConvs.filter(c => { const l = c.messages[c.messages.length - 1]; return l && !l.mine })].length }
-    const chips = [['all', `ทั้งหมด ${counts.all}`], ['reply', `🔴 รอตอบ ${counts.reply}`], ['line', '💚 LINE'], ['messenger', '📘 Messenger'], ['instagram', '📸 IG']]
+    const extraOA = status?.line?.extra || []
+    const chips = [['all', `ทั้งหมด ${counts.all}`], ['reply', `🔴 รอตอบ ${counts.reply}`], ['line', '💚 LINE'],
+      ...(extraOA.length ? [['oa:main', '💚 OA หลัก'], ...extraOA.map(c => ['oa:' + c.id, '💚 ' + c.name])] : []),
+      ['messenger', '📘 Messenger'], ['instagram', '📸 IG']]
     const metaOk = status?.meta?.pages?.length
     return `
       <div class="ch-inbox ${cur ? 'has-open' : ''}">
@@ -172,7 +178,7 @@ export default async function SocialChannelsPage(container) {
   }
   function findItem(key) {
     const [kind, id] = [key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1)]
-    if (kind === 'line') { const t = lineThreads.find(x => x.id === id); return t ? { key, kind, id, name: t.name || 'ลูกค้า LINE', sub: 'LINE OA' } : null }
+    if (kind === 'line') { const t = lineThreads.find(x => x.id === id); return t ? { key, kind, id, name: t.name || 'ลูกค้า LINE', sub: t.channelName || 'LINE OA' } : null }
     const c = metaConvs.find(x => x.id === id && x.kind === kind)
     return c ? { key, kind, id, name: c.withName, sub: c.pageName, conv: c } : null
   }
@@ -468,9 +474,49 @@ export default async function SocialChannelsPage(container) {
   }
 
   // ── วิธีเชื่อม ──
+  // ── Google Maps: คะแนน/รีวิวของเราและคู่แข่ง ──
+  let mapsQ = lsGet('ch-maps-q', ''), maps = null, mapsLoading = false, mapsErr = ''
+  const stars = r => r == null ? '—' : '★'.repeat(Math.round(r)) + '☆'.repeat(5 - Math.round(r))
+  function mapsHtml() {
+    if (status && !status.google?.configured) return `<div class="ch-card">${notConnected('Google Maps', 'google')}<small class="ch-muted">ใส่คีย์ครั้งเดียว แล้วค้นหาโชว์รูมเรา/คู่แข่งได้ทันที เห็นดาว จำนวนรีวิว และรีวิวล่าสุด</small></div>`
+    return `<div class="ch-maps">
+      <div class="ch-card ch-maps-bar"><input class="input" id="mp-q" placeholder="ชื่อโชว์รูม เช่น DEEPAL บางบัวทอง" value="${esc(mapsQ)}"><button type="button" class="btn btn-primary" id="mp-go">🔎 ค้นหา</button></div>
+      <div class="ch-maps-chips">${['โชว์รูมรถ บางบัวทอง', 'DEEPAL นนทบุรี', 'BYD บางบัวทอง'].map(x => `<button type="button" class="ch-chip" data-mpq="${esc(x)}">${esc(x)}</button>`).join('')}</div>
+      ${mapsLoading ? '<div class="ch-note">⏳ กำลังค้นหา…</div>' : ''}
+      ${mapsErr ? `<div class="ch-note bad">⚠️ ${esc(mapsErr)}</div>` : ''}
+      ${maps ? (maps.length ? maps.map((p, i) => `<div class="ch-card ch-place">
+        <div class="ch-place-h"><div><b>${esc(p.name)}</b><small>${esc(p.address)}</small></div>
+          <div class="ch-place-r"><b>${p.rating ?? '—'}</b><span class="ch-stars">${stars(p.rating)}</span><small>${p.reviews.toLocaleString('en-US')} รีวิว</small></div></div>
+        ${p.latest.length ? `<div class="ch-revs">${p.latest.map((r, j) => `<div class="ch-rev ${r.rating <= 3 ? 'low' : ''}"><div class="ch-rev-h"><span class="ch-stars">${stars(r.rating)}</span><small>${esc(r.author)} · ${esc(r.when)}</small></div><div>${esc(r.text) || '<span class="ch-muted">(ไม่มีข้อความ)</span>'}</div>
+          ${r.text ? `<button type="button" class="ch-linkbtn" data-rev="${i}:${j}">✨ AI ร่างคำตอบ</button>` : ''}</div>`).join('')}</div>` : '<small class="ch-muted">ยังไม่มีรีวิวที่ Google ส่งมาให้</small>'}
+        ${p.url ? `<a class="btn btn-secondary btn-sm" href="${esc(p.url)}" target="_blank" rel="noopener">🗺 เปิดใน Google Maps / ตอบรีวิว</a>` : ''}
+      </div>`).join('') : '<div class="ch-empty">ไม่พบสถานที่ ลองพิมพ์ชื่อให้ละเอียดขึ้น</div>') : '<div class="ch-empty">พิมพ์ชื่อโชว์รูมเราหรือคู่แข่ง แล้วกดค้นหา</div>'}
+    </div>`
+  }
+  async function searchMaps(qv) {
+    mapsQ = String(qv || '').trim(); lsSet('ch-maps-q', mapsQ)
+    if (mapsQ.length < 2) { showToast('พิมพ์ชื่อสถานที่ก่อน', 'info'); return }
+    mapsLoading = true; mapsErr = ''; render()
+    try { maps = (await googlePlaces(mapsQ)).places || [] } catch (e) { mapsErr = e.message; maps = null }
+    mapsLoading = false; if (alive() && tab === 'maps') render()
+  }
+  async function draftReview(ref, btn) {
+    const [i, j] = ref.split(':').map(Number)
+    const p = maps?.[i], r = p?.latest?.[j]; if (!r) return
+    btn.disabled = true; btn.textContent = '⏳ กำลังคิด…'
+    try {
+      const draft = await suggestCustomerReply(`รีวิว ${r.rating} ดาวบน Google Maps: ${r.text}`, { channel: 'ตอบรีวิว Google Maps ในนามโชว์รูม (สุภาพ ขอบคุณ ถ้ารีวิวไม่ดีให้ขอโทษและชวนติดต่อกลับ ไม่ต้องขายของ)', sender: r.author })
+      if (!draft) { showToast('AI ยังตอบไม่ได้ตอนนี้', 'error'); return }
+      const { el, close } = openModal({ title: '✨ ร่างคำตอบรีวิว', size: 'md', body: `<textarea class="input" id="rv-t" rows="6">${esc(String(draft).trim())}</textarea><small class="ch-muted">กดคัดลอก แล้วเปิด Google Maps ไปวางตอบรีวิวนี้</small>`, footer: `<button class="btn btn-secondary" id="rv-c">ปิด</button>${p.url ? `<a class="btn btn-secondary" href="${esc(p.url)}" target="_blank" rel="noopener">🗺 เปิด Google Maps</a>` : ''}<button class="btn btn-primary" id="rv-cp">📋 คัดลอก</button>` })
+      el.querySelector('#rv-c').addEventListener('click', close)
+      el.querySelector('#rv-cp').addEventListener('click', () => copyText(el.querySelector('#rv-t').value).then(() => showToast('📋 คัดลอกแล้ว', 'success')))
+    } catch (e) { showToast(aiErrorText(e), 'error') }
+    finally { btn.disabled = false; btn.textContent = '✨ AI ร่างคำตอบ' }
+  }
+
   function guideHtml() {
     const s = status || {}
-    const ok = { line: s.line?.configured, meta: s.meta?.configured && (s.meta.pages || []).length, metaAds: s.metaAds?.configured, tiktok: false, google: false }
+    const ok = { line: s.line?.configured, meta: s.meta?.configured && (s.meta.pages || []).length, metaAds: s.metaAds?.configured, tiktok: false, google: s.google?.configured }
     return `
       <div class="ch-guide">
         ${PLATFORM_GUIDE.map(g => `
@@ -495,6 +541,7 @@ export default async function SocialChannelsPage(container) {
       tab = tabBtn.dataset.tab; lsSet('ch-tab', tab); render()
       if (tab === 'ads' && status?.metaAds?.configured && !ads && !adsLoading) loadAds()
       if (tab === 'inbox' && status?.meta?.pages?.length && !metaLoaded) loadMeta()
+      if (tab === 'maps' && status?.google?.configured && !maps && !mapsLoading && mapsQ) searchMaps(mapsQ)
       return
     }
     if (t.closest('#ch-refresh')) { metaLoaded = false; loadStatus(); return }
@@ -520,6 +567,9 @@ export default async function SocialChannelsPage(container) {
       el.querySelector('#bd-s').addEventListener('click', () => { const n = Number(el.querySelector('#bd-v').value); close(); adUpdate({ campaignId: bd.dataset.adBudget, dailyBudget: n }, `ตั้งงบรายวันเป็น ${formatCurrency(n)}`) })
       return
     }
+    if (t.closest('#mp-go')) { searchMaps($('#mp-q')?.value); return }
+    const mq = t.closest('[data-mpq]'); if (mq) { searchMaps(mq.dataset.mpq); return }
+    const rv = t.closest('[data-rev]'); if (rv) { draftReview(rv.dataset.rev, rv); return }
     if (t.closest('#acc-add')) { accountForm(); return }
     if (t.closest('#acc-import')) { importPages(); return }
     const ae = t.closest('[data-acc-edit]'); if (ae) { accountForm(accounts.find(a => a.id === ae.dataset.accEdit)); return }
@@ -537,6 +587,7 @@ export default async function SocialChannelsPage(container) {
   })
   container.addEventListener('keydown', e => {
     if (e.target.id === 'ch-text' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendReply() }
+    if (e.target.id === 'mp-q' && e.key === 'Enter') { e.preventDefault(); searchMaps(e.target.value) }
   })
 
   render()

@@ -14,6 +14,10 @@
  *                            instagram_manage_messages, ads_read, ads_management)
  *   META_AD_ACCOUNT_IDS     (ไม่บังคับ) เลขบัญชีโฆษณา คั่นด้วย , เช่น act_123,act_456 — ไม่ตั้ง = ดึงทุกบัญชีที่ token เห็น
  *   LINE_CHANNEL_ACCESS_TOKEN / LINE_CHANNEL_SECRET  (มีอยู่แล้ว — ใช้กับกล่องแชต LINE OA)
+ *   LINE_EXTRA_CHANNELS     (ไม่บังคับ, v1.0.977) LINE OA เพิ่มเติม ของทีม/โชว์รูม/เซลส์แต่ละคน เป็น JSON:
+ *                           [{"id":"showroom","name":"LINE โชว์รูม","secret":"<Channel secret>","token":"<Channel access token>"}]
+ *                           id = a-z 0-9 - (≤20 ตัว) · Webhook URL ของแต่ละ OA = …/line/webhook/<id>
+ *   GOOGLE_MAPS_API_KEY     (ไม่บังคับ, v1.0.977) คีย์ Places API (New) — ดึงคะแนน/จำนวนรีวิว/รีวิวล่าสุดบน Google Maps
  */
 
 export const GRAPH = 'https://graph.facebook.com/v21.0'
@@ -82,12 +86,81 @@ async function pageById(env, pageId) {
 }
 
 // ── สถานะการเชื่อมต่อทุกช่องทาง (ไม่มีค่า secret ในคำตอบ มีแค่ true/false + ชื่อเพจ) ─────
+// ── LINE OA หลายบัญชี (ทีม/โชว์รูม/เซลส์) ─────────────────────────────
+export function lineChannels(env) {
+  let arr = []
+  try { arr = JSON.parse(env.LINE_EXTRA_CHANNELS || '[]') } catch { arr = [] }
+  const seen = new Set()
+  return (Array.isArray(arr) ? arr : []).map(c => ({ id: String(c?.id || '').toLowerCase(), name: clip(c?.name || c?.id, 60), owner: clip(c?.owner, 60), secret: String(c?.secret || ''), token: String(c?.token || '') }))
+    .filter(c => /^[a-z0-9-]{1,20}$/.test(c.id) && c.id !== 'main' && c.secret && c.token && !seen.has(c.id) && seen.add(c.id))
+}
+// threadId: OA หลัก = line_<userId> (เหมือนเดิม) · OA เพิ่มเติม = line_<channelId>__<userId>
+export function parseLineThread(threadId) {
+  const m = /^line_(?:([a-z0-9-]{1,20})__)?([A-Za-z0-9_-]{10,60})$/.exec(String(threadId || ''))
+  if (!m || (m[2].includes('__'))) return null
+  return { channel: m[1] || '', userId: m[2] }
+}
+export async function verifyLineSig(rawBody, signature, secret) {
+  if (!secret || !signature) return false
+  try {
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+    const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody)))
+    let bin = ''; sig.forEach(b => { bin += String.fromCharCode(b) })
+    return btoa(bin) === signature
+  } catch { return false }
+}
+// webhook ของ OA เพิ่มเติม — เก็บแชตลูกค้าเข้ากล่องรวมอย่างเดียว (คำสั่ง/รายงาน ใช้กับ OA หลักเท่านั้น)
+export async function handleExtraLineWebhook(env, channelId, rawBody, signature, getAccessToken) {
+  const chan = lineChannels(env).find(c => c.id === channelId)
+  if (!chan) return { status: 404, body: { error: 'Unknown LINE channel' } }
+  if (!(await verifyLineSig(rawBody, signature, chan.secret))) return { status: 401, body: { error: 'Invalid signature' } }
+  let body
+  try { body = JSON.parse(rawBody) } catch { body = {} }
+  const events = Array.isArray(body.events) ? body.events : []
+  const accessToken = events.length ? await getAccessToken() : null
+  let saved = 0
+  for (const ev of events) if (await recordLineInbound(env, accessToken, ev, chan)) saved++
+  return { status: 200, body: { ok: true, saved } }
+}
+
+// ── Google Maps (Places API New) — คะแนน รีวิว ของโชว์รูมเรา/คู่แข่ง ─────────────────
+const placesCache = new Map()
+export function shapePlace(p = {}) {
+  return {
+    id: p.id || '', name: p.displayName?.text || '', address: p.formattedAddress || '',
+    rating: typeof p.rating === 'number' ? p.rating : null, reviews: p.userRatingCount || 0,
+    url: p.googleMapsUri || '', phone: p.nationalPhoneNumber || '',
+    latest: (p.reviews || []).slice(0, 5).map(r => ({ rating: r.rating || 0, text: clip(r.text?.text || r.originalText?.text || '', 500), author: r.authorAttribution?.displayName || '', when: r.relativePublishTimeDescription || '', at: r.publishTime || '' })),
+  }
+}
+export async function googlePlaces(env, { query = '' } = {}) {
+  if (!env.GOOGLE_MAPS_API_KEY) return { configured: false, places: [] }
+  const q = clip(String(query).trim(), 120)
+  if (q.length < 2) throw new Error('พิมพ์ชื่อสถานที่อย่างน้อย 2 ตัวอักษร')
+  const hit = placesCache.get(q)
+  if (hit && Date.now() - hit.at < 6 * 3600e3) return { configured: true, places: hit.places, cached: true }
+  const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': env.GOOGLE_MAPS_API_KEY, 'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.googleMapsUri,places.nationalPhoneNumber,places.reviews' },
+    body: JSON.stringify({ textQuery: q, languageCode: 'th', regionCode: 'TH', pageSize: 5 }),
+  }).catch(() => null)
+  const d = res ? await res.json().catch(() => ({})) : {}
+  if (!res?.ok) {
+    const m = d?.error?.message || ''
+    throw new Error(/not been used|disabled|PERMISSION_DENIED/i.test(m + (d?.error?.status || '')) ? 'Google Maps: ยังไม่ได้เปิด Places API (New) ในโปรเจกต์ Google Cloud ของคีย์นี้' : /API key/i.test(m) ? 'Google Maps: คีย์ไม่ถูกต้อง' : `Google Maps: ${m || res?.status || 'network error'}`)
+  }
+  const places = (d.places || []).map(shapePlace)
+  placesCache.set(q, { at: Date.now(), places })
+  if (placesCache.size > 100) placesCache.delete(placesCache.keys().next().value)
+  return { configured: true, places }
+}
+
 export async function socialStatus(env) {
   const out = {
-    line: { configured: !!env.LINE_CHANNEL_ACCESS_TOKEN, webhook: !!env.LINE_CHANNEL_SECRET },
+    line: { configured: !!env.LINE_CHANNEL_ACCESS_TOKEN, webhook: !!env.LINE_CHANNEL_SECRET, extra: lineChannels(env).map(c => ({ id: c.id, name: c.name, owner: c.owner })) },
     meta: { configured: !!env.META_SYSTEM_USER_TOKEN, pages: [], error: '' },
     metaAds: { configured: !!env.META_SYSTEM_USER_TOKEN },
-    google: { configured: false },
+    google: { configured: !!env.GOOGLE_MAPS_API_KEY },
     tiktok: { configured: false },
   }
   if (out.meta.configured) {
@@ -222,7 +295,7 @@ export async function metaAdsUpdate(env, body = {}, role = '') {
 
 // ── LINE OA: เก็บข้อความลูกค้าที่ทักเข้ามาเป็นกล่องแชต + ตอบกลับจากแอป ────────────────
 const fsBase = env => `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`
-export const lineThreadId = userId => `line_${String(userId).replace(/[^A-Za-z0-9_-]/g, '')}`
+export const lineThreadId = (userId, channelId = '') => `line_${channelId ? channelId + '__' : ''}${String(userId).replace(/[^A-Za-z0-9-]/g, '')}`
 
 export function lineMessageText(message = {}) {
   if (message.type === 'text') return clip(message.text, MAX_TEXT)
@@ -256,33 +329,36 @@ async function addMessage(env, accessToken, data) {
 }
 
 // เรียกจาก LINE webhook เมื่อเป็นข้อความลูกค้า (ไม่ใช่เจ้าของ/เซลส์ที่ลงทะเบียน) — ห้ามทำให้ webhook ล้ม
-export async function recordLineInbound(env, accessToken, ev) {
+export async function recordLineInbound(env, accessToken, ev, chan = null) {
   try {
     const userId = ev?.source?.userId
     // เฉพาะแชต 1:1 กับ OA — ข้อความในกลุ่ม LINE ไม่ใช่ลูกค้าทักมา
     if (!userId || ev.type !== 'message' || !accessToken || (ev.source.type && ev.source.type !== 'user')) return false
     let name = ''
     try {
-      const p = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, { headers: { Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}` } })
+      const p = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, { headers: { Authorization: `Bearer ${chan?.token || env.LINE_CHANNEL_ACCESS_TOKEN}` } })
       if (p.ok) name = (await p.json()).displayName || ''
     } catch { /* ไม่มีชื่อก็เก็บได้ */ }
     const text = lineMessageText(ev.message)
     const at = new Date(ev.timestamp || Date.now())
-    const id = lineThreadId(userId)
+    const id = lineThreadId(userId, chan?.id || '')
     await addMessage(env, accessToken, { threadId: id, platform: 'line', direction: 'in', text, at, by: name })
-    await upsertThread(env, accessToken, id, { platform: 'line', userId, name: name || 'ลูกค้า LINE', lastText: clip(text, 200), lastAt: at, lastDirection: 'in', unread: true, updatedAt: new Date() })
+    await upsertThread(env, accessToken, id, { platform: 'line', userId, channel: chan?.id || 'main', channelName: chan?.name || 'LINE OA หลัก', name: name || 'ลูกค้า LINE', lastText: clip(text, 200), lastAt: at, lastDirection: 'in', unread: true, updatedAt: new Date() })
     return true
   } catch { return false }
 }
 
 export async function lineReply(env, accessToken, { threadId, text } = {}, staffName = '') {
-  if (!env.LINE_CHANNEL_ACCESS_TOKEN) return { configured: false }
+  const t = parseLineThread(threadId)
+  const chan = t?.channel ? lineChannels(env).find(c => c.id === t.channel) : null
+  const token = t?.channel ? chan?.token : env.LINE_CHANNEL_ACCESS_TOKEN
+  if (!token) return { configured: false }
   const msg = clip(text, MAX_TEXT).trim()
   if (!msg) throw new Error('พิมพ์ข้อความก่อนส่ง')
-  if (!/^line_[A-Za-z0-9_-]{10,60}$/.test(String(threadId || ''))) throw new Error('ไม่พบห้องแชต')
-  const userId = String(threadId).slice(5)
+  if (!t) throw new Error('ไม่พบห้องแชต')
+  const userId = t.userId
   const res = await fetch('https://api.line.me/v2/bot/message/push', {
-    method: 'POST', headers: { Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ to: userId, messages: [{ type: 'text', text: msg }] }),
   }).catch(() => null)
   if (!res?.ok) {
@@ -300,7 +376,7 @@ export async function lineReply(env, accessToken, { threadId, text } = {}, staff
 
 // ── router ──────────────────────────────────────────────────────
 const writeLog = new Map()
-export function __resetSocialRate() { writeLog.clear() }
+export function __resetSocialRate() { writeLog.clear(); placesCache.clear() }
 function allowWrite(uid) {
   const now = Date.now()
   const hits = (writeLog.get(uid) || []).filter(t => now - t < 60_000)
@@ -320,6 +396,7 @@ export async function handleSocial(path, body, env, ctx) {
     case '/social/meta/ads': return metaAds(env)
     case '/social/meta/ads/update': return metaAdsUpdate(env, body, role)
     case '/social/line/reply': return lineReply(env, getAccessToken ? await getAccessToken() : null, body, name)
+    case '/social/google/places': return googlePlaces(env, body)
     default: return null
   }
 }
