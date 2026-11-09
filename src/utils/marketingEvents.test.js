@@ -83,3 +83,27 @@ describe('เวรบูธ & เช็กลิสต์', () => {
     expect(prepProgress([{ t: 'a', done: true }, { t: 'b' }, { t: '' }])).toEqual({ done: 1, total: 2 })
   })
 })
+
+describe('eventBreakdown / eventSummaryText (v1.0.992)', async () => {
+  const { eventBreakdown, eventSummaryText, eventMetrics } = await import('./marketingEvents.js')
+  const e = { id: 'ex', title: 'Motor Expo', venue: 'อิมแพ็ค', targetLeads: 10, spent: 20000 }
+  const customers = [
+    { id: 'a', eventId: 'ex', assignedTo: 'เซลส์ ก', createdAt: '2026-11-07T03:00:00Z', stage: 'lead' },
+    { id: 'b', eventId: 'ex', assignedTo: 'เซลส์ ก', createdAt: '2026-11-07T20:00:00Z', stage: 'pp' },
+    { id: 'c', eventId: 'ex', assignedTo: 'เซลส์ ข', createdAt: '2026-11-08T05:00:00Z', stage: 'booking' },
+    { id: 'z', eventId: 'other', assignedTo: 'เซลส์ ข', createdAt: '2026-11-08T05:00:00Z' },
+  ]
+  const bookings = [{ customerId: 'a', status: 'จอง' }, { customerId: 'b', status: 'ถอนจอง' }]
+  it('แยกรายคน/รายวัน (วันตามเวลาไทย) และนับจองไม่รวมถอนจอง', () => {
+    const br = eventBreakdown(e, { customers, bookings })
+    expect(br.byStaff).toEqual([{ name: 'เซลส์ ก', leads: 2, booked: 1 }, { name: 'เซลส์ ข', leads: 1, booked: 0 }])
+    expect(br.byDay).toEqual([{ day: '2026-11-07', leads: 1 }, { day: '2026-11-08', leads: 2 }])
+  })
+  it('ข้อความสรุปไม่มีเบอร์โทร', () => {
+    const t = eventSummaryText(e, eventMetrics(e, { customers, bookings }), eventBreakdown(e, { customers, bookings }))
+    expect(t).toContain('🧲 Lead 3/10')
+    expect(t).toContain('เซลส์ ก 2 (จอง 1)')
+    expect(t).toContain('📅 รายวัน: 2026-11-07 1 · 2026-11-08 2')
+    expect(t).not.toMatch(/\d{9,}/)
+  })
+})

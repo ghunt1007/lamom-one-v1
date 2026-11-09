@@ -16,7 +16,7 @@ import { navigate } from '../../core/router.js'
 import { copyText } from '../../utils/copyText.js'
 import {
   EVENT_TYPES, EVENT_TYPE_ORDER, EVENT_STATUS, typeOf, autoStatus, eventMetrics, normalizeEvent, eventDays,
-  normalizeShifts, autoRoster, shiftCounts, defaultChecklist, normalizeChecklist, prepProgress,
+  normalizeShifts, autoRoster, shiftCounts, defaultChecklist, normalizeChecklist, prepProgress, eventBreakdown, eventSummaryText,
 } from '../../utils/marketingEvents.js'
 
 const COL = 'marketing_events'
@@ -172,6 +172,15 @@ export default async function EventManagementPage(container) {
           <div><span>Lead → ใบจอง</span><b>${m.leadToBooking != null ? m.leadToBooking + '%' : '—'}</b></div>
           <div><span>ยอดจองรวม (ROI)</span><b>${money(m.revenue)}${m.roi ? ` <small>(${m.roi}x)</small>` : ''}</b></div>
         </div>
+        ${(() => {
+          // (v1.0.992) ใครเก็บ Lead ได้เท่าไหร่ · วันไหนคนเยอะ — ใช้จัดเวรงานหน้า
+          const br = eventBreakdown(e, ref)
+          if (!br.byStaff.length) return ''
+          const maxS = Math.max(...br.byStaff.map(r => r.leads)), maxD = Math.max(...br.byDay.map(d => d.leads), 1)
+          return `<div class="ev-h">ผลงานรายคน${br.byDay.length > 1 ? ' & รายวัน' : ''}</div>
+            <div class="ev-bars">${br.byStaff.slice(0, 12).map(r => `<div class="ev-pbar"><span>${esc(r.name)}</span><i style="width:${Math.max(4, r.leads / maxS * 100)}%"></i><b>${r.leads}${r.booked ? ` <small>จอง ${r.booked}</small>` : ''}</b></div>`).join('')}</div>
+            ${br.byDay.length > 1 ? `<div class="ev-days">${br.byDay.map(d => `<div><i style="height:${Math.max(6, d.leads / maxD * 65)}%"></i><b>${d.leads}</b><span>${esc(dayLabel(d.day))}</span></div>`).join('')}</div>` : ''}`
+        })()}
         ${m.leads > m.leadsInSystem ? `<div class="ev-meta">* รวม Lead ที่กรอกเพิ่มเอง ${m.leads - m.leadsInSystem} ราย (ไม่ได้บันทึกเป็นลูกค้าในระบบ)</div>` : ''}
         <div class="ev-h">ลูกค้าจากงานนี้ (${leads.length})</div>
         ${leads.length ? `<div class="ev-leads">${leads.slice(0, 60).map(c => `<button type="button" class="ev-lead" data-cust="${esc(c.id)}"><b>${first(c)}</b><span>${esc(STAGE[c.stage] || c.stage || '')}${c.interestedModel ? ' · ' + esc(c.interestedModel) : ''}${c.assignedTo ? ' · ' + esc(c.assignedTo) : ''}</span></button>`).join('')}</div>`
@@ -180,10 +189,11 @@ export default async function EventManagementPage(container) {
         <div id="evd-prep"></div>
         ${e.lessons ? `<div class="ev-h">สิ่งที่ได้เรียนรู้</div><div class="ev-note">${esc(e.lessons)}</div>` : ''}
       </div>`,
-      footer: `<button class="btn btn-ghost" id="evd-del">🗑 ลบ</button><button class="btn btn-secondary" id="evd-edit">✏️ แก้ / ใส่ผล</button>${autoStatus(e, today) === 'ongoing' ? '<button class="btn btn-primary" id="evd-lead">➕ Lead จากงานนี้</button>' : ''}`,
+      footer: `<button class="btn btn-ghost" id="evd-del">🗑 ลบ</button><button class="btn btn-secondary" id="evd-sum" title="สรุปผลงานสั้นๆ ไม่มีเบอร์ลูกค้า วางในกลุ่ม LINE ได้เลย">📋 สรุปผล</button><button class="btn btn-secondary" id="evd-edit">✏️ แก้ / ใส่ผล</button>${autoStatus(e, today) === 'ongoing' ? '<button class="btn btn-primary" id="evd-lead">➕ Lead จากงานนี้</button>' : ''}`,
     })
     bindPrep(el, e)
     el.querySelector('#evd-edit').addEventListener('click', () => { close(); openForm(e) })
+    el.querySelector('#evd-sum').addEventListener('click', () => copyText(eventSummaryText(e, m, eventBreakdown(e, ref), dayLabel), '📋 คัดลอกสรุปผลงานแล้ว วางในกลุ่ม LINE ได้เลย'))
     el.querySelector('#evd-lead')?.addEventListener('click', () => { close(); openQuickLead() })
     el.querySelector('#evd-del').addEventListener('click', async () => {
       if (!(await confirmDialog({ title: 'ลบงานนี้?', message: `“${e.title}” จะหายจากตารางและปฏิทิน (ลูกค้าที่ติดป้ายงานยังอยู่ครบ)`, confirmText: '🗑 ลบ', danger: true }))) return
