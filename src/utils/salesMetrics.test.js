@@ -101,3 +101,26 @@ describe('team target falls back to sum of person targets', () => {
     expect(m.target).toMatchObject({ units: 4, unitsPct: 25, basis: 'delivered' })
   })
 })
+
+describe('compareRange / pctChange (v1.0.989)', async () => {
+  const { compareRange, pctChange, computeSalesMetrics } = await import('./salesMetrics.js')
+  it('เดือนนี้เทียบวันที่ 1..วันนี้ของเดือนก่อน', () => {
+    expect(compareRange('month', '2026-03-31')).toMatchObject({ from: '2026-02-01', to: '2026-02-28' })
+    expect(compareRange('month', '2026-01-10')).toMatchObject({ from: '2025-12-01', to: '2025-12-10' })
+    expect(compareRange('prev', '2026-01-10')).toMatchObject({ from: '2025-11-01', to: '2025-11-30' })
+    expect(compareRange('quarter', '2026-05-15')).toMatchObject({ from: '2025-04-01', to: '2025-05-15' })
+    expect(compareRange('year', '2028-02-29')).toMatchObject({ from: '2027-01-01', to: '2027-02-28' })
+  })
+  it('% เปลี่ยน — ฐานศูนย์ไม่แสดง', () => {
+    expect(pctChange(120, 100)).toBe(20)
+    expect(pctChange(50, 100)).toBe(-50)
+    expect(pctChange(5, 0)).toBe(null)
+    expect(pctChange(null, 3)).toBe(null)
+  })
+  it('range override นับเฉพาะช่วงที่ให้', () => {
+    const src = { bookings: [{ bookingDate: '2026-10-05', price: 1000000, status: 'จอง', salesName: 'A' }, { bookingDate: '2026-10-20', price: 900000, status: 'จอง', salesName: 'A' }] }
+    const m = computeSalesMetrics(src, { today: '2026-11-09', range: compareRange('month', '2026-11-09') })
+    expect(m.units.booked).toBe(1)
+    expect(m.forecast).toBe(null)
+  })
+})
