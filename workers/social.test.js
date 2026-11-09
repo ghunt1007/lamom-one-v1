@@ -168,3 +168,15 @@ describe('LINE multicast to a customer segment (v1.0.1023)', () => {
     expect(r).toMatchObject({ sent: 0, failed: 1, errors: ['โควตาข้อความ LINE OA เดือนนี้หมดแล้ว'] })
   })
 })
+
+describe('LINE broadcast via social worker (v1.0.1025)', () => {
+  it('managers only; posts to broadcast endpoint', async () => {
+    const { lineBroadcast } = await import('./social.js')
+    const env = { LINE_CHANNEL_ACCESS_TOKEN: 'l' }
+    await expect(lineBroadcast(env, { text: 'x' }, 'sales')).rejects.toThrow('เฉพาะ')
+    await expect(lineBroadcast(env, { text: ' ' }, 'owner')).rejects.toThrow('พิมพ์')
+    global.fetch = vi.fn().mockResolvedValue(ok({}))
+    expect(await lineBroadcast(env, { text: 'โปร' }, 'owner')).toMatchObject({ configured: true, broadcast: true })
+    expect(global.fetch.mock.calls[0][0]).toContain('/broadcast')
+  })
+})
