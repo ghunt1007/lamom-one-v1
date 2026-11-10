@@ -3,6 +3,7 @@
 import { pageAsksFor, pageContextFor } from './pageContext.js'
 import { formatAiText } from './aiFormat.js'
 import { escHtml as esc } from './escape.js'
+import { hasSpeechInput, bindMic } from './micInput.js'
 
 function readScreen() {
   const main = document.getElementById('main-content')
@@ -42,6 +43,7 @@ export function openLamiPanel({ navigate } = {}) {
     </div>
     <div class="lp-foot">
       <input class="input" id="lp-input" placeholder="ถาม หรือสั่ง เช่น นัดสมชายพรุ่งนี้…" autocomplete="off">
+      ${hasSpeechInput() ? '<button class="btn btn-secondary btn-sm" id="lp-mic" type="button" title="กดแล้วพูด">🎤</button>' : ''}
       <button class="btn btn-primary btn-sm" id="lp-send" type="button">ส่ง</button>
     </div>
     <button class="lp-full" type="button">💬 เปิดแชท LAMI เต็มหน้า →</button>`
@@ -115,11 +117,12 @@ export function openLamiPanel({ navigate } = {}) {
     const hint = body.querySelector('.lp-hint')
     if (!c || !hint) return
     const n = c.firstName
-    const ex = [`นัด${n}พรุ่งนี้ 10 โมง`, `${n} hot`, `นัดลองขับ ${n} เสาร์บ่าย 2`]
+    const ex = [`นัด${n}พรุ่งนี้ 10 โมง`, `${n} hot`, `นัดลองขับ ${n} เสาร์บ่าย 2`, `จด ${n} รอโบนัสสิ้นปี`]
     hint.insertAdjacentHTML('afterend', `<div class="lp-try"><span>🪄 สั่งงานได้ด้วย ลองกด:</span>${ex.map(x => `<button type="button" class="lp-ask lp-fill" data-fill="${esc(x)}">${esc(x)}</button>`).join('')}</div>`)
     body.querySelectorAll('.lp-fill').forEach(b => b.addEventListener('click', () => { input.value = b.dataset.fill; input.focus() }))
   })
   el.querySelector('#lp-send').addEventListener('click', () => ask(input.value))
+  bindMic(el.querySelector('#lp-mic'), input, { replace: true, onFinal: () => ask(input.value) })
   input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ask(input.value) } })
   return { close: closeLamiPanel, ask }
 }

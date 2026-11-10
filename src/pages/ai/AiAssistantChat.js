@@ -351,7 +351,7 @@ export default async function AiAssistantChatPage(container) {
 
         <!-- Input bar -->
         <div style="padding:10px 0;border-top:1px solid var(--border);display:flex;gap:8px">
-          <input class="input" id="chat-input" placeholder="ถาม หรือสั่ง เช่น นัดสมชายพรุ่งนี้ 10 โมง…" title="ถาม: ยอดขายวันนี้ / Hot Lead · สั่ง: นัดสมชายพรุ่งนี้ 10 โมง / มานี hot / นัดลองขับปิติเสาร์บ่าย 2" style="flex:1" ${waiting?'disabled':''}>
+          <input class="input" id="chat-input" placeholder="ถาม หรือสั่ง เช่น นัดสมชายพรุ่งนี้ 10 โมง · จด สมชาย ชอบสีขาว" title="ถาม: ยอดขายวันนี้ / Hot Lead · สั่ง: นัดสมชายพรุ่งนี้ 10 โมง / มานี hot / นัดลองขับปิติเสาร์บ่าย 2" style="flex:1" ${waiting?'disabled':''}>
           ${hasMic ? `<button class="btn btn-secondary" id="mic-btn" ${waiting?'disabled':''} title="พูดคำถาม (ภาษาไทย)" style="flex-shrink:0">🎤</button>` : ''}
           <button class="btn btn-primary" id="send-btn" ${waiting?'disabled':''} style="white-space:nowrap">📤 ส่ง</button>
         </div>

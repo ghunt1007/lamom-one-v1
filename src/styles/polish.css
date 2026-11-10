@@ -427,3 +427,8 @@ input.dt-input.dt-bad { border-color: var(--danger) !important; box-shadow: 0 0 
 .lp-try > span { width: 100%; font-size: 0.72rem; color: var(--text-muted); }
 .lp-try .lp-ask { border-style: dashed; }
 .lp-try .lp-ask { padding: 7px 11px; font-size: 0.8rem; font-weight: 500; }
+
+/* (v1.0.1032) 🪄 สั่งเร็วในหน้าลูกค้า */
+.lami-quick { display: flex; gap: 6px; align-items: center; }
+.lami-quick .input { flex: 1; min-width: 0; }
+.lami-quick-hint { font-size: 0.78rem; color: var(--text-muted); padding: 6px 2px; line-height: 1.6; }

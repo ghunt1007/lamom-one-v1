@@ -11,7 +11,7 @@ export function mountCommandCard(slot, cmds, { onDone } = {}) {
   slot.innerHTML = `<div class="lami-cmds">${cmds.map((c, i) => `
     <div class="lami-cmd" data-i="${i}">
       <div class="lami-cmd-t"><b>${esc(c.label)}</b>${c.desc ? `<small>${esc(c.desc)}</small>` : ''}</div>
-      <button type="button" class="btn btn-primary btn-sm lami-cmd-go" data-i="${i}">${c.kind === 'tel' ? '📞 โทรเลย' : c.kind === 'td' ? '🚗 เปิดฟอร์ม' : '✅ ทำเลย'}</button>
+      <button type="button" class="btn btn-primary btn-sm lami-cmd-go" data-i="${i}">${c.kind === 'tel' ? '📞 โทรเลย' : c.kind === 'td' ? '🚗 เปิดฟอร์ม' : c.kind === 'lead' ? '➕ เปิดฟอร์ม' : '✅ ทำเลย'}</button>
     </div>`).join('')}</div>`
   slot.querySelectorAll('.lami-cmd-go').forEach(btn => btn.addEventListener('click', async () => {
     const cmd = cmds[+btn.dataset.i]
@@ -19,6 +19,10 @@ export function mountCommandCard(slot, cmds, { onDone } = {}) {
     if (cmd.kind === 'tel') {
       import('./callLogger.js').then(m => m.armCallLog?.(cmd.customer)).catch(() => {})
       location.href = 'tel:' + cmd.phone; return
+    }
+    if (cmd.kind === 'lead') {
+      const { openQuickLead } = await import('./quickLead.js')
+      openQuickLead({ pasteText: cmd.text, name: cmd.name }); return
     }
     if (cmd.kind === 'td') {
       const { openTestDriveForm } = await import('./testDriveForm.js')

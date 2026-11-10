@@ -514,6 +514,7 @@
   .cust-table-wrap { border: none; background: transparent; overflow: visible; }
   .cust-table, .cust-table tbody { display: block; width: 100%; }
   .cust-table thead { display: none; }
+  .cust-table tr:not(.cust-row), .cust-table tr:not(.cust-row) > td { display: block; width: 100%; } /* (v1.0.1032) แถวว่าง/โหลด เต็มความกว้าง */
   .cust-table tr.cust-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
   .cust-table tr.cust-row td { display: block; padding: 0; border: none; background: transparent !important; }
   .cust-table .cc-name { flex: 1 1 calc(100% - 130px); min-width: 0; order: 1; }

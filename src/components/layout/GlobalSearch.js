@@ -225,7 +225,7 @@ export function openGlobalSearch() {
     try {
       const { parseLamiCommand } = await import('../../utils/lamiCommands.js')
       const { todayBangkok } = await import('../../utils/format.js')
-      parseLamiCommand(qRaw, fetched[custIdx] || [], todayBangkok()).reverse().forEach(cmd => results.unshift({
+      parseLamiCommand(qRaw, fetched[custIdx] || [], todayBangkok()).filter(c => c.kind !== 'lead').reverse().forEach(cmd => results.unshift({
         type: 'cmd', cmd, icon: '🪄', group: 'คำสั่ง', title: cmd.label.replace(/^\S+\s/, ''), sub: (cmd.desc ? cmd.desc + ' · ' : '') + (cmd.kind === 'tel' ? 'กด Enter เพื่อโทร' : cmd.kind === 'td' ? 'กด Enter เปิดฟอร์มนัดลองขับ' : 'กด Enter เพื่อบันทึกทันที'),
       }))
     } catch { /* ไม่มีคำสั่ง ค้นหาตามปกติ */ }
