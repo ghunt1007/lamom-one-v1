@@ -223,10 +223,10 @@ export function openGlobalSearch() {
     if (/^(?:\+|➕)?\s*(?:นัดติดตาม|เพิ่มนัดติดตาม|ตามลูกค้า|follow ?up)/i.test(qRaw.trim())) results.unshift({ type: 'page', icon: '📞', group: 'คำสั่ง', title: 'นัดติดตามลูกค้าใหม่', sub: 'เปิดฟอร์ม Follow-up ทันที', route: '/crm/followup?new=1' })
     // (v1.0.1031) พิมพ์สั่งงาน เช่น "นัดสมชายพรุ่งนี้ 10 โมง" / "มานี hot" → Enter = ทำเลย
     try {
-      const { parseLamiCommand } = await import('../../utils/lamiCommands.js')
+      const { parseLamiCommand, commandHref } = await import('../../utils/lamiCommands.js')
       const { todayBangkok } = await import('../../utils/format.js')
       parseLamiCommand(qRaw, fetched[custIdx] || [], todayBangkok()).filter(c => c.kind !== 'lead').reverse().forEach(cmd => results.unshift({
-        type: 'cmd', cmd, icon: '🪄', group: 'คำสั่ง', title: cmd.label.replace(/^\S+\s/, ''), sub: (cmd.desc ? cmd.desc + ' · ' : '') + (cmd.kind === 'tel' ? 'กด Enter เพื่อโทร' : cmd.kind === 'td' ? 'กด Enter เปิดฟอร์มนัดลองขับ' : cmd.kind === 'book' ? 'กด Enter เปิดฟอร์มจอง' : cmd.kind === 'open' ? 'กด Enter เปิดหน้าลูกค้า' : 'กด Enter เพื่อบันทึกทันที'),
+        type: 'cmd', cmd, href: commandHref(cmd), icon: '🪄', group: 'คำสั่ง', title: cmd.label.replace(/^\S+\s/, ''), sub: (cmd.desc ? cmd.desc + ' · ' : '') + (cmd.kind === 'tel' ? 'กด Enter เพื่อโทร' : cmd.kind === 'td' ? 'กด Enter เปิดฟอร์มนัดลองขับ' : cmd.kind === 'book' ? 'กด Enter เปิดฟอร์มจอง' : cmd.kind === 'open' ? 'กด Enter เปิดหน้าลูกค้า' : cmd.kind === 'stage' ? 'กด Enter เปิดใบจองแล้วเปลี่ยนสถานะ' : 'กด Enter เพื่อบันทึกทันที'),
       }))
     } catch { /* ไม่มีคำสั่ง ค้นหาตามปกติ */ }
     if (seq !== searchSeq || !div.isConnected) return
@@ -313,7 +313,7 @@ export function openGlobalSearch() {
     if (r.type === 'cmd') {
       const c = r.cmd
       if (c.kind === 'tel') { location.href = 'tel:' + c.phone; return }
-      if (c.kind === 'book' || c.kind === 'open') { navigate(`/crm/customers?id=${encodeURIComponent(c.customer.id)}${c.kind === 'book' ? '&book=1' : ''}`); return }
+      if (r.href) { navigate(r.href); return }
       if (c.kind === 'td') { import('../../utils/testDriveForm.js').then(m => m.openTestDriveForm(c.customer, { hint: c.hint || '' })); return }
       Promise.all([import('../../utils/lamiCommandCard.js'), import('../../core/store.js')])
         .then(([m, st]) => m.executeCommand(c).then(msg => st.showToast(msg, 'success')).catch(() => st.showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', 'error')))

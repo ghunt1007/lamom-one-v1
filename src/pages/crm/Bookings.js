@@ -378,7 +378,19 @@ export default async function BookingsPage(container) {
         // เปิดใบจองที่ระบุมาทันที (?id= จากช่องค้นหารวม / งานของฉันวันนี้) แล้วลบ ?id ออกกันเปิดซ้ำตอนรีเฟรช
         const deepId = new URLSearchParams(window.location.search).get('id')
         const target = deepId && bookings.find(b => b.id === deepId)
-        if (target) { window.history.replaceState({}, '', window.location.pathname); openDetail(target) }
+        if (target) {
+          // ?status= (คำสั่ง LAMI "สมชาย ตัดตัวเลขแล้ว") = เปลี่ยนสถานะด้วยขั้นตอนปกติ (ลงวันที่/สต็อก/ถามรายได้/ถอนจองถามเหตุผล)
+          const want = new URLSearchParams(window.location.search).get('status')
+          window.history.replaceState({}, '', window.location.pathname)
+          if (want && getBookingStatus().includes(want) && want !== target.status) {
+            // ย้อนขั้น (เช่น ตัดตัวเลขแล้ว → รอส่งมอบ) มักพิมพ์ผิดคน/ผิดคำ → ถามก่อน 1 ครั้ง
+            const order = getBookingStatus(), back = want !== 'ถอนจอง' && order.indexOf(want) < order.indexOf(target.status)
+            Promise.resolve(!back || confirmDialog({ title: '↩️ ย้อนขั้นใบจอง?', message: `${escHtml(target.custName || '')} ตอนนี้ "${escHtml(target.status)}" — จะย้อนกลับเป็น "${escHtml(want)}" ใช่ไหม`, confirmText: 'ใช่ ย้อนขั้น' }))
+              .then(ok => ok ? applyStatusChange(target, want) : openDetail(target))
+          }
+          else { if (want === target.status) showToast(`ใบจองนี้เป็น "${want}" อยู่แล้ว`, 'info'); openDetail(target) }
+        }
+        else if (deepId) { window.history.replaceState({}, '', window.location.pathname); showToast('ไม่พบใบจองนี้ในรายการ (อาจถูกลบหรือเป็นของบริษัทอื่น)', 'warning') }
         // ?new=1 (คำสั่ง "จองใหม่" จากช่องค้นหารวม) = เปิดฟอร์มจองทีละขั้นทันที
         else if (new URLSearchParams(window.location.search).get('new') === '1') { window.history.replaceState({}, '', window.location.pathname); openWizard() }
         // ?fromQuote=<id> (ปุ่ม "📝 จองเลย" ในใบเสนอราคา) = เปิดฟอร์มจองพร้อมข้อมูลจากใบเสนอราคา

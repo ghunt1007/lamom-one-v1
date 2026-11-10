@@ -75,6 +75,7 @@ export function commandHelpText(n = 'สมชาย') {
     `• 📝 จดโน้ต: "จด ${n} ชอบสีขาว รอโบนัส"`,
     `• 🚗 ลองขับ: "นัดลองขับ ${n} เสาร์บ่าย 2"`,
     `• 📝 จอง: "${n} จองแล้ว" (เปิดฟอร์มจองที่กรอกชื่อ/รุ่นให้)`,
+    `• 🧾 ใบจอง: "${n} ตัดตัวเลขแล้ว" · "${n} ส่งมอบแล้ว" · "${n} ไฟแนนซ์ผ่าน" · "${n} รถมาแล้ว" · "${n} ถอนจอง" (เปิดใบจองแล้วเปลี่ยนสถานะให้)`,
     '• ➕ ลูกค้าใหม่: "ลีดใหม่ สมศักดิ์ 0812345678 สนใจ S07"',
     `• 📞 โทร: "โทรหา ${n}"`,
     '',
@@ -85,9 +86,9 @@ export function commandHelpText(n = 'สมชาย') {
 // q = ประโยคที่พิมพ์ · customers = ลูกค้าที่ผู้ใช้เห็น · คืนรายการคำสั่งที่ทำได้ (ว่าง = ไม่ใช่คำสั่ง ให้ AI ตอบตามปกติ)
 export function parseLamiCommand(q, customers = [], today) {
   const s = thaiNumerals(String(q || '').trim())
-  if (!s || s.length > 200 || /[?？]$|ไหม$|มั้ย$|อย่างไร|ยังไง|เท่าไร|กี่/.test(s)) return []
+  if (!s || s.length > 200 || /[?？]$|ไหม$|มั้ย$|(?:หรือ|รึ)ยัง$|หรือเปล่า$|ป่ะ$|อย่างไร|ยังไง|เท่าไร|กี่/.test(s)) return []
   // ยกเลิก/เลื่อน/ลบ ยังไม่รองรับแบบทำทันที → ให้ AI ตอบ (กันสร้างนัดผิดจาก "ยกเลิกนัด…")
-  if (/ยกเลิก|เลื่อน|ไม่ต้อง|ไม่นัด|ลบ|cancel/i.test(s)) return []
+  if (!/ยกเลิกจอง/.test(s) && /ยกเลิก|เลื่อน|ไม่ต้อง|ไม่นัด|ลบ|cancel/i.test(s)) return []
   const hits = mentionedCustomers(s, customers, 3)
   // (v1.0.1032) ลูกค้าใหม่: ขึ้นต้นด้วย ลีดใหม่/เพิ่มลูกค้า… หรือ เบอร์ใหม่+ชื่อที่ยังไม่มีในระบบ → เปิดฟอร์ม Lead ที่กรอกให้แล้ว
   const known = new Set(customers.map(c => String(c?.phone || '').replace(/\D/g, '')).filter(Boolean))
@@ -103,8 +104,10 @@ export function parseLamiCommand(q, customers = [], today) {
   // (v1.0.1032) ติดต่อแล้ว: "โทรหาสมชายแล้ว…" / "คุยกับมานีแล้ว…" / "ปิติ ไม่รับสาย" → บันทึกผล + ปิดนัดที่ถึงกำหนด
   const noAnswer = /ไม่รับสาย|ติดต่อไม่ได้|ปิดเครื่อง|โทรไม่ติด|สายไม่ว่าง/.test(s)
   const isLog = !isNote && (/(?:โทร|คุย|ทัก|เจอ|ไปหา|เยี่ยม|ส่ง(?:ไลน์|ข้อมูล|ใบเสนอ|ราคา|โปร|รูป))[^\n]{0,40}?แล้ว(?!ก็|ค่อย)/.test(s) || noAnswer)
+  // (v1.0.1036) ขั้นของใบจอง: "สมชาย ตัดตัวเลขแล้ว" / "มานี ส่งมอบแล้ว" → เปิดใบจองแล้วเปลี่ยนสถานะให้ (ใช้ขั้นตอนเดียวกับหน้าใบจอง)
+  const stage = !isNote ? bookingStageIn(s) : null
   // (v1.0.1034) จอง: เปิดฟอร์มสร้างใบจองของลูกค้าคนนั้น (ไม่บันทึกเงินเองอัตโนมัติ — ต้องกรอกเงินจองก่อน)
-  const isBook = !isNote && /^(?:ช่วย\s*)?(?:จอง(?!ลองขับ)|ทำใบจอง|ออกใบจอง|เปิดใบจอง|สร้างใบจอง)|(?:ตกลง|ขอ)?จองแล้ว|ปิดการขาย(?:ได้)?แล้ว|ปิดดีล(?:ได้)?แล้ว|ตกลงจอง|จะจอง(?:วันนี้|เลย)/.test(s)
+  const isBook = !isNote && !stage && /^(?:ช่วย\s*)?(?:จอง(?!ลองขับ)|ทำใบจอง|ออกใบจอง|เปิดใบจอง|สร้างใบจอง)|(?:ตกลง|ขอ)?จองแล้ว|ปิดการขาย(?:ได้)?แล้ว|ปิดดีล(?:ได้)?แล้ว|ตกลงจอง|จะจอง(?:วันนี้|เลย)/.test(s)
   const isTd = !isNote && !isLog && !isBook && /ลองขับ|ทดลองขับ|test\s*drive/i.test(s)
   const tempHit = TEMP.find(([re]) => re.test(s))
   const isTempOnly = !isNote && !isLog && !isBook && tempHit && (/^(?:ปรับ|ตั้ง|เปลี่ยน|ให้)|เป็น\s*(?:hot|warm|cold|ร้อน|อุ่น|เย็น)/i.test(s) || (!WHEN.test(s) && s.replace(/hot|warm|cold/i, '').trim().split(/\s+/).length <= 2))
@@ -115,6 +118,10 @@ export function parseLamiCommand(q, customers = [], today) {
   const isCall = !isFu && !isTd && !isNote && !isLog && !isBook && /^(?:โทร|call)\s*(?:หา)?/i.test(s)
   for (const c of hits) {
     const name = fullName(c)
+    if (stage && c.bookingId) out.push({ kind: 'stage', customer: c, status: stage, label: `📝 ${name} → ${stage}`,
+      desc: stage === 'ถอนจอง' ? 'เปิดใบจองแล้วถามเหตุผลการถอนจอง' : 'เปิดใบจองแล้วเปลี่ยนสถานะ ลงวันที่ อัปเดตสต็อก/ลูกค้าให้ครบ' })
+    // "โทรหาสมชายแล้ว ไฟแนนซ์ผ่าน" = เปลี่ยนสถานะใบจอง + บันทึกการติดต่อ (2 การ์ด)
+    if (stage && !isLog) continue
     if (isBook) {
       if (c.isLost) continue
       out.push(c.bookingId
@@ -151,6 +158,29 @@ export function parseLamiCommand(q, customers = [], today) {
 }
 
 // (v1.0.1032) สั่งในหน้าลูกค้าคนเดียว ไม่ต้องพิมพ์ชื่อ: "พรุ่งนี้ 10 โมง hot" / "จด ชอบสีขาว" / "ลองขับ เสาร์บ่าย 2" / "warm"
+// คำว่า "ขั้นของใบจอง" ในประโยค → ชื่อสถานะใน BOOKING_STATUSES (ต้องมีคำว่าแล้ว/ได้ เพื่อไม่ให้ "รอรถมา" กลายเป็นคำสั่ง)
+const STAGE_WORDS = [
+  [/ถอนจอง|ยกเลิกจอง|ขอถอน(?:จอง)?/, 'ถอนจอง'],
+  [/ตัดตัวเลข(?:ได้)?(?:แล้ว)?|ตัดรถ(?:ได้)?แล้ว/, 'ตัดตัวเลขรอส่งมอบ'],
+  [/(?:ส่งมอบ|ส่งรถ|รับรถ|ออกรถ)(?:ไป|ได้)?แล้ว/, 'ส่งมอบแล้ว'],
+  [/(?:ไฟแนนซ์|แบงก์|ธนาคาร|ไฟแนนท์)\s*(?:ผ่าน|อนุมัติ)|ผ่านไฟแนนซ์|อนุมัติ(?:ไฟแนนซ์)?แล้ว/, 'ผ่านไฟแนนซ์รอเบิก'],
+  [/(?:ส่ง|ยื่น)\s*(?:ไฟแนนซ์|เอกสารไฟแนนซ์|แบงก์)(?:ไป)?แล้ว/, 'รอผลไฟแนนซ์'],
+  [/รถ(?:มา|เข้า|ถึง)(?:แล้ว|ถึงแล้ว)/, 'รอส่งมอบ'],
+]
+export function bookingStageIn(s) {
+  const hit = STAGE_WORDS.find(([re]) => re.test(String(s || '')))
+  return hit ? hit[1] : null
+}
+
+// ลิงก์ของคำสั่งที่ต้องเปิดหน้าอื่น (การ์ดคำสั่ง + Ctrl K ใช้ร่วมกัน) — ไม่ใช่คำสั่งแบบนี้คืน ''
+export function commandHref(cmd) {
+  const id = encodeURIComponent(cmd?.customer?.id || '')
+  if (cmd?.kind === 'stage') return `/crm/bookings?id=${encodeURIComponent(cmd.customer.bookingId)}&status=${encodeURIComponent(cmd.status)}`
+  if (cmd?.kind === 'book') return `/crm/customers?id=${id}&book=1`
+  if (cmd?.kind === 'open') return `/crm/customers?id=${id}`
+  return ''
+}
+
 export function scopedCommand(text, c, today) {
   const t = String(text || '').trim()
   const name = c?.firstName || c?.nickname || ''
