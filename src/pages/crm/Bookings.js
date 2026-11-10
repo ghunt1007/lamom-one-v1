@@ -492,7 +492,7 @@ export default async function BookingsPage(container) {
     const pipelineVal = activeAll.reduce((s, b) => s + (b.price || 0), 0)
     // เดิม new Date().toISOString().slice(0,7) คืนเดือนตาม UTC เสมอ — แก้ให้ยึดเดือนไทยจริงจาก todayBangkok()
     const curMonth = todayBangkok().slice(0, 7)
-    const delMonth = visible.filter(b => TERMINAL_STATUSES.slice(0, 2).includes(b.status) && (b.cutDate || b.deliveryDate || '').startsWith(curMonth)).length
+    const delMonth = visible.filter(b => TERMINAL_STATUSES.slice(0, 2).includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(curMonth)).length /* (v1.0.1035) เดิมใช้วันนัดส่งมอบ — ให้ตรงกับหน้าแรก/รายงาน */
     const urgentCount = visible.filter(isUrgent).length
     const noIncomeCount = visible.filter(b => needsIncome(b)).length
     const deliveredAll = visible.filter(b => b.status === 'ส่งมอบแล้ว')

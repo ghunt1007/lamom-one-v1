@@ -6,18 +6,17 @@ import { bangkokDate, STALE_LEAD_DAYS } from './myDay.js'
 import { classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
 import { stockAgeDays } from './stockAge.js'
 
-import { CANCELLED_STATUSES as CANCELLED } from './bookingStatus.js'
+import { CANCELLED_STATUSES as CANCELLED, cancelledMonth, deliveredMonth } from './bookingStatus.js'
 const SOURCE_TH = { facebook: 'Facebook', line: 'LINE', tiktok: 'TikTok', 'walk-in': 'Walk-in', referral: 'แนะนำ', google: 'Google', website: 'เว็บไซต์', phone: 'โทรเข้า', event: 'บูธ/อีเวนต์', other: 'อื่นๆ' }
 
 const prevMonth = ym => { const [y, m] = ym.split('-').map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}` }
-const deliveredMonth = b => DELIVERED_STATUSES.includes(b.status) ? String(b.actualDeliveryDate || b.cutDate || b.deliveryDate || '').slice(0, 7) : ''
 
 export function businessFacts({ customers = [], bookings = [] }, today) {
   const ym = today.slice(0, 7), pm = prevMonth(ym)
   const bk = bookings.filter(b => b && !b.deleted)
   const booked = m => bk.filter(b => String(b.bookingDate || bangkokDate(b.createdAt)).slice(0, 7) === m && !CANCELLED.includes(b.status))
   const delivered = m => bk.filter(b => deliveredMonth(b) === m)
-  const cancelled = bk.filter(b => CANCELLED.includes(b.status) && String(b.cancelDate || b.updatedAt || '').slice(0, 7) === ym).length
+  const cancelled = bk.filter(b => cancelledMonth(b) === ym).length
 
   // รายเซลส์เดือนนี้: จอง/ส่งมอบ
   const per = {}
