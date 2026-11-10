@@ -80,4 +80,21 @@ describe('LAMI สั่งงาน: โทรตอนไหน', () => {
     // คำถาม → ไม่ใช่คำสั่ง
     expect(parseLamiCommand('ลูกค้าใหม่เดือนนี้กี่คน', cs, T)).toEqual([])
   })
+  it('เย็นนี้ = เวลา ไม่ใช่ Cold · ชื่อขึ้นก่อน + hot + นัด = คำสั่งเดียว', async () => {
+    const a = parseLamiCommand('นัดสมชายเย็นนี้', cs, T)
+    expect(a[0]).toMatchObject({ kind: 'fu', dueDate: '2026-11-10' })
+    expect(a[0].temp).toBeUndefined()
+    const b = parseLamiCommand('สมชาย hot นัดพรุ่งนี้ 10 โมง', cs, T)
+    expect(b).toEqual([expect.objectContaining({ kind: 'fu', dueDate: '2026-11-11', time: '10:00', temp: 'hot' })])
+    const calls = []
+    const db = { createDoc: async (...x) => calls.push(['c', ...x]), updateDocData: async (...x) => calls.push(['u', ...x]) }
+    await runLamiCommand({ ...b[0], customer: { ...cs[0] } }, { db })
+    expect(calls.map(x => x[0] + x[1])).toEqual(['cfollowups', 'ucustomers'])
+    expect(parseLamiCommand('ปิติ เป็นเย็น', cs, T)[0]).toMatchObject({ kind: 'temp', temp: 'cold' })
+    expect(parseLamiCommand('มานี hot', cs, T)[0]).toMatchObject({ kind: 'temp', temp: 'hot' })
+  })
+  it('ยกเลิก/เลื่อนนัด → ไม่ใช่คำสั่งสร้างนัด', () => {
+    expect(parseLamiCommand('ยกเลิกนัดสมชายพรุ่งนี้', cs, T)).toEqual([])
+    expect(parseLamiCommand('เลื่อนนัดสมชายไปศุกร์', cs, T)).toEqual([])
+  })
 })

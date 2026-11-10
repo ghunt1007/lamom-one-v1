@@ -11,7 +11,8 @@ import { suggestNextDue } from './nextFollowup.js'
 import { dmy } from './format.js'
 import { detectLeadIntent } from './searchIntent.js'
 
-const TEMP = [[/hot|ร้อน|🔥/i, 'hot', '🔴 Hot'], [/warm|อุ่น/i, 'warm', '🟡 Warm'], [/cold|เย็น|❄/i, 'cold', '🔵 Cold']]
+// คำไทยต้องมี เป็น/ลูกค้า นำหน้า — กัน "เย็นนี้/ตอนเย็น/4 โมงเย็น" (เวลา) ถูกอ่านเป็น Cold
+const TEMP = [[/hot|🔥|(?:เป็น|ลูกค้า)\s*ร้อน/i, 'hot', '🔴 Hot'], [/warm|(?:เป็น|ลูกค้า)\s*อุ่น/i, 'warm', '🟡 Warm'], [/cold|❄|(?:เป็น|ลูกค้า)\s*เย็น/i, 'cold', '🔵 Cold']]
 const NEW_LEAD = /^(?:เพิ่ม\s*(?:ลีด|lead|ลูกค้า)|ลีดใหม่|lead\s*ใหม่|ลูกค้าใหม่|new\s*lead|\+\s*lead)/i
 const fullName = c => [c.firstName, c.lastName].filter(Boolean).join(' ') || c.nickname || 'ลูกค้า'
 
@@ -49,6 +50,8 @@ export function noteText(s, c) {
 export function parseLamiCommand(q, customers = [], today) {
   const s = String(q || '').trim()
   if (!s || s.length > 200 || /[?？]$|ไหม$|มั้ย$|อย่างไร|ยังไง|เท่าไร|กี่/.test(s)) return []
+  // ยกเลิก/เลื่อน/ลบ ยังไม่รองรับแบบทำทันที → ให้ AI ตอบ (กันสร้างนัดผิดจาก "ยกเลิกนัด…")
+  if (/ยกเลิก|เลื่อน|ไม่ต้อง|ไม่นัด|ลบ|cancel/i.test(s)) return []
   const hits = mentionedCustomers(s, customers, 3)
   // (v1.0.1032) ลูกค้าใหม่: ขึ้นต้นด้วย ลีดใหม่/เพิ่มลูกค้า… หรือ เบอร์ใหม่+ชื่อที่ยังไม่มีในระบบ → เปิดฟอร์ม Lead ที่กรอกให้แล้ว
   const known = new Set(customers.map(c => String(c?.phone || '').replace(/\D/g, '')).filter(Boolean))
@@ -63,9 +66,11 @@ export function parseLamiCommand(q, customers = [], today) {
   const isNote = /^(?:ช่วย\s*)?(?:จด(?:ไว้|โน้ต)?|โน้ต|note|บันทึก(?:ว่า|โน้ต)?)(?=\s|[ก-๙])/i.test(s)
   const isTd = !isNote && /ลองขับ|ทดลองขับ|test\s*drive/i.test(s)
   const tempHit = TEMP.find(([re]) => re.test(s))
-  const isTemp = !isNote && tempHit && (/^(?:ปรับ|ตั้ง|เปลี่ยน|ให้)|เป็น\s*(?:hot|warm|cold|ร้อน|อุ่น|เย็น)/i.test(s) || s.replace(/hot|warm|cold/i, '').trim().split(/\s+/).length <= 2)
+  const isTempOnly = !isNote && tempHit && (/^(?:ปรับ|ตั้ง|เปลี่ยน|ให้)|เป็น\s*(?:hot|warm|cold|ร้อน|อุ่น|เย็น)/i.test(s) || s.replace(/hot|warm|cold/i, '').trim().split(/\s+/).length <= 2)
   const hasWhen = /วันนี้|พรุ่งนี้|มะรืน|สัปดาห์|อาทิตย์หน้า|เดือน|จันทร์|อังคาร|พุธ|พฤหัส|ศุกร์|เสาร์|\d+\s*วัน|\d{1,2}\s*\/\s*\d|โมง|ทุ่ม|บ่าย|เย็นนี้|เช้า|\d{1,2}[:.]\d{2}/.test(s)
-  const isFu = !isTd && !isNote && (/^(?:ช่วย\s*)?(?:นัด|ตาม|ติดต่อ|follow)|นัด(?:ติดตาม|โทร|คุย)|ตามลูกค้า|เตือน(?:ให้)?(?:โทร|ตาม)/i.test(s) || (/^(?:ช่วย\s*)?(?:โทรหา|โทรกลับ|ทักไลน์|ทัก)/.test(s) && hasWhen))
+  const isFu = !isTd && !isNote && (/^(?:ช่วย\s*)?(?:นัด|ตาม|ติดต่อ|follow)|นัด(?:ติดตาม|โทร|คุย)|ตามลูกค้า|เตือน(?:ให้)?(?:โทร|ตาม)/i.test(s) || (/^(?:ช่วย\s*)?(?:โทรหา|โทรกลับ|ทักไลน์|ทัก)|นัด|โทรหา|โทรกลับ/.test(s) && hasWhen))
+  // "สมชาย hot นัดพรุ่งนี้ 10 โมง" = นัด + ปรับความสนใจ ในคำสั่งเดียว
+  const isTemp = !isFu && isTempOnly
   const isCall = !isFu && !isTd && !isNote && /^(?:โทร|call)\s*(?:หา)?/i.test(s)
   for (const c of hits) {
     const name = fullName(c)
@@ -75,14 +80,14 @@ export function parseLamiCommand(q, customers = [], today) {
       const type = /ไลน์|line|แชท/i.test(s) ? 'chat' : /เจอ|มาโชว์รูม|เข้าโชว์รูม|เข้าพบ|มาที่/.test(s) ? 'visit' : /โทร/.test(s) ? 'call' : 'internal'
       out.push({ kind: 'note', customer: c, text, type, label: `📝 จดไว้ที่ ${name}`, desc: text.length > 60 ? text.slice(0, 60) + '…' : text })
     } else if (isTd) out.push({ kind: 'td', customer: c, hint: s, label: `🚗 นัดลองขับ ${name}`, desc: 'เปิดฟอร์มที่กรอกชื่อ/รุ่น/วันเวลาให้แล้ว' })
-    else if (isTemp) out.push({ kind: 'temp', customer: c, temp: tempHit[1], label: `ปรับความสนใจ ${name} → ${tempHit[2]}`, desc: c.temperature ? `เดิม ${c.temperature}` : '' })
+    else if (isTemp && !isFu) out.push({ kind: 'temp', customer: c, temp: tempHit[1], label: `ปรับความสนใจ ${name} → ${tempHit[2]}`, desc: c.temperature ? `เดิม ${c.temperature}` : '' })
     else if (isFu) {
       const due = suggestNextDue(s, today)
       if (due.skip) continue
       const type = /ไลน์|line/i.test(s) ? 'line' : /เข้าโชว์รูม|นัดพบ|เจอ|มาที่|ไปหา|เยี่ยม/.test(s) ? 'visit' : 'call'
       const note = s.slice(0, 120)
-      out.push({ kind: 'fu', customer: c, dueDate: due.dueDate, time, type, note,
-        label: `📅 นัดติดตาม ${name} · ${dmy(due.dueDate)}${time ? ' ' + time + ' น.' : ''}`,
+      out.push({ kind: 'fu', customer: c, dueDate: due.dueDate, time, type, note, ...(tempHit ? { temp: tempHit[1] } : {}),
+        label: `📅 นัดติดตาม ${name} · ${dmy(due.dueDate)}${time ? ' ' + time + ' น.' : ''}${tempHit ? ' · ' + tempHit[2] : ''}`,
         desc: `${type === 'line' ? '💚 LINE' : type === 'visit' ? '🏠 นัดพบ' : '📞 โทร'} · ${due.why}` })
     } else if (isCall && c.phone) out.push({ kind: 'tel', customer: c, phone: String(c.phone).replace(/[^\d+]/g, ''), label: `📞 โทร ${name}`, desc: c.phone })
   }
@@ -96,7 +101,8 @@ export async function runLamiCommand(cmd, { me = '', db, companyId } = {}) {
     const { buildManualFollowup } = await import('./customerFollowups.js')
     const f = buildManualFollowup(c, { dueDate: cmd.dueDate, type: cmd.type, note: cmd.note, me, purpose: c.stage === 'lead' || c.stage === 'pp' ? 'ติดตาม Lead ใหม่' : 'ทั่วไป' })
     await db.createDoc('followups', { ...f, ...(cmd.time ? { time: cmd.time } : {}), companyId: c.companyId ?? companyId ?? null })
-    return `📅 นัดติดตาม ${fullName(c)} วันที่ ${dmy(cmd.dueDate)}${cmd.time ? ' เวลา ' + cmd.time + ' น.' : ''} แล้ว`
+    if (cmd.temp && cmd.temp !== c.temperature) { await db.updateDocData('customers', c.id, { temperature: cmd.temp }); c.temperature = cmd.temp }
+    return `📅 นัดติดตาม ${fullName(c)} วันที่ ${dmy(cmd.dueDate)}${cmd.time ? ' เวลา ' + cmd.time + ' น.' : ''}${cmd.temp ? ' · ' + cmd.temp.toUpperCase() : ''} แล้ว`
   }
   if (cmd.kind === 'note') {
     await db.createDoc('customer_notes', { customerId: c.id, customer: fullName(c), type: cmd.type || 'internal', text: cmd.text, staff: me, time: new Date().toISOString(), pinned: false, companyId: c.companyId ?? companyId ?? null })
