@@ -8,6 +8,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { getVisibilityScope, scopeIncludesRecord, normName, isProgramOwner } from '../../core/hierarchy.js'
 import { openSheetReconcile } from '../../utils/sheetReconcileModal.js'
 import { formatDate, timeAgo, formatPhone, formatCurrency, initials, fullName, todayBangkok, toDate } from '../../utils/format.js'
+import { openQuickDatePop } from '../../utils/quickDatePop.js'
 import { newBookingNo } from '../../utils/bookingNo.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel, openImportModal } from '../../utils/importExport.js'
@@ -760,11 +761,24 @@ export default async function CustomersPage(container) {
             </div>
             <div style="font-size:0.72rem;color:var(--text-muted)">${formatDate(f.dueDate)}${f.salesperson ? ` · ${escHtml(f.salesperson)}` : ''}${f.note ? ` · ${escHtml(f.note)}` : ''}</div>
           </div>
+          <button class="btn btn-ghost btn-xs wk-fu-snooze" data-id="${escHtml(f.id)}" title="เลื่อนนัดนี้">📅 เลื่อน</button>
           <button class="btn btn-ghost btn-xs wk-fu-done" data-id="${escHtml(f.id)}">✅ ทำแล้ว</button>
         </div>`).join('')}</div>`
         : `<div style="font-size:0.78rem;color:var(--text-muted);padding:6px 2px">ไม่มีนัดค้าง${!c.isLost && ['lead', 'pp'].includes(c.stage) ? ' — ควรนัดติดตามครั้งถัดไปไว้ จะได้ไม่ลืม' : ''}</div>`}
     `
     el.querySelector('#wk-fu-add-btn')?.addEventListener('click', () => openAddFollowup(c, { me: myDisplayName, onSaved: () => refreshFollowupList(c) }))
+    // (v1.0.1044) เลื่อนนัดแตะเดียวจากหน้าลูกค้า (เหมือนหน้าติดตามลูกค้า)
+    el.querySelectorAll('.wk-fu-snooze').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation()
+      const f = list.find(x => x.id === btn.dataset.id)
+      if (!f) return
+      openQuickDatePop(btn, { onPick: async to => {
+        try {
+          await updateDocData('followups', f.id, { dueDate: to, note: `${f.note ? f.note + ' · ' : ''}เลื่อนจาก ${formatDate(f.dueDate)}`.slice(0, 200) })
+          showToast(`📅 เลื่อนไป ${formatDate(to)} แล้ว`, 'success'); refreshFollowupList(c)
+        } catch { showToast('เลื่อนไม่สำเร็จ ลองใหม่อีกครั้ง', 'error') }
+      } })
+    }))
     el.querySelectorAll('.wk-fu-done').forEach(btn => btn.addEventListener('click', () => {
       const f = list.find(x => x.id === btn.dataset.id)
       if (!f) return
