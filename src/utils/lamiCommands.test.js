@@ -70,4 +70,14 @@ describe('LAMI สั่งงาน: โทรตอนไหน', () => {
     expect(calls[0][1]).toMatchObject({ text: 'รอโบนัสสิ้นปี', type: 'internal', staff: 'A' })
     expect(msg).toMatch(/จดไว้/)
   })
+  it('ลีดใหม่ → เปิดฟอร์ม Lead (ไม่ชนลูกค้าเดิม)', () => {
+    const r = parseLamiCommand('ลีดใหม่ สมศักดิ์ 0899999999 สนใจ S07', cs, T)
+    expect(r).toEqual([expect.objectContaining({ kind: 'lead', name: 'สมศักดิ์' })])
+    // ชื่อซ้ำลูกค้าเดิม แต่บอกชัดว่า "ลีดใหม่" → ยังเป็น lead
+    expect(parseLamiCommand('ลีดใหม่ สมชาย 0899999999', cs, T)[0].kind).toBe('lead')
+    // เบอร์ที่มีอยู่แล้ว → ไม่เสนอเพิ่มซ้ำ
+    expect(parseLamiCommand('ลีดใหม่ 0811111111 สมชาย', cs, T).every(c => c.kind !== 'lead')).toBe(true)
+    // คำถาม → ไม่ใช่คำสั่ง
+    expect(parseLamiCommand('ลูกค้าใหม่เดือนนี้กี่คน', cs, T)).toEqual([])
+  })
 })

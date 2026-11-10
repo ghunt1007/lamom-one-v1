@@ -3,13 +3,16 @@
 //   "มานี hot" / "ปรับ ปิติ เป็น warm"              → 🔥 เปลี่ยนความสนใจ
 //   "นัดลองขับ ดวงใจ เสาร์นี้บ่าย 2"                → 🚗 เปิดฟอร์มนัดลองขับที่กรอกให้แล้ว
 //   "โทรหา สมหญิง"                                 → 📞 โทร
+//   "ลีดใหม่ สมศักดิ์ 0812345678 สนใจ S07"          → ➕ เปิดฟอร์ม Lead ที่กรอกชื่อ/เบอร์/รุ่นให้แล้ว
 //   "จด สมชาย ชอบสีขาว รอโบนัสสิ้นปี"                → 📝 บันทึกลงไทม์ไลน์ลูกค้า
 // ตัดสินใจในเครื่องล้วน (ไม่ต้องรอ AI · ใช้ได้แม้ AI ไม่ว่าง) ทำเฉพาะลูกค้าที่ผู้ใช้มองเห็นอยู่แล้ว
 import { mentionedCustomers } from './aiActions.js'
 import { suggestNextDue } from './nextFollowup.js'
 import { dmy } from './format.js'
+import { detectLeadIntent } from './searchIntent.js'
 
 const TEMP = [[/hot|ร้อน|🔥/i, 'hot', '🔴 Hot'], [/warm|อุ่น/i, 'warm', '🟡 Warm'], [/cold|เย็น|❄/i, 'cold', '🔵 Cold']]
+const NEW_LEAD = /^(?:เพิ่ม\s*(?:ลีด|lead|ลูกค้า)|ลีดใหม่|lead\s*ใหม่|ลูกค้าใหม่|new\s*lead|\+\s*lead)/i
 const fullName = c => [c.firstName, c.lastName].filter(Boolean).join(' ') || c.nickname || 'ลูกค้า'
 
 // เวลาในประโยค → 'HH:MM' 24 ชม. ('' ถ้าไม่ได้บอก) · "บ่าย 2" = 14:00 · "2 ทุ่ม" = 20:00 · "10 โมง" = 10:00
@@ -47,6 +50,12 @@ export function parseLamiCommand(q, customers = [], today) {
   const s = String(q || '').trim()
   if (!s || s.length > 200 || /[?？]$|ไหม$|มั้ย$|อย่างไร|ยังไง|เท่าไร|กี่/.test(s)) return []
   const hits = mentionedCustomers(s, customers, 3)
+  // (v1.0.1032) ลูกค้าใหม่: ขึ้นต้นด้วย ลีดใหม่/เพิ่มลูกค้า… หรือ เบอร์ใหม่+ชื่อที่ยังไม่มีในระบบ → เปิดฟอร์ม Lead ที่กรอกให้แล้ว
+  const known = new Set(customers.map(c => String(c?.phone || '').replace(/\D/g, '')).filter(Boolean))
+  const lead = detectLeadIntent(s, d => known.has(d))
+  if (lead && (NEW_LEAD.test(s) || !hits.length)) {
+    return [{ kind: 'lead', text: lead.text, name: lead.name, label: `➕ เพิ่ม Lead ใหม่${lead.name ? ' ' + lead.name : ''}`, desc: lead.text.length > 60 ? lead.text.slice(0, 60) + '…' : lead.text }]
+  }
   if (!hits.length) return []
   const out = []
   const time = timeIn(s)
