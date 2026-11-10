@@ -214,7 +214,7 @@ export default async function AiAssistantChatPage(container) {
       const myName = getState('user')?.displayName
       if (myName) {
         const mine = n => normName(n) === normName(myName)
-        const d = buildMyDay({ customers, followups, bookings, testDrives, appointments: showroomAppts }, { today, mine })
+        const d = buildMyDay({ customers, followups, bookings, testDrives, appointments: showroomAppts, lineThreads: threads }, { today, mine })
         businessContext[`งานของ ${myName} วันนี้`] = myDayDigest(d)
         welcomeStats.todo = d.total
       }
