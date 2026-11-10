@@ -393,6 +393,18 @@ export default async function AiAssistantChatPage(container) {
         }
       }
       pendingMulti = false
+      // (v1.0.1045) ถามหารายชื่อ "ลูกค้า hot มีใครบ้าง" → รายชื่อจริงพร้อมปุ่มโทร
+      {
+        const card = await import('../../utils/lamiCommandCard.js')
+        const lst = await card.loadListCommands(text, Promise.resolve(chatCustomers)).catch(() => null)
+        if (lst) {
+          pendingCmds = lst.cmds
+          try { await createDoc('chat_ai_assistant', { role:'ai', text: lst.intro + (lst.next ? `\n💡 พิมพ์ "${lst.next}" เพื่อนัดทั้งกลุ่มในครั้งเดียว` : ''), cmd: lst.cmds.length > 0, time:now(), uid }) } catch (e) {}
+          waiting = false
+          await loadData()
+          return
+        }
+      }
       if (isCallListQuestion(text)) {
         const card = await import('../../utils/lamiCommandCard.js')
         const cmds = await card.loadCallListCommands(Promise.resolve(chatCustomers)).catch(() => [])
