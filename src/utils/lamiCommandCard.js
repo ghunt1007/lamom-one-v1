@@ -102,6 +102,22 @@ export async function loadBulkCommands(q, customersPromise) {
   return { cmds: bulk.bulkCommands(res.list, spec), intro: bulk.bulkIntro(spec, res) }
 }
 
+// (v1.0.1045) ถามหารายชื่อ "ลูกค้า hot มีใครบ้าง" → null ถ้าไม่ใช่ · คืน { cmds, intro, next }
+export async function loadListCommands(q, customersPromise) {
+  const lq = await import('./listQuestions.js')
+  const spec = lq.parseListSpec(q)
+  if (!spec) return null
+  const [{ listDocs }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok }] = await Promise.all([
+    import('../core/db.js'), import('../core/companyScope.js'), import('./customerFollowups.js'), import('./format.js')])
+  const today = todayBangkok()
+  const [customers, followups] = await Promise.all([
+    customersPromise || visibleCustomersForCommands(),
+    listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000).catch(() => []),
+  ])
+  const res = lq.listTargets({ customers, followups, today, spec })
+  return { cmds: lq.listCommands(res.list), intro: lq.listIntro(spec, res), next: lq.listFollowUp(spec, res) }
+}
+
 // (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อพร้อมปุ่มโทร (ลูกค้าที่ผู้ใช้เห็นเท่านั้น)
 export async function loadCallListCommands(customersPromise) {
   const [{ listDocs }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok }, { callList, callListCommands }] = await Promise.all([
