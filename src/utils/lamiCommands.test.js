@@ -17,6 +17,13 @@ describe('LAMI สั่งงาน', () => {
     expect(timeIn('เวลา 9.15')).toBe('09:15')
     expect(timeIn('เที่ยง')).toBe('12:00')
     expect(timeIn('พรุ่งนี้')).toBe('')
+    // พิมพ์ด้วยเสียง / เลขไทย
+    expect(timeIn('พรุ่งนี้บ่ายสองโมง')).toBe('14:00')
+    expect(timeIn('สิบโมงครึ่ง')).toBe('10:30')
+    expect(timeIn('สองทุ่ม')).toBe('20:00')
+    expect(timeIn('๑๐ โมง')).toBe('10:00')
+    expect(timeIn('สิบเอ็ดโมง')).toBe('11:00')
+    expect(timeIn('สองคน')).toBe('')
   })
   it('นัดติดตาม: วัน + เวลา + ช่องทาง', () => {
     const [c] = parseLamiCommand('นัดสมชายพรุ่งนี้ 10 โมง ทักไลน์เรื่องไฟแนนซ์', cs, T)
@@ -106,5 +113,8 @@ describe('LAMI สั่งงาน: โทรตอนไหน', () => {
     expect(scopedCommand('ลองขับ เสาร์บ่าย 2', c, T)[0]).toMatchObject({ kind: 'td' })
     expect(scopedCommand('ทักไลน์ศุกร์นี้', c, T)[0]).toMatchObject({ kind: 'fu', type: 'line' })
     expect(scopedCommand('สบายดี', c, T)).toEqual([])
+  })
+  it('เลขไทย/คำอ่าน ในประโยคสั่งงาน', () => {
+    expect(parseLamiCommand('นัดสมชาย ๑๕/๑๑ บ่ายสองโมง', cs, T)[0]).toMatchObject({ kind: 'fu', dueDate: '2026-11-15', time: '14:00' })
   })
 })

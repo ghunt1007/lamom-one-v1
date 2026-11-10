@@ -18,8 +18,16 @@ const WHEN = /วันนี้|พรุ่งนี้|มะรืน|สั
 const fullName = c => [c.firstName, c.lastName].filter(Boolean).join(' ') || c.nickname || 'ลูกค้า'
 
 // เวลาในประโยค → 'HH:MM' 24 ชม. ('' ถ้าไม่ได้บอก) · "บ่าย 2" = 14:00 · "2 ทุ่ม" = 20:00 · "10 โมง" = 10:00
+// เลขไทย/คำอ่านตัวเลข → เลขอารบิก เฉพาะที่ติดกับคำบอกเวลา (พิมพ์ด้วยเสียงมักได้ "บ่ายสองโมง" / "สิบโมงครึ่ง")
+const NUM_WORDS = [['สิบสอง', 12], ['สิบเอ็ด', 11], ['สิบ', 10], ['เก้า', 9], ['แปด', 8], ['เจ็ด', 7], ['หก', 6], ['ห้า', 5], ['สี่', 4], ['สาม', 3], ['สอง', 2], ['หนึ่ง', 1], ['เอ็ด', 1]]
+export function thaiNumerals(q) {
+  let t = String(q || '').replace(/[๐-๙]/g, d => String('๐๑๒๓๔๕๖๗๘๙'.indexOf(d)))
+  for (const [w, n] of NUM_WORDS) t = t.replace(new RegExp(`(บ่าย\\s*)${w}|${w}(?=\\s*(?:โมง|ทุ่ม))`, 'g'), (m, pre) => (pre || '') + n)
+  return t
+}
+
 export function timeIn(q) {
-  const t = String(q || '')
+  const t = thaiNumerals(q)
   let m = t.match(/(?<!\d)([01]?\d|2[0-3])[:.]([0-5]\d)(?!\d)/)
   if (m) return `${m[1].padStart(2, '0')}:${m[2]}`
   m = t.match(/บ่าย\s*(\d{1,2})(?:\s*โมง)?(?:\s*ครึ่ง)?/)
@@ -49,7 +57,7 @@ export function noteText(s, c) {
 
 // q = ประโยคที่พิมพ์ · customers = ลูกค้าที่ผู้ใช้เห็น · คืนรายการคำสั่งที่ทำได้ (ว่าง = ไม่ใช่คำสั่ง ให้ AI ตอบตามปกติ)
 export function parseLamiCommand(q, customers = [], today) {
-  const s = String(q || '').trim()
+  const s = thaiNumerals(String(q || '').trim())
   if (!s || s.length > 200 || /[?？]$|ไหม$|มั้ย$|อย่างไร|ยังไง|เท่าไร|กี่/.test(s)) return []
   // ยกเลิก/เลื่อน/ลบ ยังไม่รองรับแบบทำทันที → ให้ AI ตอบ (กันสร้างนัดผิดจาก "ยกเลิกนัด…")
   if (/ยกเลิก|เลื่อน|ไม่ต้อง|ไม่นัด|ลบ|cancel/i.test(s)) return []
