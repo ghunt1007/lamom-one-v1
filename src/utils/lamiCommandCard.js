@@ -17,13 +17,50 @@ export async function executeCommand(cmd) {
   return msg
 }
 
-export function mountCommandCard(slot, cmds, { onDone } = {}) {
+// multi = คำสั่งกลุ่ม (หลายคน): มีปุ่ม "✅ ทำทั้งหมด" · ทำทีละใบได้โดยไม่ปิดใบอื่น · onDone เรียกครั้งเดียวตอนครบทุกใบ
+export function mountCommandCard(slot, cmds, { onDone, multi = false } = {}) {
   if (!slot || !cmds?.length) return
+  // ปุ่มทำทั้งหมดอยู่ท้ายรายการ (แผง/แชทเลื่อนลงล่างสุดเอง จึงเห็นทันที)
   slot.innerHTML = `<div class="lami-cmds">${cmds.map((c, i) => `
     <div class="lami-cmd" data-i="${i}">
       <div class="lami-cmd-t"><b>${esc(c.label)}</b>${c.desc ? `<small>${esc(c.desc)}</small>` : ''}</div>
       <button type="button" class="btn btn-primary btn-sm lami-cmd-go" data-i="${i}">${c.kind === 'tel' ? '📞 โทรเลย' : c.kind === 'td' ? '🚗 เปิดฟอร์ม' : c.kind === 'lead' ? '➕ เปิดฟอร์ม' : c.kind === 'book' ? '📝 เปิดฟอร์มจอง' : c.kind === 'open' ? '👤 เปิด' : c.kind === 'stage' ? '📝 อัปเดตใบจอง' : '✅ ทำเลย'}</button>
-    </div>`).join('')}</div>`
+    </div>`).join('')}</div>${multi && cmds.length > 1 ? `<div class="lami-cmds-all"><button type="button" class="btn btn-primary lami-cmd-all">✅ ทำทั้งหมด ${cmds.length} คน</button></div>` : ''}`
+  const done = new Set()
+  // บันทึกใบที่ i (คำสั่งที่บันทึกได้ทันที) — คืน true ถ้าสำเร็จ
+  async function save(i, { quiet = false } = {}) {
+    const btn = slot.querySelector(`.lami-cmd-go[data-i="${i}"]`), cmd = cmds[i]
+    if (!btn || !cmd || done.has(i)) return false
+    btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก…'
+    try {
+      const msg = await executeCommand(cmd)
+      done.add(i)
+      btn.closest('.lami-cmd').classList.add('done')
+      btn.outerHTML = '<span class="lami-cmd-ok">✓ เรียบร้อย</span>'
+      if (!multi) {
+        slot.querySelectorAll('.lami-cmd-go').forEach(b => { b.disabled = true })
+        const { showToast } = await import('../core/store.js'); showToast(msg, 'success')
+        onDone?.(msg, cmd)
+      } else if (!quiet) {
+        const { showToast } = await import('../core/store.js'); showToast(msg, 'success')
+      }
+      if (multi && done.size === cmds.length) { slot.querySelector('.lami-cmds-all')?.remove(); onDone?.(`✅ ทำครบ ${cmds.length} รายการแล้ว`, cmd) }
+      return true
+    } catch (e) {
+      btn.disabled = false; btn.textContent = '✅ ทำเลย'
+      if (!quiet) import('../core/store.js').then(m => m.showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', 'error'))
+      return false
+    }
+  }
+  slot.querySelector('.lami-cmd-all')?.addEventListener('click', async e => {
+    const all = e.currentTarget
+    all.disabled = true; all.textContent = '⏳ กำลังบันทึก…'
+    let ok = 0, fail = 0
+    for (let i = 0; i < cmds.length; i++) { if (done.has(i)) continue; (await save(i, { quiet: true })) ? ok++ : fail++ }
+    const { showToast } = await import('../core/store.js')
+    showToast(`✅ บันทึกแล้ว ${ok} รายการ${fail ? ` · ไม่สำเร็จ ${fail} (กดทำเลยทีละใบได้)` : ''}`, fail ? 'warning' : 'success')
+    if (fail && all.isConnected) { all.disabled = false; all.textContent = `✅ ทำที่เหลือ ${cmds.length - done.size} คน` }
+  })
   slot.querySelectorAll('.lami-cmd-go').forEach(btn => btn.addEventListener('click', async () => {
     const cmd = cmds[+btn.dataset.i]
     if (!cmd) return
@@ -45,21 +82,24 @@ export function mountCommandCard(slot, cmds, { onDone } = {}) {
       const { openTestDriveForm } = await import('./testDriveForm.js')
       openTestDriveForm(cmd.customer, { hint: cmd.hint || '' }); return
     }
-    btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก…'
-    try {
-      const { showToast } = await import('../core/store.js')
-      const msg = await executeCommand(cmd)
-      const row = btn.closest('.lami-cmd')
-      row.classList.add('done')
-      btn.outerHTML = '<span class="lami-cmd-ok">✓ เรียบร้อย</span>'
-      slot.querySelectorAll('.lami-cmd-go').forEach(b => { b.disabled = true })
-      showToast(msg, 'success')
-      onDone?.(msg, cmd)
-    } catch (e) {
-      btn.disabled = false; btn.textContent = '✅ ทำเลย'
-      import('../core/store.js').then(m => m.showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', 'error'))
-    }
+    await save(+btn.dataset.i)
   }))
+}
+
+// (v1.0.1039) คำสั่งกลุ่ม "นัดลูกค้า hot ทุกคนพรุ่งนี้ 10 โมง" → null ถ้าไม่ใช่ · คืน { cmds, intro }
+export async function loadBulkCommands(q, customersPromise) {
+  const bulk = await import('./bulkCommands.js')
+  const { todayBangkok } = await import('./format.js')
+  const today = todayBangkok()
+  const spec = bulk.parseBulkSpec(q, today)
+  if (!spec) return null
+  const [{ listDocs }, { companyScopeFilters }, { followupWindowFilters }] = await Promise.all([import('../core/db.js'), import('../core/companyScope.js'), import('./customerFollowups.js')])
+  const [customers, followups] = await Promise.all([
+    customersPromise || visibleCustomersForCommands(),
+    listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000).catch(() => []),
+  ])
+  const res = bulk.bulkTargets({ customers, followups, today, spec })
+  return { cmds: bulk.bulkCommands(res.list, spec), intro: bulk.bulkIntro(spec, res) }
 }
 
 // (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อพร้อมปุ่มโทร (ลูกค้าที่ผู้ใช้เห็นเท่านั้น)
