@@ -654,7 +654,8 @@
 /* มือถือ: การ์ด Follow-up — วันที่และปุ่มลงไปเป็นแถวล่างเต็มกว้าง ไม่เบียดชื่อลูกค้า */
 @media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .fu-main { flex: 1 1 100% !important; }
-  .fu-side { flex-direction: row !important; width: 100%; justify-content: space-between; align-items: center !important; }
+  .fu-side { flex-direction: row !important; width: 100%; justify-content: space-between; align-items: center !important; flex-wrap: wrap; }
+  .fu-side > div:first-child { white-space: nowrap; }
 }
 
 /* หน้าแรกบนมือถือ: แถบ SYSTEM ONLINE + นาฬิกาเป็นของตกแต่ง กินพื้นที่ครึ่งจอแรก → ซ่อนบนจอเล็ก (ตัวเลขเดียวกันอยู่ในการ์ดด้านล่างแล้ว) */
