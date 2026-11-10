@@ -10,6 +10,7 @@ import { FOLLOWUP_PURPOSES, followupWindowFilters } from '../../utils/customerFo
 import { touchCustomerContact } from '../../utils/customerContact.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { openQuickDatePop } from '../../utils/quickDatePop.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 const FOLLOWUP_TYPES = {
@@ -184,23 +185,10 @@ export default async function FollowUpPage(container) {
       e.stopPropagation()
       const f = followups.find(x => x.id === b.dataset.id)
       if (!f) return
-      document.getElementById('fu-snooze-pop')?.remove()
-      const pop = document.createElement('div')
-      pop.id = 'fu-snooze-pop'; pop.className = 'fu-snooze-pop'
-      pop.innerHTML = [[1, 'พรุ่งนี้'], [3, 'อีก 3 วัน'], [7, 'สัปดาห์หน้า']].map(([n, l]) => `<button type="button" data-n="${n}">📅 ${l} <small>${formatDate(addDays(n))}</small></button>`).join('')
-      document.body.appendChild(pop)
-      const r = b.getBoundingClientRect()
-      pop.style.top = Math.min(r.bottom + 6, window.innerHeight - pop.offsetHeight - 8) + 'px'
-      pop.style.left = Math.max(8, Math.min(r.right - pop.offsetWidth, window.innerWidth - pop.offsetWidth - 8)) + 'px'
-      const closePop = () => { pop.remove(); document.removeEventListener('click', onDoc) }
-      const onDoc = ev => { if (!pop.contains(ev.target)) closePop() }
-      setTimeout(() => document.addEventListener('click', onDoc), 30)
-      pop.querySelectorAll('button').forEach(o => o.addEventListener('click', async () => {
-        closePop()
-        const to = addDays(+o.dataset.n)
+      openQuickDatePop(b, { onPick: async to => {
         try { await snooze(f, to); showToast(`📅 เลื่อน ${f.customerName} ไป ${formatDate(to)} แล้ว`, 'success'); await loadData() }
         catch (err) { showToast('เลื่อนไม่สำเร็จ ลองใหม่อีกครั้ง', 'error') }
-      }))
+      } })
     }))
     document.getElementById('fu-snooze-all')?.addEventListener('click', async () => {
       const list = subset.filter(isOverdue), to = addDays(1)

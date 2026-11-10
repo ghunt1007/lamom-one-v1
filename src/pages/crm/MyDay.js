@@ -26,6 +26,7 @@ import { classifyLostReason } from '../../utils/lostReason.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml } from '../../utils/escape.js'
+import { openQuickDatePop } from '../../utils/quickDatePop.js'
 import { normalizeProgram, nextMonthGap, monthLabelTh, programEarnings, myBonusProgress } from '../../utils/salesPrograms.js'
 import { isManagerRole } from '../../utils/managerRole.js'
 import { campaignLeads, campaignMessage } from '../../utils/campaignLeads.js'
@@ -204,7 +205,7 @@ export default async function MyDayPage(container) {
       ${top.map((t, i) => `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border);flex-wrap:wrap">
         <div style="width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0">${i + 1}</div>
         <div style="flex:1;min-width:180px"><div style="font-weight:700;font-size:0.88rem">${t.icon} ${escHtml(t.title)}</div><div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(t.why)}</div></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">${callBtn(t.phone, t.customerId)}${t.lineThread ? `<button class="btn btn-success btn-xs md-line" data-id="${escHtml(t.lineThread)}">💬 ตอบ</button>` : ''}${/^(new|stl):/.test(t.key) ? `<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(t.customerId)}" title="คุยกับลูกค้าแล้ว — ระบบจะเลือกงานถัดไปให้">✅ เสร็จ</button>` : ''}${t.key.startsWith('hot:') ? `<button class="btn btn-secondary btn-xs md-plan" data-id="${escHtml(t.customerId)}">📅 นัด</button>` : ''}${t.customerId ? `<button class="btn btn-secondary btn-xs md-ai" data-id="${escHtml(t.customerId)}" title="ให้ AI คิดว่าควรพูดอะไร และร่างข้อความ LINE ให้">🤖 AI ช่วย</button><button class="btn btn-primary btn-xs md-open" data-id="${escHtml(t.customerId)}">เปิดลูกค้า</button>` : t.key.startsWith('inc:') ? `<button class="btn btn-warning btn-xs md-inc" data-id="${escHtml(t.bookingId)}">💰 กรอกรายได้</button>` : t.key.startsWith('uns:') ? '<button class="btn btn-primary btn-xs md-cal">📅 ปฏิทินส่งมอบ</button>' : `<button class="btn btn-secondary btn-xs md-bk" data-id="${escHtml(t.bookingId || '')}">ใบจอง</button>`}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${callBtn(t.phone, t.customerId)}${t.lineThread ? `<button class="btn btn-success btn-xs md-line" data-id="${escHtml(t.lineThread)}">💬 ตอบ</button>` : ''}${/^(new|stl):/.test(t.key) ? `<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(t.customerId)}" title="คุยกับลูกค้าแล้ว — ระบบจะเลือกงานถัดไปให้">✅ เสร็จ</button>` : ''}${t.key.startsWith('hot:') ? `<button class="btn btn-secondary btn-xs md-plan" data-id="${escHtml(t.customerId)}">📅 นัด</button>` : ''}${t.customerId ? `<button class="btn btn-secondary btn-xs md-ai" data-id="${escHtml(t.customerId)}" title="ให้ AI คิดว่าควรพูดอะไร และร่างข้อความ LINE ให้">🤖 AI ช่วย</button><button class="btn btn-primary btn-xs md-open" data-id="${escHtml(t.customerId)}">เปิดลูกค้า</button>` : t.key.startsWith('inc:') ? `<button class="btn btn-warning btn-xs md-inc" data-id="${escHtml(t.bookingId)}">💰 กรอกรายได้</button>` : t.key.startsWith('uns:') ? `<button class="btn btn-primary btn-xs md-dlv" data-id="${escHtml(t.bookingId || '')}">📅 นัดวันส่งมอบ</button>` : `<button class="btn btn-secondary btn-xs md-bk" data-id="${escHtml(t.bookingId || '')}">ใบจอง</button>`}</div>
       </div>`).join('')}
     </div>`
   }
@@ -366,10 +367,10 @@ export default async function MyDayPage(container) {
           `เหตุผล: ${escHtml(c.lostReason || '-')}${c.phone ? ` · ${escHtml(c.phone)}` : ''}${ownerTag(c.assignedTo)}`,
           `${callBtn(c.phone, c.id)}<button class="btn btn-secondary btn-xs md-revisit" data-id="${escHtml(c.id)}" title="ข้อความทักกลับตามเหตุผลที่เสียดีล">💬 ข้อความ</button><button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดต่อแล้ว</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'primary') : ''}
 
-        ${d.unscheduled.length ? section('📆', 'รถพร้อมส่งแต่ยังไม่ได้นัดวันส่งมอบ', 'โทรนัดลูกค้า แล้วลงวันในปฏิทินส่งมอบ', d.unscheduled, b => line(
+        ${d.unscheduled.length ? section('📆', 'รถพร้อมส่งแต่ยังไม่ได้นัดวันส่งมอบ', 'โทรนัดลูกค้า แล้วกด 📅 นัดวันส่งมอบ ได้เลย', d.unscheduled, b => line(
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml(carOf(b) || '—')}`,
           `${escHtml(b.status || '')}${b.missed ? ` · <b style="color:var(--danger)">เลยวันนัด ${formatDate(b.deliveryDate)}</b>` : ' · ยังไม่มีวันนัด'}${ownerTag(b.salesName)}`,
-          `${callBtn(b.phone || b.custPhone)}<button class="btn btn-primary btn-xs md-cal">📅 ปฏิทินส่งมอบ</button>`), 'warning') : ''}
+          `${callBtn(b.phone || b.custPhone)}<button class="btn btn-primary btn-xs md-dlv" data-id="${escHtml(b.id)}" title="ลงวันส่งมอบได้เลย ไม่ต้องเปิดปฏิทิน">📅 นัดวันส่งมอบ</button>`), 'warning') : ''}
 
         ${section('🚗', `นัดส่งมอบ ${UPCOMING_DELIVERY_DAYS} วันข้างหน้า`, 'เตรียมรถ/เอกสารให้พร้อม', d.deliveries, b => line(
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml(carOf(b) || '—')}`,
@@ -434,6 +435,24 @@ export default async function MyDayPage(container) {
     $$('.md-ai').forEach(b => b.addEventListener('click', () => navigate(`/crm/customers?id=${encodeURIComponent(b.dataset.id)}&ai=1`)))
     $$('.md-bk').forEach(b => b.addEventListener('click', () => navigate(b.dataset.id ? `/crm/bookings?id=${encodeURIComponent(b.dataset.id)}` : '/crm/bookings')))
     $$('.md-cal').forEach(b => b.addEventListener('click', () => navigate('/dms/delivery-calendar')))
+    // (v1.0.1042) นัดวันส่งมอบแตะเดียว: พรุ่งนี้ / อีก 3 วัน / สัปดาห์หน้า หรือเปิดปฏิทินเพื่อเลือกวันเอง
+    $$('.md-dlv').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation()
+      const id = b.dataset.id
+      if (!id) { navigate('/dms/delivery-calendar'); return }
+      openQuickDatePop(b, {
+        extra: { label: '🗓️ เลือกวันเอง (เปิดปฏิทินส่งมอบ)', onClick: () => navigate('/dms/delivery-calendar') },
+        onPick: async to => {
+          try {
+            await updateDocData('bookings', id, { deliveryDate: to, updatedAt: new Date().toISOString() })
+            showToast(`🚗 นัดส่งมอบวันที่ ${formatDate(to)} แล้ว — แก้เวลาได้ในปฏิทินส่งมอบ`, 'success')
+            const bk = data.bookings.find(x => x.id === id)
+            if (bk) bk.deliveryDate = to
+            render()
+          } catch (err) { showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', 'error') }
+        },
+      })
+    }))
     $$('.md-td').forEach(b => b.addEventListener('click', () => navigate('/crm/testdrive')))
     $$('.md-appt').forEach(b => b.addEventListener('click', () => navigate('/crm/showroom')))
     $$('.md-line').forEach(b => b.addEventListener('click', () => navigate(`/marketing/channels?tab=inbox&open=${encodeURIComponent(b.dataset.id)}`)))
