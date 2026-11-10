@@ -229,6 +229,17 @@ export function openGlobalSearch() {
         type: 'cmd', cmd, href: commandHref(cmd), icon: '🪄', group: 'คำสั่ง', title: cmd.label.replace(/^\S+\s/, ''), sub: (cmd.desc ? cmd.desc + ' · ' : '') + (cmd.kind === 'tel' ? 'กด Enter เพื่อโทร' : cmd.kind === 'td' ? 'กด Enter เปิดฟอร์มนัดลองขับ' : cmd.kind === 'book' ? 'กด Enter เปิดฟอร์มจอง' : cmd.kind === 'open' ? 'กด Enter เปิดหน้าลูกค้า' : cmd.kind === 'stage' ? 'กด Enter เปิดใบจองแล้วเปลี่ยนสถานะ' : 'กด Enter เพื่อบันทึกทันที'),
       }))
     } catch { /* ไม่มีคำสั่ง ค้นหาตามปกติ */ }
+    // (v1.0.1047) พิมพ์ถามหารายชื่อในช่องค้นหาได้เลย: "ลูกค้า hot มีใครบ้าง" / "ใครรอไฟแนนซ์" / "ใครยังไม่นัดส่งมอบ" → Enter = โทร/เปิด
+    try {
+      const card = await import('../../utils/lamiCommandCard.js')
+      const { commandHref } = await import('../../utils/lamiCommands.js')
+      const cp = Promise.resolve(fetched[custIdx] || [])
+      const lst = await card.loadBookingListCommands(qRaw, cp) || await card.loadListCommands(qRaw, cp)
+      if (lst) [...lst.cmds].reverse().forEach(cmd => results.unshift({
+        type: 'cmd', cmd, href: commandHref(cmd), icon: cmd.kind === 'bk' ? '📝' : '👥', group: lst.intro.split(' · ')[0].replace(/^\S+\s/, ''), title: cmd.label.replace(/^\S+\s/, ''),
+        sub: cmd.desc + ' · ' + (cmd.kind === 'tel' ? 'กด Enter เพื่อโทร' : cmd.kind === 'bk' ? 'กด Enter เปิดใบจอง' : 'กด Enter เปิดหน้าลูกค้า'),
+      }))
+    } catch { /* ไม่ใช่คำถามหารายชื่อ */ }
     if (seq !== searchSeq || !div.isConnected) return
     if (lead) results.unshift({ type: 'lead', icon: '➕', group: 'คำสั่ง', title: 'เพิ่มเป็นลูกค้าใหม่: ' + lead.text, sub: 'เปิดฟอร์ม Lead แล้วกรอกชื่อ เบอร์ รุ่น จากที่พิมพ์ให้เลย', lead: lead.text, leadName: lead.name })
 
@@ -282,7 +293,8 @@ export function openGlobalSearch() {
   function bindRows() {
     resBox.querySelectorAll('.gsearch-row').forEach(row => {
       const idx = Number(row.dataset.idx)
-      row.addEventListener('mouseenter', () => { activeIdx = idx; highlight() })
+      // (v1.0.1047) mousemove ไม่ใช่ mouseenter: เมาส์ที่วางนิ่งอยู่ตรงรายการไม่แย่งแถวที่ Enter จะเปิด เมื่อผลค้นหาโหลดมาใหม่
+      row.addEventListener('mousemove', () => { if (activeIdx !== idx) { activeIdx = idx; highlight() } })
       row.addEventListener('click', e => { if (e.target.closest('.gsearch-tel')) return; activeIdx = idx; openActive() })
       row.querySelector('.gsearch-tel')?.addEventListener('click', () => {
         const rec = resultsCache[idx]?.rec
