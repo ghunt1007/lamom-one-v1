@@ -700,6 +700,7 @@ export default async function CustomersPage(container) {
       mountCommandCard(slot, cmds, { onDone: (msg, cmd) => {
         inp.value = ''
         if (['fu', 'log', 'move', 'unfu'].includes(cmd.kind)) refreshFollowupList(c)
+        if (cmd.kind === 'deliv' || cmd.kind === 'stage') { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); openDetail(c) }
         if (cmd.kind === 'note' || cmd.kind === 'log') refreshTimeline(c)
         if (cmd.kind === 'log' && c.lastContactAt) { const sp = el.querySelector('#wk-last-contact'); if (sp) sp.textContent = timeAgo(c.lastContactAt) }
         if (cmd.kind === 'temp' || cmd.temp) {

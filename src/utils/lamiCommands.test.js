@@ -232,3 +232,22 @@ describe('ปุ่มลัดในหน้าลูกค้า (v1.0.1037)'
       for (const t of quickChips(c).filter(t => !/\s$/.test(t))) expect(scopedCommand(t, c, T).length, `${c.firstName}: ${t}`).toBeGreaterThan(0)
   })
 })
+
+describe('นัดวันส่งมอบ (v1.0.1040)', () => {
+  const T = '2026-11-10'
+  const bk = [...cs.slice(0, 2), { ...cs[2], bookingId: 'bk1' }]
+  it('อ่านประโยค', () => {
+    expect(parseLamiCommand('นัดส่งมอบปิติ ศุกร์นี้ 10 โมง', bk, T)[0]).toMatchObject({ kind: 'deliv', dueDate: '2026-11-13', time: '10:00' })
+    expect(parseLamiCommand('เลื่อนส่งมอบปิติไป 20/11', bk, T)[0]).toMatchObject({ kind: 'deliv', dueDate: '2026-11-20' })
+    expect(parseLamiCommand('ปิติ รับรถพรุ่งนี้บ่ายสอง', bk, T)[0]).toMatchObject({ kind: 'deliv', dueDate: '2026-11-11', time: '14:00' })
+    expect(parseLamiCommand('ปิติ ส่งมอบแล้ว', bk, T)[0]).toMatchObject({ kind: 'stage' })
+    expect(parseLamiCommand('นัดส่งมอบสมชาย ศุกร์นี้', bk, T)).toEqual([])
+    expect(parseLamiCommand('เลื่อนส่งมอบปิติ', bk, T)).toEqual([])
+  })
+  it('run → อัปเดตใบจอง', async () => {
+    const db = { updateDocData: vi.fn(async () => {}) }
+    const msg = await runLamiCommand({ kind: 'deliv', customer: bk[2], dueDate: '2026-11-13', time: '10:00' }, { db })
+    expect(db.updateDocData).toHaveBeenCalledWith('bookings', 'bk1', expect.objectContaining({ deliveryDate: '2026-11-13', deliveryTime: '10:00' }))
+    expect(msg).toContain('13/11/2569')
+  })
+})

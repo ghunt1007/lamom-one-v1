@@ -78,6 +78,7 @@ export function commandHelpText(n = 'สมชาย') {
     `• 🧾 ใบจอง: "${n} ตัดตัวเลขแล้ว" · "${n} ส่งมอบแล้ว" · "${n} ไฟแนนซ์ผ่าน" · "${n} รถมาแล้ว" · "${n} ถอนจอง" (เปิดใบจองแล้วเปลี่ยนสถานะให้)`,
     '• ➕ ลูกค้าใหม่: "ลีดใหม่ สมศักดิ์ 0812345678 สนใจ S07"',
     '• 👥 ทีละหลายคน: "นัดโทรลูกค้า hot ทุกคนพรุ่งนี้ 10 โมง" · "นัดลูกค้าที่เงียบเกิน 7 วันทั้งหมด พรุ่งนี้" (กด ✅ ทำทั้งหมด ครั้งเดียว)',
+    `• 🚗 วันส่งมอบ: "นัดส่งมอบ${n} ศุกร์นี้ 10 โมง" · "เลื่อนส่งมอบ${n}ไป 20/11"`,
     `• 📅 เลื่อน/ยกเลิกนัด: "เลื่อนนัด${n}ไปศุกร์ 10 โมง" · "ยกเลิกนัด${n}"`,
     `• 📞 โทร: "โทรหา ${n}"`,
     '',
@@ -92,8 +93,11 @@ export function parseLamiCommand(q, customers = [], today) {
   // (v1.0.1038) เลื่อนนัด: "เลื่อนนัดสมชายไปศุกร์ 10 โมง" · ยกเลิกนัด: "ยกเลิกนัดสมชาย" / "สมชาย ไม่ต้องโทรแล้ว"
   const isMove = !/ลองขับ|ส่งมอบ|รับรถ|ส่งรถ|จอง/.test(s) && /เลื่อน/.test(s) && WHEN.test(s.replace(/^[^]*?เลื่อน/, ''))
   const isUnfu = !isMove && !/ลองขับ|ส่งมอบ|รับรถ|ส่งรถ|จอง/.test(s) && /ยกเลิก(?:การ)?นัด|ลบนัด|ไม่ต้อง(?:นัด|โทร|ตาม)|ไม่นัดแล้ว/.test(s)
+  // (v1.0.1040) นัดวันส่งมอบ: "นัดส่งมอบสมชาย ศุกร์นี้ 10 โมง" / "เลื่อนส่งมอบมานีไป 20/11" → ลงวัน/เวลาส่งมอบในใบจอง
+  const delivRest = s.replace(/^[^]*?(?:ส่งมอบ|ส่งรถ|รับรถ)(?:รถ)?/, '')
+  const isDeliv = /(?:นัด|เลื่อน|กำหนด|ลง)?\s*(?:วัน)?(?:ส่งมอบ|ส่งรถ|รับรถ)/.test(s) && !/แล้ว|ยกเลิก/.test(s) && WHEN.test(delivRest)
   // ยกเลิก/เลื่อน/ลบ แบบอื่น → ให้ AI ตอบ (กันสร้างนัดผิดจาก "ยกเลิก…")
-  if (!isMove && !isUnfu && !/ยกเลิกจอง/.test(s) && /ยกเลิก|เลื่อน|ไม่ต้อง|ไม่นัด|ลบ|cancel/i.test(s)) return []
+  if (!isMove && !isUnfu && !isDeliv && !/ยกเลิกจอง/.test(s) && /ยกเลิก|เลื่อน|ไม่ต้อง|ไม่นัด|ลบ|cancel/i.test(s)) return []
   const hits = mentionedCustomers(s, customers, 3)
   // (v1.0.1032) ลูกค้าใหม่: ขึ้นต้นด้วย ลีดใหม่/เพิ่มลูกค้า… หรือ เบอร์ใหม่+ชื่อที่ยังไม่มีในระบบ → เปิดฟอร์ม Lead ที่กรอกให้แล้ว
   const known = new Set(customers.map(c => String(c?.phone || '').replace(/\D/g, '')).filter(Boolean))
@@ -121,6 +125,15 @@ export function parseLamiCommand(q, customers = [], today) {
   // "สมชาย hot นัดพรุ่งนี้ 10 โมง" = นัด + ปรับความสนใจ ในคำสั่งเดียว
   const isTemp = !isFu && isTempOnly
   const isCall = !isFu && !isTd && !isNote && !isLog && !isBook && /^(?:โทร|call)\s*(?:หา)?/i.test(s)
+  if (isDeliv) {
+    const due = suggestNextDue(delivRest.replace(/^\s*ไป/, ''), today)
+    if (!due?.dueDate || due.skip) return []
+    for (const c of hits) {
+      if (!c.bookingId) continue
+      out.push({ kind: 'deliv', customer: c, dueDate: due.dueDate, time, label: `🚗 นัดส่งมอบ ${fullName(c)} ${dmy(due.dueDate)}${time ? ' ' + time + ' น.' : ''}`, desc: 'ลงวัน/เวลาส่งมอบในใบจอง (ขึ้นปฏิทินส่งมอบและงานวันนี้ให้เอง)' })
+    }
+    return out
+  }
   if (isMove || isUnfu) {
     for (const c of hits) {
       const name = fullName(c)
@@ -200,7 +213,7 @@ export function commandHref(cmd) {
 export function quickChips(c) {
   if (!c || c.isLost) return []
   // ไม่ซ้ำกับปุ่มที่มีอยู่แล้วในหน้า (🔴 Hot/Warm/Cold, ✅ ติดต่อแล้ว)
-  if (c.bookingId && c.stage !== 'delivered') return ['รถมาแล้ว', 'ตัดตัวเลขแล้ว', 'ส่งมอบแล้ว', 'จด ']
+  if (c.bookingId && c.stage !== 'delivered') return ['รถมาแล้ว', 'ตัดตัวเลขแล้ว', 'นัดส่งมอบ พรุ่งนี้ 10 โมง', 'ส่งมอบแล้ว', 'จด ']
   if (c.stage === 'delivered') return ['นัดอีก 7 วัน', 'จด ']
   return ['ไม่รับสาย', 'พรุ่งนี้ 10 โมง', 'ลองขับ เสาร์ 10 โมง', ...(c.temperature === 'hot' && !c.bookingId ? ['จองแล้ว'] : []), 'จด ']
 }
@@ -249,6 +262,10 @@ export async function runLamiCommand(cmd, { me = '', db, companyId, followupFilt
       await db.createDoc('followups', { ...f, ...(cmd.next.time ? { time: cmd.next.time } : {}), companyId: c.companyId ?? companyId ?? null })
     }
     return `✅ บันทึกแล้ว: ${fullName(c)}${due.length ? ` · ปิดนัด ${due.length} รายการ` : ''}${cmd.next ? ` · นัดต่อ ${dmy(cmd.next.dueDate)}${cmd.next.time ? ' ' + cmd.next.time + ' น.' : ''}` : ''}`
+  }
+  if (cmd.kind === 'deliv') {
+    await db.updateDocData('bookings', c.bookingId, { deliveryDate: cmd.dueDate, ...(cmd.time ? { deliveryTime: cmd.time } : {}), updatedAt: new Date().toISOString() })
+    return `🚗 นัดส่งมอบ ${fullName(c)} วันที่ ${dmy(cmd.dueDate)}${cmd.time ? ' เวลา ' + cmd.time + ' น.' : ''} แล้ว`
   }
   if (cmd.kind === 'move' || cmd.kind === 'unfu') {
     let rows = []
