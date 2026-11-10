@@ -45,6 +45,7 @@ import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml } from '../../utils/escape.js'
+import { quickChips } from '../../utils/lamiCommands.js'
 import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
 
 const pendingFuCount = new WeakMap() // ลูกค้า → จำนวนนัดค้าง (ใช้ตัดสินว่าควรเสนอนัดครั้งถัดไปหลังโทรไหม)
@@ -532,6 +533,7 @@ export default async function CustomersPage(container) {
               ${hasSpeechInput() ? '<button type="button" class="btn btn-secondary btn-sm" id="wk-lami-mic" title="กดแล้วพูด เช่น พรุ่งนี้บ่ายสองโมง">🎤</button>' : ''}
               <button type="submit" class="btn btn-primary btn-sm">ทำ</button>
             </form>
+            <div class="lami-chips" id="wk-lami-chips">${quickChips(c).map(t => `<button type="button" class="lami-chip" data-t="${escHtml(t)}">${escHtml(t.trim() || t)}</button>`).join('')}</div>
             <div id="wk-lami-slot" class="lp-cmdslot"></div>` : ''}
 
             <div id="wk-followup-panel">
@@ -683,6 +685,12 @@ export default async function CustomersPage(container) {
     // (v1.0.1032) 🪄 สั่งเร็วเฉพาะลูกค้าคนนี้ — พิมพ์ประโยคเดียว กด ✅ ทำเลย (นัด/จด/ความสนใจ/ลองขับ)
     // พูดจบ = ส่งคำสั่งทันที (ไม่ต้องกด "ทำ" อีกครั้ง)
     bindMic(el.querySelector('#wk-lami-mic'), el.querySelector('#wk-lami-in'), { replace: true, onFinal: () => el.querySelector('#wk-lami')?.requestSubmit() })
+    // ปุ่มลัด: ข้อความที่จบด้วยช่องว่าง (เช่น "จด ") = เติมแล้วรอพิมพ์ต่อ · นอกนั้นส่งทันทีให้เห็นการ์ดก่อนกดทำ
+    el.querySelector('#wk-lami-chips')?.addEventListener('click', e => {
+      const b = e.target.closest('[data-t]'); if (!b) return
+      const inp = el.querySelector('#wk-lami-in'); inp.value = b.dataset.t
+      if (/\s$/.test(b.dataset.t)) inp.focus(); else el.querySelector('#wk-lami')?.requestSubmit()
+    })
     el.querySelector('#wk-lami')?.addEventListener('submit', async e => {
       e.preventDefault()
       const inp = el.querySelector('#wk-lami-in'), slot = el.querySelector('#wk-lami-slot')

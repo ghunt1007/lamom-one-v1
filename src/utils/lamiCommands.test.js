@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { commandHref, bookingStageIn, parseLamiCommand, runLamiCommand, timeIn, scopedCommand, isCommandHelp, commandHelpText, exampleName } from './lamiCommands.js'
+import { quickChips, commandHref, bookingStageIn, parseLamiCommand, runLamiCommand, timeIn, scopedCommand, isCommandHelp, commandHelpText, exampleName } from './lamiCommands.js'
 
 const T = '2026-11-10' // อังคาร
 const cs = [
@@ -194,5 +194,20 @@ describe('LAMI สั่งงาน: ขั้นของใบจอง (v1.0
     expect(parseLamiCommand('ปิติ ส่งมอบแล้วหรือยัง', bk, T)).toEqual([])
     expect(parseLamiCommand('โทรหาปิติแล้ว ไฟแนนซ์ผ่านแล้ว', bk, T).map(c => c.kind)).toEqual(['stage', 'log'])
     expect(bookingStageIn('รอรถมา')).toBe(null)
+  })
+})
+
+describe('ปุ่มลัดในหน้าลูกค้า (v1.0.1037)', () => {
+  it('เลือกตามสถานะ และทุกปุ่มกลายเป็นคำสั่งจริง (ยกเว้น "จด " ที่รอพิมพ์ต่อ)', () => {
+    const T = '2026-11-10'
+    const lead = { id: 'x', firstName: 'สมชาย', stage: 'lead', temperature: 'warm', phone: '0811111111' }
+    const booked = { id: 'y', firstName: 'ปิติ', stage: 'booking', bookingId: 'bk1' }
+    expect(quickChips(lead)).toContain('พรุ่งนี้ 10 โมง')
+    expect(quickChips(lead)).not.toContain('จองแล้ว')
+    expect(quickChips({ ...lead, temperature: 'hot' })).toContain('จองแล้ว')
+    expect(quickChips(booked)).toContain('ตัดตัวเลขแล้ว')
+    expect(quickChips({ ...lead, isLost: true })).toEqual([])
+    for (const c of [lead, { ...lead, temperature: 'hot' }, booked, { ...lead, stage: 'delivered' }])
+      for (const t of quickChips(c).filter(t => !/\s$/.test(t))) expect(scopedCommand(t, c, T).length, `${c.firstName}: ${t}`).toBeGreaterThan(0)
   })
 })

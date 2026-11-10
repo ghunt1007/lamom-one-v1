@@ -181,6 +181,15 @@ export function commandHref(cmd) {
   return ''
 }
 
+// (v1.0.1037) ปุ่มลัดใต้ช่อง 🪄 สั่งเร็วในหน้าลูกค้า — เลือกตามสถานะลูกค้า กดแล้วเห็นการ์ดก่อนทำ (ไม่ต้องพิมพ์)
+export function quickChips(c) {
+  if (!c || c.isLost) return []
+  // ไม่ซ้ำกับปุ่มที่มีอยู่แล้วในหน้า (🔴 Hot/Warm/Cold, ✅ ติดต่อแล้ว)
+  if (c.bookingId && c.stage !== 'delivered') return ['รถมาแล้ว', 'ตัดตัวเลขแล้ว', 'ส่งมอบแล้ว', 'จด ']
+  if (c.stage === 'delivered') return ['นัดอีก 7 วัน', 'จด ']
+  return ['ไม่รับสาย', 'พรุ่งนี้ 10 โมง', 'ลองขับ เสาร์ 10 โมง', ...(c.temperature === 'hot' && !c.bookingId ? ['จองแล้ว'] : []), 'จด ']
+}
+
 export function scopedCommand(text, c, today) {
   const t = String(text || '').trim()
   const name = c?.firstName || c?.nickname || ''
