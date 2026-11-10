@@ -114,8 +114,41 @@ describe('LAMI สั่งงาน: โทรตอนไหน', () => {
     expect(scopedCommand('ลองขับ เสาร์บ่าย 2', c, T)[0]).toMatchObject({ kind: 'td' })
     expect(scopedCommand('ทักไลน์ศุกร์นี้', c, T)[0]).toMatchObject({ kind: 'fu', type: 'line' })
     expect(scopedCommand('สบายดี', c, T)).toEqual([])
+    expect(scopedCommand('โทรแล้ว สนใจผ่อน', c, T)[0]).toMatchObject({ kind: 'log', contacted: true })
+    expect(scopedCommand('ไม่รับสาย', c, T)[0]).toMatchObject({ kind: 'log', contacted: false })
   })
   it('เลขไทย/คำอ่าน ในประโยคสั่งงาน', () => {
     expect(parseLamiCommand('นัดสมชาย ๑๕/๑๑ บ่ายสองโมง', cs, T)[0]).toMatchObject({ kind: 'fu', dueDate: '2026-11-15', time: '14:00' })
+  })
+  it('ติดต่อแล้ว → log (ไม่สร้างนัดผิด) · ไม่รับสาย · นัดต่อในประโยคเดียว', () => {
+    const a = parseLamiCommand('โทรหาสมชายแล้ว สนใจผ่อน 0%', cs, T)
+    expect(a).toEqual([expect.objectContaining({ kind: 'log', type: 'call', contacted: true, next: null })])
+    expect(a[0].text).toContain('สนใจผ่อน 0%')
+    expect(parseLamiCommand('มานี ไม่รับสาย', cs, T)[0]).toMatchObject({ kind: 'log', contacted: false })
+    expect(parseLamiCommand('ทักไลน์ปิติแล้ว ส่งโปรไป', cs, T)[0]).toMatchObject({ kind: 'log', type: 'line' })
+    const b = parseLamiCommand('วันนี้คุยกับสมชายแล้ว นัดใหม่ศุกร์นี้ 10 โมง hot', cs, T)[0]
+    expect(b).toMatchObject({ kind: 'log', next: { dueDate: '2026-11-13', time: '10:00' }, temp: 'hot' })
+    // ยังเป็นนัดปกติ
+    expect(parseLamiCommand('โทรหาสมชายพรุ่งนี้', cs, T)[0].kind).toBe('fu')
+  })
+  it('runLamiCommand log: ปิดนัดที่ถึงกำหนด ไม่ปิดนัดอนาคต', async () => {
+    const calls = []
+    const rows = [
+      { id: 'f1', customerId: 'a', status: 'pending', dueDate: '2026-11-08' },
+      { id: 'f2', customerId: 'a', status: 'pending', dueDate: '2026-11-20' },
+      { id: 'f3', customerId: 'b', status: 'pending', dueDate: '2026-11-08' },
+    ]
+    const db = { listDocs: async () => rows, updateDocData: async (...x) => calls.push(['u', ...x]), createDoc: async (...x) => calls.push(['c', ...x]) }
+    const [cmd] = parseLamiCommand('โทรหาสมชายแล้ว สนใจผ่อน 0%', cs, T)
+    const msg = await runLamiCommand({ ...cmd, today: T, customer: { ...cs[0] } }, { db, me: 'A' })
+    expect(calls.filter(x => x[1] === 'followups').map(x => x[2])).toEqual(['f1'])
+    expect(calls.some(x => x[0] === 'c' && x[1] === 'comm_logs')).toBe(false)
+    expect(calls.some(x => x[1] === 'customers' && x[3].lastContactAt)).toBe(true)
+    expect(msg).toMatch(/ปิดนัด 1/)
+    // ไม่มีนัดค้าง → comm_logs · ไม่รับสาย → ไม่อัปเดตวันติดต่อ
+    calls.length = 0
+    const [c2] = parseLamiCommand('มานี ไม่รับสาย', cs, T)
+    await runLamiCommand({ ...c2, today: T, customer: { ...cs[1] } }, { db: { ...db, listDocs: async () => [] } })
+    expect(calls.map(x => x[0] + x[1])).toEqual(['ccomm_logs'])
   })
 })
