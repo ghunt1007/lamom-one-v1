@@ -81,6 +81,7 @@ export function commandHelpText(n = 'สมชาย') {
     `• 🚗 วันส่งมอบ: "นัดส่งมอบ${n} ศุกร์นี้ 10 โมง" · "เลื่อนส่งมอบ${n}ไป 20/11"`,
     `• 📅 เลื่อน/ยกเลิกนัด: "เลื่อนนัด${n}ไปศุกร์ 10 โมง" · "ยกเลิกนัด${n}"`,
     `• 📞 โทร: "โทรหา ${n}"`,
+    '• 📝 ถามหาใบจอง: "ใครรอไฟแนนซ์" · "ใครรอรถ" · "ใครยังไม่นัดส่งมอบ" · "ใบจองไหนค้างนานสุด"',
     '• 🔎 ถามหารายชื่อ: "ลูกค้า hot มีใครบ้าง" · "ใครเงียบเกิน 7 วัน" · "ใครยังไม่มีนัด" · "ลูกค้าสนใจ S05 มีใครบ้าง"',
     '',
     '💡 ในหน้าลูกค้า ใช้ช่อง 🪄 สั่งเร็ว ได้โดยไม่ต้องพิมพ์ชื่อ · กด Ctrl K แล้วพิมพ์คำสั่งเดียวกันก็ได้',
@@ -207,6 +208,7 @@ export function commandHref(cmd) {
   if (cmd?.kind === 'stage') return `/crm/bookings?id=${encodeURIComponent(cmd.customer.bookingId)}&status=${encodeURIComponent(cmd.status)}`
   if (cmd?.kind === 'book') return `/crm/customers?id=${id}&book=1`
   if (cmd?.kind === 'open') return `/crm/customers?id=${id}`
+  if (cmd?.kind === 'bk') return `/crm/bookings?id=${encodeURIComponent(cmd.bookingId || '')}` // (v1.0.1046) เปิดใบจองนั้นเลย
   return ''
 }
 
