@@ -3,6 +3,7 @@
 // ไม่ซิงก์เองโดยไม่ถาม เพราะการซิงก์มีลบ/แก้ข้อมูล ต้องให้เจ้าของเห็นก่อนทุกครั้ง
 // ยังไม่ได้แชร์ไฟล์ให้ระบบ/ออฟไลน์ → เงียบ (ปุ่ม 🔄 ซิงก์ Sheet จะบอกวิธีแก้เอง)
 import { isProgramOwner } from '../core/hierarchy.js'
+import { dmy as fmtDMY, hm as fmtHM } from './format.js'
 
 export const SHEET_WATCH_MS = 60 * 60 * 1000
 const SYNCED_KEY = 'lamom_sheet_synced_mod'
@@ -26,7 +27,7 @@ function showBar(modifiedTime, open) {
   bar.id = 'sheet-watch-bar'
   bar.setAttribute('role', 'status')
   bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:900;max-width:420px;margin:0 auto;display:flex;gap:8px;align-items:center;background:var(--surface);color:var(--text);border:1px solid var(--primary);border-radius:12px;padding:10px 12px;box-shadow:0 6px 24px rgba(0,0,0,.18);font-size:0.85rem'
-  const when = new Date(modifiedTime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  const when = `${fmtDMY(modifiedTime)} ${fmtHM(modifiedTime)}`
   bar.innerHTML = `<span style="flex:1;min-width:0">📄 Sheet มีแก้ไข (${when})</span>
     <button class="btn btn-primary btn-sm" id="sw-go" style="white-space:nowrap">🔄 ซิงก์เลย</button>
     <button class="btn btn-ghost btn-sm" id="sw-x" aria-label="ปิด">✕</button>`

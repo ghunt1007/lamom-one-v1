@@ -24,6 +24,8 @@ import { initKpiQuiet } from './utils/kpiQuiet.js'
 import { initViewTabs } from './utils/linkedViews.js'
 import { getModuleForPath, hasModuleAccess } from './core/permissions.js'
 import { initChipRows } from './utils/chipRows.js'
+import { initDateInputs } from './utils/dateInputs.js'
+import { initDateDisplay } from './utils/dateDisplay.js'
 import { initIconTitles } from './utils/iconTitles.js'
 import { initThaiTitles } from './utils/thaiTitle.js'
 import { breadcrumbFor } from './utils/breadcrumb.js'
@@ -121,6 +123,8 @@ async function bootstrapShell() {
   initIconTitles()     // ปุ่มไอคอนล้วน (✏️ 🗑 ◀ ▶) มีคำอธิบายไทยเวลาชี้
   // หัวข้อหน้าภาษาอังกฤษ → ชื่อไทยตามเมนู (เฉพาะตอนใช้ภาษาไทย)
   initThaiTitles(() => (getState('language') || 'th') === 'th' ? breadcrumbFor(NAV, window.location.pathname, 'th', { exact: true })[1] || '' : '')
+  initDateInputs()     // ช่องวันที่/เวลา → DD/MM/YYYY + 24 ชม. (ไม่ขึ้นกับภาษาเครื่อง)
+  initDateDisplay()    // วันที่ดิบ YYYY-MM-DD บนจอ → DD/MM/YYYY
   initChipRows()       // มือถือ: แถวปุ่มกรองที่ล้นหลายบรรทัด → เลื่อนแถวเดียว
 
   // ✨ มีอะไรใหม่ — ครั้งเดียวต่อเครื่องหลังอัปเดตใหญ่ (รอให้หน้าแรกโหลดก่อน)

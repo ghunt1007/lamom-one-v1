@@ -2,6 +2,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { confirmDialog } from '../../utils/modal.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 
 const STORAGE_KEY = 'lamom-breakeven'
 
@@ -29,7 +30,7 @@ export default function BreakEvenPage(container) {
   }
 
   function saveScenario() {
-    const name = `สถานการณ์ ${scenarios.length + 1} (${new Date().toLocaleDateString('th-TH',{month:'short',day:'numeric'})})`
+    const name = `สถานการณ์ ${scenarios.length + 1} (${fmtDMY(new Date())})`
     const { beUnits, profitNow } = calc()
     scenarios.push({ name, fixedCost, grossPerCar, serviceMonth, actualSales, beUnits, profitNow, id: Date.now() })
     if (scenarios.length > 4) scenarios = scenarios.slice(-4)

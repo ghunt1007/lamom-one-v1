@@ -20,6 +20,7 @@ import { planSheetReconcile, splitUpdatesByRecency, sheetRowsForBookings, custom
 import { copyText } from './copyText.js'
 import { SHEET_FILE_COLUMNS } from './sheetColumns.js'
 import { escHtml as esc } from './escape.js'
+import { dmy as fmtDMY, hm as fmtHM } from './format.js'
 
 export const SYNC_TAG = 'sheet-sync'
 const SHEET_FILE_ID = '194PmgsKGdGytByQBau8MUhDrFrM-LBl0'
@@ -27,7 +28,7 @@ const SHEET_FILE_ID = '194PmgsKGdGytByQBau8MUhDrFrM-LBl0'
 function fmtWhen(v) {
   const d = v ? new Date(v) : null
   if (!d || isNaN(d)) return '-'
-  return d.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return `${fmtDMY(d)} ${fmtHM(d)}`
 }
 
 const CHANGE_TH = { name: 'ชื่อ', phone: 'เบอร์โทร', stage: 'สถานะ → ส่งมอบแล้ว' }

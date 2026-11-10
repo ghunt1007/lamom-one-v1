@@ -2,11 +2,14 @@
 // ตั้งค่าบน <html> ก่อน render แรก (ไม่กระพริบ) และเปลี่ยนสดได้จากหน้าต่าง "ปรับหน้าตา"
 // (v1.0.962) เหลือธีมเดียว — ตัดภาพพื้นหลัง/การ์ด 3D/เอฟเฟกต์ออกตามที่เจ้าของขอ "ลบธีมออกให้หมด แล้วทำใหม่"
 
-export const UI_DEFAULTS = { font: 'md', radius: 'md', density: 'normal' }
+import { setDateEra } from './format.js'
+
+export const UI_DEFAULTS = { font: 'md', radius: 'md', density: 'normal', era: 'be' }
 export const UI_OPTIONS = {
   font: [['sm', 'เล็ก', 14], ['md', 'ปกติ', 15], ['lg', 'ใหญ่', 16.5], ['xl', 'ใหญ่มาก', 18]],
   radius: [['sm', 'เหลี่ยม'], ['md', 'มน'], ['lg', 'โค้งมาก']],
   density: [['normal', 'ปกติ'], ['compact', 'กะทัดรัด']],
+  era: [['be', 'พ.ศ. (10/11/2569)'], ['ce', 'ค.ศ. (10/11/2026)']],
 }
 // ความโค้งมุม: null = ใช้ค่าของธีม/polish.css ตามเดิม
 const RADIUS = { sm: [4, 6, 8, 12], md: null, lg: [10, 14, 22, 28] }
@@ -45,6 +48,7 @@ export function applyUi(ui, root = globalThis.document?.documentElement) {
     if (r) root.style.setProperty(k, r[i] + 'px'); else root.style.removeProperty(k)
   })
   root.setAttribute('data-density', u.density)
+  setDateEra(u.era)
 }
 
 // โหมด: 'dark' | 'light' | 'auto' (ตามการตั้งค่าของเครื่อง) → ค่าจริงที่ใส่ใน data-mode

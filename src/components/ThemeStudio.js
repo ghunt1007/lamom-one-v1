@@ -47,6 +47,7 @@ export function openThemeStudio() {
         <label>ขนาดตัวอักษร ${seg('font', UI_OPTIONS.font, ui.font)}</label>
         <label>ระยะห่าง ${seg('density', UI_OPTIONS.density, ui.density)}</label>
         <label>มุมการ์ด/ปุ่ม ${seg('radius', UI_OPTIONS.radius, ui.radius)}</label>
+        <label>ปีในวันที่ (วว/ดด/ปปปป · เวลา 24 ชม.) ${seg('era', UI_OPTIONS.era, ui.era)}</label>
       </div>
     </div>`
   }

@@ -12,6 +12,7 @@ import { analyzeVoiceNote } from '../../utils/ai.js'
 import { startMicRecording, stopMicRecording, blobToWavBase64, extFromMime } from '../../utils/audio.js'
 import { escHtml } from '../../utils/escape.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 
 // วิเคราะห์เสียงด้วย AI จริงแบบ "ปลอดภัย" — แปลงเป็น WAV ก่อนส่งเสมอ (Gemini ไม่รับ audio/webm)
 // ถ้าแปลงไม่ได้/ไฟล์ยาวเกินงบ 20MB inline ของ Gemini หรือ AI พัง คืน null ให้ผู้เรียก fallback เอง
@@ -120,7 +121,7 @@ export default async function VoiceCrmPage(container) {
             </div>
             <div style="display:flex;align-items:center;justify-content:space-between">
               <span style="color:${s.color};font-weight:700;font-size:0.76rem">${s.label}</span>
-              <span style="font-size:0.68rem;color:var(--text-muted)">${new Date(n.date).toLocaleDateString('th-TH')}</span>
+              <span style="font-size:0.68rem;color:var(--text-muted)">${fmtDMY(n.date)}</span>
             </div>
           </div>
         `

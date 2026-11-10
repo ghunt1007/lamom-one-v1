@@ -33,6 +33,7 @@ import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
 import { SHEET_COLUMNS, patchForCell, sheetExportRows, sheetFieldList, sheetYesChips } from '../../utils/sheetColumns.js'
 import { renderSheetGrid, deferWhileEditing } from './bookingSheetGrid.js'
 import { notifyTeam } from '../../utils/teamNotify.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 
 // ── แบรนด์หลักที่ตัวแทนขาย (ตาม LAMOM V8 — S.K. Bangbuathong) ──────────────
 const BRANDS = ['DEEPAL', 'AION', 'OMODA & JAECOO', 'SUZUKI', 'NISSAN']
@@ -1072,9 +1073,7 @@ export default async function BookingsPage(container) {
   function openEodSummary() {
     // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
     const todayStr = todayBangkok()
-    const now = new Date()
-    const thM = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
-    const dateStr = `${now.getDate()} ${thM[now.getMonth()]} ${now.getFullYear() + 543}`
+    const dateStr = fmtDMY(todayStr)
     const newToday = bookings.filter(b => (b.bookingDate || '') === todayStr)
     // นิยามเดียวกับรายงาน 18:00 / หน้ารายได้: สถานะส่งมอบแล้วหรือตัดตัวเลขแล้ว นับตามวันตัดตัวเลข (หรือวันส่งมอบจริง)
     const dlvDate = b => DELIVERED_STATUSES.includes(b.status) ? (b.cutDate || b.actualDeliveryDate || '').slice(0, 10) : ''

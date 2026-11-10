@@ -1,4 +1,5 @@
 import { escHtml } from './escape.js'
+import { dmy } from './format.js'
 // Import/Export Engine — Excel (ExcelJS) / CSV
 // ExcelJS loaded dynamically — ไม่เพิ่ม bundle หน้าแรก
 
@@ -14,6 +15,8 @@ async function getXlsx() {
 // boolean) เพราะไม่มีความเสี่ยงและจะทำให้ format ตัวเลขเพี้ยน
 function sanitizeCellValue(v) {
   if (typeof v !== 'string') return v
+  // (v1.0.1029) วันที่ในไฟล์ Excel เป็น DD/MM/YYYY เหมือนบนจอ
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return dmy(v)
   return /^[=+\-@\t\r]/.test(v) ? "'" + v : v
 }
 

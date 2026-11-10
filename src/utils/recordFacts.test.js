@@ -19,8 +19,8 @@ describe('recordFacts', () => {
     const text = Object.values(f)[0]
     expect(text).toContain('มานี รักไทย')
     expect(text).toContain('SKT2605')
-    expect(text).toContain('นัดส่งมอบ 9 พ.ย. 2569 (อีก 6 วัน)')
-    expect(text).toContain('นัดติดตามถัดไป 5 พ.ย. 2569 (อีก 2 วัน)')
+    expect(text).toContain('นัดส่งมอบ 09/11/2569 (อีก 6 วัน)')
+    expect(text).toContain('นัดติดตามถัดไป 05/11/2569 (อีก 2 วัน)')
     expect(text).not.toContain('089')
     expect(text).not.toContain('มานะ')
   })
@@ -35,7 +35,7 @@ describe('recordFacts', () => {
     expect(recordFacts('ปิติเป็นยังไง', { customers, bookings }, today)).toEqual({})
   })
   it('formats Thai dates', () => {
-    expect(thaiDate('2026-01-31')).toBe('31 ม.ค. 2569')
+    expect(thaiDate('2026-01-31')).toBe('31/01/2569')
     expect(thaiDate('')).toBe('')
   })
 })

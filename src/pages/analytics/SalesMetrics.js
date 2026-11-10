@@ -13,6 +13,7 @@ import { navigate } from '../../core/router.js'
 import { loadSalesBudget } from '../../utils/salesBudget.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { computeSalesMetrics, METRIC_INFO, normName, periodRange, compareRange, pctChange } from '../../utils/salesMetrics.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 
 const PERIODS = { month: 'เดือนนี้', prev: 'เดือนก่อน', quarter: 'ไตรมาสนี้', year: 'ปีนี้' }
 const lsGet = (k, d) => { try { return localStorage.getItem(k) ?? d } catch { return d } }
@@ -123,7 +124,7 @@ export default async function SalesMetricsPage(container) {
       const txt = v === 0 ? 'เท่าเดิม' : `${v > 0 ? '▲' : '▼'} ${Math.abs(v)}${unit === 'pt' ? ' จุด' : '%'}`
       return `<span class="sm-d ${cls}" title="เทียบ ${esc(cr.label)}">${txt}</span>`
     }
-    const vsLine = pm ? `<div class="sm-vs">▲▼ เทียบกับ ${esc(cr.label)} (${esc(cr.from.slice(8))}/${esc(cr.from.slice(5, 7))}–${esc(cr.to.slice(8))}/${esc(cr.to.slice(5, 7))}/${+cr.to.slice(0, 4) + 543})</div>` : ''
+    const vsLine = pm ? `<div class="sm-vs">▲▼ เทียบกับ ${esc(cr.label)} (${fmtDMY(cr.from)} – ${fmtDMY(cr.to)})</div>` : ''
     const p = m.pipeline
     const pTotal = p.lead + p.prospect + p.booking + p.delivered || 1
     const mixTotal = m.mix.B2B.n + m.mix.B2C.n + m.mix.B2G.n

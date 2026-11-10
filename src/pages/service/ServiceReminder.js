@@ -10,6 +10,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 
 const REMINDER_TYPES = {
   mileage:  { label: 'ครบระยะ (km)', color: 'primary', icon: '🛣' },
@@ -115,7 +116,7 @@ export default async function ServiceReminderPage(container) {
       const r = reminders.find(x => x.id === b.dataset.id)
       if (!r) return
       const contactCount = (r.contactCount || 1) + 1
-      const lastContactAt = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+      const lastContactAt = fmtHM()
       try {
         await updateDocData('service_reminders', r.id, { contactCount, lastContactAt })
         showToast(`📞 ติดตามครั้งที่ ${contactCount} — ${r.customer} (${r.phone}) บันทึกแล้ว`, 'success')

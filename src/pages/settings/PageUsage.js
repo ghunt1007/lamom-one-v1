@@ -17,6 +17,7 @@ import { applyBrand } from '../../core/whiteLabel.js'
 import { cleanHiddenMenus, hiddenMenuSet, NEVER_HIDE } from '../../utils/hiddenMenus.js'
 import { classifyPages, collectionsToCount, lastActivityByCollection, USAGE } from '../../utils/pageUsage.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 
 function ago(ts) {
   if (!ts) return 'ไม่เคย'
@@ -92,7 +93,7 @@ export default async function PageUsagePage(container) {
           <h1 class="page-title">📊 หน้าไหนมีข้อมูลจริง</h1>
           <div style="font-size:0.82rem;color:var(--text-muted);line-height:1.6">นับข้อมูลจริงของทุกเมนู ใช้ตัดสินใจว่าจะซ่อนเมนูไหน (อ่านอย่างเดียว ไม่แก้ข้อมูล)<br>
           ${USAGE.own.icon} มีข้อมูลของหน้านั้นเอง · ${USAGE.core.icon} โชว์แค่ลูกค้า/ใบจอง/พนักงานที่มาจากหน้าอื่น · ${USAGE.empty.icon} ว่างเปล่า
-          ${oldest ? `<br>"แก้ล่าสุด" ดูย้อนหลังได้ถึง ${esc(new Date(oldest).toLocaleDateString('th-TH'))}` : ''}</div>
+          ${oldest ? `<br>"แก้ล่าสุด" ดูย้อนหลังได้ถึง ${esc(fmtDMY(new Date(oldest)))}` : ''}</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
           ${chip('all', `ทั้งหมด ${all.length}`)}${chip('own', `${USAGE.own.icon} ${tot('own')}`)}${chip('core', `${USAGE.core.icon} ${tot('core')}`)}${chip('empty', `${USAGE.empty.icon} ${tot('empty')}`)}${chip('hidden', `🙈 ซ่อนอยู่ ${hidden.size}`)}

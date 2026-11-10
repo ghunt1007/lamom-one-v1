@@ -8,6 +8,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 
 // ป้องกัน XSS — ชื่ออุปกรณ์/ช่างผู้รับผิดชอบเป็นข้อความพิมพ์เองในฟอร์มเพิ่มอุปกรณ์ ต้อง escape ก่อนแสดงผลเสมอ
 
@@ -193,7 +194,7 @@ export default async function MaintenancePage(container) {
         <div style="background:var(--surface-2);border-radius:8px;padding:10px;font-size:0.76rem">
           <div>📋 รอบบำรุงรักษา: ทุก <strong>${eq.cycle} วัน</strong></div>
           <div style="margin-top:4px">👷 ช่างผู้รับผิดชอบ: <strong>${escHtml(eq.technician)}</strong></div>
-          <div style="margin-top:4px">📅 ครั้งถัดไปจะเป็น: <strong>${new Date().toLocaleDateString('th-TH')}</strong></div>
+          <div style="margin-top:4px">📅 ครั้งถัดไปจะเป็น: <strong>${fmtDMY(new Date())}</strong></div>
         </div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">หมายเหตุการบำรุงรักษา</label>
           <textarea class="input" id="maint-note" style="width:100%;margin-top:3px;height:60px;resize:vertical" placeholder="รายละเอียดการซ่อมบำรุง..."></textarea></div>

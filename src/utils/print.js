@@ -1,3 +1,4 @@
+import { dmy as fmtDMY, hm as fmtHM } from './format.js'
 // Print utility — พิมพ์เอกสาร A4 ที่จัดรูปแบบสวยงาม (ใบจอง/ใบถอนจอง/สลิปเงินเดือน/สลิปคอมฯ)
 // ใช้ hidden iframe เพื่อไม่ให้โดน popup blocker และไม่กระทบหน้าจอหลัก
 
@@ -153,9 +154,7 @@ export function docFooter() {
 }
 
 function thaiToday() {
-  const d = new Date()
-  const m = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
-  return d.getDate() + ' ' + m[d.getMonth()] + ' ' + (d.getFullYear() + 543)
+  return fmtDMY(new Date())
 }
 
 export function esc(s) {

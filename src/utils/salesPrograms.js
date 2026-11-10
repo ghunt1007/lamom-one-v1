@@ -1,3 +1,4 @@
+import { dmy } from './format.js'
 // (v1.0.970) ศูนย์แคมเปญ & เงื่อนไขขายประจำเดือน — ฟังก์ชันล้วน (pure) ใช้ร่วมกันระหว่างหน้า /crm/programs,
 // LAMI (recordFacts) และหน้าอื่นที่อยากรู้ว่า "รุ่นนี้ วันนี้ ได้อะไรบ้าง"
 // เก็บทุกอย่างใน collection เดียว sales_programs แยกด้วย type — ดอกเบี้ย/แคมเปญไฟแนนซ์, แคมเปญแบรนด์ (มอเตอร์),
@@ -113,7 +114,7 @@ export function monthLabelTh(ym) {
 }
 export function shortDateTh(ymd) {
   if (!ymdRe.test(str(ymd))) return ''
-  return `${+ymd.slice(8)} ${MONTH_TH[+ymd.slice(5, 7) - 1]}`
+  return dmy(ymd)
 }
 export function rangeLabel(p) {
   if (!p.dateFrom) return 'ยังไม่ระบุวัน'

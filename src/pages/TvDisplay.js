@@ -12,12 +12,13 @@ import { listDocs, getSalesData, getCommissionData, seedDemoData } from '../core
 import { formatCurrency, todayBangkok, toDateStr } from '../utils/format.js'
 import { companyScopeFilters } from '../core/companyScope.js'
 import { escHtml } from '../utils/escape.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../utils/format.js'
 
 const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 const TH_DAYS = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์']
 
 function formatThaiDateFull(d) {
-  return `วัน${TH_DAYS[d.getDay()]}ที่ ${d.getDate()} ${TH_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`
+  return `วัน${TH_DAYS[d.getDay()]}ที่ ${fmtDMY(d)}`
 }
 
 const REFRESH_MS = 90000   // อัปเดตข้อมูลจริงทุก 90 วิ — กันยิง Firestore ถี่เกิน
@@ -222,7 +223,7 @@ export default async function TvDisplayPage(container) {
   function tickClock() {
     if (!overlay.isConnected) { clearInterval(clockTimer); return }
     const d = new Date()
-    clockEl.textContent = d.toLocaleTimeString('th-TH', { hour12: false })
+    clockEl.textContent = fmtHM(d, true)
     dateEl.textContent = formatThaiDateFull(d)
   }
   const clockTimer = setInterval(tickClock, 1000)

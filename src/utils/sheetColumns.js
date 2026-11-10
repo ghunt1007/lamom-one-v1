@@ -1,3 +1,4 @@
+import { dmy } from './format.js'
 // (v1.0.954) คอลัมน์ทั้งหมดของไฟล์ "DATA Booking" (แท็บ Booking) เรียงตามลำดับเดียวกับใน Sheet
 //
 // ใช้ 2 ที่:
@@ -136,7 +137,7 @@ export function displayCell(col, v) {
   if (col.t === 'date') {
     const s = String(v).slice(0, 10)
     const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-    return m ? `${Number(m[3])}/${Number(m[2])}/${m[1].slice(2)}` : s
+    return m ? dmy(s) : s
   }
   return String(v)
 }

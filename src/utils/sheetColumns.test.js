@@ -36,7 +36,7 @@ describe('sheetColumns', () => {
   it('แสดงตัวเลขมีจุลภาค วันที่แบบสั้น ช่องศูนย์เป็นค่าว่าง', () => {
     expect(displayCell(col('price'), 1299000)).toBe('1,299,000')
     expect(displayCell(col('price'), 0)).toBe('')
-    expect(displayCell(col('bookingDate'), '2026-11-05')).toBe('5/11/26')
+    expect(displayCell(col('bookingDate'), '2026-11-05')).toBe('05/11/2569')
   })
 
   it('แก้มาจิ้น/งบ → คำนวณมาจิ้นเหลือและเงินได้รวมให้ · แก้ราคา/ดาวน์ → ยอดจัด', () => {

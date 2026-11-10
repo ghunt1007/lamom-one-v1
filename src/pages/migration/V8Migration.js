@@ -1,6 +1,7 @@
 import { createDoc, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 import { confirmDialog } from '../../utils/modal.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 
 // (v1.0.324) เดิมทั้งหน้านี้เป็นการจำลอง UI ล้วนๆ — "เชื่อมต่อ" แค่รอ 1.5 วิแล้วบอกว่าเชื่อมต่อสำเร็จ,
 // progress bar และจำนวนเรคคอร์ดที่ "migrate" ล้วนสุ่มด้วย Math.random(), ไม่มีการเขียน Firestore แม้แต่
@@ -337,7 +338,7 @@ export default async function V8MigrationPage(container) {
     if (!log) return
     const line = document.createElement('div')
     line.style.color = color
-    line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`
+    line.textContent = `[${fmtHM(null, true)}] ${msg}`
     log.appendChild(line)
     log.scrollTop = log.scrollHeight
   }

@@ -8,7 +8,7 @@ describe('customerStatusMessage', () => {
     expect(t).toContain('คุณสมชาย')
     expect(t).not.toContain('ใจดี')
     expect(t).toContain('Deepal S07')
-    expect(t).toContain('5 พ.ย. 2569')
+    expect(t).toContain('05/11/2569')
     expect(t).toContain('เอ (เซลส์ผู้ดูแล)')
   })
   it('does not repeat brand already in model', () => {
