@@ -221,6 +221,15 @@ export function openGlobalSearch() {
     if (/^(?:\+|➕)?\s*(?:จองใหม่|เปิดจอง|ออกใบจอง|ทำใบจอง|เพิ่มใบจอง|new booking)/i.test(qRaw.trim())) results.unshift({ type: 'page', icon: '➕', group: 'คำสั่ง', title: 'จองใหม่ (ทีละขั้น)', sub: 'เปิดฟอร์มจอง 4 ขั้นทันที', route: '/crm/bookings?new=1' })
     if (/^(?:\+|➕)?\s*(?:นัดลองขับ|นัดทดลองขับ|ลองขับใหม่|test ?drive)/i.test(qRaw.trim())) results.unshift({ type: 'page', icon: '🚙', group: 'คำสั่ง', title: 'นัดทดลองขับใหม่', sub: 'เปิดฟอร์มนัดลองขับทันที', route: '/crm/testdrive?new=1' })
     if (/^(?:\+|➕)?\s*(?:นัดติดตาม|เพิ่มนัดติดตาม|ตามลูกค้า|follow ?up)/i.test(qRaw.trim())) results.unshift({ type: 'page', icon: '📞', group: 'คำสั่ง', title: 'นัดติดตามลูกค้าใหม่', sub: 'เปิดฟอร์ม Follow-up ทันที', route: '/crm/followup?new=1' })
+    // (v1.0.1031) พิมพ์สั่งงาน เช่น "นัดสมชายพรุ่งนี้ 10 โมง" / "มานี hot" → Enter = ทำเลย
+    try {
+      const { parseLamiCommand } = await import('../../utils/lamiCommands.js')
+      const { todayBangkok } = await import('../../utils/format.js')
+      parseLamiCommand(qRaw, fetched[custIdx] || [], todayBangkok()).reverse().forEach(cmd => results.unshift({
+        type: 'cmd', cmd, icon: '🪄', group: 'คำสั่ง', title: cmd.label.replace(/^\S+\s/, ''), sub: (cmd.desc ? cmd.desc + ' · ' : '') + (cmd.kind === 'tel' ? 'กด Enter เพื่อโทร' : cmd.kind === 'td' ? 'กด Enter เปิดฟอร์มนัดลองขับ' : 'กด Enter เพื่อบันทึกทันที'),
+      }))
+    } catch { /* ไม่มีคำสั่ง ค้นหาตามปกติ */ }
+    if (seq !== searchSeq || !div.isConnected) return
     if (lead) results.unshift({ type: 'lead', icon: '➕', group: 'คำสั่ง', title: 'เพิ่มเป็นลูกค้าใหม่: ' + lead.text, sub: 'เปิดฟอร์ม Lead แล้วกรอกชื่อ เบอร์ รุ่น จากที่พิมพ์ให้เลย', lead: lead.text, leadName: lead.name })
 
     resultsCache = results.slice(0, 60)
@@ -235,7 +244,7 @@ export function openGlobalSearch() {
     const items = buildSimpleNav(visibleMenu(), readVisits()).flatMap(g => g.items).slice(0, 10)
     resultsCache = items.map(i => ({ type: 'page', icon: i.icon, title: navLabel(i), sub: i.path, route: i.path }))
     resBox.innerHTML =
-      '<div style="padding:4px"><div style="font-size:0.72rem;color:var(--text-muted);padding:6px 10px 8px;line-height:1.6">💡 พิมพ์ชื่อ/เบอร์ลูกค้า เลขจอง รุ่นรถ ชื่อเมนู · พิมพ์ "ชื่อ + เบอร์" เพื่อเพิ่มลูกค้าใหม่ · พิมพ์ "จองใหม่" / "นัดลองขับ" / "นัดติดตาม" เพื่อเปิดฟอร์มทันที · หรือพิมพ์คำถามให้ LAMI ตอบ</div>' +
+      '<div style="padding:4px"><div style="font-size:0.72rem;color:var(--text-muted);padding:6px 10px 8px;line-height:1.6">💡 พิมพ์ชื่อ/เบอร์ลูกค้า เลขจอง รุ่นรถ ชื่อเมนู · 🪄 สั่งงานได้ เช่น "นัดสมชายพรุ่งนี้ 10 โมง" หรือ "มานี hot" · พิมพ์ "ชื่อ + เบอร์" เพื่อเพิ่มลูกค้าใหม่ · พิมพ์ "จองใหม่" / "นัดลองขับ" / "นัดติดตาม" เพื่อเปิดฟอร์มทันที · หรือพิมพ์คำถามให้ LAMI ตอบ</div>' +
       '<div style="font-size:0.7rem;color:var(--text-muted);padding:6px 10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">' + tr('goToPage') + '</div>' +
       resultsCache.map((r, i) => rowHtml(r, i)).join('') +
       '</div>'
@@ -301,6 +310,15 @@ export function openGlobalSearch() {
     const r = resultsCache[activeIdx]
     if (!r) return
     close()
+    if (r.type === 'cmd') {
+      const c = r.cmd
+      if (c.kind === 'tel') { location.href = 'tel:' + c.phone; return }
+      if (c.kind === 'td') { import('../../utils/testDriveForm.js').then(m => m.openTestDriveForm(c.customer, { hint: c.hint || '' })); return }
+      Promise.all([import('../../utils/lamiCommands.js'), import('../../core/db.js'), import('../../core/companyScope.js'), import('../../core/store.js')])
+        .then(([m, db, cs, st]) => m.runLamiCommand(c, { me: st.getState('user')?.displayName || '', db, companyId: cs.myEffectiveCompanyId() })
+          .then(msg => st.showToast(msg, 'success')).catch(() => st.showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', 'error')))
+      return
+    }
     if (r.type === 'lead') { import('../../utils/quickLead.js').then(m => m.openQuickLead({ pasteText: r.lead, name: r.leadName })); return }
     navigate(r.route)
   }

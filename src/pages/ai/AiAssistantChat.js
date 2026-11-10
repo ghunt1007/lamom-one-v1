@@ -24,6 +24,8 @@ import { getVehicles } from '../../data/vehicleDatabase.js'
 import { formatAiText } from '../../utils/aiFormat.js'
 import { pageLinksFor } from '../../utils/aiPageLinks.js'
 import { customerActionsFor } from '../../utils/aiActions.js'
+import { parseLamiCommand } from '../../utils/lamiCommands.js'
+import { commandIntro, mountCommandCard } from '../../utils/lamiCommandCard.js'
 import { navigate } from '../../core/router.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml as esc } from '../../utils/escape.js'
@@ -87,6 +89,7 @@ export default async function AiAssistantChatPage(container) {
   let loading = true
   let businessContext = {}
   let chatBookings = [], chatFollowups = [] // ใบจอง/นัดที่ผู้ใช้คนนี้เห็นได้ — ใช้ตอบเรื่องลูกค้ารายคน (recordFacts)
+  let pendingCmds = [] // (v1.0.1031) คำสั่งที่ LAMI เข้าใจจากประโยคล่าสุด รอผู้ใช้กด ✅ ทำเลย
   let chatCustomers = [] // ลูกค้าที่ผู้ใช้คนนี้มีสิทธิ์เห็น — ใช้ทำปุ่มโทร/นัดลองขับใต้คำตอบ (ไม่ส่งให้ AI)
 
   // (v1.0.428) หน้านี้มีปุ่มคำถามสำเร็จรูปตรงกับหัวข้อธุรกิจจริง (ยอดขาย/สต็อก/Hot Lead/ค้างชำระ/CSAT/ช่าง/
@@ -264,8 +267,9 @@ export default async function AiAssistantChatPage(container) {
       ${!isUser ? `<div style="width:30px;height:30px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">🤖</div>` : ''}
       <div style="min-width:0">
         <div style="max-width:74vw;padding:10px 14px;border-radius:${isUser?'16px 16px 4px 16px':'4px 16px 16px 16px'};background:${isUser?'var(--primary)':'var(--surface-2)'};color:${isUser?'white':'var(--text)'};font-size:0.84rem;line-height:1.65">${text}</div>
+        ${!isUser && i === messages.length - 1 && !waiting && m.cmd && pendingCmds.length ? '<div id="chat-cmds" style="margin-top:6px"></div>' : ''}
         ${!isUser && i === messages.length - 1 && !waiting && Array.isArray(m.next) && m.next.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${m.next.map(q => `<button class="btn btn-secondary btn-xs cat-btn" data-q="${esc(q)}" style="border-radius:999px">💬 ${esc(q)}</button>`).join('')}</div>` : ''}
-        ${!isUser && i === messages.length - 1 && !waiting && i > 0 && messages[i - 1]?.role === 'user' ? (() => {
+        ${!isUser && !m.cmd && i === messages.length - 1 && !waiting && i > 0 && messages[i - 1]?.role === 'user' ? (() => {
           const acts = customerActionsFor(messages[i - 1].text, chatCustomers)
           const l = Array.isArray(m.links) && m.links.length ? m.links : pageLinksFor(messages[i - 1].text)
           return acts.length || l.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${acts.map(a => `<button class="btn btn-primary btn-xs chat-act" data-kind="${a.kind}" data-id="${esc(a.id)}" data-phone="${esc(a.phone || '')}" style="border-radius:999px">${esc(a.label)}</button>`).join('')}${l.map(x => `<button class="btn btn-secondary btn-xs chat-go" data-path="${esc(x.path)}" style="border-radius:999px">${esc(x.label)} →</button>`).join('')}</div>` : ''
@@ -347,7 +351,7 @@ export default async function AiAssistantChatPage(container) {
 
         <!-- Input bar -->
         <div style="padding:10px 0;border-top:1px solid var(--border);display:flex;gap:8px">
-          <input class="input" id="chat-input" placeholder="ถาม/สั่ง LAMI…" title="เช่น ยอดขายวันนี้ / Hot Lead / นัดลองขับสมชายพรุ่งนี้บ่าย 2" style="flex:1" ${waiting?'disabled':''}>
+          <input class="input" id="chat-input" placeholder="ถาม หรือสั่ง เช่น นัดสมชายพรุ่งนี้ 10 โมง…" title="ถาม: ยอดขายวันนี้ / Hot Lead · สั่ง: นัดสมชายพรุ่งนี้ 10 โมง / มานี hot / นัดลองขับปิติเสาร์บ่าย 2" style="flex:1" ${waiting?'disabled':''}>
           ${hasMic ? `<button class="btn btn-secondary" id="mic-btn" ${waiting?'disabled':''} title="พูดคำถาม (ภาษาไทย)" style="flex-shrink:0">🎤</button>` : ''}
           <button class="btn btn-primary" id="send-btn" ${waiting?'disabled':''} style="white-space:nowrap">📤 ส่ง</button>
         </div>
@@ -375,6 +379,15 @@ export default async function AiAssistantChatPage(container) {
       const where = isWhereQuestion(text) ? findPages(text, NAV) : []
       if (where.length) {
         try { await createDoc('chat_ai_assistant', { role:'ai', text: whereAnswer(where), links: where.map(({ label, path }) => ({ label, path })), time:now(), uid }) } catch (e) {}
+        waiting = false
+        await loadData()
+        return
+      }
+      // (v1.0.1031) พิมพ์สั่งงาน เช่น "นัดสมชายพรุ่งนี้ 10 โมง" / "มานี hot" → การ์ดทำเลยครั้งเดียว ไม่ต้องรอ AI
+      const cmds = parseLamiCommand(text, chatCustomers, todayBangkok())
+      pendingCmds = cmds
+      if (cmds.length) {
+        try { await createDoc('chat_ai_assistant', { role:'ai', text: commandIntro(cmds), cmd: true, time:now(), uid }) } catch (e) {}
         waiting = false
         await loadData()
         return
@@ -458,6 +471,9 @@ export default async function AiAssistantChatPage(container) {
     // เปิดหน้าที่เกี่ยวกับคำถาม (เช่น ถามเรื่องลองขับ → ไปหน้านัดทดลองขับ)
     container.querySelectorAll('.chat-go').forEach(b => b.addEventListener('click', () => navigate(b.dataset.path)))
     // ลงมือทำจากแชท: โทร / นัดลองขับ (เดาวันเวลาจากคำถาม) / เปิดข้อมูลลูกค้า
+    mountCommandCard(document.getElementById('chat-cmds'), pendingCmds, {
+      onDone: async msg => { pendingCmds = []; try { await createDoc('chat_ai_assistant', { role:'ai', text: msg, time:now(), uid: currentUid() }) } catch (e) {} ; await loadData() },
+    })
     container.querySelectorAll('.chat-act').forEach(b => b.addEventListener('click', async () => {
       const c = chatCustomers.find(x => x.id === b.dataset.id)
       if (!c) return
