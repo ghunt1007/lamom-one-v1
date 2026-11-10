@@ -314,9 +314,8 @@ export function openGlobalSearch() {
       const c = r.cmd
       if (c.kind === 'tel') { location.href = 'tel:' + c.phone; return }
       if (c.kind === 'td') { import('../../utils/testDriveForm.js').then(m => m.openTestDriveForm(c.customer, { hint: c.hint || '' })); return }
-      Promise.all([import('../../utils/lamiCommands.js'), import('../../core/db.js'), import('../../core/companyScope.js'), import('../../core/store.js')])
-        .then(([m, db, cs, st]) => m.runLamiCommand(c, { me: st.getState('user')?.displayName || '', db, companyId: cs.myEffectiveCompanyId() })
-          .then(msg => st.showToast(msg, 'success')).catch(() => st.showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', 'error')))
+      Promise.all([import('../../utils/lamiCommandCard.js'), import('../../core/store.js')])
+        .then(([m, st]) => m.executeCommand(c).then(msg => st.showToast(msg, 'success')).catch(() => st.showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', 'error')))
       return
     }
     if (r.type === 'lead') { import('../../utils/quickLead.js').then(m => m.openQuickLead({ pasteText: r.lead, name: r.leadName })); return }

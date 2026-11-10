@@ -6,6 +6,17 @@ export function commandIntro(cmds) {
   return cmds.length === 1 ? '🪄 เข้าใจว่าให้ทำแบบนี้ครับ — กด ✅ ทำเลย เพื่อยืนยัน' : '🪄 เจอลูกค้าชื่อคล้ายกันหลายคน — เลือกคนที่ใช่ แล้วกด ✅ ทำเลย'
 }
 
+// ทำคำสั่งจริง (ใช้ร่วมกัน: การ์ด ✅ ทำเลย และ Enter ใน Ctrl K) — คืนข้อความผลลัพธ์
+export async function executeCommand(cmd) {
+  const [db, { myEffectiveCompanyId, companyScopeFilters }, { getState }, { followupWindowFilters }, { todayBangkok }] = await Promise.all([import('../core/db.js'), import('../core/companyScope.js'), import('../core/store.js'), import('./customerFollowups.js'), import('./format.js')])
+  const me = getState('user')?.displayName || ''
+  const today = todayBangkok()
+  const msg = await runLamiCommand({ ...cmd, today }, { me, db, companyId: myEffectiveCompanyId(), followupFilters: [...companyScopeFilters(), ...followupWindowFilters(today)] })
+  // ติดต่อแล้วแต่ยังไม่ได้บอกนัดถัดไป → เปิดฟอร์มนัดต่อที่เดาวันให้แล้ว (ลูกค้า Lead/Prospect เท่านั้น)
+  if (cmd.kind === 'log' && !cmd.next) import('./addFollowupModal.js').then(m => m.offerNextFollowup(cmd.customer, cmd.contacted ? cmd.text : cmd.text + ' โทรใหม่พรุ่งนี้', { me })).catch(() => {})
+  return msg
+}
+
 export function mountCommandCard(slot, cmds, { onDone } = {}) {
   if (!slot || !cmds?.length) return
   slot.innerHTML = `<div class="lami-cmds">${cmds.map((c, i) => `
@@ -30,9 +41,8 @@ export function mountCommandCard(slot, cmds, { onDone } = {}) {
     }
     btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก…'
     try {
-      const [db, { myEffectiveCompanyId }, { getState, showToast }] = await Promise.all([import('../core/db.js'), import('../core/companyScope.js'), import('../core/store.js')])
-      const me = getState('user')?.displayName || ''
-      const msg = await runLamiCommand(cmd, { me, db, companyId: myEffectiveCompanyId() })
+      const { showToast } = await import('../core/store.js')
+      const msg = await executeCommand(cmd)
       const row = btn.closest('.lami-cmd')
       row.classList.add('done')
       btn.outerHTML = '<span class="lami-cmd-ok">✓ เรียบร้อย</span>'

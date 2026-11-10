@@ -528,7 +528,7 @@ export default async function CustomersPage(container) {
             </div>
 
             ${!c.isLost ? `<form id="wk-lami" class="lami-quick" autocomplete="off">
-              <input class="input" id="wk-lami-in" maxlength="200" placeholder="🪄 สั่งเร็ว เช่น พรุ่งนี้ 10 โมง hot" title="ตัวอย่าง: พรุ่งนี้ 10 โมง hot · จด ชอบสีขาว · ลองขับ เสาร์บ่าย 2 · warm" aria-label="สั่งงานลูกค้าคนนี้">
+              <input class="input" id="wk-lami-in" maxlength="200" placeholder="🪄 สั่งเร็ว เช่น พรุ่งนี้ 10 โมง hot" title="ตัวอย่าง: พรุ่งนี้ 10 โมง hot · โทรแล้ว สนใจผ่อน · ไม่รับสาย · จด ชอบสีขาว · ลองขับ เสาร์บ่าย 2" aria-label="สั่งงานลูกค้าคนนี้">
               ${hasSpeechInput() ? '<button type="button" class="btn btn-secondary btn-sm" id="wk-lami-mic" title="กดแล้วพูด เช่น พรุ่งนี้บ่ายสองโมง">🎤</button>' : ''}
               <button type="submit" class="btn btn-primary btn-sm">ทำ</button>
             </form>
@@ -688,11 +688,12 @@ export default async function CustomersPage(container) {
       const inp = el.querySelector('#wk-lami-in'), slot = el.querySelector('#wk-lami-slot')
       const [{ scopedCommand }, { mountCommandCard }, { todayBangkok }] = await Promise.all([import('../../utils/lamiCommands.js'), import('../../utils/lamiCommandCard.js'), import('../../utils/format.js')])
       const cmds = scopedCommand(inp.value, c, todayBangkok())
-      if (!cmds.length) { slot.innerHTML = '<div class="lami-quick-hint">ยังไม่เข้าใจคำสั่งนี้ ลองพิมพ์ เช่น <b>พรุ่งนี้ 10 โมง</b> · <b>hot</b> · <b>จด รอโบนัส</b> · <b>ลองขับ เสาร์บ่าย 2</b></div>'; return }
+      if (!cmds.length) { slot.innerHTML = '<div class="lami-quick-hint">ยังไม่เข้าใจคำสั่งนี้ ลองพิมพ์ เช่น <b>พรุ่งนี้ 10 โมง</b> · <b>โทรแล้ว สนใจผ่อน</b> · <b>ไม่รับสาย</b> · <b>hot</b> · <b>จด รอโบนัส</b> · <b>ลองขับ เสาร์บ่าย 2</b></div>'; return }
       mountCommandCard(slot, cmds, { onDone: (msg, cmd) => {
         inp.value = ''
-        if (cmd.kind === 'fu') refreshFollowupList(c)
-        if (cmd.kind === 'note') refreshTimeline(c)
+        if (cmd.kind === 'fu' || cmd.kind === 'log') refreshFollowupList(c)
+        if (cmd.kind === 'note' || cmd.kind === 'log') refreshTimeline(c)
+        if (cmd.kind === 'log' && c.lastContactAt) { const sp = el.querySelector('#wk-last-contact'); if (sp) sp.textContent = timeAgo(c.lastContactAt) }
         if (cmd.kind === 'temp' || cmd.temp) {
           const row = customers.find(x => x.id === c.id); if (row) row.temperature = c.temperature
           el.querySelectorAll('.wk-temp').forEach(x => { x.className = `btn btn-xs wk-temp ${x.dataset.t === c.temperature ? `btn-${TEMP[c.temperature].badge}` : 'btn-ghost'}` })

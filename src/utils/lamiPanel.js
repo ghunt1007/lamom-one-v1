@@ -117,7 +117,7 @@ export function openLamiPanel({ navigate } = {}) {
     const hint = body.querySelector('.lp-hint')
     if (!c || !hint) return
     const n = c.firstName
-    const ex = [`นัด${n}พรุ่งนี้ 10 โมง`, `${n} hot`, `นัดลองขับ ${n} เสาร์บ่าย 2`, `จด ${n} รอโบนัสสิ้นปี`]
+    const ex = [`นัด${n}พรุ่งนี้ 10 โมง`, `${n} hot`, `นัดลองขับ ${n} เสาร์บ่าย 2`, `จด ${n} รอโบนัสสิ้นปี`, `โทรหา${n}แล้ว สนใจผ่อน`]
     hint.insertAdjacentHTML('afterend', `<div class="lp-try"><span>🪄 สั่งงานได้ด้วย ลองกด:</span>${ex.map(x => `<button type="button" class="lp-ask lp-fill" data-fill="${esc(x)}">${esc(x)}</button>`).join('')}</div>`)
     body.querySelectorAll('.lp-fill').forEach(b => b.addEventListener('click', () => { input.value = b.dataset.fill; input.focus() }))
   })
