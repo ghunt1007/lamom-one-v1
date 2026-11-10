@@ -721,7 +721,8 @@ export default async function DashboardPage(container) {
       const maxTotal = Math.max(...data.map(d => d.total), ...fCounts, 1)
       const maxRev = Math.max(...data.map(d => d.revenue), ...fRevs, 1)
 
-      const W = 760, H = 210, padL = 10, padR = 10, padT = 26, padB = 28
+      // (v1.0.1044) จอแคบ: ใช้กรอบกราฟแคบลง ตัวเลข/ชื่อเดือนจึงใหญ่อ่านออก (เดิมย่อทั้งกราฟจนตัวหนังสือเหลือ ~4px)
+      const W = window.innerWidth < 600 ? (trendRange === 6 ? 380 : 460) : 760, H = 210, padL = 10, padR = 10, padT = 26, padB = 28
       const plotW = W - padL - padR, plotH = H - padT - padB
       const groupW = plotW / nGroups
       const barW = Math.min(trendRange === 6 ? 44 : 30, groupW * 0.55)

@@ -16,6 +16,7 @@ import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
 import { myName } from '../../utils/myName.js'
+import { openQuickDatePop } from '../../utils/quickDatePop.js'
 
 
 const DLV_STATUS = {
@@ -210,9 +211,23 @@ export default async function DeliveryCalendarPage(container) {
         }
       })
     }))
-    container.querySelectorAll('.dc-sched').forEach(btn => btn.addEventListener('click', () => {
+    // (v1.0.1044) แตะเดียวเลือกพรุ่งนี้ / อีก 3 วัน / สัปดาห์หน้า (เวลา 10:00) หรือ "เลือกวัน/เวลาเอง" เปิดฟอร์มเดิม
+    container.querySelectorAll('.dc-sched').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation()
       const b = unscheduled.find(x => x.id === btn.dataset.id)
       if (!b) return
+      openQuickDatePop(btn, {
+        extra: { label: '🗓️ เลือกวัน/เวลาเอง', onClick: () => pickCustom(b) },
+        onPick: async to => {
+          try {
+            await updateDocData('bookings', b.id, { deliveryDate: to, deliveryTime: b.deliveryTime || '10:00' })
+            showToast(`📅 นัดส่งมอบ ${formatDate(to)} ${b.deliveryTime || '10:00'} แล้ว`, 'success')
+            await loadData()
+          } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        },
+      })
+    }))
+    function pickCustom(b) {
       openModal({
         title: `📅 นัดวันส่งมอบ ${escHtml(b.custName || 'ลูกค้า')}`, size: 'sm',
         body: `<div class="input-group"><label class="input-label">วันส่งมอบ *</label><input class="input" type="date" id="dc-date" value="${addDays(3)}"></div>
@@ -227,7 +242,7 @@ export default async function DeliveryCalendarPage(container) {
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         },
       })
-    }))
+    }
     document.getElementById('add-dlv-btn')?.addEventListener('click', () => {
       openModal({
         title: '+ นัดส่งมอบรถ',
