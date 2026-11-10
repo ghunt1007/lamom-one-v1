@@ -17,6 +17,7 @@ import { applyBrand } from '../../core/whiteLabel.js'
 import { cleanHiddenMenus, hiddenMenuSet, NEVER_HIDE } from '../../utils/hiddenMenus.js'
 import { classifyPages, collectionsToCount, lastActivityByCollection, USAGE } from '../../utils/pageUsage.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { confirmDialog } from '../../utils/modal.js'
 import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 
 function ago(ts) {
@@ -130,11 +131,11 @@ export default async function PageUsagePage(container) {
       cb.checked ? next.add(cb.dataset.hide) : next.delete(cb.dataset.hide)
       saveHidden([...next])
     }))
-    container.querySelector('#pu-hide-empty')?.addEventListener('click', () => {
-      if (!confirm(`ซ่อน ${emptyShown.length} เมนูที่ไม่มีข้อมูลเลย ออกจากแถบเมนูของทุกคน?\n(หน้าและข้อมูลยังอยู่ เลิกซ่อนได้ทุกเมื่อ)`)) return
+    container.querySelector('#pu-hide-empty')?.addEventListener('click', async () => {
+      if (!await confirmDialog({ title: 'ซ่อนเมนูที่ไม่มีข้อมูล', message: `ซ่อน ${emptyShown.length} เมนูที่ไม่มีข้อมูลเลย ออกจากแถบเมนูของทุกคน?<br>(หน้าและข้อมูลยังอยู่ เลิกซ่อนได้ทุกเมื่อ)`, confirmText: 'ซ่อน' })) return
       saveHidden([...hidden, ...emptyShown.map(i => i.path.split('?')[0])])
     })
-    container.querySelector('#pu-unhide-all')?.addEventListener('click', () => { if (confirm('แสดงเมนูที่ซ่อนไว้ทั้งหมดกลับมา?')) saveHidden([]) })
+    container.querySelector('#pu-unhide-all')?.addEventListener('click', async () => { if (await confirmDialog({ title: 'แสดงเมนูทั้งหมด', message: 'แสดงเมนูที่ซ่อนไว้ทั้งหมดกลับมา?', confirmText: 'แสดง' })) saveHidden([]) })
     container.querySelectorAll('[data-go]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); navigate(a.dataset.go) }))
   }
 }

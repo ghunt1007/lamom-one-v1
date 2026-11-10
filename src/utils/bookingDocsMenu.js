@@ -1,5 +1,5 @@
 // (2026-11-02) ปุ่มเดียว "📄 เอกสาร" ในใบจอง — พิมพ์เอกสารทุกแบบจากข้อมูลใบจอง + แนบไฟล์เอกสารจริง (สแกน/รูป/PDF)
-import { openModal } from './modal.js'
+import { openModal, confirmDialog } from './modal.js'
 import { showToast, getState } from '../core/store.js'
 import { updateDocData, readDoc } from '../core/db.js'
 import { uploadFile } from './storage.js'
@@ -108,7 +108,7 @@ export function openBookingDocs(b, { onChange } = {}) {
     body.querySelector('#bd-file')?.addEventListener('change', e => upload([...e.target.files]))
     body.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
       const f = files[Number(btn.dataset.del)]
-      if (!confirm(`เอา "${f.name}" ออกจากใบจองนี้?`)) return
+      if (!await confirmDialog({ title: 'เอาไฟล์ออก', message: `เอา "${f.name}" ออกจากใบจองนี้?`, confirmText: 'เอาออก', danger: true })) return
       await save(files.filter((_, i) => i !== Number(btn.dataset.del)))
     }))
   }

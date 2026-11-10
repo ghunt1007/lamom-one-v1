@@ -65,3 +65,24 @@ export function confirmDialog({ title = 'ยืนยัน', message, confirmTe
     el.querySelector('#modal-confirm').addEventListener('click', () => { close(); resolve(true) })
   })
 }
+
+// (v1.0.1043) กล่องถามค่าเดียว แทน prompt() ของเบราว์เซอร์ (ในแอป Android prompt()/confirm() ไม่ขึ้นเลย)
+// คืนข้อความที่พิมพ์ หรือ null เมื่อยกเลิก · กด Enter = ตกลง
+export function promptDialog({ title = 'กรอกข้อมูล', label = '', value = '', type = 'text', placeholder = '', confirmText = '✅ ตกลง' } = {}) {
+  return new Promise(resolve => {
+    let done = false
+    const finish = v => { if (!done) { done = true; resolve(v) } }
+    const esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;')
+    const { el } = openModal({
+      title, size: 'sm', confirmText,
+      body: `<div class="input-group">${label ? `<label class="input-label">${safeInlineHtml(label)}</label>` : ''}
+        <input class="input" id="prompt-dialog-input" type="${type === 'number' ? 'number' : 'text'}" ${type === 'number' ? 'inputmode="decimal" step="any"' : ''} value="${esc(value)}" placeholder="${esc(placeholder)}"></div>`,
+      onClose: () => finish(null),
+      onConfirm: () => { finish(el.querySelector('#prompt-dialog-input').value) },
+    })
+    el.style.zIndex = '10050' // อยู่เหนือหน้าจอเต็ม (เช่น Personal AI)
+    const inp = el.querySelector('#prompt-dialog-input')
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); el.querySelector('.modal-footer .btn-primary')?.click() } })
+    setTimeout(() => { inp.focus(); inp.select?.() }, 50)
+  })
+}
