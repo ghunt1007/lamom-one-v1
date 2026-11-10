@@ -96,6 +96,18 @@ export function openLamiPanel({ navigate } = {}) {
             return
           }
         }
+        // (v1.0.1046) "ใครรอไฟแนนซ์ / ใครยังไม่นัดส่งมอบ / ใบจองไหนค้างนานสุด" → รายการใบจองจริงพร้อมปุ่มเปิด
+        {
+          const card = await import('./lamiCommandCard.js')
+          const bl = await card.loadBookingListCommands(q, custPromise).catch(() => null)
+          if (bl) {
+            history.push({ role: 'user', text: q }, { role: 'lami', text: bl.intro + '\n' + bl.cmds.map(c => `${c.label} — ${c.desc}`).join('\n') })
+            wait.outerHTML = `<div class="lp-a">${esc(bl.intro)}</div><div class="lp-cmdslot"></div>`
+            const slots = body.querySelectorAll('.lp-cmdslot')
+            if (bl.cmds.length) card.mountCommandCard(slots[slots.length - 1], bl.cmds)
+            return
+          }
+        }
         // (v1.0.1045) "ลูกค้า hot มีใครบ้าง / ใครเงียบเกิน 7 วัน / ใครยังไม่มีนัด" → รายชื่อจริงพร้อมปุ่มโทร + ปุ่มนัดทั้งกลุ่ม
         {
           const card = await import('./lamiCommandCard.js')

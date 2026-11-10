@@ -24,7 +24,7 @@ export function mountCommandCard(slot, cmds, { onDone, multi = false } = {}) {
   slot.innerHTML = `<div class="lami-cmds">${cmds.map((c, i) => `
     <div class="lami-cmd" data-i="${i}">
       <div class="lami-cmd-t"><b>${esc(c.label)}</b>${c.desc ? `<small>${esc(c.desc)}</small>` : ''}</div>
-      <button type="button" class="btn btn-primary btn-sm lami-cmd-go" data-i="${i}">${c.kind === 'tel' ? '📞 โทรเลย' : c.kind === 'td' ? '🚗 เปิดฟอร์ม' : c.kind === 'lead' ? '➕ เปิดฟอร์ม' : c.kind === 'book' ? '📝 เปิดฟอร์มจอง' : c.kind === 'open' ? '👤 เปิด' : c.kind === 'stage' ? '📝 อัปเดตใบจอง' : '✅ ทำเลย'}</button>
+      <button type="button" class="btn btn-primary btn-sm lami-cmd-go" data-i="${i}">${c.kind === 'tel' ? '📞 โทรเลย' : c.kind === 'td' ? '🚗 เปิดฟอร์ม' : c.kind === 'lead' ? '➕ เปิดฟอร์ม' : c.kind === 'book' ? '📝 เปิดฟอร์มจอง' : c.kind === 'open' ? '👤 เปิด' : c.kind === 'bk' ? '📝 เปิดใบจอง' : c.kind === 'stage' ? '📝 อัปเดตใบจอง' : '✅ ทำเลย'}</button>
     </div>`).join('')}</div>${multi && cmds.length > 1 ? `<div class="lami-cmds-all"><button type="button" class="btn btn-primary lami-cmd-all">✅ ทำทั้งหมด ${cmds.length} คน</button></div>` : ''}`
   const done = new Set()
   // บันทึกใบที่ i (คำสั่งที่บันทึกได้ทันที) — คืน true ถ้าสำเร็จ
@@ -116,6 +116,21 @@ export async function loadListCommands(q, customersPromise) {
   ])
   const res = lq.listTargets({ customers, followups, today, spec })
   return { cmds: lq.listCommands(res.list), intro: lq.listIntro(spec, res), next: lq.listFollowUp(spec, res) }
+}
+
+// (v1.0.1046) ถามหาใบจอง "ใครรอไฟแนนซ์ / ใครยังไม่นัดส่งมอบ / ใบจองไหนค้างนานสุด" → null ถ้าไม่ใช่ · คืน { cmds, intro }
+// เห็นเฉพาะใบจองของลูกค้าที่ผู้ใช้มองเห็น (สิทธิ์เดียวกับรายชื่อลูกค้า)
+export async function loadBookingListCommands(q, customersPromise) {
+  const bq = await import('./bookingQuestions.js')
+  const spec = bq.parseBookingListSpec(q)
+  if (!spec) return null
+  const [{ listAllDocs }, { companyScopeFilters }, { todayBangkok }] = await Promise.all([import('../core/db.js'), import('../core/companyScope.js'), import('./format.js')])
+  const [customers, bookings] = await Promise.all([
+    customersPromise || visibleCustomersForCommands(),
+    listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc').catch(() => []),
+  ])
+  const res = bq.bookingTargets({ customers, bookings, today: todayBangkok(), spec })
+  return { cmds: bq.bookingListCommands(res.list), intro: bq.bookingListIntro(spec, res) }
 }
 
 // (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อพร้อมปุ่มโทร (ลูกค้าที่ผู้ใช้เห็นเท่านั้น)

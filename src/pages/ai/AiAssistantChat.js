@@ -393,6 +393,18 @@ export default async function AiAssistantChatPage(container) {
         }
       }
       pendingMulti = false
+      // (v1.0.1046) ถามหาใบจอง "ใครรอไฟแนนซ์ / ใครยังไม่นัดส่งมอบ" → รายการใบจองจริงพร้อมปุ่มเปิด
+      {
+        const card = await import('../../utils/lamiCommandCard.js')
+        const bl = await card.loadBookingListCommands(text, Promise.resolve(chatCustomers)).catch(() => null)
+        if (bl) {
+          pendingCmds = bl.cmds
+          try { await createDoc('chat_ai_assistant', { role:'ai', text: bl.intro, cmd: bl.cmds.length > 0, time:now(), uid }) } catch (e) {}
+          waiting = false
+          await loadData()
+          return
+        }
+      }
       // (v1.0.1045) ถามหารายชื่อ "ลูกค้า hot มีใครบ้าง" → รายชื่อจริงพร้อมปุ่มโทร
       {
         const card = await import('../../utils/lamiCommandCard.js')
