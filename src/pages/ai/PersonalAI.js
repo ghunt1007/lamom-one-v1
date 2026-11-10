@@ -6,6 +6,7 @@ import { getSalesData, listDocs } from '../../core/db.js'
 import { todayBangkok, formatCurrency } from '../../utils/format.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { promptDialog } from '../../utils/modal.js'
 
 export default async function PersonalAIPage(container) {
   const user = getState('user')
@@ -718,8 +719,8 @@ export default async function PersonalAIPage(container) {
     sizeCanvas()
   })
 
-  overlay.querySelector('#aos-madd').addEventListener('click', () => {
-    const t = prompt('ระบุสิ่งที่อยากให้ LAMI จำ:')
+  overlay.querySelector('#aos-madd').addEventListener('click', async () => {
+    const t = await promptDialog({ title: '🧠 ให้ LAMI จำ', label: 'ระบุสิ่งที่อยากให้ LAMI จำ', placeholder: 'เช่น ลูกค้าคุณสมชายชอบสีขาว', confirmText: '✅ จำไว้' })
     if (!t?.trim()) return
     addMemory(t.trim(), 7).then(async () => {
       memories = await loadMemories()

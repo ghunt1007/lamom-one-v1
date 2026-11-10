@@ -1,5 +1,5 @@
 import { formatCurrency } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, promptDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
@@ -185,14 +185,14 @@ export default async function BudgetPlanningPage(container) {
     document.getElementById('export-btn')?.addEventListener('click', exportBudget)
     document.getElementById('month-select')?.addEventListener('change', e => { selectedMonth = +e.target.value; renderPage() })
     document.querySelectorAll('.edit-cell').forEach(cell => {
-      cell.addEventListener('dblclick', async () => {
+      cell.addEventListener('click', async () => {
         const cat = cell.dataset.cat
         const rowIdx = +cell.dataset.row
         const mIdx = +cell.dataset.m
         const field = cell.dataset.field
         const current = budget[cat][rowIdx][field][mIdx]
-        const val = prompt(`แก้ไข ${budget[cat][rowIdx].name} ${MONTHS[mIdx]} (${field === 'budgets' ? 'Budget' : 'Actual'}):`, current)
-        if (val === null || isNaN(+val)) return
+        const val = await promptDialog({ title: `✏️ ${budget[cat][rowIdx].name}`, label: `${MONTHS[mIdx]} · ${field === 'budgets' ? 'Budget' : 'Actual'} (บาท)`, value: current, type: 'number', confirmText: '✅ บันทึก' })
+        if (val === null || val === '' || isNaN(+val)) return
         const prev = budget[cat][rowIdx][field][mIdx]
         budget[cat][rowIdx][field][mIdx] = +val
         const ok = await saveBudget()
@@ -277,7 +277,7 @@ export default async function BudgetPlanningPage(container) {
             </tr>
           </tbody>
         </table>
-        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:8px">💡 ดับเบิ้ลคลิกที่ตัวเลขเพื่อแก้ไข Budget · บรรทัดที่ 2 ในแต่ละช่อง = Actual</div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:8px">💡 แตะที่ตัวเลขเพื่อแก้ไข · บรรทัดที่ 2 ในแต่ละช่อง = Actual</div>
       </div>
     `
   }
