@@ -25,7 +25,7 @@ describe('appearance', () => {
     applyUi({ font: 'lg', radius: 'lg', density: 'compact', effects: 'off' }, r)
     expect(r.style.fontSize).toBe('16.5px')
     expect(r.props['--radius-lg']).toBe('22px')
-    expect(r.attrs).toEqual({ 'data-density': 'compact' })
+    expect(r.attrs).toEqual({ 'data-density': 'compact', 'data-card': 'soft', 'data-bg': 'glow', 'data-motion': 'on' })
     applyUi({}, r)
     expect(r.style.fontSize).toBe('')
     expect(r.props['--radius-lg']).toBeUndefined()
