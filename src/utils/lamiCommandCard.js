@@ -1,5 +1,5 @@
 // การ์ด "🪄 สั่งงาน" ใต้คำสั่งที่พิมพ์ให้ LAMI — กด ✅ ทำเลย ครั้งเดียวจบ (ใช้ทั้งหน้าแชท LAMI และแผง 🤖)
-import { runLamiCommand } from './lamiCommands.js'
+import { runLamiCommand, commandHref } from './lamiCommands.js'
 import { escHtml as esc } from './escape.js'
 
 export function commandIntro(cmds) {
@@ -22,7 +22,7 @@ export function mountCommandCard(slot, cmds, { onDone } = {}) {
   slot.innerHTML = `<div class="lami-cmds">${cmds.map((c, i) => `
     <div class="lami-cmd" data-i="${i}">
       <div class="lami-cmd-t"><b>${esc(c.label)}</b>${c.desc ? `<small>${esc(c.desc)}</small>` : ''}</div>
-      <button type="button" class="btn btn-primary btn-sm lami-cmd-go" data-i="${i}">${c.kind === 'tel' ? '📞 โทรเลย' : c.kind === 'td' ? '🚗 เปิดฟอร์ม' : c.kind === 'lead' ? '➕ เปิดฟอร์ม' : c.kind === 'book' ? '📝 เปิดฟอร์มจอง' : c.kind === 'open' ? '👤 เปิด' : '✅ ทำเลย'}</button>
+      <button type="button" class="btn btn-primary btn-sm lami-cmd-go" data-i="${i}">${c.kind === 'tel' ? '📞 โทรเลย' : c.kind === 'td' ? '🚗 เปิดฟอร์ม' : c.kind === 'lead' ? '➕ เปิดฟอร์ม' : c.kind === 'book' ? '📝 เปิดฟอร์มจอง' : c.kind === 'open' ? '👤 เปิด' : c.kind === 'stage' ? '📝 อัปเดตใบจอง' : '✅ ทำเลย'}</button>
     </div>`).join('')}</div>`
   slot.querySelectorAll('.lami-cmd-go').forEach(btn => btn.addEventListener('click', async () => {
     const cmd = cmds[+btn.dataset.i]
@@ -31,10 +31,11 @@ export function mountCommandCard(slot, cmds, { onDone } = {}) {
       import('./callLogger.js').then(m => m.armCallLog?.(cmd.customer)).catch(() => {})
       location.href = 'tel:' + cmd.phone; return
     }
-    if (cmd.kind === 'book' || cmd.kind === 'open') {
+    const href = commandHref(cmd)
+    if (href) {
       const [{ navigate }, panel] = await Promise.all([import('../core/router.js'), import('./lamiPanel.js')])
       panel.closeLamiPanel?.()
-      navigate(`/crm/customers?id=${encodeURIComponent(cmd.customer.id)}${cmd.kind === 'book' ? '&book=1' : ''}`); return
+      navigate(href); return
     }
     if (cmd.kind === 'lead') {
       const { openQuickLead } = await import('./quickLead.js')

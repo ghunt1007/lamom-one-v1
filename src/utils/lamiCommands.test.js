@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { parseLamiCommand, runLamiCommand, timeIn, scopedCommand, isCommandHelp, commandHelpText, exampleName } from './lamiCommands.js'
+import { commandHref, bookingStageIn, parseLamiCommand, runLamiCommand, timeIn, scopedCommand, isCommandHelp, commandHelpText, exampleName } from './lamiCommands.js'
 
 const T = '2026-11-10' // อังคาร
 const cs = [
@@ -168,5 +168,31 @@ describe('LAMI สั่งงาน: โทรตอนไหน', () => {
   it('ชื่อตัวอย่าง: Hot ก่อน ไม่เอาชื่อแบบ "ลูกค้า…"', () => {
     expect(exampleName([{ firstName: 'ลูกค้างาน' }, { firstName: 'มานี' }, { firstName: 'ปิติ', temperature: 'hot' }])).toBe('ปิติ')
     expect(exampleName([{ firstName: 'ลูกค้า ทดสอบ' }])).toBe('สมชาย')
+  })
+})
+
+describe('LAMI สั่งงาน: ขั้นของใบจอง (v1.0.1036)', () => {
+  const T = '2026-11-10'
+  const bk = [...cs.slice(0, 2), { ...cs[2], bookingId: 'bk1' }]
+  it('ตัดตัวเลข / ส่งมอบ / ไฟแนนซ์ผ่าน / ถอนจอง', () => {
+    expect(parseLamiCommand('ปิติ ตัดตัวเลขแล้ว', bk, T)[0]).toMatchObject({ kind: 'stage', status: 'ตัดตัวเลขรอส่งมอบ' })
+    expect(parseLamiCommand('ปิติ ส่งมอบแล้ว', bk, T)[0]).toMatchObject({ kind: 'stage', status: 'ส่งมอบแล้ว' })
+    expect(parseLamiCommand('ปิติ ไฟแนนซ์ผ่านแล้ว', bk, T)[0]).toMatchObject({ kind: 'stage', status: 'ผ่านไฟแนนซ์รอเบิก' })
+    expect(parseLamiCommand('ปิติ ถอนจองแล้ว', bk, T)[0]).toMatchObject({ kind: 'stage', status: 'ถอนจอง' })
+    expect(parseLamiCommand('ปิติ ยกเลิกจอง', bk, T)[0]).toMatchObject({ kind: 'stage', status: 'ถอนจอง' })
+    expect(parseLamiCommand('ยกเลิกนัดปิติ', bk, T)).toEqual([])
+    expect(parseLamiCommand('ปิติ รถมาแล้ว', bk, T)[0]).toMatchObject({ kind: 'stage', status: 'รอส่งมอบ' })
+  })
+  it('ลิงก์ไปหน้าใบจองพร้อมสถานะ', () => {
+    const c = parseLamiCommand('ปิติ ส่งมอบแล้ว', bk, T)[0]
+    expect(commandHref(c)).toBe('/crm/bookings?id=bk1&status=' + encodeURIComponent('ส่งมอบแล้ว'))
+    expect(commandHref({ kind: 'book', customer: { id: 'a' } })).toBe('/crm/customers?id=a&book=1')
+    expect(commandHref({ kind: 'fu', customer: { id: 'a' } })).toBe('')
+  })
+  it('ไม่มีใบจอง → ไม่เป็นคำสั่ง · คำถามไม่ใช่คำสั่ง · โทรแล้ว+ไฟแนนซ์ผ่าน = 2 การ์ด', () => {
+    expect(parseLamiCommand('สมชาย ส่งมอบแล้ว', bk, T)).toEqual([])
+    expect(parseLamiCommand('ปิติ ส่งมอบแล้วหรือยัง', bk, T)).toEqual([])
+    expect(parseLamiCommand('โทรหาปิติแล้ว ไฟแนนซ์ผ่านแล้ว', bk, T).map(c => c.kind)).toEqual(['stage', 'log'])
+    expect(bookingStageIn('รอรถมา')).toBe(null)
   })
 })
