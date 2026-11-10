@@ -91,6 +91,7 @@ export default async function AiAssistantChatPage(container) {
   let loading = true
   let businessContext = {}
   let chatBookings = [], chatFollowups = [] // ใบจอง/นัดที่ผู้ใช้คนนี้เห็นได้ — ใช้ตอบเรื่องลูกค้ารายคน (recordFacts)
+  let pendingMulti = false // (v1.0.1039) คำสั่งกลุ่ม → ปุ่มทำทั้งหมด
   let pendingCmds = [] // (v1.0.1031) คำสั่งที่ LAMI เข้าใจจากประโยคล่าสุด รอผู้ใช้กด ✅ ทำเลย
   let chatCustomers = [] // ลูกค้าที่ผู้ใช้คนนี้มีสิทธิ์เห็น — ใช้ทำปุ่มโทร/นัดลองขับใต้คำตอบ (ไม่ส่งให้ AI)
 
@@ -379,6 +380,19 @@ export default async function AiAssistantChatPage(container) {
       const history = messages.slice(0, -1).map(m => ({ role: m.role === 'ai' ? 'lami' : m.role, text: m.text }))
       // (v1.0.981) "X อยู่ตรงไหน / หาไม่เจอ" → ตอบจากเมนูจริงทันที พร้อมปุ่มเปิดหน้า (ไม่ต้องรอ AI และไม่เดาชื่อหน้าผิด)
       // (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อจริงพร้อมปุ่มโทร ไม่ต้องรอ AI
+      // (v1.0.1039) "นัดลูกค้า hot ทุกคนพรุ่งนี้ 10 โมง" → รายชื่อพร้อมปุ่ม ✅ ทำทั้งหมด
+      {
+        const card = await import('../../utils/lamiCommandCard.js')
+        const bulk = await card.loadBulkCommands(text, Promise.resolve(chatCustomers)).catch(() => null)
+        if (bulk) {
+          pendingCmds = bulk.cmds; pendingMulti = true
+          try { await createDoc('chat_ai_assistant', { role:'ai', text: bulk.intro, cmd: bulk.cmds.length > 0, time:now(), uid }) } catch (e) {}
+          waiting = false
+          await loadData()
+          return
+        }
+      }
+      pendingMulti = false
       if (isCallListQuestion(text)) {
         const card = await import('../../utils/lamiCommandCard.js')
         const cmds = await card.loadCallListCommands(Promise.resolve(chatCustomers)).catch(() => [])
@@ -490,7 +504,8 @@ export default async function AiAssistantChatPage(container) {
     container.querySelectorAll('.chat-go').forEach(b => b.addEventListener('click', () => navigate(b.dataset.path)))
     // ลงมือทำจากแชท: โทร / นัดลองขับ (เดาวันเวลาจากคำถาม) / เปิดข้อมูลลูกค้า
     mountCommandCard(document.getElementById('chat-cmds'), pendingCmds, {
-      onDone: async msg => { pendingCmds = []; try { await createDoc('chat_ai_assistant', { role:'ai', text: msg, time:now(), uid: currentUid() }) } catch (e) {} ; await loadData() },
+      multi: pendingMulti,
+      onDone: async msg => { pendingCmds = []; pendingMulti = false; try { await createDoc('chat_ai_assistant', { role:'ai', text: msg, time:now(), uid: currentUid() }) } catch (e) {} ; await loadData() },
     })
     container.querySelectorAll('.chat-act').forEach(b => b.addEventListener('click', async () => {
       const c = chatCustomers.find(x => x.id === b.dataset.id)

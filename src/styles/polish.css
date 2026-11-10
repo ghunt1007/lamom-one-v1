@@ -423,6 +423,8 @@ input.dt-input.dt-bad { border-color: var(--danger) !important; box-shadow: 0 0 
 .lami-cmd-go { flex-shrink: 0; white-space: nowrap; }
 .lami-cmd-ok { color: var(--success); font-weight: 700; font-size: 0.8rem; white-space: nowrap; }
 .lp-cmdslot { margin: 2px 0 8px; }
+.lami-cmds-all { display: flex; margin-top: 8px; }
+.lami-cmds-all .btn { flex: 1; }
 .lp-try { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 10px; }
 .lp-try > span { width: 100%; font-size: 0.72rem; color: var(--text-muted); }
 .lp-try .lp-ask { border-style: dashed; }

@@ -83,6 +83,19 @@ export function openLamiPanel({ navigate } = {}) {
       }
       // (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อจริงพร้อมปุ่มโทรทันที + ปุ่มให้ AI ช่วยคิดคำพูด (ถ้าต้องการ)
       if (!ai) {
+        // (v1.0.1039) คำสั่งกลุ่ม "นัดลูกค้า hot ทุกคนพรุ่งนี้ 10 โมง" → รายชื่อ + ✅ ทำทั้งหมด
+        {
+          if (!custPromise) custPromise = import('./lamiCommandCard.js').then(m => m.visibleCustomersForCommands()).catch(() => [])
+          const card = await import('./lamiCommandCard.js')
+          const bulk = await card.loadBulkCommands(q, custPromise).catch(() => null)
+          if (bulk) {
+            history.push({ role: 'user', text: q }, { role: 'lami', text: bulk.intro })
+            wait.outerHTML = `<div class="lp-a">${esc(bulk.intro)}</div><div class="lp-cmdslot"></div>`
+            const slots = body.querySelectorAll('.lp-cmdslot')
+            card.mountCommandCard(slots[slots.length - 1], bulk.cmds, { multi: true })
+            return
+          }
+        }
         const { isCallListQuestion } = await import('./callList.js')
         if (isCallListQuestion(q)) {
           if (!custPromise) custPromise = import('./lamiCommandCard.js').then(m => m.visibleCustomersForCommands()).catch(() => [])
