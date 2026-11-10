@@ -5,11 +5,14 @@
 const TH_MON = { 'ม.ค.': 1, 'ก.พ.': 2, 'มี.ค.': 3, 'เม.ย.': 4, 'พ.ค.': 5, 'มิ.ย.': 6, 'ก.ค.': 7, 'ส.ค.': 8, 'ก.ย.': 9, 'ต.ค.': 10, 'พ.ย.': 11, 'ธ.ค.': 12 }
 
 function thaiDateKey(s) {
+  // (v1.0.1029) DD/MM/YYYY (+ เวลา HH:MM) — รูปแบบวันที่หลักของโปรแกรม
+  const n = String(s).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/)
+  if (n) { const y = +n[3] > 2400 ? +n[3] - 543 : +n[3]; return (y * 10000 + +n[2] * 100 + +n[1]) * 10000 + (n[4] ? +n[4] * 100 + +n[5] : 0) }
   const m = String(s).trim().match(/^(\d{1,2})\s+([ก-๙.]+)\s+(\d{4})$/)
   if (!m) return null
   const mon = TH_MON[m[2]]
   if (!mon) return null
-  return Number(m[3]) * 10000 + mon * 100 + Number(m[1])
+  return ((Number(m[3]) - 543) * 10000 + mon * 100 + Number(m[1])) * 10000
 }
 
 function numKey(s) {

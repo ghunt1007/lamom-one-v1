@@ -15,6 +15,7 @@ import { escHtml } from '../../utils/escape.js'
 import { offerNextFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
 import { KINDS, KIND_ORDER, buildWorkItems, groupByDate, summarize, addDaysYmd } from '../../utils/workCalendar.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 
 const EVENT_TYPES = {
   customer: '🤝 นัดลูกค้า',
@@ -40,7 +41,7 @@ const dowOf = ymd => new Date(Date.UTC(+ymd.slice(0, 4), +ymd.slice(5, 7) - 1, +
 
 function dayLabel(ymd, today) {
   const n = daysFromToday(ymd, today)
-  const base = `${DOW_FULL[dowOf(ymd)]} ${+ymd.slice(8)} ${MONTH_SHORT[+ymd.slice(5, 7) - 1]}`
+  const base = `${DOW_FULL[dowOf(ymd)]} ${fmtDMY(ymd)}`
   return n === 0 ? `วันนี้ · ${base}` : n === 1 ? `พรุ่งนี้ · ${base}` : n === -1 ? `เมื่อวาน · ${base}` : base
 }
 
@@ -150,7 +151,7 @@ export default async function CalendarPage(container) {
     return [ymdOf(viewYear, viewMonth, 1), ymdOf(viewYear, viewMonth, new Date(Date.UTC(viewYear, viewMonth + 1, 0)).getUTCDate())]
   }
 
-  const shortDT = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }
+  const shortDT = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${fmtDMY(d)} ${fmtHM(d)}` }
   function lastNoteLine(it) {
     const ns = notesByRef.get(it.ref)
     if (!ns?.length) return ''
@@ -191,7 +192,7 @@ export default async function CalendarPage(container) {
       <button type="button" class="wc-tile${s.overdue ? ' is-late' : ''}" data-jump="late"><span>⚠️ ค้าง</span><b>${s.overdue}</b></button>`
 
     $('#wc-label').textContent = view === 'list'
-      ? `${+from.slice(8)} ${MONTH_SHORT[+from.slice(5, 7) - 1]} – ${+to.slice(8)} ${MONTH_SHORT[+to.slice(5, 7) - 1]} ${+to.slice(0, 4) + 543}`
+      ? `${fmtDMY(from)} – ${fmtDMY(to)}`
       : `${MONTH_NAMES[viewMonth]} ${viewYear + 543}`
     container.querySelectorAll('.wc-views [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === view))
 

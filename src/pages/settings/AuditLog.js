@@ -12,6 +12,7 @@ import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 
 const ACTION_TYPES = {
   login:    { label: 'Login', color: 'primary', icon: '🔐' },
@@ -102,7 +103,7 @@ export default async function AuditLogPage(container) {
                 return `<tr style="${['delete','reject'].includes(l.action) ? 'background:rgba(239,68,68,.04)' : ''}">
                   <td>
                     <div style="font-size:0.78rem">${ts ? timeAgo(ts) : '-'}</div>
-                    <div style="font-size:0.68rem;color:var(--text-muted)">${ts ? new Date(ts).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}) : ''}</div>
+                    <div style="font-size:0.68rem;color:var(--text-muted)">${ts ? fmtHM(new Date(ts)) : ''}</div>
                   </td>
                   <td>
                     <div style="font-size:0.82rem;font-weight:600">${escHtml(l.user) || '-'}</div>

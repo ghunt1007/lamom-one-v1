@@ -494,7 +494,7 @@ async function buildReportText(env, accessToken) {
   const followups = [...fuPending, ...fuDone]
   return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts, appointments }, {
     today: todayBangkok(),
-    time: new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }).format(new Date()),
+    time: new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()),
     defaultTarget: parseInt(env.MONTHLY_DELIVERY_TARGET) || 0,
   })
 }
@@ -1785,9 +1785,9 @@ export function daysSinceBangkok(dateStr) {
   return Math.floor((now - then) / 86400000)
 }
 export function formatThaiDate(dateStr) {
-  const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+  // (v1.0.1029) DD/MM/YYYY (พ.ศ.) ทั้งระบบ ตามที่เจ้าของกำหนด
   const [y, m, d] = dateStr.split('-').map(Number)
-  return `${d} ${months[m - 1]} ${y + 543}`
+  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y + 543}`
 }
 
 function json(data, status = 200, headers = {}) {

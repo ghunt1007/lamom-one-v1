@@ -16,6 +16,7 @@ import { DASH_SECTIONS, loadDashLayout, saveDashLayout, applyDashLayout, moveSec
 import { openModal } from '../utils/modal.js'
 import { escHtml as __escA } from '../utils/escape.js'
 import { escHtml } from '../utils/escape.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../utils/format.js'
 
 const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 function ymLabel(ym) {
@@ -100,8 +101,7 @@ const QUICK_LINKS = [
 function formatThaiDate() {
   const d = new Date()
   const days = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์']
-  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
-  return `วัน${days[d.getDay()]}ที่ ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear() + 543}`
+  return `วัน${days[d.getDay()]}ที่ ${fmtDMY(d)}`
 }
 
 export default async function DashboardPage(container) {
@@ -1537,7 +1537,7 @@ export default async function DashboardPage(container) {
       function showBriefing(text, generatedAt) {
         if (!textEl.isConnected || container.__routerGen !== myGen) return
         textEl.textContent = text
-        if (timeEl) timeEl.textContent = generatedAt ? `อัปเดต ${new Date(generatedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}` : ''
+        if (timeEl) timeEl.textContent = generatedAt ? `อัปเดต ${fmtHM(generatedAt)}` : ''
       }
 
       async function loadBriefing(forceRegen) {

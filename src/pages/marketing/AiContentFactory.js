@@ -8,6 +8,7 @@ import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { generateSocialContent } from '../../utils/ai.js'
 import { todayBangkok } from '../../utils/format.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 
 const TEMPLATES = [
   { id:'T1', name:'โปรโมชั่นรถใหม่', icon:'🚗', fields:['รุ่นรถ','ราคา','โปรโมชั่น'] },
@@ -141,7 +142,7 @@ export default async function AiContentFactoryPage(container) {
             icon: selectedTemplate.icon,
             platforms: [...selectedPlatforms],
             content: generated,
-            displayTime: new Date().toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' }),
+            displayTime: fmtHM(),
           })
           await loadHistory()
         } catch (e) { /* ประวัติบันทึกไม่สำเร็จ ไม่กระทบการสร้าง content */ }
@@ -189,7 +190,7 @@ export default async function AiContentFactoryPage(container) {
               template: selectedTemplate.name, icon: selectedTemplate.icon,
               platforms: [...selectedPlatforms], content: generated,
               scheduledAt: `${dt} ${tm}`,
-              displayTime: new Date().toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' }),
+              displayTime: fmtHM(),
             })
             await loadHistory()
             showToast(`📅 Schedule โพสต์ ${dt} ${tm} (${selectedPlatforms.join('+')}) แล้ว`, 'success')

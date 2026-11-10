@@ -48,22 +48,44 @@ export function toDateStr(v) {
   return d ? new Date(d.getTime() + 7 * 3600e3).toISOString().slice(0, 10) : ''
 }
 
+// (v1.0.1029) ทั้งโปรแกรมแสดงวันที่แบบ DD/MM/YYYY เท่านั้น และเวลาแบบ 24 ชม. (HH:MM ไม่มี AM/PM) ตามที่เจ้าของกำหนด
+// ปี: พ.ศ. (ค่าเริ่มต้น) หรือ ค.ศ. — เลือกได้ในหน้าต่าง "ปรับหน้าตา" (setDateEra) · ตัดวันตามเวลาไทยเสมอ
+let ERA = 'be'
+export function setDateEra(e) { ERA = e === 'ce' ? 'ce' : 'be' }
+export function getDateEra() { return ERA }
+const yearOut = y => (ERA === 'ce' ? y : y + 543)
+
+// 'YYYY-MM-DD' (ค.ศ.) → 'DD/MM/YYYY' (ปีตามที่ตั้งไว้) · ค่าอื่นที่เป็นวันที่ได้ก็รับ (Timestamp/Date/ISO)
+export function dmy(v) {
+  const s = ymdBangkok(v)
+  const m = s && s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return m ? `${m[3]}/${m[2]}/${yearOut(+m[1])}` : ''
+}
+
+// 'DD/MM' ไม่มีปี — ใช้ในที่แคบมาก (ปฏิทิน/กราฟ) ที่ปีชัดเจนอยู่แล้ว
+export function dm(v) {
+  const s = ymdBangkok(v)
+  return s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : ''
+}
+
+// เวลา 'HH:MM' แบบ 24 ชม. ตามเวลาไทย (seconds: true → 'HH:MM:SS')
+export function hm(v, seconds = false) {
+  const d = v == null ? new Date() : toDate(v)
+  if (!d) return ''
+  const t = new Date(d.getTime() + 7 * 3600e3).toISOString()
+  return seconds ? t.slice(11, 19) : t.slice(11, 16)
+}
+
 export function formatDate(dateStr) {
   if (!dateStr) return '-'
-  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
-  const iso = typeof dateStr === 'string' && dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (iso) return `${+iso[3]} ${months[+iso[2]-1]} ${+iso[1] + 543}`
-  const d = toDate(dateStr)
-  if (!d) return '-'
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear() + 543}`
+  return dmy(dateStr) || '-'
 }
 
 export function formatDateTime(dateStr) {
   if (!dateStr) return '-'
-  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
   const d = toDate(dateStr)
   if (!d) return '-'
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()+543} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return `${dmy(d)} ${hm(d)}`
 }
 
 export function timeAgo(dateStr) {

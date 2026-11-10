@@ -30,6 +30,7 @@ import { escHtml as esc } from '../../utils/escape.js'
 import { isWhereQuestion, findPages, whereAnswer } from '../../utils/whereIs.js'
 import { campaignLeads } from '../../utils/campaignLeads.js'
 import { NAV } from '../../data/navMenu.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 
 const CATEGORIES = [
   { label:'☀️ วันนี้ทำอะไรก่อน', q:'วันนี้ฉันควรทำอะไรก่อน? จัดลำดับให้หน่อย พร้อมเหตุผลสั้นๆ' },
@@ -70,7 +71,7 @@ export function splitFollowups(answer) {
 export { formatAiText }
 
 function now() {
-  return new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})
+  return fmtHM()
 }
 
 const GREETING = 'สวัสดีค่ะ! 🤖 ฉัน <strong>LAMI</strong> — ผู้ช่วย AI ของ LAMOM ONE<br>ถามได้ทุกอย่างเรื่องธุรกิจ: ยอดขาย สต็อก Lead กำไร ช่าง HR ประกัน ฯลฯ'

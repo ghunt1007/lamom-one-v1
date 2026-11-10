@@ -10,7 +10,7 @@ const fakeRoot = () => {
 describe('appearance', () => {
   it('normalizeUi keeps known values only', () => {
     expect(normalizeUi({ font: 'lg', radius: 'zzz', density: 'compact', effects: 'off', wall: 'sunset', x: 1 }))
-      .toEqual({ font: 'lg', radius: 'md', density: 'compact' })
+      .toEqual({ ...UI_DEFAULTS, font: 'lg', density: 'compact' })
     expect(normalizeUi(null)).toEqual(UI_DEFAULTS)
   })
   it('round-trips through storage and survives bad JSON', () => {

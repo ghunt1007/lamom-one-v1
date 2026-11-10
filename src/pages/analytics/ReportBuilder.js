@@ -7,6 +7,7 @@ import { listDocs, createDoc, updateDocData, getSalesData } from '../../core/db.
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 
 const SALARY_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
 const STAGE_LABEL = { lead: '🧲 Lead', pp: '📇 Prospect', booking: '📝 จองแล้ว', delivered: '✅ ส่งมอบแล้ว' }
@@ -265,7 +266,7 @@ export default async function ReportBuilderPage(container) {
       const btn = document.getElementById('run-btn'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> กำลัง Run...'
       try {
         reportRows = await computeRealRows(selectedFields)
-        lastRun = new Date().toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
+        lastRun = fmtHM(null, true)
         showToast(`✅ Run Report สำเร็จ — พบ ${reportRows.rows.length} แถวจากข้อมูลจริง`, 'success')
       } catch { showToast('❗ Run Report ไม่สำเร็จ', 'error') }
       isRunning = false

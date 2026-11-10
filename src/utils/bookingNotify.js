@@ -1,10 +1,9 @@
+import { dmy as fmtDMY, hm as fmtHM } from './format.js'
 // ข้อความแจ้งความคืบหน้าให้ลูกค้า (ส่งทาง LINE) เมื่อเปลี่ยนสถานะใบจอง — เซลส์อ่าน/แก้แล้วคัดลอกไปส่งเอง
 // ลูกค้ามักโทรถามว่า "รถถึงไหนแล้ว" แจ้งก่อนทุกครั้งที่สถานะขยับช่วยลดสายถามและสร้างความประทับใจ
 const fmtDate = s => {
   if (!/^\d{4}-\d{2}-\d{2}/.test(s || '')) return ''
-  const [y, m, d] = s.slice(0, 10).split('-').map(Number)
-  const TH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
-  return `${d} ${TH[m - 1]} ${y + 543}`
+  return fmtDMY(s.slice(0, 10))
 }
 
 export function customerStatusMessage(b, status) {

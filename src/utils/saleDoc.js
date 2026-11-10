@@ -83,5 +83,5 @@ export function thaiDateParts(iso) {
   const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/)
   if (!m) return { d: '', m: '', y: '', short: '', long: '' }
   const y = Number(m[1]) + 543, mo = Number(m[2]), d = Number(m[3])
-  return { d: String(d), m: TH_MONTHS[mo - 1], y: String(y), short: `${d}/${mo}/${y}`, long: `${d} ${TH_MONTHS[mo - 1]} ${y}` }
+  return { d: String(d), m: TH_MONTHS[mo - 1], y: String(y), short: `${m[3]}/${m[2]}/${y}`, long: `${m[3]}/${m[2]}/${y}` }
 }

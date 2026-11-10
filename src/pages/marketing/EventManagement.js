@@ -7,6 +7,7 @@ import { watchDocs, listDocs, createDoc, updateDocData, softDelete } from '../..
 import { showToast } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { formatCurrency, todayBangkok } from '../../utils/format.js'
+import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { escHtml as esc } from '../../utils/escape.js'
@@ -22,8 +23,7 @@ import {
 
 const COL = 'marketing_events'
 const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
-const d2 = ymd => (ymd ? `${+ymd.slice(8)} ${TH_M[+ymd.slice(5, 7) - 1]}` : '')
-const dateRange = e => (!e.startDate ? 'ยังไม่ระบุวัน' : e.endDate && e.endDate !== e.startDate ? `${d2(e.startDate)} – ${d2(e.endDate)} ${+e.endDate.slice(0, 4) + 543}` : `${d2(e.startDate)} ${+e.startDate.slice(0, 4) + 543}`)
+const dateRange = e => (!e.startDate ? 'ยังไม่ระบุวัน' : e.endDate && e.endDate !== e.startDate ? `${fmtDMY(e.startDate)} – ${fmtDMY(e.endDate)}` : fmtDMY(e.startDate))
 const money = n => (n ? formatCurrency(Math.round(n)) : '—')
 const TABS = { upcoming: 'กำลังจะมา', ongoing: 'กำลังจัด', done: 'จบแล้ว', all: 'ทั้งหมด' }
 
@@ -213,7 +213,7 @@ export default async function EventManagementPage(container) {
   // ── (v1.0.987) เวรบูธรายวัน + เช็กลิสต์เตรียมงาน (แก้ได้จากหน้ารายละเอียดเลย ไม่ต้องเปิดฟอร์ม) ──
   const WD = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
   const MO = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
-  const dayLabel = d => { const x = new Date(d + 'T00:00:00Z'); return `${WD[x.getUTCDay()]} ${x.getUTCDate()} ${MO[x.getUTCMonth()]}` }
+  const dayLabel = d => { const x = new Date(d + 'T00:00:00Z'); return `${WD[x.getUTCDay()]} ${fmtDMY(d)}` }
   function bindPrep(el, e) {
     const days = eventDays(e)
     let shifts = normalizeShifts(e.shifts, days)

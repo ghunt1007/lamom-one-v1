@@ -8,20 +8,20 @@ describe('formatDate', () => {
   })
 
   it('converts an ISO date string to Thai format with Buddhist year (+543)', () => {
-    expect(formatDate('2026-07-23')).toBe('23 ก.ค. 2569')
+    expect(formatDate('2026-07-23')).toBe('23/07/2569')
   })
 
   it('handles ISO strings with time components (takes only the date part)', () => {
-    expect(formatDate('2026-01-05T10:30:00.000Z')).toBe('5 ม.ค. 2569')
+    expect(formatDate('2026-01-05T10:30:00.000Z')).toBe('05/01/2569')
   })
 
   it('handles a Date object', () => {
-    expect(formatDate(new Date(2026, 11, 31))).toBe('31 ธ.ค. 2569')
+    expect(formatDate(new Date(2026, 11, 31))).toBe('31/12/2569')
   })
 
   it('handles a Firestore-like Timestamp object with toDate()', () => {
     const fakeTimestamp = { toDate: () => new Date(2025, 5, 15) }
-    expect(formatDate(fakeTimestamp)).toBe('15 มิ.ย. 2568')
+    expect(formatDate(fakeTimestamp)).toBe('15/06/2568')
   })
 
   it('returns "-" for an unparseable value', () => {
@@ -35,8 +35,8 @@ describe('formatDateTime', () => {
   })
 
   it('includes zero-padded hours and minutes', () => {
-    const d = new Date(2026, 0, 1, 9, 5)
-    expect(formatDateTime(d)).toBe('1 ม.ค. 2569 09:05')
+    const d = new Date(Date.UTC(2026, 0, 1, 2, 5)) // 09:05 เวลาไทย
+    expect(formatDateTime(d)).toBe('01/01/2569 09:05')
   })
 })
 

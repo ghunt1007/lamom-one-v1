@@ -59,7 +59,7 @@ describe('dates', () => {
     expect(shiftMonth('2026-12', 1)).toBe('2027-01')
     expect(shiftMonth('2026-01', -1)).toBe('2025-12')
     expect(monthBounds('2028-02')).toEqual(['2028-02-01', '2028-02-29'])
-    expect(rangeLabel(p)).toBe('5 พ.ย. – 20 พ.ย.')
+    expect(rangeLabel(p)).toBe('05/11/2569 – 20/11/2569')
   })
   it('copy to next month keeps month-end', () => {
     const c = copyToNextMonth({ ...p, dateFrom: '2026-10-01', dateTo: '2026-10-31' })

@@ -490,7 +490,7 @@
   .bk-filters > select { flex: 1 1 calc(50% - 3px); min-width: 0; width: auto !important; }
   .bk-filters > div:not(.bk-view-toggle) { flex-basis: 100% !important; }
   .bk-filters > .bk-dates { flex-basis: 100%; min-width: 0; }
-  .bk-dates > input[type="date"] { flex: 1 1 0; min-width: 0; width: auto !important; padding-left: 6px; padding-right: 4px; }
+  .bk-dates > input { flex: 1 1 0; min-width: 0; width: auto !important; padding-left: 6px; padding-right: 4px; }
 }
 .bk-date-toggle { display: none; }
 /* (v1.0.960) มือถือแนวตั้ง: ปุ่ม แบบ Sheet/การ์ด เต็มแถวบนสุด แล้ว เซลล์ | แบรนด์ | 📅 แถวถัดไป

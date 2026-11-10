@@ -49,7 +49,7 @@ describe('daily-report worker — date helpers (pure, Bangkok timezone)', () => 
   })
 
   it('formatThaiDate converts to Buddhist Era with Thai month abbreviation', () => {
-    expect(formatThaiDate('2026-08-12')).toBe('12 ส.ค. 2569')
+    expect(formatThaiDate('2026-08-12')).toBe('12/08/2569')
   })
 })
 
@@ -456,7 +456,7 @@ describe('weekly summary (Monday mornings)', () => {
         { salesName: 'วิชัย', status: 'ส่งมอบแล้ว', cutDate: '2026-10-15', totalIncome: 60000 },
       ],
     }, { today: '2026-10-26' })
-    expect(text).toContain('19 ต.ค. 2569 – 25 ต.ค. 2569')
+    expect(text).toContain('19/10/2569 – 25/10/2569')
     expect(text).toContain('Lead ใหม่: 2 ราย (🔺 +1)')
     expect(text).toContain('จองใหม่: 2 คัน (🔺 +2)')
     expect(text).toContain('ส่งมอบ: 2 คัน (🔺 +1)')
@@ -846,7 +846,7 @@ describe('ค้นหาลูกค้า / help ทาง LINE', () => {
     expect(byName).toContain('⚠️ ยังไม่มี')
     expect(findCustomersText(customers, [], 'ไม่มีคนนี้', '2026-10-25')).toContain('ไม่พบลูกค้า')
     expect(findCustomersText(customers, [], '+66 81 234 5678', '2026-10-25')).toContain('สมชาย ทดสอบ')
-    expect(findCustomersText([{ id: 'z', firstName: 'มีบันทึก', phone: '0811111111', lastContactAt: '2026-10-24T03:00:00Z' }], [], 'มีบันทึก', '2026-10-25')).toContain('ติดต่อล่าสุด: 24 ต.ค. 2569')
+    expect(findCustomersText([{ id: 'z', firstName: 'มีบันทึก', phone: '0811111111', lastContactAt: '2026-10-24T03:00:00Z' }], [], 'มีบันทึก', '2026-10-25')).toContain('ติดต่อล่าสุด: 24/10/2569')
     expect(findCustomersText([{ id: 'x', firstName: 'เก็บแบบ66', phone: '+66899990000' }], [], '0899990000', '2026-10-25')).toContain('เก็บแบบ66')
   })
 })
