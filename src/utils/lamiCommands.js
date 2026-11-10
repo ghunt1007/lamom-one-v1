@@ -75,7 +75,7 @@ export function parseLamiCommand(q, customers = [], today) {
   const isNote = /^(?:ช่วย\s*)?(?:จด(?:ไว้|โน้ต)?|โน้ต|note|บันทึก(?:ว่า|โน้ต)?)(?=\s|[ก-๙])/i.test(s)
   const isTd = !isNote && /ลองขับ|ทดลองขับ|test\s*drive/i.test(s)
   const tempHit = TEMP.find(([re]) => re.test(s))
-  const isTempOnly = !isNote && tempHit && (/^(?:ปรับ|ตั้ง|เปลี่ยน|ให้)|เป็น\s*(?:hot|warm|cold|ร้อน|อุ่น|เย็น)/i.test(s) || s.replace(/hot|warm|cold/i, '').trim().split(/\s+/).length <= 2)
+  const isTempOnly = !isNote && tempHit && (/^(?:ปรับ|ตั้ง|เปลี่ยน|ให้)|เป็น\s*(?:hot|warm|cold|ร้อน|อุ่น|เย็น)/i.test(s) || (!WHEN.test(s) && s.replace(/hot|warm|cold/i, '').trim().split(/\s+/).length <= 2))
   const hasWhen = WHEN.test(s)
   const isFu = !isTd && !isNote && (/^(?:ช่วย\s*)?(?:นัด|ตาม|ติดต่อ|follow)|นัด(?:ติดตาม|โทร|คุย)|ตามลูกค้า|เตือน(?:ให้)?(?:โทร|ตาม)/i.test(s) || (/^(?:ช่วย\s*)?(?:โทรหา|โทรกลับ|ทักไลน์|ทัก)|นัด|โทรหา|โทรกลับ/.test(s) && hasWhen))
   // "สมชาย hot นัดพรุ่งนี้ 10 โมง" = นัด + ปรับความสนใจ ในคำสั่งเดียว

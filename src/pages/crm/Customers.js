@@ -529,6 +529,7 @@ export default async function CustomersPage(container) {
 
             ${!c.isLost ? `<form id="wk-lami" class="lami-quick" autocomplete="off">
               <input class="input" id="wk-lami-in" maxlength="200" placeholder="🪄 สั่งเร็ว เช่น พรุ่งนี้ 10 โมง hot" title="ตัวอย่าง: พรุ่งนี้ 10 โมง hot · จด ชอบสีขาว · ลองขับ เสาร์บ่าย 2 · warm" aria-label="สั่งงานลูกค้าคนนี้">
+              ${hasSpeechInput() ? '<button type="button" class="btn btn-secondary btn-sm" id="wk-lami-mic" title="กดแล้วพูด เช่น พรุ่งนี้บ่ายสองโมง">🎤</button>' : ''}
               <button type="submit" class="btn btn-primary btn-sm">ทำ</button>
             </form>
             <div id="wk-lami-slot" class="lp-cmdslot"></div>` : ''}
@@ -680,6 +681,8 @@ export default async function CustomersPage(container) {
     })
     el.querySelector('#add-comm-btn')?.addEventListener('click', () => openCommForm(c, () => refreshTimeline(c)))
     // (v1.0.1032) 🪄 สั่งเร็วเฉพาะลูกค้าคนนี้ — พิมพ์ประโยคเดียว กด ✅ ทำเลย (นัด/จด/ความสนใจ/ลองขับ)
+    // พูดจบ = ส่งคำสั่งทันที (ไม่ต้องกด "ทำ" อีกครั้ง)
+    bindMic(el.querySelector('#wk-lami-mic'), el.querySelector('#wk-lami-in'), { replace: true, onFinal: () => el.querySelector('#wk-lami')?.requestSubmit() })
     el.querySelector('#wk-lami')?.addEventListener('submit', async e => {
       e.preventDefault()
       const inp = el.querySelector('#wk-lami-in'), slot = el.querySelector('#wk-lami-slot')

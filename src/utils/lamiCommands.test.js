@@ -109,6 +109,7 @@ describe('LAMI สั่งงาน: โทรตอนไหน', () => {
     expect(scopedCommand('พรุ่งนี้ 10 โมง', c, T)[0]).toMatchObject({ kind: 'fu', dueDate: '2026-11-11', time: '10:00' })
     expect(scopedCommand('พรุ่งนี้บ่าย 2 hot', c, T)[0]).toMatchObject({ kind: 'fu', time: '14:00', temp: 'hot' })
     expect(scopedCommand('hot', c, T)[0]).toMatchObject({ kind: 'temp', temp: 'hot' })
+    expect(scopedCommand('พรุ่งนี้บ่ายสองโมง hot', c, T)).toEqual([expect.objectContaining({ kind: 'fu', time: '14:00', temp: 'hot' })])
     expect(scopedCommand('จด ชอบสีขาว', c, T)[0]).toMatchObject({ kind: 'note', text: 'ชอบสีขาว' })
     expect(scopedCommand('ลองขับ เสาร์บ่าย 2', c, T)[0]).toMatchObject({ kind: 'td' })
     expect(scopedCommand('ทักไลน์ศุกร์นี้', c, T)[0]).toMatchObject({ kind: 'fu', type: 'line' })
