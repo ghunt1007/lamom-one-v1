@@ -13,4 +13,9 @@ export const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัด�
 export const isCancelled = b => CANCELLED_STATUSES.includes(b?.status)
 export const isDelivered = b => DELIVERED_STATUSES.includes(b?.status)
 // ยังต้องตามงาน = ไม่ถอน ไม่ส่งมอบ
+// เดือนที่ "ถอนจอง/ยกเลิก" — วันที่ถอนจริง (cancelDate ที่แอปบันทึกตอนกดถอน) ถ้าไม่มี (แถวจาก Sheet) ใช้วันจอง
+// นิยามเดียวกับรายงาน LINE 18:00 และค่าคอม (salesIncome.js) — ใช้ตัวนี้ทุกที่ที่นับ "ถอนจองเดือนนี้"
+export const cancelledMonth = b => isCancelled(b) ? String(b.cancelDate || b.bookingDate || '').slice(0, 7) : ''
+// เดือนที่ส่งมอบ/ตัดตัวเลข — cutDate ก่อน แล้วค่อย actualDeliveryDate (นิยามเดียวกับรายงาน LINE)
+export const deliveredMonth = b => isDelivered(b) ? String(b.cutDate || b.actualDeliveryDate || '').slice(0, 7) : ''
 export const isOpenBooking = b => !isCancelled(b) && !isDelivered(b)

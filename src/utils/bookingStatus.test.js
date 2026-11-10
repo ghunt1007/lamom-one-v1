@@ -28,3 +28,17 @@ describe('booking status list', () => {
     expect(bad).toEqual([])
   })
 })
+
+import { cancelledMonth, deliveredMonth } from './bookingStatus.js'
+describe('cancelledMonth / deliveredMonth (same rule as the LINE report)', () => {
+  it('uses cancelDate, falls back to bookingDate', () => {
+    expect(cancelledMonth({ status: 'ถอนจอง', bookingDate: '2026-09-20', cancelDate: '2026-10-02' })).toBe('2026-10')
+    expect(cancelledMonth({ status: 'ยกเลิก', bookingDate: '2026-09-20' })).toBe('2026-09')
+    expect(cancelledMonth({ status: 'จอง', bookingDate: '2026-09-20' })).toBe('')
+  })
+  it('uses cutDate before actualDeliveryDate', () => {
+    expect(deliveredMonth({ status: 'ตัดตัวเลขรอส่งมอบ', cutDate: '2026-10-30', actualDeliveryDate: '2026-11-03' })).toBe('2026-10')
+    expect(deliveredMonth({ status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-11-03' })).toBe('2026-11')
+    expect(deliveredMonth({ status: 'จอง', cutDate: '2026-10-30' })).toBe('')
+  })
+})

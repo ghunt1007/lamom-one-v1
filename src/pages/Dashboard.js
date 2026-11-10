@@ -10,6 +10,7 @@ import { t } from '../i18n/index.js'
 import { DELIVERED_STATUSES as DELIVERED_ST } from '../utils/deliveryIncome.js'
 import { businessFacts } from '../utils/bizFacts.js'
 import { SOURCE_INFO, normSource } from '../utils/sourcePerformance.js'
+import { cancelledMonth } from '../utils/bookingStatus.js'
 import { monthStats, openBookings, isCancelled, isDelivered, stockSince, pctChange, sparkPath, rangeStats, statRows, periodMonths, prevPeriodAnchor, periodLabel, shiftYm, pipelineStages, salesBoard } from '../utils/dashStats.js'
 import { exportToExcel } from '../utils/importExport.js'
 import { DASH_SECTIONS, loadDashLayout, saveDashLayout, applyDashLayout, moveSection, normalizeLayout } from '../utils/dashLayout.js'
@@ -619,11 +620,11 @@ export default async function DashboardPage(container) {
       // จองใหม่/ส่งมอบของเดือนนี้อยู่ในแถบเทียบเดือน (renderMoM) ด้านบนในการ์ดเดียวกันแล้ว
       // ยอดรอส่งมอบ/รอรถ/รอผลไฟแนนซ์ ต้องเป็นยอดค้างจริงทั้งหมดที่ยังไม่จบ ไม่ใช่แค่ที่จองมาในเดือนที่เลือกดู —
       // เดิมกรองจาก inMonth ทำให้ตัวเลข "ยอดค้าง" ดูน้อยกว่าจริงมาก เพราะยอดค้างจริงสะสมมาจากหลายเดือนก่อน
-      // หน้านี้ด้วย ไม่ใช่แค่เดือนที่กำลังดูอยู่ ส่วนถอนจองยังคงนับเฉพาะเดือนที่เลือกเหมือนเดิม (ไม่มี field
-      // วันที่ถอนจองแยกต่างหาก ใช้ bookingDate เป็นตัวกำหนดเดือนต่อไปเหมือนที่ทำมาตลอด)
+      // หน้านี้ด้วย ไม่ใช่แค่เดือนที่กำลังดูอยู่ ส่วนถอนจองนับใบที่ถอนในเดือนที่เลือก
+      // (cancelDate ถ้ามี ไม่มีใช้ bookingDate — cancelledMonth ใน bookingStatus.js ตรงกับรายงาน LINE)
       // เส้นทางใบจอง: ทุกใบที่ยังไม่จบ เรียงตามขั้นงานจริง เห็นทันทีว่ารถค้างขั้นไหน (กดขั้นไหนเห็นรายชื่อ)
       const stages = pipelineStages(bookings, todayBangkok())
-      const withdrawn = inMonth.filter(isCancelled).length
+      const withdrawn = bookings.filter(b => cancelledMonth(b) === selectedMonth).length
       const body = document.getElementById('pipeline-body')
       if (!body) return
       pipeStages = stages
@@ -894,11 +895,11 @@ export default async function DashboardPage(container) {
       miniBarChart('delivery-chart', months, counts, 'success')
     }
 
-    // ยอดถอนจองนับตาม bookingDate เดือนนั้นๆ เหมือนการ์ด KPI "ถอนจองเดือนนี้" ด้านบนเป๊ะ
+    // ยอดถอนจองนับตามเดือนที่ถอนจริง (cancelledMonth) เหมือนการ์ด KPI "ถอนจองเดือนนี้" ด้านบนเป๊ะ
     function renderCancelChart() {
       const months = []
       for (let i = trendRange - 1; i >= 0; i--) months.push(shiftMonth(selectedMonth, -i))
-      const counts = months.map(m => bookings.filter(b => b.status === 'ถอนจอง' && (b.bookingDate || '').startsWith(m)).length)
+      const counts = months.map(m => bookings.filter(b => cancelledMonth(b) === m).length)
       miniBarChart('cancel-chart', months, counts, 'danger', `ไม่มีถอนจองเลยใน ${trendRange} เดือน 👍`)
     }
 
