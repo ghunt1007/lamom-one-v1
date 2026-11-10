@@ -26,6 +26,7 @@ import { pageLinksFor } from '../../utils/aiPageLinks.js'
 import { customerActionsFor } from '../../utils/aiActions.js'
 import { parseLamiCommand, isCommandHelp, commandHelpText, exampleName } from '../../utils/lamiCommands.js'
 import { commandIntro, mountCommandCard } from '../../utils/lamiCommandCard.js'
+import { isCallListQuestion } from '../../utils/callList.js'
 import { navigate } from '../../core/router.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml as esc } from '../../utils/escape.js'
@@ -377,6 +378,16 @@ export default async function AiAssistantChatPage(container) {
       // ต้องแปลง role 'ai' ในไฟล์นี้เป็น 'lami' ตามที่ askLami() คาดหวัง (ไม่กระทบ role ที่เก็บจริงใน Firestore)
       const history = messages.slice(0, -1).map(m => ({ role: m.role === 'ai' ? 'lami' : m.role, text: m.text }))
       // (v1.0.981) "X อยู่ตรงไหน / หาไม่เจอ" → ตอบจากเมนูจริงทันที พร้อมปุ่มเปิดหน้า (ไม่ต้องรอ AI และไม่เดาชื่อหน้าผิด)
+      // (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อจริงพร้อมปุ่มโทร ไม่ต้องรอ AI
+      if (isCallListQuestion(text)) {
+        const card = await import('../../utils/lamiCommandCard.js')
+        const cmds = await card.loadCallListCommands(Promise.resolve(chatCustomers)).catch(() => [])
+        pendingCmds = cmds
+        try { await createDoc('chat_ai_assistant', { role:'ai', text: card.callListIntro(cmds), cmd: cmds.length > 0, time:now(), uid }) } catch (e) {}
+        waiting = false
+        await loadData()
+        return
+      }
       if (isCommandHelp(text)) {
         try { await createDoc('chat_ai_assistant', { role:'ai', text: commandHelpText(exampleName(chatCustomers)), time:now(), uid }) } catch (e) {}
         waiting = false

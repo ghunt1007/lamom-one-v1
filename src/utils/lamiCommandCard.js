@@ -61,6 +61,21 @@ export function mountCommandCard(slot, cmds, { onDone } = {}) {
   }))
 }
 
+// (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อพร้อมปุ่มโทร (ลูกค้าที่ผู้ใช้เห็นเท่านั้น)
+export async function loadCallListCommands(customersPromise) {
+  const [{ listDocs }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok }, { callList, callListCommands }] = await Promise.all([
+    import('../core/db.js'), import('../core/companyScope.js'), import('./customerFollowups.js'), import('./format.js'), import('./callList.js')])
+  const today = todayBangkok()
+  const [customers, followups] = await Promise.all([
+    customersPromise || visibleCustomersForCommands(),
+    listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000).catch(() => []),
+  ])
+  return callListCommands(callList({ customers, followups, today }))
+}
+export function callListIntro(cmds) {
+  return cmds.length ? `📞 วันนี้ควรโทร ${cmds.length} คนนี้ก่อน (เรียงจากเร่งด่วนที่สุด) — กดโทรได้เลย วางสายแล้วระบบถามผลให้บันทึก` : '🎉 วันนี้ไม่มีนัดค้างหรือลูกค้า Hot/Warm ที่เงียบนาน — ลองดูลูกค้าใหม่ในหน้า Lead'
+}
+
 // ลูกค้าที่ผู้ใช้คนนี้มองเห็น (ตามสิทธิ์เดียวกับหน้าแชท) — ใช้จับชื่อในคำสั่ง
 export async function visibleCustomersForCommands() {
   const [{ listDocs }, { companyScopeFilters }, { getVisibilityScope, scopeIncludesRecord }] = await Promise.all([

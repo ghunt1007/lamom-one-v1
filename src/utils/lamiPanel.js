@@ -61,13 +61,13 @@ export function openLamiPanel({ navigate } = {}) {
   el.querySelector('.lp-x').addEventListener('click', closeLamiPanel)
   el.querySelector('.lp-full').addEventListener('click', () => { closeLamiPanel(); navigate ? navigate('/ai/ask') : (location.href = '/ai/ask') })
 
-  async function ask(q) {
+  async function ask(q, { ai = false } = {}) {
     q = String(q || '').trim()
     if (!q || busy) return
     busy = true
     input.value = ''
     body.querySelector('.lp-hint')?.remove()
-    body.insertAdjacentHTML('beforeend', `<div class="lp-q">${esc(asks.find(a => a.q === q)?.label || q)}</div><div class="lp-a lp-wait"><span></span><span></span><span></span></div>`)
+    body.insertAdjacentHTML('beforeend', `<div class="lp-q">${esc(ai ? '✨ ช่วยคิดคำพูดเปิดการคุย' : (asks.find(a => a.q === q)?.label || q))}</div><div class="lp-a lp-wait"><span></span><span></span><span></span></div>`)
     body.scrollTop = body.scrollHeight
     const wait = body.querySelector('.lp-wait')
     try {
@@ -80,6 +80,23 @@ export function openLamiPanel({ navigate } = {}) {
         history.push({ role: 'user', text: q }, { role: 'lami', text: ans })
         wait.outerHTML = `<div class="lp-a">${formatAiText(ans)}</div>`
         return
+      }
+      // (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อจริงพร้อมปุ่มโทรทันที + ปุ่มให้ AI ช่วยคิดคำพูด (ถ้าต้องการ)
+      if (!ai) {
+        const { isCallListQuestion } = await import('./callList.js')
+        if (isCallListQuestion(q)) {
+          if (!custPromise) custPromise = import('./lamiCommandCard.js').then(m => m.visibleCustomersForCommands()).catch(() => [])
+          const card = await import('./lamiCommandCard.js')
+          const cmds = await card.loadCallListCommands(custPromise)
+          const intro = card.callListIntro(cmds)
+          history.push({ role: 'user', text: q }, { role: 'lami', text: intro + '\n' + cmds.map(c => `${c.label} — ${c.desc}`).join('\n') })
+          wait.outerHTML = `<div class="lp-a">${esc(intro)}</div><div class="lp-cmdslot"></div>${cmds.length ? `<div class="lp-asks"><button class="lp-ask lp-ai" type="button">✨ ให้ LAMI ช่วยคิดคำพูดเปิดการคุย</button></div>` : ''}`
+          const slots = body.querySelectorAll('.lp-cmdslot')
+          card.mountCommandCard(slots[slots.length - 1], cmds)
+          const aiBtn = [...body.querySelectorAll('.lp-ai')].pop()
+          aiBtn?.addEventListener('click', () => { aiBtn.closest('.lp-asks')?.remove(); setTimeout(() => ask(`${q}\n(รายชื่อที่ระบบจัดลำดับไว้: ${cmds.map(c => c.label.replace(/^\S+\s/, '') + ' — ' + c.desc).join(' | ')}) ช่วยคิดประโยคเปิดการคุยสั้นๆ ให้แต่ละคน`, { ai: true }), 0) })
+          return
+        }
       }
       // (v1.0.981) "X อยู่ตรงไหน / หาไม่เจอ" → ตอบจากเมนูจริงทันที พร้อมปุ่มพาไปหน้านั้น
       const [{ isWhereQuestion, findPages, whereAnswer }, { NAV }] = await Promise.all([import('./whereIs.js'), import('../data/navMenu.js')])
