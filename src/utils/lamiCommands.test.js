@@ -54,4 +54,20 @@ describe('LAMI สั่งงาน: โทรตอนไหน', () => {
   it('โทรหา X พรุ่งนี้ = นัดติดตาม', () => {
     expect(parseLamiCommand('โทรหา มานี พรุ่งนี้บ่าย 3', [{ id: 'b', firstName: 'มานี', phone: '08' }], '2026-11-10')[0]).toMatchObject({ kind: 'fu', time: '15:00' })
   })
+  it('จดโน้ต → ลงไทม์ไลน์ ไม่สร้างนัด แม้มีคำว่าพรุ่งนี้', () => {
+    const r = parseLamiCommand('จด สมชาย ชอบสีขาว จะมาพรุ่งนี้', cs, T)
+    expect(r).toHaveLength(1)
+    expect(r[0]).toMatchObject({ kind: 'note', text: 'ชอบสีขาว จะมาพรุ่งนี้', type: 'internal' })
+    expect(parseLamiCommand('บันทึกว่า สมชาย ทักไลน์มาถามดอกเบี้ย', cs, T)[0]).toMatchObject({ kind: 'note', type: 'chat', text: 'ทักไลน์มาถามดอกเบี้ย' })
+    expect(parseLamiCommand('จด สมชาย', cs, T)).toEqual([])
+  })
+  it('runLamiCommand note → customer_notes', async () => {
+    const calls = []
+    const db = { createDoc: async (col, d) => calls.push([col, d]) }
+    const [cmd] = parseLamiCommand('โน้ต สมชาย รอโบนัสสิ้นปี', cs, T)
+    const msg = await runLamiCommand(cmd, { me: 'A', db, companyId: 'c1' })
+    expect(calls[0][0]).toBe('customer_notes')
+    expect(calls[0][1]).toMatchObject({ text: 'รอโบนัสสิ้นปี', type: 'internal', staff: 'A' })
+    expect(msg).toMatch(/จดไว้/)
+  })
 })
