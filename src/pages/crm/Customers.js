@@ -699,7 +699,7 @@ export default async function CustomersPage(container) {
       if (!cmds.length) { slot.innerHTML = '<div class="lami-quick-hint">ยังไม่เข้าใจคำสั่งนี้ ลองพิมพ์ เช่น <b>พรุ่งนี้ 10 โมง</b> · <b>โทรแล้ว สนใจผ่อน</b> · <b>ไม่รับสาย</b> · <b>hot</b> · <b>จด รอโบนัส</b> · <b>ลองขับ เสาร์บ่าย 2</b></div>'; return }
       mountCommandCard(slot, cmds, { onDone: (msg, cmd) => {
         inp.value = ''
-        if (cmd.kind === 'fu' || cmd.kind === 'log') refreshFollowupList(c)
+        if (['fu', 'log', 'move', 'unfu'].includes(cmd.kind)) refreshFollowupList(c)
         if (cmd.kind === 'note' || cmd.kind === 'log') refreshTimeline(c)
         if (cmd.kind === 'log' && c.lastContactAt) { const sp = el.querySelector('#wk-last-contact'); if (sp) sp.textContent = timeAgo(c.lastContactAt) }
         if (cmd.kind === 'temp' || cmd.temp) {

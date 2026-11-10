@@ -77,6 +77,7 @@ export function commandHelpText(n = 'สมชาย') {
     `• 📝 จอง: "${n} จองแล้ว" (เปิดฟอร์มจองที่กรอกชื่อ/รุ่นให้)`,
     `• 🧾 ใบจอง: "${n} ตัดตัวเลขแล้ว" · "${n} ส่งมอบแล้ว" · "${n} ไฟแนนซ์ผ่าน" · "${n} รถมาแล้ว" · "${n} ถอนจอง" (เปิดใบจองแล้วเปลี่ยนสถานะให้)`,
     '• ➕ ลูกค้าใหม่: "ลีดใหม่ สมศักดิ์ 0812345678 สนใจ S07"',
+    `• 📅 เลื่อน/ยกเลิกนัด: "เลื่อนนัด${n}ไปศุกร์ 10 โมง" · "ยกเลิกนัด${n}"`,
     `• 📞 โทร: "โทรหา ${n}"`,
     '',
     '💡 ในหน้าลูกค้า ใช้ช่อง 🪄 สั่งเร็ว ได้โดยไม่ต้องพิมพ์ชื่อ · กด Ctrl K แล้วพิมพ์คำสั่งเดียวกันก็ได้',
@@ -87,8 +88,11 @@ export function commandHelpText(n = 'สมชาย') {
 export function parseLamiCommand(q, customers = [], today) {
   const s = thaiNumerals(String(q || '').trim())
   if (!s || s.length > 200 || /[?？]$|ไหม$|มั้ย$|(?:หรือ|รึ)ยัง$|หรือเปล่า$|ป่ะ$|อย่างไร|ยังไง|เท่าไร|กี่/.test(s)) return []
-  // ยกเลิก/เลื่อน/ลบ ยังไม่รองรับแบบทำทันที → ให้ AI ตอบ (กันสร้างนัดผิดจาก "ยกเลิกนัด…")
-  if (!/ยกเลิกจอง/.test(s) && /ยกเลิก|เลื่อน|ไม่ต้อง|ไม่นัด|ลบ|cancel/i.test(s)) return []
+  // (v1.0.1038) เลื่อนนัด: "เลื่อนนัดสมชายไปศุกร์ 10 โมง" · ยกเลิกนัด: "ยกเลิกนัดสมชาย" / "สมชาย ไม่ต้องโทรแล้ว"
+  const isMove = !/ลองขับ|ส่งมอบ|รับรถ|ส่งรถ|จอง/.test(s) && /เลื่อน/.test(s) && WHEN.test(s.replace(/^[^]*?เลื่อน/, ''))
+  const isUnfu = !isMove && !/ลองขับ|ส่งมอบ|รับรถ|ส่งรถ|จอง/.test(s) && /ยกเลิก(?:การ)?นัด|ลบนัด|ไม่ต้อง(?:นัด|โทร|ตาม)|ไม่นัดแล้ว/.test(s)
+  // ยกเลิก/เลื่อน/ลบ แบบอื่น → ให้ AI ตอบ (กันสร้างนัดผิดจาก "ยกเลิก…")
+  if (!isMove && !isUnfu && !/ยกเลิกจอง/.test(s) && /ยกเลิก|เลื่อน|ไม่ต้อง|ไม่นัด|ลบ|cancel/i.test(s)) return []
   const hits = mentionedCustomers(s, customers, 3)
   // (v1.0.1032) ลูกค้าใหม่: ขึ้นต้นด้วย ลีดใหม่/เพิ่มลูกค้า… หรือ เบอร์ใหม่+ชื่อที่ยังไม่มีในระบบ → เปิดฟอร์ม Lead ที่กรอกให้แล้ว
   const known = new Set(customers.map(c => String(c?.phone || '').replace(/\D/g, '')).filter(Boolean))
@@ -116,6 +120,16 @@ export function parseLamiCommand(q, customers = [], today) {
   // "สมชาย hot นัดพรุ่งนี้ 10 โมง" = นัด + ปรับความสนใจ ในคำสั่งเดียว
   const isTemp = !isFu && isTempOnly
   const isCall = !isFu && !isTd && !isNote && !isLog && !isBook && /^(?:โทร|call)\s*(?:หา)?/i.test(s)
+  if (isMove || isUnfu) {
+    for (const c of hits) {
+      const name = fullName(c)
+      if (isUnfu) { out.push({ kind: 'unfu', customer: c, label: `🗑️ ยกเลิกนัดที่ค้างของ ${name}`, desc: 'นัดที่ยังไม่ได้ทำจะถูกปิดเป็น "ข้าม" (ไม่ลบประวัติ)' }); continue }
+      const due = suggestNextDue(s.replace(/^[^]*?เลื่อน(?:นัด)?/, ''), today)
+      if (!due?.dueDate) continue
+      out.push({ kind: 'move', customer: c, dueDate: due.dueDate, time, label: `📅 เลื่อนนัด ${name} → ${dmy(due.dueDate)}${time ? ' ' + time + ' น.' : ''}`, desc: 'ย้ายนัดที่ใกล้ที่สุดที่ยังไม่ได้ทำ (ไม่มีนัดค้าง = สร้างนัดใหม่)' })
+    }
+    return out
+  }
   for (const c of hits) {
     const name = fullName(c)
     if (stage && c.bookingId) out.push({ kind: 'stage', customer: c, status: stage, label: `📝 ${name} → ${stage}`,
@@ -234,6 +248,26 @@ export async function runLamiCommand(cmd, { me = '', db, companyId, followupFilt
       await db.createDoc('followups', { ...f, ...(cmd.next.time ? { time: cmd.next.time } : {}), companyId: c.companyId ?? companyId ?? null })
     }
     return `✅ บันทึกแล้ว: ${fullName(c)}${due.length ? ` · ปิดนัด ${due.length} รายการ` : ''}${cmd.next ? ` · นัดต่อ ${dmy(cmd.next.dueDate)}${cmd.next.time ? ' ' + cmd.next.time + ' น.' : ''}` : ''}`
+  }
+  if (cmd.kind === 'move' || cmd.kind === 'unfu') {
+    let rows = []
+    try { rows = await db.listDocs('followups', followupFilters, 'dueDate', 'asc', 2000) } catch { rows = [] }
+    const pending = rows.filter(f => f && !f.deleted && f.customerId === c.id && f.status === 'pending')
+      .sort((a, b) => String(a.dueDate || '').localeCompare(String(b.dueDate || '')))
+    if (cmd.kind === 'unfu') {
+      for (const f of pending) await db.updateDocData('followups', f.id, { status: 'skipped', result: 'ยกเลิกนัด' + (me ? ` (${me})` : '') })
+      return pending.length ? `🗑️ ยกเลิกนัดของ ${fullName(c)} แล้ว ${pending.length} รายการ` : `${fullName(c)} ไม่มีนัดค้างอยู่แล้ว`
+    }
+    const f = pending[0]
+    if (f) {
+      const from = String(f.dueDate || '').slice(0, 10)
+      await db.updateDocData('followups', f.id, { dueDate: cmd.dueDate, ...(cmd.time ? { time: cmd.time } : {}), note: `${f.note ? f.note + ' · ' : ''}เลื่อนจาก ${dmy(from)}`.slice(0, 200) })
+      return `📅 เลื่อนนัด ${fullName(c)} จาก ${dmy(from)} เป็น ${dmy(cmd.dueDate)}${cmd.time ? ' ' + cmd.time + ' น.' : ''} แล้ว`
+    }
+    const { buildManualFollowup } = await import('./customerFollowups.js')
+    const nf = buildManualFollowup(c, { dueDate: cmd.dueDate, type: 'call', note: 'นัดใหม่ (ไม่มีนัดเดิมให้เลื่อน)', me, purpose: c.stage === 'lead' || c.stage === 'pp' ? 'ติดตาม Lead ใหม่' : 'ทั่วไป' })
+    await db.createDoc('followups', { ...nf, ...(cmd.time ? { time: cmd.time } : {}), companyId: c.companyId ?? companyId ?? null })
+    return `📅 ${fullName(c)} ไม่มีนัดเดิม — สร้างนัด ${dmy(cmd.dueDate)}${cmd.time ? ' ' + cmd.time + ' น.' : ''} ให้แล้ว`
   }
   if (cmd.kind === 'note') {
     await db.createDoc('customer_notes', { customerId: c.id, customer: fullName(c), type: cmd.type || 'internal', text: cmd.text, staff: me, time: new Date().toISOString(), pinned: false, companyId: c.companyId ?? companyId ?? null })

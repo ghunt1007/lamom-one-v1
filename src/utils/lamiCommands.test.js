@@ -100,9 +100,30 @@ describe('LAMI สั่งงาน: โทรตอนไหน', () => {
     expect(parseLamiCommand('ปิติ เป็นเย็น', cs, T)[0]).toMatchObject({ kind: 'temp', temp: 'cold' })
     expect(parseLamiCommand('มานี hot', cs, T)[0]).toMatchObject({ kind: 'temp', temp: 'hot' })
   })
-  it('ยกเลิก/เลื่อนนัด → ไม่ใช่คำสั่งสร้างนัด', () => {
-    expect(parseLamiCommand('ยกเลิกนัดสมชายพรุ่งนี้', cs, T)).toEqual([])
-    expect(parseLamiCommand('เลื่อนนัดสมชายไปศุกร์', cs, T)).toEqual([])
+  it('ยกเลิก/เลื่อนนัด → ไม่สร้างนัดใหม่ (v1.0.1038 เป็นคำสั่ง unfu / move)', () => {
+    expect(parseLamiCommand('ยกเลิกนัดสมชายพรุ่งนี้', cs, T).map(c => c.kind)).toEqual(['unfu'])
+    expect(parseLamiCommand('เลื่อนนัดสมชายไปศุกร์', cs, T)[0]).toMatchObject({ kind: 'move', dueDate: '2026-11-13' })
+    expect(parseLamiCommand('เลื่อนนัดสมชายไปพรุ่งนี้ บ่ายสอง', cs, T)[0]).toMatchObject({ kind: 'move', dueDate: '2026-11-11', time: '14:00' })
+    expect(parseLamiCommand('สมชาย ไม่ต้องโทรแล้ว', cs, T).map(c => c.kind)).toEqual(['unfu'])
+    expect(parseLamiCommand('เลื่อนนัดสมชาย', cs, T)).toEqual([])
+    expect(parseLamiCommand('ยกเลิกนัดลองขับสมชาย', cs, T)).toEqual([])
+    expect(parseLamiCommand('เลื่อนส่งมอบสมชายไปศุกร์', cs, T)).toEqual([])
+    expect(parseLamiCommand('ยกเลิกสมชาย', cs, T)).toEqual([])
+  })
+  it('run move / unfu', async () => {
+    const c = { ...cs[0] }
+    const rows = [{ id: 'f2', customerId: 'a', status: 'pending', dueDate: '2026-11-12', note: 'x' }, { id: 'f1', customerId: 'a', status: 'pending', dueDate: '2026-11-10' }, { id: 'f3', customerId: 'b', status: 'pending', dueDate: '2026-11-09' }]
+    const db = { listDocs: vi.fn(async () => rows), updateDocData: vi.fn(async () => {}), createDoc: vi.fn(async () => 'n') }
+    const msg = await runLamiCommand({ kind: 'move', customer: c, dueDate: '2026-11-13', time: '10:00' }, { db })
+    expect(db.updateDocData).toHaveBeenCalledWith('followups', 'f1', expect.objectContaining({ dueDate: '2026-11-13', time: '10:00' }))
+    expect(msg).toContain('10/11/2569')
+    db.updateDocData.mockClear()
+    await runLamiCommand({ kind: 'unfu', customer: c }, { db })
+    expect(db.updateDocData.mock.calls.map(x => x[1])).toEqual(['f1', 'f2'])
+    expect(db.updateDocData.mock.calls[0][2]).toMatchObject({ status: 'skipped' })
+    const db2 = { listDocs: vi.fn(async () => []), updateDocData: vi.fn(), createDoc: vi.fn(async () => 'n') }
+    await runLamiCommand({ kind: 'move', customer: c, dueDate: '2026-11-13' }, { db: db2 })
+    expect(db2.createDoc).toHaveBeenCalledWith('followups', expect.objectContaining({ dueDate: '2026-11-13', status: 'pending' }))
   })
   it('สั่งในหน้าลูกค้า ไม่ต้องพิมพ์ชื่อ', () => {
     const c = cs[0]
@@ -180,7 +201,7 @@ describe('LAMI สั่งงาน: ขั้นของใบจอง (v1.0
     expect(parseLamiCommand('ปิติ ไฟแนนซ์ผ่านแล้ว', bk, T)[0]).toMatchObject({ kind: 'stage', status: 'ผ่านไฟแนนซ์รอเบิก' })
     expect(parseLamiCommand('ปิติ ถอนจองแล้ว', bk, T)[0]).toMatchObject({ kind: 'stage', status: 'ถอนจอง' })
     expect(parseLamiCommand('ปิติ ยกเลิกจอง', bk, T)[0]).toMatchObject({ kind: 'stage', status: 'ถอนจอง' })
-    expect(parseLamiCommand('ยกเลิกนัดปิติ', bk, T)).toEqual([])
+    expect(parseLamiCommand('ยกเลิกนัดปิติ', bk, T).map(c => c.kind)).toEqual(['unfu'])
     expect(parseLamiCommand('ปิติ รถมาแล้ว', bk, T)[0]).toMatchObject({ kind: 'stage', status: 'รอส่งมอบ' })
   })
   it('ลิงก์ไปหน้าใบจองพร้อมสถานะ', () => {
