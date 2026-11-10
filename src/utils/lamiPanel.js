@@ -41,7 +41,7 @@ export function openLamiPanel({ navigate } = {}) {
       <div class="lp-asks">${asks.map(a => `<button class="lp-ask" type="button" data-q="${esc(a.q)}">${a.label}</button>`).join('')}</div>
     </div>
     <div class="lp-foot">
-      <input class="input" id="lp-input" placeholder="ถามเรื่องหน้านี้…" autocomplete="off">
+      <input class="input" id="lp-input" placeholder="ถาม หรือสั่ง เช่น นัดสมชายพรุ่งนี้…" autocomplete="off">
       <button class="btn btn-primary btn-sm" id="lp-send" type="button">ส่ง</button>
     </div>
     <button class="lp-full" type="button">💬 เปิดแชท LAMI เต็มหน้า →</button>`
@@ -52,6 +52,7 @@ export function openLamiPanel({ navigate } = {}) {
   const body = el.querySelector('#lp-body')
   const input = el.querySelector('#lp-input')
   let busy = false
+  let custPromise = null
   const onKey = e => { if (e.key === 'Escape') { closeLamiPanel(); document.removeEventListener('keydown', onKey) } }
   document.addEventListener('keydown', onKey)
   bg.addEventListener('click', closeLamiPanel)
@@ -78,6 +79,17 @@ export function openLamiPanel({ navigate } = {}) {
         body.querySelectorAll('.lp-go').forEach(b => b.addEventListener('click', () => { closeLamiPanel(); navigate ? navigate(b.dataset.path) : (location.href = b.dataset.path) }))
         return
       }
+      // (v1.0.1031) พิมพ์สั่งงาน ("นัดสมชายพรุ่งนี้ 10 โมง", "มานี hot") → การ์ด ✅ ทำเลย ไม่ต้องรอ AI
+      if (!custPromise) custPromise = import('./lamiCommandCard.js').then(m => m.visibleCustomersForCommands()).catch(() => [])
+      const [{ parseLamiCommand }, card, customers, { todayBangkok }] = await Promise.all([import('./lamiCommands.js'), import('./lamiCommandCard.js'), custPromise, import('./format.js')])
+      const cmds = parseLamiCommand(q, customers, todayBangkok())
+      if (cmds.length) {
+        history.push({ role: 'user', text: q }, { role: 'lami', text: card.commandIntro(cmds) })
+        wait.outerHTML = `<div class="lp-a">${esc(card.commandIntro(cmds))}</div><div class="lp-cmdslot"></div>`
+        const slots = body.querySelectorAll('.lp-cmdslot')
+        card.mountCommandCard(slots[slots.length - 1], cmds)
+        return
+      }
       const { askLami } = await import('./ai.js')
       const ans = await askLami(q, history, pageContextFor(screen))
       history.push({ role: 'user', text: q }, { role: 'lami', text: ans })
@@ -96,6 +108,17 @@ export function openLamiPanel({ navigate } = {}) {
     }
   }
   el.querySelectorAll('.lp-ask').forEach(b => b.addEventListener('click', () => ask(b.dataset.q)))
+  // (v1.0.1031) ตัวอย่างคำสั่งจากชื่อลูกค้าจริงของผู้ใช้ — กดแล้วเติมในช่องให้แก้ต่อ/ส่งได้เลย
+  custPromise = import('./lamiCommandCard.js').then(m => m.visibleCustomersForCommands()).catch(() => [])
+  custPromise.then(list => {
+    const c = list.find(x => x.temperature === 'hot' && !x.isLost && x.firstName) || list.find(x => !x.isLost && x.firstName)
+    const hint = body.querySelector('.lp-hint')
+    if (!c || !hint) return
+    const n = c.firstName
+    const ex = [`นัด${n}พรุ่งนี้ 10 โมง`, `${n} hot`, `นัดลองขับ ${n} เสาร์บ่าย 2`]
+    hint.insertAdjacentHTML('afterend', `<div class="lp-try"><span>🪄 สั่งงานได้ด้วย ลองกด:</span>${ex.map(x => `<button type="button" class="lp-ask lp-fill" data-fill="${esc(x)}">${esc(x)}</button>`).join('')}</div>`)
+    body.querySelectorAll('.lp-fill').forEach(b => b.addEventListener('click', () => { input.value = b.dataset.fill; input.focus() }))
+  })
   el.querySelector('#lp-send').addEventListener('click', () => ask(input.value))
   input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ask(input.value) } })
   return { close: closeLamiPanel, ask }

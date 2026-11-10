@@ -412,3 +412,18 @@ input.dt-input.dt-bad { border-color: var(--danger) !important; box-shadow: 0 0 
 .ts-look .ts-dots { display: flex; gap: 4px; }
 .ts-look .ts-dots i { width: 14px; height: 14px; border-radius: 50%; display: block; border: 1px solid rgba(255,255,255,.2); }
 .ts-row2 { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ── (v1.0.1031) LAMI สั่งงาน: การ์ด ✅ ทำเลย ── */
+.lami-cmds { display: flex; flex-direction: column; gap: 6px; }
+.lami-cmd { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--surface); border: 1px solid color-mix(in srgb, var(--primary) 40%, var(--border)); box-shadow: 0 0 0 3px var(--primary-dim); }
+.lami-cmd.done { box-shadow: none; border-color: var(--success); opacity: .85; }
+.lami-cmd-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lami-cmd-t b { font-size: 0.86rem; line-height: 1.35; }
+.lami-cmd-t small { font-size: 0.72rem; color: var(--text-muted); }
+.lami-cmd-go { flex-shrink: 0; white-space: nowrap; }
+.lami-cmd-ok { color: var(--success); font-weight: 700; font-size: 0.8rem; white-space: nowrap; }
+.lp-cmdslot { margin: 2px 0 8px; }
+.lp-try { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 10px; }
+.lp-try > span { width: 100%; font-size: 0.72rem; color: var(--text-muted); }
+.lp-try .lp-ask { border-style: dashed; }
+.lp-try .lp-ask { padding: 7px 11px; font-size: 0.8rem; font-weight: 500; }
