@@ -71,6 +71,16 @@ export function openLamiPanel({ navigate } = {}) {
     body.scrollTop = body.scrollHeight
     const wait = body.querySelector('.lp-wait')
     try {
+      // (v1.0.1034) "สั่งอะไรได้บ้าง" → ตัวอย่างคำสั่งจากชื่อลูกค้าจริง
+      const lc = await import('./lamiCommands.js')
+      if (lc.isCommandHelp(q)) {
+        if (!custPromise) custPromise = import('./lamiCommandCard.js').then(m => m.visibleCustomersForCommands()).catch(() => [])
+        const cs = await custPromise
+        const ans = lc.commandHelpText(lc.exampleName(cs))
+        history.push({ role: 'user', text: q }, { role: 'lami', text: ans })
+        wait.outerHTML = `<div class="lp-a">${formatAiText(ans)}</div>`
+        return
+      }
       // (v1.0.981) "X อยู่ตรงไหน / หาไม่เจอ" → ตอบจากเมนูจริงทันที พร้อมปุ่มพาไปหน้านั้น
       const [{ isWhereQuestion, findPages, whereAnswer }, { NAV }] = await Promise.all([import('./whereIs.js'), import('../data/navMenu.js')])
       const where = isWhereQuestion(q) ? findPages(q, NAV) : []
@@ -112,11 +122,10 @@ export function openLamiPanel({ navigate } = {}) {
   el.querySelectorAll('.lp-ask').forEach(b => b.addEventListener('click', () => ask(b.dataset.q)))
   // (v1.0.1031) ตัวอย่างคำสั่งจากชื่อลูกค้าจริงของผู้ใช้ — กดแล้วเติมในช่องให้แก้ต่อ/ส่งได้เลย
   custPromise = import('./lamiCommandCard.js').then(m => m.visibleCustomersForCommands()).catch(() => [])
-  custPromise.then(list => {
-    const c = list.find(x => x.temperature === 'hot' && !x.isLost && x.firstName) || list.find(x => !x.isLost && x.firstName)
+  Promise.all([custPromise, import('./lamiCommands.js')]).then(([list, { exampleName }]) => {
+    const n = exampleName(list)
     const hint = body.querySelector('.lp-hint')
-    if (!c || !hint) return
-    const n = c.firstName
+    if (!hint || !list.some(x => x.firstName === n)) return
     const ex = [`นัด${n}พรุ่งนี้ 10 โมง`, `${n} hot`, `นัดลองขับ ${n} เสาร์บ่าย 2`, `จด ${n} รอโบนัสสิ้นปี`, `โทรหา${n}แล้ว สนใจผ่อน`]
     hint.insertAdjacentHTML('afterend', `<div class="lp-try"><span>🪄 สั่งงานได้ด้วย ลองกด:</span>${ex.map(x => `<button type="button" class="lp-ask lp-fill" data-fill="${esc(x)}">${esc(x)}</button>`).join('')}</div>`)
     body.querySelectorAll('.lp-fill').forEach(b => b.addEventListener('click', () => { input.value = b.dataset.fill; input.focus() }))
