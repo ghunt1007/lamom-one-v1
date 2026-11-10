@@ -527,6 +527,12 @@ export default async function CustomersPage(container) {
               </div>
             </div>
 
+            ${!c.isLost ? `<form id="wk-lami" class="lami-quick" autocomplete="off">
+              <input class="input" id="wk-lami-in" maxlength="200" placeholder="🪄 สั่งเร็ว เช่น พรุ่งนี้ 10 โมง hot" title="ตัวอย่าง: พรุ่งนี้ 10 โมง hot · จด ชอบสีขาว · ลองขับ เสาร์บ่าย 2 · warm" aria-label="สั่งงานลูกค้าคนนี้">
+              <button type="submit" class="btn btn-primary btn-sm">ทำ</button>
+            </form>
+            <div id="wk-lami-slot" class="lp-cmdslot"></div>` : ''}
+
             <div id="wk-followup-panel">
               <div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">🧭 คำแนะนำการติดตาม</div>
               <div class="skeleton" style="height:56px;border-radius:10px"></div>
@@ -673,6 +679,24 @@ export default async function CustomersPage(container) {
       } catch { showToast('เกิดข้อผิดพลาด', 'error') }
     })
     el.querySelector('#add-comm-btn')?.addEventListener('click', () => openCommForm(c, () => refreshTimeline(c)))
+    // (v1.0.1032) 🪄 สั่งเร็วเฉพาะลูกค้าคนนี้ — พิมพ์ประโยคเดียว กด ✅ ทำเลย (นัด/จด/ความสนใจ/ลองขับ)
+    el.querySelector('#wk-lami')?.addEventListener('submit', async e => {
+      e.preventDefault()
+      const inp = el.querySelector('#wk-lami-in'), slot = el.querySelector('#wk-lami-slot')
+      const [{ scopedCommand }, { mountCommandCard }, { todayBangkok }] = await Promise.all([import('../../utils/lamiCommands.js'), import('../../utils/lamiCommandCard.js'), import('../../utils/format.js')])
+      const cmds = scopedCommand(inp.value, c, todayBangkok())
+      if (!cmds.length) { slot.innerHTML = '<div class="lami-quick-hint">ยังไม่เข้าใจคำสั่งนี้ ลองพิมพ์ เช่น <b>พรุ่งนี้ 10 โมง</b> · <b>hot</b> · <b>จด รอโบนัส</b> · <b>ลองขับ เสาร์บ่าย 2</b></div>'; return }
+      mountCommandCard(slot, cmds, { onDone: (msg, cmd) => {
+        inp.value = ''
+        if (cmd.kind === 'fu') refreshFollowupList(c)
+        if (cmd.kind === 'note') refreshTimeline(c)
+        if (cmd.kind === 'temp' || cmd.temp) {
+          const row = customers.find(x => x.id === c.id); if (row) row.temperature = c.temperature
+          el.querySelectorAll('.wk-temp').forEach(x => { x.className = `btn btn-xs wk-temp ${x.dataset.t === c.temperature ? `btn-${TEMP[c.temperature].badge}` : 'btn-ghost'}` })
+          renderTable()
+        }
+      } })
+    })
     el.querySelector('#wk-quote-btn')?.addEventListener('click', () => {
       sessionStorage.setItem('lamom_quote_prefill', JSON.stringify({
         customerId: c.id, customerName: fullName(c), phone: c.phone || '', email: c.email || '',

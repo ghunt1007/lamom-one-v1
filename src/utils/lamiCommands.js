@@ -14,6 +14,7 @@ import { detectLeadIntent } from './searchIntent.js'
 // คำไทยต้องมี เป็น/ลูกค้า นำหน้า — กัน "เย็นนี้/ตอนเย็น/4 โมงเย็น" (เวลา) ถูกอ่านเป็น Cold
 const TEMP = [[/hot|🔥|(?:เป็น|ลูกค้า)\s*ร้อน/i, 'hot', '🔴 Hot'], [/warm|(?:เป็น|ลูกค้า)\s*อุ่น/i, 'warm', '🟡 Warm'], [/cold|❄|(?:เป็น|ลูกค้า)\s*เย็น/i, 'cold', '🔵 Cold']]
 const NEW_LEAD = /^(?:เพิ่ม\s*(?:ลีด|lead|ลูกค้า)|ลีดใหม่|lead\s*ใหม่|ลูกค้าใหม่|new\s*lead|\+\s*lead)/i
+const WHEN = /วันนี้|พรุ่งนี้|มะรืน|สัปดาห์|อาทิตย์หน้า|เดือน|จันทร์|อังคาร|พุธ|พฤหัส|ศุกร์|เสาร์|\d+\s*วัน|\d{1,2}\s*\/\s*\d|โมง|ทุ่ม|บ่าย|เย็นนี้|เช้า|\d{1,2}[:.]\d{2}/
 const fullName = c => [c.firstName, c.lastName].filter(Boolean).join(' ') || c.nickname || 'ลูกค้า'
 
 // เวลาในประโยค → 'HH:MM' 24 ชม. ('' ถ้าไม่ได้บอก) · "บ่าย 2" = 14:00 · "2 ทุ่ม" = 20:00 · "10 โมง" = 10:00
@@ -67,7 +68,7 @@ export function parseLamiCommand(q, customers = [], today) {
   const isTd = !isNote && /ลองขับ|ทดลองขับ|test\s*drive/i.test(s)
   const tempHit = TEMP.find(([re]) => re.test(s))
   const isTempOnly = !isNote && tempHit && (/^(?:ปรับ|ตั้ง|เปลี่ยน|ให้)|เป็น\s*(?:hot|warm|cold|ร้อน|อุ่น|เย็น)/i.test(s) || s.replace(/hot|warm|cold/i, '').trim().split(/\s+/).length <= 2)
-  const hasWhen = /วันนี้|พรุ่งนี้|มะรืน|สัปดาห์|อาทิตย์หน้า|เดือน|จันทร์|อังคาร|พุธ|พฤหัส|ศุกร์|เสาร์|\d+\s*วัน|\d{1,2}\s*\/\s*\d|โมง|ทุ่ม|บ่าย|เย็นนี้|เช้า|\d{1,2}[:.]\d{2}/.test(s)
+  const hasWhen = WHEN.test(s)
   const isFu = !isTd && !isNote && (/^(?:ช่วย\s*)?(?:นัด|ตาม|ติดต่อ|follow)|นัด(?:ติดตาม|โทร|คุย)|ตามลูกค้า|เตือน(?:ให้)?(?:โทร|ตาม)/i.test(s) || (/^(?:ช่วย\s*)?(?:โทรหา|โทรกลับ|ทักไลน์|ทัก)|นัด|โทรหา|โทรกลับ/.test(s) && hasWhen))
   // "สมชาย hot นัดพรุ่งนี้ 10 โมง" = นัด + ปรับความสนใจ ในคำสั่งเดียว
   const isTemp = !isFu && isTempOnly
@@ -92,6 +93,20 @@ export function parseLamiCommand(q, customers = [], today) {
     } else if (isCall && c.phone) out.push({ kind: 'tel', customer: c, phone: String(c.phone).replace(/[^\d+]/g, ''), label: `📞 โทร ${name}`, desc: c.phone })
   }
   return out
+}
+
+// (v1.0.1032) สั่งในหน้าลูกค้าคนเดียว ไม่ต้องพิมพ์ชื่อ: "พรุ่งนี้ 10 โมง hot" / "จด ชอบสีขาว" / "ลองขับ เสาร์บ่าย 2" / "warm"
+export function scopedCommand(text, c, today) {
+  const t = String(text || '').trim()
+  const name = c?.firstName || c?.nickname || ''
+  if (!t || !name) return []
+  const one = [c]
+  const m = t.match(/^(?:จด(?:ไว้|โน้ต)?|โน้ต|note|บันทึก(?:ว่า|โน้ต)?)\s*/i)
+  if (m) return parseLamiCommand(`จด ${name} ${t.slice(m[0].length)}`, one, today)
+  if (/ลองขับ|test\s*drive/i.test(t)) return parseLamiCommand(`นัดลองขับ ${name} ${t.replace(/^(?:นัด)?(?:ทดลอง|ลอง)ขับ\s*/, '')}`, one, today)
+  const direct = parseLamiCommand(`${name} ${t}`, one, today)
+  if (direct.length) return direct
+  return WHEN.test(t) ? parseLamiCommand(`นัด${name} ${t}`, one, today) : []
 }
 
 // ทำตามคำสั่ง (ปุ่ม ✅ ทำเลย) — คืนข้อความผลลัพธ์ · deps ส่งเข้ามาเพื่อทดสอบได้

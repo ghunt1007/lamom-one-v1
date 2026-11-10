@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { parseLamiCommand, runLamiCommand, timeIn } from './lamiCommands.js'
+import { parseLamiCommand, runLamiCommand, timeIn, scopedCommand } from './lamiCommands.js'
 
 const T = '2026-11-10' // อังคาร
 const cs = [
@@ -96,5 +96,15 @@ describe('LAMI สั่งงาน: โทรตอนไหน', () => {
   it('ยกเลิก/เลื่อนนัด → ไม่ใช่คำสั่งสร้างนัด', () => {
     expect(parseLamiCommand('ยกเลิกนัดสมชายพรุ่งนี้', cs, T)).toEqual([])
     expect(parseLamiCommand('เลื่อนนัดสมชายไปศุกร์', cs, T)).toEqual([])
+  })
+  it('สั่งในหน้าลูกค้า ไม่ต้องพิมพ์ชื่อ', () => {
+    const c = cs[0]
+    expect(scopedCommand('พรุ่งนี้ 10 โมง', c, T)[0]).toMatchObject({ kind: 'fu', dueDate: '2026-11-11', time: '10:00' })
+    expect(scopedCommand('พรุ่งนี้บ่าย 2 hot', c, T)[0]).toMatchObject({ kind: 'fu', time: '14:00', temp: 'hot' })
+    expect(scopedCommand('hot', c, T)[0]).toMatchObject({ kind: 'temp', temp: 'hot' })
+    expect(scopedCommand('จด ชอบสีขาว', c, T)[0]).toMatchObject({ kind: 'note', text: 'ชอบสีขาว' })
+    expect(scopedCommand('ลองขับ เสาร์บ่าย 2', c, T)[0]).toMatchObject({ kind: 'td' })
+    expect(scopedCommand('ทักไลน์ศุกร์นี้', c, T)[0]).toMatchObject({ kind: 'fu', type: 'line' })
+    expect(scopedCommand('สบายดี', c, T)).toEqual([])
   })
 })
