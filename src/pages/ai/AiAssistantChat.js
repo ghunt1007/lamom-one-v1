@@ -24,7 +24,7 @@ import { getVehicles } from '../../data/vehicleDatabase.js'
 import { formatAiText } from '../../utils/aiFormat.js'
 import { pageLinksFor } from '../../utils/aiPageLinks.js'
 import { customerActionsFor } from '../../utils/aiActions.js'
-import { parseLamiCommand } from '../../utils/lamiCommands.js'
+import { parseLamiCommand, isCommandHelp, commandHelpText, exampleName } from '../../utils/lamiCommands.js'
 import { commandIntro, mountCommandCard } from '../../utils/lamiCommandCard.js'
 import { navigate } from '../../core/router.js'
 import { copyText } from '../../utils/copyText.js'
@@ -58,6 +58,7 @@ const CATEGORIES = [
   { label:'🔧 ช่าง', q:'ศูนย์บริการวันนี้เป็นยังไง?' },
   { label:'💰 กำไร', q:'กำไรเดือนนี้เท่าไหร่?' },
   { label:'👥 HR', q:'ข้อมูลพนักงานวันนี้?' },
+  { label:'🪄 สั่งงานได้อะไรบ้าง', q:'LAMI สั่งอะไรได้บ้าง' },
 ]
 
 // AI ปิดท้ายคำตอบด้วย "ถามต่อ: ก | ข | ค" → แยกเป็นปุ่มคำถามแนะนำ (ไม่แสดงบรรทัดนั้นในคำตอบ)
@@ -376,6 +377,12 @@ export default async function AiAssistantChatPage(container) {
       // ต้องแปลง role 'ai' ในไฟล์นี้เป็น 'lami' ตามที่ askLami() คาดหวัง (ไม่กระทบ role ที่เก็บจริงใน Firestore)
       const history = messages.slice(0, -1).map(m => ({ role: m.role === 'ai' ? 'lami' : m.role, text: m.text }))
       // (v1.0.981) "X อยู่ตรงไหน / หาไม่เจอ" → ตอบจากเมนูจริงทันที พร้อมปุ่มเปิดหน้า (ไม่ต้องรอ AI และไม่เดาชื่อหน้าผิด)
+      if (isCommandHelp(text)) {
+        try { await createDoc('chat_ai_assistant', { role:'ai', text: commandHelpText(exampleName(chatCustomers)), time:now(), uid }) } catch (e) {}
+        waiting = false
+        await loadData()
+        return
+      }
       const where = isWhereQuestion(text) ? findPages(text, NAV) : []
       if (where.length) {
         try { await createDoc('chat_ai_assistant', { role:'ai', text: whereAnswer(where), links: where.map(({ label, path }) => ({ label, path })), time:now(), uid }) } catch (e) {}

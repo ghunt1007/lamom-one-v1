@@ -1517,7 +1517,15 @@ export default async function CustomersPage(container) {
   if (deepLinkId) {
     const c = customers.find(x => x.id === deepLinkId)
     autoAiOnce = !!c && new URLSearchParams(window.location.search).get('ai') === '1' && isAiEnabled()
-    if (c) openDetail(c)
+    if (c) {
+      openDetail(c)
+      // (v1.0.1034) ?book=1 (คำสั่ง LAMI "สมชาย จองแล้ว") = เปิดฟอร์มสร้างใบจองต่อทันที
+      if (new URLSearchParams(window.location.search).get('book') === '1' && !c.isLost) {
+        window.history.replaceState({}, '', window.location.pathname + '?id=' + encodeURIComponent(c.id)) // รีเฟรชแล้วไม่เปิดฟอร์มจองซ้ำ
+        if (c.bookingId) showToast('ลูกค้ารายนี้มีใบจองแล้ว — ดูได้ในหน้านี้', 'info')
+        else setTimeout(() => openCreateBookingModal(c, updated => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); loadData().then(() => openDetail(updated)) }), 350)
+      }
+    }
     else showToast('ไม่พบลูกค้ารายนี้ (อาจถูกลบไปแล้ว)', 'warning')
   }
 

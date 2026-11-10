@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { parseLamiCommand, runLamiCommand, timeIn, scopedCommand } from './lamiCommands.js'
+import { parseLamiCommand, runLamiCommand, timeIn, scopedCommand, isCommandHelp, commandHelpText, exampleName } from './lamiCommands.js'
 
 const T = '2026-11-10' // อังคาร
 const cs = [
@@ -150,5 +150,23 @@ describe('LAMI สั่งงาน: โทรตอนไหน', () => {
     const [c2] = parseLamiCommand('มานี ไม่รับสาย', cs, T)
     await runLamiCommand({ ...c2, today: T, customer: { ...cs[1] } }, { db: { ...db, listDocs: async () => [] } })
     expect(calls.map(x => x[0] + x[1])).toEqual(['ccomm_logs'])
+  })
+  it('จอง → เปิดฟอร์มจอง · มีใบจองแล้ว → เปิดหน้าลูกค้า · นัดลองขับยังเป็นลองขับ', () => {
+    expect(parseLamiCommand('สมชาย จองแล้ว', cs, T)[0]).toMatchObject({ kind: 'book' })
+    expect(parseLamiCommand('เปิดใบจอง มานี', cs, T)[0]).toMatchObject({ kind: 'book' })
+    expect(parseLamiCommand('จอง ปิติ', [{ ...cs[2], bookingId: 'bk1' }], T)[0]).toMatchObject({ kind: 'open' })
+    expect(parseLamiCommand('โทรหาสมชายแล้ว ตกลงจอง', cs, T)[0].kind).toBe('book')
+    expect(parseLamiCommand('นัดลองขับ สมชาย เสาร์นี้', cs, T)[0].kind).toBe('td')
+    expect(parseLamiCommand('สมชายจะจองไหม', cs, T)).toEqual([])
+  })
+  it('สั่งอะไรได้บ้าง → คำตอบในเครื่อง', () => {
+    expect(isCommandHelp('LAMI สั่งอะไรได้บ้าง')).toBe(true)
+    expect(isCommandHelp('สั่งงานยังไง')).toBe(true)
+    expect(isCommandHelp('ยอดขายเดือนนี้')).toBe(false)
+    expect(commandHelpText('มานี')).toContain('นัดมานีพรุ่งนี้ 10 โมง')
+  })
+  it('ชื่อตัวอย่าง: Hot ก่อน ไม่เอาชื่อแบบ "ลูกค้า…"', () => {
+    expect(exampleName([{ firstName: 'ลูกค้างาน' }, { firstName: 'มานี' }, { firstName: 'ปิติ', temperature: 'hot' }])).toBe('ปิติ')
+    expect(exampleName([{ firstName: 'ลูกค้า ทดสอบ' }])).toBe('สมชาย')
   })
 })
