@@ -444,3 +444,7 @@ input.dt-input.dt-bad { border-color: var(--danger) !important; box-shadow: 0 0 
 .fu-snooze-pop button { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-size: 0.84rem; cursor: pointer; text-align: left; }
 .fu-snooze-pop button:hover, .fu-snooze-pop button:focus-visible { background: var(--surface-2); }
 .fu-snooze-pop small { color: var(--text-muted); font-size: 0.74rem; }
+
+/* (v1.0.1048) ปุ่มทำต่อใต้สรุปลูกค้าในแผง LAMI — เป็นเม็ดเรียงแถวเดียว ไม่กินพื้นที่ */
+.lp-brief { flex-direction: row; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.lp-brief .lp-ask { padding: 7px 12px; font-size: 0.8rem; font-weight: 600; border-radius: 999px; }

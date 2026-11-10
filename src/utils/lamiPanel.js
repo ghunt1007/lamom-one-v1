@@ -96,6 +96,24 @@ export function openLamiPanel({ navigate } = {}) {
             return
           }
         }
+        // (v1.0.1048) "สมชายถึงไหนแล้ว / สรุปมานี" → สรุปลูกค้าจากข้อมูลจริงทันที + ปุ่มทำต่อในแตะเดียว
+        {
+          const card = await import('./lamiCommandCard.js')
+          const br = await card.loadCustomerBrief(q, custPromise).catch(() => null)
+          if (br) {
+            history.push({ role: 'user', text: q }, { role: 'lami', text: br.text })
+            wait.outerHTML = `<div class="lp-a">${formatAiText(br.text)}</div><div class="lp-cmdslot"></div>${br.chips.length ? `<div class="lp-asks lp-brief">${br.chips.map(x => `<button class="lp-ask lp-chip" type="button" data-chip="${esc(x)}">${esc(x)}</button>`).join('')}</div><div class="lp-cmdslot lp-chipslot"></div>` : ''}`
+            const slots = body.querySelectorAll('.lp-cmdslot:not(.lp-chipslot)')
+            card.mountCommandCard(slots[slots.length - 1], br.cmds)
+            const wrap = [...body.querySelectorAll('.lp-brief')].pop(), cslot = [...body.querySelectorAll('.lp-chipslot')].pop()
+            wrap?.querySelectorAll('.lp-chip').forEach(b => b.addEventListener('click', async () => {
+              const [{ scopedCommand }, { todayBangkok }] = await Promise.all([import('./lamiCommands.js'), import('./format.js')])
+              const cmds = scopedCommand(b.dataset.chip, br.customer, todayBangkok())
+              if (cmds.length && cslot) { card.mountCommandCard(cslot, cmds); body.scrollTop = body.scrollHeight }
+            }))
+            return
+          }
+        }
         // (v1.0.1046) "ใครรอไฟแนนซ์ / ใครยังไม่นัดส่งมอบ / ใบจองไหนค้างนานสุด" → รายการใบจองจริงพร้อมปุ่มเปิด
         {
           const card = await import('./lamiCommandCard.js')

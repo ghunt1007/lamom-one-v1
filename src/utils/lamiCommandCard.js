@@ -133,6 +133,22 @@ export async function loadBookingListCommands(q, customersPromise) {
   return { cmds: bq.bookingListCommands(res.list), intro: bq.bookingListIntro(spec, res) }
 }
 
+// (v1.0.1048) ถามถึงลูกค้าคนเดียว "สมชายถึงไหนแล้ว / สรุปมานี" → null ถ้าไม่ใช่ · คืน { text, cmds, customer, chips }
+export async function loadCustomerBrief(q, customersPromise) {
+  const cb = await import('./customerBrief.js')
+  const customers = await (customersPromise || visibleCustomersForCommands())
+  const c = cb.briefTarget(q, customers)
+  if (!c) return null
+  const [{ listDocs, readDoc }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok }, { quickChips }] = await Promise.all([
+    import('../core/db.js'), import('../core/companyScope.js'), import('./customerFollowups.js'), import('./format.js'), import('./lamiCommands.js')])
+  const today = todayBangkok()
+  const [followups, booking] = await Promise.all([
+    listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000).catch(() => []),
+    c.bookingId ? readDoc('bookings', c.bookingId).catch(() => null) : null,
+  ])
+  return { text: cb.customerBrief({ customer: c, followups, booking: booking && !booking.deleted ? booking : null, today }), cmds: cb.briefCommands(c), customer: c, chips: quickChips(c).filter(x => !/\s$/.test(x)) }
+}
+
 // (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อพร้อมปุ่มโทร (ลูกค้าที่ผู้ใช้เห็นเท่านั้น)
 export async function loadCallListCommands(customersPromise) {
   const [{ listDocs }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok }, { callList, callListCommands }] = await Promise.all([
