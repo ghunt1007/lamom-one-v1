@@ -431,4 +431,7 @@ input.dt-input.dt-bad { border-color: var(--danger) !important; box-shadow: 0 0 
 /* (v1.0.1032) 🪄 สั่งเร็วในหน้าลูกค้า */
 .lami-quick { display: flex; gap: 6px; align-items: center; }
 .lami-quick .input { flex: 1; min-width: 0; }
+.lami-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
+.lami-chip { padding: 5px 11px; border-radius: 999px; border: 1px dashed color-mix(in srgb, var(--primary) 45%, var(--border)); background: var(--surface-2); color: var(--text-2); font: inherit; font-size: 0.76rem; cursor: pointer; transition: border-color .15s, color .15s; }
+.lami-chip:hover, .lami-chip:focus-visible { border-style: solid; border-color: var(--primary); color: var(--text); }
 .lami-quick-hint { font-size: 0.78rem; color: var(--text-muted); padding: 6px 2px; line-height: 1.6; }
