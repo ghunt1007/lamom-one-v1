@@ -111,7 +111,8 @@ export default async function FollowUpPage(container) {
     const doneList = followups.filter(f => f.status === 'done')
 
     let subset
-    if (tab === 'today') subset = getFiltered([...overdueList, ...todayList])
+    // เลยกำหนดนานสุดขึ้นก่อน แล้วตามด้วยนัดวันนี้เรียงตามเวลา
+    if (tab === 'today') subset = getFiltered([...overdueList.sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))), ...todayList.sort((a, b) => String(a.time || '99').localeCompare(String(b.time || '99')))])
     else if (tab === 'upcoming') subset = getFiltered(upcomingList)
     else if (tab === 'done') subset = getFiltered(doneList)
     else subset = getFiltered(followups)
@@ -121,7 +122,7 @@ export default async function FollowUpPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📞 ติดตามลูกค้า</div>
-            <div class="page-subtitle">ติดตามหลังการขาย — รักษาความสัมพันธ์ลูกค้า</div>
+            <div class="page-subtitle">นัดโทร/ทักลูกค้าทั้งก่อนและหลังการขาย — เลยกำหนดขึ้นก่อนเสมอ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
@@ -148,6 +149,7 @@ export default async function FollowUpPage(container) {
           <div style="margin-left:auto;font-size:0.82rem;color:var(--text-muted)">${subset.length} รายการ</div>
         </div>
 
+        ${tab === 'today' && subset.filter(isOverdue).length >= 3 ? `<div class="fu-bulk"><span>⚠️ เลยกำหนด <b>${subset.filter(isOverdue).length}</b> รายการ — ถ้าวันนี้ทำไม่ทัน เลื่อนทีเดียวได้</span><button class="btn btn-sm btn-secondary" id="fu-snooze-all">📅 เลื่อนทั้งหมดไปพรุ่งนี้</button></div>` : ''}
         <!-- List -->
         <div style="display:flex;flex-direction:column;gap:8px">
           ${subset.map(f => renderCard(f)).join('')}
@@ -177,6 +179,47 @@ export default async function FollowUpPage(container) {
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.querySelectorAll('.fu-detail-btn').forEach(b => b.addEventListener('click', () => { const f = followups.find(x => x.id === b.dataset.id); if (f) openFUDetail(f) }))
+    // (v1.0.1041) 📅 เลื่อน: แตะแล้วเลือก พรุ่งนี้ / 3 วัน / 7 วัน — ไม่ต้องเปิดฟอร์มแก้วันที่
+    document.querySelectorAll('.fu-snooze-btn').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation()
+      const f = followups.find(x => x.id === b.dataset.id)
+      if (!f) return
+      document.getElementById('fu-snooze-pop')?.remove()
+      const pop = document.createElement('div')
+      pop.id = 'fu-snooze-pop'; pop.className = 'fu-snooze-pop'
+      pop.innerHTML = [[1, 'พรุ่งนี้'], [3, 'อีก 3 วัน'], [7, 'สัปดาห์หน้า']].map(([n, l]) => `<button type="button" data-n="${n}">📅 ${l} <small>${formatDate(addDays(n))}</small></button>`).join('')
+      document.body.appendChild(pop)
+      const r = b.getBoundingClientRect()
+      pop.style.top = Math.min(r.bottom + 6, window.innerHeight - pop.offsetHeight - 8) + 'px'
+      pop.style.left = Math.max(8, Math.min(r.right - pop.offsetWidth, window.innerWidth - pop.offsetWidth - 8)) + 'px'
+      const closePop = () => { pop.remove(); document.removeEventListener('click', onDoc) }
+      const onDoc = ev => { if (!pop.contains(ev.target)) closePop() }
+      setTimeout(() => document.addEventListener('click', onDoc), 30)
+      pop.querySelectorAll('button').forEach(o => o.addEventListener('click', async () => {
+        closePop()
+        const to = addDays(+o.dataset.n)
+        try { await snooze(f, to); showToast(`📅 เลื่อน ${f.customerName} ไป ${formatDate(to)} แล้ว`, 'success'); await loadData() }
+        catch (err) { showToast('เลื่อนไม่สำเร็จ ลองใหม่อีกครั้ง', 'error') }
+      }))
+    }))
+    document.getElementById('fu-snooze-all')?.addEventListener('click', async () => {
+      const list = subset.filter(isOverdue), to = addDays(1)
+      const { confirmDialog } = await import('../../utils/modal.js')
+      if (!await confirmDialog({ title: '📅 เลื่อนนัดที่เลยกำหนด', message: `เลื่อน ${list.length} รายการที่เลยกำหนดไปเป็นวันที่ ${formatDate(to)} ใช่ไหม<br><small>แต่ละรายการจะจดไว้ว่าเลื่อนจากวันไหน</small>`, confirmText: 'เลื่อนทั้งหมด' })) return
+      let ok = 0, fail = 0
+      for (const f of list) { try { await snooze(f, to); ok++ } catch (e) { fail++ } }
+      showToast(`📅 เลื่อนแล้ว ${ok} รายการ${fail ? ` · ไม่สำเร็จ ${fail}` : ''}`, fail ? 'warning' : 'success')
+      await loadData()
+    })
+  }
+
+  // เลื่อนนัดไปวันใหม่ + จดว่าเลื่อนจากวันไหน (นัดเสมือนจากใบจองที่ส่งมอบ → สร้างเป็นนัดจริงในวันใหม่)
+  async function snooze(f, to) {
+    const note = `${f.note ? f.note + ' · ' : ''}เลื่อนจาก ${formatDate(f.dueDate)}`.slice(0, 200)
+    if (f._source === 'booking') {
+      const { _source, id, ...rest } = f
+      await createDoc('followups', { ...rest, dueDate: to, note, companyId: myEffectiveCompanyId() })
+    } else await updateDocData('followups', f.id, { dueDate: to, note })
   }
 
   function renderCard(f) {
@@ -194,7 +237,7 @@ export default async function FollowUpPage(container) {
             <span style="font-weight:700;font-size:0.9rem">${escHtml(f.customerName)}</span>
             <span class="badge badge-${tp.color}" style="font-size:0.65rem">${tp.label}</span>
             <span class="badge badge-${st.color}" style="font-size:0.65rem">${st.label}</span>
-            ${overdue ? `<span class="badge badge-danger" style="font-size:0.65rem">⚠️ เกินกำหนด</span>` : ''}
+            ${overdue ? `<span class="badge badge-danger" style="font-size:0.65rem">⚠️ เลย ${Math.max(1, Math.round((Date.parse(today) - Date.parse(String(f.dueDate).slice(0, 10))) / 86400e3))} วัน</span>` : ''}
             ${isT && f.status === 'pending' ? `<span class="badge badge-warning" style="font-size:0.65rem">📅 วันนี้</span>` : ''}
           </div>
           <div style="font-size:0.8rem;color:var(--text-muted)">${[f.vehicleModel ? escHtml(f.vehicleModel) : '', f.salesperson ? '👤 ' + escHtml(f.salesperson) : '', telLink(f.phone)].filter(Boolean).join(' · ')}</div>
@@ -202,12 +245,13 @@ export default async function FollowUpPage(container) {
           ${f.result ? `<div style="font-size:0.8rem;margin-top:4px;color:var(--success)">✓ ${escHtml(f.result)}</div>` : ''}
         </div>
         <div class="fu-side" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
-          <div style="font-size:0.78rem;color:${overdue?'var(--danger)':'var(--text-muted)'}">📅 ${formatDate(f.dueDate)}</div>
+          <div style="font-size:0.78rem;color:${overdue?'var(--danger)':'var(--text-muted)'}">📅 ${formatDate(f.dueDate)}${f.time ? ' ' + escHtml(f.time) + ' น.' : ''}</div>
           <div style="display:flex;gap:4px">
-            <button class="btn btn-xs btn-secondary fu-detail-btn" data-id="${f.id}">ดู</button>
+            <button class="btn btn-xs btn-secondary fu-detail-btn" data-id="${f.id}" title="ดูรายละเอียด">👁 ดู</button>
             ${f.status === 'pending' ? `
               <button class="btn btn-xs btn-success fu-done-btn" data-id="${f.id}">✓ บันทึกผล</button>
-              <button class="btn btn-xs btn-secondary fu-skip-btn" data-id="${f.id}">⏭</button>
+              <button class="btn btn-xs btn-secondary fu-snooze-btn" data-id="${f.id}" title="เลื่อนนัดไปวันอื่น">📅 เลื่อน</button>
+              <button class="btn btn-xs btn-secondary fu-skip-btn" data-id="${f.id}" title="ข้ามนัดนี้ (ไม่ต้องติดตามแล้ว)" aria-label="ข้ามนัดนี้">⏭</button>
             ` : ''}
           </div>
         </div>

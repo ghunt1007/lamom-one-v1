@@ -437,3 +437,10 @@ input.dt-input.dt-bad { border-color: var(--danger) !important; box-shadow: 0 0 
 .lami-chip { padding: 5px 11px; border-radius: 999px; border: 1px dashed color-mix(in srgb, var(--primary) 45%, var(--border)); background: var(--surface-2); color: var(--text-2); font: inherit; font-size: 0.76rem; cursor: pointer; transition: border-color .15s, color .15s; }
 .lami-chip:hover, .lami-chip:focus-visible { border-style: solid; border-color: var(--primary); color: var(--text); }
 .lami-quick-hint { font-size: 0.78rem; color: var(--text-muted); padding: 6px 2px; line-height: 1.6; }
+
+/* (v1.0.1041) หน้าติดตามลูกค้า: เลื่อนนัดแตะเดียว + แถบเลื่อนทั้งหมด */
+.fu-bulk { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; padding: 10px 14px; margin-bottom: 10px; border-radius: var(--radius-md); border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border)); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); font-size: 0.84rem; }
+.fu-snooze-pop { position: fixed; z-index: 9999; min-width: 200px; padding: 6px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,.4); display: flex; flex-direction: column; gap: 2px; }
+.fu-snooze-pop button { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-size: 0.84rem; cursor: pointer; text-align: left; }
+.fu-snooze-pop button:hover, .fu-snooze-pop button:focus-visible { background: var(--surface-2); }
+.fu-snooze-pop small { color: var(--text-muted); font-size: 0.74rem; }
