@@ -17,7 +17,18 @@ describe('heuristicScore', () => {
     const fresh = heuristicScore({ temperature: 'warm', lastContactAt: '2026-10-25T03:00:00Z' }, NOW).score
     const old = heuristicScore({ temperature: 'warm', lastContactAt: '2026-09-01T03:00:00Z' }, NOW).score
     expect(fresh).toBe(65)
-    expect(old).toBe(50)
+    expect(old).toBe(35)
+  })
+  it('cuts more the longer a lead has been silent', () => {
+    const at = d => heuristicScore({ temperature: 'hot', lastContactAt: new Date(NOW - d * 86400000).toISOString() }, NOW).score
+    expect(at(10)).toBe(85)
+    expect(at(30)).toBe(75)
+    expect(at(60)).toBe(60)
+    expect(at(120)).toBe(45)
+  })
+  it('counts silence from creation when no contact was ever logged', () => {
+    expect(heuristicScore({ temperature: 'hot', createdAt: new Date(NOW - 100 * 86400000).toISOString() }, NOW).score).toBe(45)
+    expect(heuristicScore({ temperature: 'hot', createdAt: new Date(NOW - 100 * 86400000).toISOString(), updatedAt: new Date(NOW - 2 * 86400000).toISOString() }, NOW).score).toBe(85)
   })
   it('clamps to 100', () => {
     expect(heuristicScore({ status: 'vip', stage: 'pp', interestedModel: 'x', budget: 900000, occupation: 'x', monthlyIncome: 100000, lastContactAt: '2026-10-25T03:00:00Z' }, NOW).score).toBe(100)

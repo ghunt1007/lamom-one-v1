@@ -25,12 +25,16 @@ export function heuristicScore(c, now = Date.now()) {
       signals.push('รายได้น่าจะเพียงพอสำหรับงบที่ตั้งใจซื้อ')
     }
   }
-  // ความสดของการติดต่อ — ยิ่งเงียบนาน โอกาสยิ่งลด
-  const last = toDate(c.lastContactAt)
-  if (last) {
-    const days = Math.floor((now - last.getTime()) / 86400000)
-    if (days <= 3) { score += 5; signals.push('เพิ่งติดต่อล่าสุดไม่เกิน 3 วัน') }
-    else if (days > 21) { score -= 10; signals.push(`ไม่ได้ติดต่อมา ${days} วัน`) }
+  // ความสดของการติดต่อ — ยิ่งเงียบนาน โอกาสยิ่งลด (ลดเป็นขั้น: >21 วัน −10, >45 วัน −25, >90 วัน −40)
+  // เดิมลดแค่ 10 คะแนนไม่ว่าจะเงียบนานแค่ไหน และไม่ลดเลยถ้าไม่เคยบันทึกการติดต่อ — Lead "Hot" ที่เงียบมา 3 เดือน
+  // จึงยังได้ 95% และดันยอด "คาดว่าปิดได้" ให้สูงเกินจริง · ใช้วันล่าสุดชุดเดียวกับป้าย 💤 (ติดต่อ/แก้ไข/เปลี่ยนขั้น/สร้าง)
+  const contact = toDate(c.lastContactAt)
+  if (contact && Math.floor((now - contact.getTime()) / 86400000) <= 3) { score += 5; signals.push('เพิ่งติดต่อล่าสุดไม่เกิน 3 วัน') }
+  const lastMs = [c.lastContactAt, c.updatedAt, c.stageChangedAt, c.createdAt].map(v => toDate(v)?.getTime()).filter(Boolean).sort((x, y) => y - x)[0]
+  if (lastMs) {
+    const days = Math.floor((now - lastMs) / 86400000)
+    const cut = days > 90 ? 40 : days > 45 ? 25 : days > 21 ? 10 : 0
+    if (cut) { score -= cut; signals.push(`ไม่มีความเคลื่อนไหวมา ${days} วัน`) }
   }
   return { score: Math.min(100, Math.max(5, score)), signals }
 }
