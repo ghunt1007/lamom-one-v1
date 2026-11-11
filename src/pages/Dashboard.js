@@ -1,3 +1,4 @@
+import { isManagerRole } from '../utils/managerRole.js'
 import { carOf } from '../utils/carLabel.js'
 import { getState, on } from '../core/store.js'
 import { listDocs, watchDocs, seedDemoData, getSalesData } from '../core/db.js'
@@ -280,7 +281,7 @@ export default async function DashboardPage(container) {
           </div>
           <div id="briefing-text" style="font-size:0.875rem;color:var(--text-2);line-height:1.6;white-space:pre-line;min-height:1.3em">กำลังวิเคราะห์ข้อมูลเช้านี้...</div>
           <!-- (v1.0.1050) ถามต่อแตะเดียว: LAMI ตอบเป็นรายชื่อจริงพร้อมปุ่มโทร/เปิด (ไม่ต้องรอ AI) -->
-          <div class="dash-brief-chips">${['วันนี้มีอะไรบ้าง', 'ยอดเดือนนี้เป็นไง', 'วันนี้ควรโทรหาใคร', 'ใครยังไม่มีนัด', 'ใบจองไหนค้างนานสุด'].map(q => `<button type="button" class="dash-brief-chip" data-q="${q}">${q}</button>`).join('')}</div>
+          <div class="dash-brief-chips">${['วันนี้มีอะไรบ้าง', 'ยอดเดือนนี้เป็นไง', ...(isManagerRole() ? ['ทีมวันนี้เป็นไง'] : []), 'วันนี้ควรโทรหาใคร', 'มีรถอะไรพร้อมขาย', 'ใครยังไม่มีนัด', 'ใบจองไหนค้างนานสุด'].map(q => `<button type="button" class="dash-brief-chip" data-q="${q}">${q}</button>`).join('')}</div>
         </div>
         <div class="dash-briefing-actions" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
           <button class="btn btn-ghost btn-sm" id="briefing-regen" title="สร้างสรุปใหม่จากข้อมูลล่าสุด">🔄 สร้างใหม่</button>
