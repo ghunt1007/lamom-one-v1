@@ -228,7 +228,7 @@ export async function loadStockAnswer(q) {
   const spec = sq.parseStockSpec(q, vehicles)
   if (!spec) return null
   const res = sq.stockAnswer({ vehicles, spec, today: todayBangkok() })
-  return { text: res.text, next: res.next, go: { path: '/dms/stock' + (res.query ? '?q=' + encodeURIComponent(res.query) : ''), label: '🚙 เปิดหน้าสต็อก' } }
+  return { text: res.text, next: res.next, copy: res.copy, go: { path: '/dms/stock' + (res.query ? '?q=' + encodeURIComponent(res.query) : ''), label: '🚙 เปิดหน้าสต็อก' } }
 }
 
 // (v1.0.1054) "S07 ดาวน์ 20% ผ่อน 60 งวดเท่าไหร่ / ผ่อน AION V เดือนละเท่าไหร่" → null ถ้าไม่ใช่ · คืน { text, next, go }

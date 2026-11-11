@@ -66,3 +66,21 @@ describe('stockAnswer', () => {
     expect(stockAnswer({ vehicles: [], spec: { model: '', brand: '', color: '', aged: false }, today }).text).toContain('ไม่มีรถพร้อมขาย')
   })
 })
+
+describe('customer-ready copy (v1.0.1063)', () => {
+  const ans = q => stockAnswer({ vehicles: vs, spec: parseStockSpec(q, vs), today })
+  it('model: colours only, no counts, age or internal data', () => {
+    const c = ans('S07 มีไหม').copy
+    expect(c).toContain('S07 พร้อมส่งมอบตอนนี้'); expect(c).toContain('สีที่มี: ขาว, ดำ'); expect(c).toContain('🙏')
+    expect(c).not.toMatch(/คัน|วัน|SECRETVIN|จองแล้ว|ขนส่ง/)
+  })
+  it('model + colour, brand, overview', () => {
+    expect(ans('S07 สีขาวมีไหม').copy.split('\n')).toHaveLength(2)
+    expect(ans('มีรถอะไรพร้อมขาย').copy).toMatch(/• .*S07 — สีขาว, ดำ/)
+    expect(ans('AION มีไหม').copy).toMatch(/• .*AION V — สีดำ/)
+  })
+  it('no copy when nothing is ready or for aged-stock answers', () => {
+    expect(ans('S07 สีเทามีไหม').copy).toBeUndefined()
+    expect(ans('รถค้างสต็อกนานมีคันไหน').copy).toBeUndefined()
+  })
+})
