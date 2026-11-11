@@ -68,7 +68,7 @@ export function listCommands(list) {
 
 export function listIntro(spec, { list, total }) {
   const who = listLabel(spec)
-  if (!total) return `ไม่มี${who} ในรายชื่อที่คุณดูแลตอนนี้`
+  if (!total) return `ไม่มีใครตรงเงื่อนไข "${who}" ในรายชื่อที่คุณดูแลตอนนี้`
   return `👥 ${who} — ${total} คน${total > list.length ? ` (แสดง ${list.length} คนแรก เรียงจากร้อนและเงียบนานสุด)` : ''}${spec.countOnly ? '' : ' · กดโทรหรือเปิดได้เลย'}`
 }
 
