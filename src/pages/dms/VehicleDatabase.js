@@ -252,7 +252,7 @@ export default async function VehicleDatabasePage(container) {
   const myGen = container.__routerGen
   const myRole = getState('role') || getState('user')?.role || 'staff'
   const canManageCatalog = CATALOG_MANAGE_ROLES.includes(myRole)
-  let filter = { brand: '', fuel: '', query: '' }
+  let filter = { brand: '', fuel: '', query: (new URLSearchParams(location.search).get('q') || '').slice(0, 60) } // (v1.0.1068) เปิดจาก LAMI พร้อมรุ่นที่ถาม
   let viewMode = 'grid'
   let WV = getVehicles() // (ฐาน + เพิ่ม) − ลบ + override — cache โหลดจาก Firestore ตอน bootstrap
 

@@ -241,6 +241,22 @@ export async function loadPayAnswer(q) {
   return { text: pq.payAnswer(spec), copy: pq.payCustomerText(spec), next: pq.payFollowUps(spec), go: { path: '/finance/loan-calc?' + pq.loanCalcQuery(spec), label: '🧮 เทียบไฟแนนซ์ด้วยเงื่อนไขนี้' } }
 }
 
+// (v1.0.1068) "ราคา AION V เท่าไหร่ / S07 วิ่งได้กี่กิโล / เทียบ AION V กับ S07" → null ถ้าไม่ใช่ · คืน { text, next, go, copy }
+export async function loadModelAnswer(q) {
+  const mq = await import('./modelQuestions.js')
+  if (!mq.maybeModelQuestion(q)) return null
+  const { getVehicles } = await import('../data/vehicleDatabase.js')
+  const vehicles = getVehicles()
+  const spec = mq.parseModelSpec(q, vehicles)
+  if (!spec) return null
+  const res = mq.modelAnswer(spec, vehicles)
+  if (!res) return null
+  const go = spec.mode === 'compare'
+    ? { path: '/dms/compare?ids=' + encodeURIComponent(res.ids.join(',')), label: '⚖️ เปิดหน้าเปรียบเทียบเต็ม' }
+    : { path: '/dms/vehicle-db?q=' + encodeURIComponent(res.query), label: '🚗 เปิดข้อมูลรุ่นนี้' }
+  return { text: res.text, next: res.next, copy: res.copy || undefined, go }
+}
+
 // (v1.0.1056) "ทีมวันนี้เป็นไง / ใครมีนัดค้างเยอะสุด" → null ถ้าไม่ใช่ · คืน { text, next, go }
 export async function loadTeamBrief(q, customersPromise) {
   const tm = await import('./teamBrief.js')

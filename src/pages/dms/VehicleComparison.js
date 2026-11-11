@@ -64,6 +64,9 @@ export default async function VehicleComparisonPage(container) {
   const catalog = getVehicles()
   const MAX_SELECT = 4
   let selected = catalog.slice(0, 3).map(v => v.id)
+  // (v1.0.1068) เปิดจาก LAMI พร้อมรถที่ถามเทียบ: /dms/compare?ids=A,B
+  const preset = (new URLSearchParams(location.search).get('ids') || '').split(',').map(s => s.trim()).filter(id => id && getVehicleById(id)).slice(0, MAX_SELECT)
+  if (preset.length >= 2) selected = [...new Set(preset)]
 
   function getSelected() {
     return selected.map(id => getVehicleById(id)).filter(Boolean).map(mapDbVehicle)
