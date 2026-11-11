@@ -697,7 +697,7 @@ export default async function BookingsPage(container) {
       render()
     }))
     wrap.querySelectorAll('.bk-row').forEach(row => row.addEventListener('click', e => {
-      if (e.target.closest('.bk-status-cell') || e.target.closest('input') || e.target.closest('.edit-bk') || e.target.closest('.print-bk') || e.target.closest('.copy-bk') || e.target.closest('.del-bk') || e.target.closest('.income-bk')) return
+      if (e.target.closest('.bk-call') || e.target.closest('.bk-status-cell') || e.target.closest('input') || e.target.closest('.edit-bk') || e.target.closest('.print-bk') || e.target.closest('.copy-bk') || e.target.closest('.del-bk') || e.target.closest('.income-bk')) return
       openDetail(bookings.find(b => b.id === row.dataset.id))
     }))
     wrap.querySelectorAll('.bk-status-cell').forEach(cell => cell.addEventListener('click', e => openQuickStatus(cell.dataset.id, e)))
@@ -752,7 +752,8 @@ export default async function BookingsPage(container) {
   // ที่เหลือครบทุกช่อง กดการ์ดดูในหน้ารายละเอียด (หัวข้อ "ครบทุกช่องเหมือน Sheet")
   function cardMoreLine(b) {
     const bits = [
-      b.phone ? `📞 ${escHtml(b.phone)}` : '',
+      // (v1.0.1065) เบอร์บนการ์ดกดโทรได้เลย ไม่ต้องเปิดรายละเอียดก่อน
+      b.phone ? (String(b.phone).replace(/[^\d+]/g, '').length >= 9 ? `<a class="bk-call" href="tel:${String(b.phone).replace(/[^\d+]/g, '')}" aria-label="โทรหา ${escHtml(b.custName || 'ลูกค้า')}">📞 ${escHtml(b.phone)}</a>` : `📞 ${escHtml(b.phone)}`) : '',
       Number(b.price) ? `💰 ${escHtml(Number(b.price).toLocaleString('en-US'))}` : '',
       b.financeCo || b.finStatus ? `🏦 ${escHtml([b.financeCo, b.finStatus].filter(Boolean).join(' · '))}` : '',
     ].filter(Boolean)
