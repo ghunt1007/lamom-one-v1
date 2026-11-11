@@ -1199,7 +1199,7 @@ export default async function DashboardPage(container) {
       const deliveredInMonthAll = bookings.filter(b => ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(selectedMonth))
       const byModel = {}, bySales = {}
       inMonth.forEach(b => {
-        const mk = `${b.brand || ''} ${b.model || 'ไม่ระบุ'}`.trim()
+        const mk = (carOf(b) || 'ไม่ระบุ')
         byModel[mk] = byModel[mk] || { name: mk, count: 0, revenue: 0, delivered: 0 }
         byModel[mk].count++; byModel[mk].revenue += b.price || 0
       })
@@ -1207,7 +1207,7 @@ export default async function DashboardPage(container) {
       // "รายได้รวม" (totalIncome — กำไรขั้นต้น+ค่าคอม ไม่ใช่แค่ราคาขาย) ของคันที่ตัดตัวเลข/ส่งมอบเข้าเดือนนี้
       // จริง (cutDate) ไม่ใช่ตอนที่ลูกค้าจองครั้งแรก เปลี่ยนแหล่งข้อมูลให้ตรงตามนั้น
       deliveredInMonthAll.forEach(b => {
-        const mk = `${b.brand || ''} ${b.model || 'ไม่ระบุ'}`.trim()
+        const mk = (carOf(b) || 'ไม่ระบุ')
         byModel[mk] = byModel[mk] || { name: mk, count: 0, revenue: 0, delivered: 0 }
         byModel[mk].delivered++
         const sk = b.salesName || 'ไม่ระบุ'

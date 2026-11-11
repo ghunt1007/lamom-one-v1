@@ -1,6 +1,7 @@
 // เซลล์ตรวจรถก่อนส่งมอบ — Sales Pre-Delivery Check (ผูกกับใบจอง)
 // ต่างจาก PDI ของช่าง: เป็นเช็คลิสต์ฝั่งเซลส์ก่อนส่งมอบให้ลูกค้า + พิมพ์ใบตรวจรับมอบ
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { carOf } from '../../utils/carLabel.js'
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
@@ -93,7 +94,7 @@ export default async function PreDeliveryPage(container) {
     if (!list.length) { wrap.innerHTML = '<div class="empty-state" style="padding:48px"><div class="empty-icon">✅</div><div class="empty-title">ไม่มีรายการ</div></div>'; return }
     wrap.innerHTML = list.map(b => {
       const r = readiness(b)
-      const car = [b.brand, b.model, b.variant].filter(Boolean).join(' ')
+      const car = carOf(b, true)
       const barColor = b.pdReady ? 'var(--success)' : r.failed ? 'var(--danger)' : 'var(--primary)'
       return '<div class="card" style="padding:14px 16px;border-left:3px solid ' + (b.pdReady ? 'var(--success)' : 'var(--warning)') + '">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">' +
@@ -123,7 +124,7 @@ export default async function PreDeliveryPage(container) {
 
   function openChecklist(b) {
     if (!b) return
-    const car = [b.brand, b.model, b.variant].filter(Boolean).join(' ')
+    const car = carOf(b, true)
     const build = () => Object.entries(CHECKLIST).map(([key, sec]) =>
       '<div style="margin-bottom:14px">' +
         '<div style="font-weight:700;font-size:0.85rem;margin-bottom:6px;color:var(--primary)">' + sec.label + '</div>' +
@@ -182,7 +183,7 @@ export default async function PreDeliveryPage(container) {
 
   function printHandover(b) {
     if (!b) return
-    const car = [b.brand, b.model, b.variant].filter(Boolean).join(' ')
+    const car = carOf(b, true)
     const rows = Object.entries(CHECKLIST).map(([key, sec]) =>
       '<tr><td colspan="2" style="background:#f1f5f9;font-weight:700">' + esc(sec.label) + '</td></tr>' +
       b.pdItems[key].map(it => '<tr><td>' + esc(it.text) + '</td><td class="num" style="text-align:center;width:90px">' + (ITEM_LABEL[it.status] || '') + '</td></tr>').join('')

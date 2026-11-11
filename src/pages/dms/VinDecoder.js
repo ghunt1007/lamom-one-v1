@@ -3,6 +3,7 @@
  * Route: /dms/vin-lookup
  */
 import { formatDate, formatCurrency, todayBangkok, toDateStr, toDate } from '../../utils/format.js'
+import { carOf } from '../../utils/carLabel.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listAllDocs, listDocs, createDoc } from '../../core/db.js'
@@ -44,7 +45,7 @@ export default async function VinDecoderPage(container) {
       return {
         vin: b.vin || '',
         plate,
-        model: `${b.brand || ''} ${b.model || ''}`.trim() || '-',
+        model: carOf(b) || '-',
         color: b.colorOut || '',
         owner: b.custName || '',
         phone: b.phone || '',
