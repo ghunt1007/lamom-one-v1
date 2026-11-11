@@ -429,6 +429,8 @@ input.dt-input.dt-bad { border-color: var(--danger) !important; box-shadow: 0 0 
 .lp-try > span { width: 100%; font-size: 0.72rem; color: var(--text-muted); }
 .lp-try .lp-ask { border-style: dashed; }
 .lp-try .lp-ask { padding: 7px 11px; font-size: 0.8rem; font-weight: 500; }
+/* (v1.0.1060) คำถามที่ตอบทันที: ปุ่มทึบ (กดแล้วได้คำตอบเลย) ต่างจากตัวอย่างคำสั่งเส้นประ (กดแล้วเติมในช่อง) */
+.lp-quick .lp-ask { border-style: solid; background: color-mix(in srgb, var(--primary) 9%, transparent); border-color: color-mix(in srgb, var(--primary) 30%, transparent); }
 
 /* (v1.0.1032) 🪄 สั่งเร็วในหน้าลูกค้า */
 .lami-quick { display: flex; gap: 6px; align-items: center; }

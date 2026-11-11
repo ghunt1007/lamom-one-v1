@@ -210,12 +210,20 @@ export function openLamiPanel({ navigate } = {}) {
   el.querySelectorAll('.lp-ask').forEach(b => b.addEventListener('click', () => ask(b.dataset.q)))
   // (v1.0.1031) ตัวอย่างคำสั่งจากชื่อลูกค้าจริงของผู้ใช้ — กดแล้วเติมในช่องให้แก้ต่อ/ส่งได้เลย
   custPromise = import('./lamiCommandCard.js').then(m => m.visibleCustomersForCommands()).catch(() => [])
+  // (v1.0.1060) คำถามที่ LAMI ตอบจากข้อมูลจริงทันที — แตะครั้งเดียวได้คำตอบ (แสดงเสมอ แม้ยังไม่มีลูกค้า)
+  import('./managerRole.js').then(({ isManagerRole }) => isManagerRole()).catch(() => false).then(mgr => {
+    const hint = body.querySelector('.lp-hint')
+    if (!hint) return
+    const quick = ['วันนี้มีอะไรบ้าง', 'พรุ่งนี้มีอะไรบ้าง', 'ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนนี้เท่าไหร่', ...(mgr ? ['ทีมวันนี้เป็นไง'] : []), 'มีรถอะไรพร้อมขาย', 'ลูกค้า hot มีใครบ้าง']
+    hint.insertAdjacentHTML('afterend', `<div class="lp-try lp-quick"><span>⚡ ถามได้ทันที แตะครั้งเดียว:</span>${quick.map(x => `<button type="button" class="lp-ask lp-now" data-q="${esc(x)}">${esc(x)}</button>`).join('')}</div>`)
+    body.querySelectorAll('.lp-now').forEach(b => b.addEventListener('click', () => ask(b.dataset.q)))
+  })
   Promise.all([custPromise, import('./lamiCommands.js')]).then(([list, { exampleName }]) => {
     const n = exampleName(list)
-    const hint = body.querySelector('.lp-hint')
-    if (!hint || !list.some(x => x.firstName === n)) return
-    const ex = ['วันนี้มีอะไรบ้าง', 'ยอดเดือนนี้เป็นไง', 'มีรถอะไรพร้อมขาย', 'ลูกค้า hot มีใครบ้าง', `นัด${n}พรุ่งนี้ 10 โมง`, `${n} hot`, `นัดลองขับ ${n} เสาร์บ่าย 2`, `จด ${n} รอโบนัสสิ้นปี`, `โทรหา${n}แล้ว สนใจผ่อน`]
-    hint.insertAdjacentHTML('afterend', `<div class="lp-try"><span>🪄 สั่งงานได้ด้วย ลองกด:</span>${ex.map(x => `<button type="button" class="lp-ask lp-fill" data-fill="${esc(x)}">${esc(x)}</button>`).join('')}</div>`)
+    const anchor = body.querySelector('.lp-quick') || body.querySelector('.lp-hint')
+    if (!anchor || !body.querySelector('.lp-hint') || !list.some(x => x.firstName === n)) return
+    const ex = [`นัด${n}พรุ่งนี้ 10 โมง`, `${n} hot`, `นัดลองขับ ${n} เสาร์บ่าย 2`, `จด ${n} รอโบนัสสิ้นปี`, `โทรหา${n}แล้ว สนใจผ่อน`]
+    anchor.insertAdjacentHTML('afterend', `<div class="lp-try"><span>🪄 สั่งงานได้ด้วย กดแล้วแก้ชื่อ/เวลาได้:</span>${ex.map(x => `<button type="button" class="lp-ask lp-fill" data-fill="${esc(x)}">${esc(x)}</button>`).join('')}</div>`)
     body.querySelectorAll('.lp-fill').forEach(b => b.addEventListener('click', () => { input.value = b.dataset.fill; input.focus() }))
   })
   el.querySelector('#lp-send').addEventListener('click', () => ask(input.value))
