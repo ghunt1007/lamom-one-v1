@@ -399,7 +399,7 @@ export default async function AiAssistantChatPage(container) {
         const tb = await card.loadTodayBrief(text, Promise.resolve(chatCustomers)).catch(() => null) || await card.loadMonthBrief(text).catch(() => null) || await card.loadTeamBrief(text, Promise.resolve(chatCustomers)).catch(() => null) || await card.loadStockAnswer(text).catch(() => null) || await card.loadPayAnswer(text).catch(() => null) // (v1.0.1051) + ยอดเดือนนี้ (v1.0.1053) + สต็อก
         if (tb) {
           pendingCmds = []
-          try { await createDoc('chat_ai_assistant', { role:'ai', text: tb.text, next: tb.next, ...(tb.go ? { links: [{ label: tb.go.label, path: tb.go.path }] } : {}), time:now(), uid }) } catch (e) {} // (v1.0.1055) ถามต่อเป็นปุ่มกดได้ ไม่ต้องพิมพ์เอง
+          try { await createDoc('chat_ai_assistant', { role:'ai', text: tb.text, next: tb.next, ...(tb.copy ? { copy: tb.copy } : {}), ...(tb.go ? { links: [{ label: tb.go.label, path: tb.go.path }] } : {}), time:now(), uid }) } catch (e) {} // (v1.0.1055) ถามต่อเป็นปุ่มกดได้ ไม่ต้องพิมพ์เอง
           waiting = false
           await loadData()
           return
@@ -543,7 +543,7 @@ export default async function AiAssistantChatPage(container) {
     container.querySelectorAll('.chat-copy').forEach(b => b.addEventListener('click', async () => {
       const m = messages[+b.dataset.i]
       if (!m) return
-      await copyText(m.text, '📋 คัดลอกแล้ว', 'คัดลอกไม่สำเร็จ')
+      await copyText(m.copy || m.text, m.copy ? '📋 คัดลอกแล้ว — วางใน LINE ส่งลูกค้าได้เลย' : '📋 คัดลอกแล้ว', 'คัดลอกไม่สำเร็จ') // (v1.0.1057) คำตอบค่างวดคัดลอกเป็นข้อความสำหรับลูกค้า
     }))
     document.getElementById('send-btn')?.addEventListener('click', () => send(document.getElementById('chat-input')?.value || ''))
     document.getElementById('chat-input')?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e.target.value) } })

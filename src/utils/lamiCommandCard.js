@@ -205,7 +205,7 @@ export async function loadPayAnswer(q) {
   const { getVehicles } = await import('../data/vehicleDatabase.js')
   const spec = pq.parsePaySpec(q, getVehicles())
   if (!spec) return null
-  return { text: pq.payAnswer(spec), next: pq.payFollowUps(spec), go: { path: '/finance/loan-calc', label: '🧮 เปิดหน้าคำนวณสินเชื่อ' } }
+  return { text: pq.payAnswer(spec), copy: pq.payCustomerText(spec), next: pq.payFollowUps(spec), go: { path: '/finance/loan-calc', label: '🧮 เปิดหน้าคำนวณสินเชื่อ' } }
 }
 
 // (v1.0.1056) "ทีมวันนี้เป็นไง / ใครมีนัดค้างเยอะสุด" → null ถ้าไม่ใช่ · คืน { text, next, go }

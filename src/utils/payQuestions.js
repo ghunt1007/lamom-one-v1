@@ -76,6 +76,13 @@ export function payAnswer(spec) {
   return lines.join('\n')
 }
 
+// (v1.0.1057) ข้อความสำหรับส่งให้ลูกค้า (LINE/แชต) — ตัวเลขชุดเดียวกับคำตอบ ไม่มีคำแนะนำภายใน
+export function payCustomerText(spec) {
+  const body = payAnswer(spec).split('\n').filter(l => !l.startsWith('ℹ️'))
+  body[0] = `ตารางผ่อนเบื้องต้น ${spec.car ? spec.car.replace(' (รุ่นเริ่มต้น)', '') + ' ' : ''}ราคา ${baht(spec.price)}`
+  return [...body, `*ตัวเลขประมาณการ ดอกเบี้ย ${spec.rate ?? DEFAULT_RATE}% ต่อปี (คงที่) ค่างวดจริงขึ้นกับการอนุมัติของไฟแนนซ์`, 'สนใจนัดดูรถหรือทดลองขับ แจ้งได้เลย 🙏'].join('\n')
+}
+
 // ปุ่มถามต่อ: ลองเงื่อนไขอื่นในแตะเดียว
 export function payFollowUps(spec) {
   const base = spec.car ? spec.car.replace(' (รุ่นเริ่มต้น)', '') : `ราคา ${spec.price}`

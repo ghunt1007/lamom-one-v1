@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { maybePayQuestion, parsePaySpec, payAnswer, payFollowUps } from './payQuestions.js'
+import { maybePayQuestion, parsePaySpec, payAnswer, payFollowUps, payCustomerText } from './payQuestions.js'
 import { parseLamiCommand } from './lamiCommands.js'
 import { parseStockSpec } from './stockQuestions.js'
 import { isMonthQuestion } from './monthBrief.js'
@@ -54,6 +54,13 @@ describe('payAnswer', () => {
     const d = payAnswer(parsePaySpec('ผ่อน AION V ดาวน์ 20% ดอก 2.5', vs))
     expect(d.split('\n').filter(l => /^• \d+ งวด/.test(l)).length).toBe(4)
     expect(d).not.toContain('ค่าเริ่มต้น')
+  })
+  it('writes a customer-facing text without internal hints', () => {
+    const t = payCustomerText(parsePaySpec('S07 ดาวน์ 20% ผ่อน 60 งวดเท่าไหร่', vs))
+    expect(t.split('\n')[0]).toBe('ตารางผ่อนเบื้องต้น DEEPAL S07 Pro ราคา ฿1,299,000')
+    expect(t).toContain('• 60 งวด → ')
+    expect(t).toContain('*ตัวเลขประมาณการ ดอกเบี้ย 2.79% ต่อปี')
+    expect(t).not.toContain('พิมพ์'); expect(t).not.toContain('รุ่นเริ่มต้น'); expect(t).not.toContain('ℹ️')
   })
   it('offers follow-ups that parse again', () => {
     const s = parsePaySpec('S07 ดาวน์ 20% ผ่อน 60 งวดเท่าไหร่', vs)
