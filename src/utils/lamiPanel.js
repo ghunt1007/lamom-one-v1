@@ -99,7 +99,7 @@ export function openLamiPanel({ navigate } = {}) {
         // (v1.0.1049) "วันนี้มีอะไรบ้าง / สรุปวันนี้" → สรุปงานวันนี้จากข้อมูลจริง + ปุ่มถามต่อเฉพาะหัวข้อที่มีงาน
         {
           const card = await import('./lamiCommandCard.js')
-          const tb = await card.loadTodayBrief(q, custPromise).catch(() => null) || await card.loadMonthBrief(q).catch(() => null) || await card.loadStockAnswer(q).catch(() => null) // (v1.0.1051) + ยอดเดือนนี้ (v1.0.1053) + สต็อก
+          const tb = await card.loadTodayBrief(q, custPromise).catch(() => null) || await card.loadMonthBrief(q).catch(() => null) || await card.loadStockAnswer(q).catch(() => null) || await card.loadPayAnswer(q).catch(() => null) // (v1.0.1051) + ยอดเดือนนี้ (v1.0.1053) + สต็อก
           if (tb) {
             history.push({ role: 'user', text: q }, { role: 'lami', text: tb.text })
             wait.outerHTML = `<div class="lp-a">${formatAiText(tb.text)}</div>${tb.next.length || tb.go ? `<div class="lp-asks lp-brief lp-today">${tb.next.map(x => `<button class="lp-ask" type="button" data-q="${esc(x)}">${esc(x)}</button>`).join('')}${tb.go ? `<button class="lp-ask lp-go2" type="button" data-path="${esc(tb.go.path)}">${esc(tb.go.label)} →</button>` : ''}</div>` : ''}`

@@ -198,6 +198,16 @@ export async function loadStockAnswer(q) {
   return { text: res.text, next: res.next, go: { path: '/dms/stock' + (res.query ? '?q=' + encodeURIComponent(res.query) : ''), label: '🚙 เปิดหน้าสต็อก' } }
 }
 
+// (v1.0.1054) "S07 ดาวน์ 20% ผ่อน 60 งวดเท่าไหร่ / ผ่อน AION V เดือนละเท่าไหร่" → null ถ้าไม่ใช่ · คืน { text, next, go }
+export async function loadPayAnswer(q) {
+  const pq = await import('./payQuestions.js')
+  if (!pq.maybePayQuestion(q)) return null
+  const { getVehicles } = await import('../data/vehicleDatabase.js')
+  const spec = pq.parsePaySpec(q, getVehicles())
+  if (!spec) return null
+  return { text: pq.payAnswer(spec), next: pq.payFollowUps(spec), go: { path: '/finance/loan-calc', label: '🧮 เปิดหน้าคำนวณสินเชื่อ' } }
+}
+
 // (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อพร้อมปุ่มโทร (ลูกค้าที่ผู้ใช้เห็นเท่านั้น)
 export async function loadCallListCommands(customersPromise) {
   const [{ listDocs }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok }, { callList, callListCommands }] = await Promise.all([
