@@ -39,7 +39,11 @@ const colorLine = list => {
   return Object.entries(by).sort((a, b) => b[1] - a[1]).map(([c, k]) => `${c} ${k}`).join(' · ')
 }
 
-// คืน { text, next, query } — query = คำค้นสำหรับเปิดหน้าสต็อกที่กรองไว้แล้ว
+// (v1.0.1063) ข้อความสำหรับส่งให้ลูกค้า (LINE/แชต) — บอกรุ่น/สีที่พร้อมส่งมอบ ไม่บอกจำนวนคัน อายุสต็อก หรือข้อมูลภายใน
+const colorNames = list => [...new Set(list.map(v => String(v.color || '').trim()).filter(Boolean))].join(', ') || 'สอบถามได้'
+const customerText = (head, lines) => [`🚗 ${head}`, ...lines, 'สนใจนัดดูรถจริงหรือทดลองขับ แจ้งได้เลย 🙏'].join('\n')
+
+// คืน { text, next, query, copy? } — query = คำค้นสำหรับเปิดหน้าสต็อกที่กรองไว้แล้ว
 export function stockAnswer({ vehicles = [], spec, today }) {
   const live = vehicles.filter(v => v && !v.deleted)
   const match = v => (!spec.model || v.model === spec.model) && (!spec.brand || v.brand === spec.brand)
@@ -69,6 +73,7 @@ export function stockAnswer({ vehicles = [], spec, today }) {
     return {
       text: [`🚗 รถ${spec.color ? `สี${spec.color}` : ''}พร้อมขายในสต็อก — ${ready.length} คัน`, ...rows.slice(0, 12).map(([m, l]) => `• ${m} ${l.length} คัน${spec.color ? '' : ` (${colorLine(l)})`}`), rows.length > 12 ? `…และอีก ${rows.length - 12} รุ่น` : '', extra].filter(Boolean).join('\n'),
       next: [`${rows[0][0]} มีสีอะไรบ้าง`, 'รถค้างสต็อกนานมีคันไหน'], query,
+      copy: customerText(`รถ${spec.color ? `สี${spec.color}` : ''}พร้อมส่งมอบตอนนี้`, rows.slice(0, 12).map(([m, l]) => `• ${m}${spec.color ? '' : ` — สี${colorNames(l)}`}`)),
     }
   }
 
@@ -89,5 +94,8 @@ export function stockAnswer({ vehicles = [], spec, today }) {
   } else if (!spec.color) lines.push(`🎨 ${colorLine(ready)}`)
   if (extra) lines.push(extra)
   if (oldest >= 60) lines.push(`⏳ คันที่อยู่นานสุด ${oldest} วัน — เสนอคันนี้ก่อน`)
-  return { text: lines.join('\n'), next: ['รถค้างสต็อกนานมีคันไหน', 'มีรถอะไรพร้อมขาย'], query }
+  const byModel = new Map()
+  ready.forEach(v => { const m = carOf(v) || name; byModel.set(m, [...(byModel.get(m) || []), v]) })
+  const copy = customerText(`${name} พร้อมส่งมอบตอนนี้`, spec.color && !spec.brand ? [] : [...byModel.entries()].map(([m, l]) => spec.brand ? `• ${m}${spec.color ? '' : ` — สี${colorNames(l)}`}` : `สีที่มี: ${colorNames(l)}`))
+  return { text: lines.join('\n'), next: ['รถค้างสต็อกนานมีคันไหน', 'มีรถอะไรพร้อมขาย'], query, copy }
 }
