@@ -9,6 +9,7 @@
  * ตามแพทเทิร์นเดียวกับ pages/ai/PersonalAI.js (full-screen overlay)
  */
 import { listDocs, getSalesData, getCommissionData, seedDemoData } from '../core/db.js'
+import { carOf } from '../utils/carLabel.js'
 import { formatCurrency, todayBangkok, toDateStr } from '../utils/format.js'
 import { companyScopeFilters } from '../core/companyScope.js'
 import { escHtml } from '../utils/escape.js'
@@ -364,7 +365,7 @@ export default async function TvDisplayPage(container) {
     // ซึ่งปลอดภัยจาก XSS อยู่แล้วโดยไม่ต้อง escape เอง (ตรงข้ามกับ escHtml() ที่มีไว้ใช้ตอนแทรกผ่าน innerHTML)
     tickerItems = sorted.map(b => {
       const name = b.custName || 'ลูกค้า'
-      const car = `${b.brand || ''} ${b.model || ''}`.trim() || 'รถยนต์'
+      const car = carOf(b) || 'รถยนต์'
       const sales = b.salesName || ''
       if (b.status === 'ส่งมอบแล้ว') return `🎉 คุณ${sales || '-'} ส่งมอบ ${car} ให้คุณ${name} แล้ว!`
       return `📝 คุณ${name} จอง ${car}${sales ? ' — ดูแลโดยคุณ' + sales : ''}`

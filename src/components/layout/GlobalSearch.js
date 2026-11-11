@@ -26,14 +26,14 @@ const SOURCES = [
   { col: 'bookings', icon: '📝', groupKey: 'grpBookings', route: b => '/crm/bookings?id=' + encodeURIComponent(b.id), scoped: true, owner: b => b.salesName,
     text: b => [b.bookingNo, b.custName, b.brand, b.model, b.variant, b.vin, b.phone, b.salesName].join(' '),
     title: b => (b.bookingNo || '') + ' · ' + (b.custName || ''),
-    sub: b => [b.brand, b.model, b.variant].filter(Boolean).join(' ') + ' · ' + (b.status || '') + ' · ' + formatCurrency(b.price), tel: b => b.phone },
+    sub: b => carOf(b, true) + ' · ' + (b.status || '') + ' · ' + formatCurrency(b.price), tel: b => b.phone },
   { col: 'customers', icon: '👤', groupKey: 'grpCustomers', route: c => '/crm/customers?id=' + encodeURIComponent(c.id), scoped: true, owner: c => c.assignedTo,
     text: c => [c.firstName, c.lastName, c.phone, c.email, c.lineId, c.interestedModel].join(' '),
     title: c => [c.firstName, c.lastName].filter(Boolean).join(' '),
     sub: c => (c.phone || '') + (c.interestedModel ? ' · สนใจ ' + c.interestedModel : ''), tel: c => c.phone, callLog: true },
   { col: 'vehicles', icon: '🚗', groupKey: 'grpStock', route: '/dms/stock',
     text: v => [v.brand, v.model, v.variant, v.color, v.vin, v.status, v.location].join(' '),
-    title: v => [v.brand, v.model, v.variant].filter(Boolean).join(' '),
+    title: v => carOf(v, true),
     sub: v => (v.color || '') + ' · ' + (v.vin || '') + ' · ' + (v.status || '') },
   { col: 'staff', icon: '🧑‍💼', groupKey: 'grpStaff', route: '/hr/staff',
     text: s => [s.firstName, s.lastName, s.nickname, s.dept, s.role, s.phone, s.email].join(' '),
@@ -240,6 +240,16 @@ export function openGlobalSearch() {
         sub: cmd.desc + ' · ' + (cmd.kind === 'tel' ? 'กด Enter เพื่อโทร' : cmd.kind === 'bk' ? 'กด Enter เปิดใบจอง' : 'กด Enter เปิดหน้าลูกค้า'),
       }))
     } catch { /* ไม่ใช่คำถามหารายชื่อ */ }
+    // (v1.0.1052) พิมพ์ "วันนี้มีอะไรบ้าง" / "ยอดเดือนนี้เป็นไง" ในช่องค้นหา → เห็นคำตอบเป็นบรรทัดๆ ตรงนี้เลย · Enter = เปิด LAMI พร้อมปุ่มถามต่อ
+    try {
+      const card = await import('../../utils/lamiCommandCard.js')
+      const br = await card.loadTodayBrief(qRaw, Promise.resolve(fetched[custIdx] || [])) || await card.loadMonthBrief(qRaw)
+      if (br) {
+        const lines = br.text.split('\n').filter(Boolean)
+        lines.slice(1).reverse().forEach(l => { const m = l.match(/^(\S+)\s+(.*)$/) || [0, '•', l]; results.unshift({ type: 'brief', q: qRaw.trim(), icon: /^\d/.test(m[1]) ? '•' : m[1], group: 'LAMI ตอบ', title: /^\d/.test(m[1]) ? l : m[2], sub: '' }) })
+        results.unshift({ type: 'brief', q: qRaw.trim(), icon: '🤖', group: 'LAMI ตอบ', title: lines[0].replace(/^\S+\s/, ''), sub: 'กด Enter เปิด LAMI พร้อมปุ่มถามต่อ' })
+      }
+    } catch { /* ไม่ใช่คำถามสรุป */ }
     if (seq !== searchSeq || !div.isConnected) return
     if (lead) results.unshift({ type: 'lead', icon: '➕', group: 'คำสั่ง', title: 'เพิ่มเป็นลูกค้าใหม่: ' + lead.text, sub: 'เปิดฟอร์ม Lead แล้วกรอกชื่อ เบอร์ รุ่น จากที่พิมพ์ให้เลย', lead: lead.text, leadName: lead.name })
 
@@ -282,7 +292,7 @@ export function openGlobalSearch() {
     return '<div class="gsearch-row" data-idx="' + i + '" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer">' +
       '<span style="font-size:1.1rem;width:22px;text-align:center;flex-shrink:0">' + r.icon + '</span>' +
       '<div style="flex:1;min-width:0">' +
-        '<div style="font-size:0.875rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(r.title) + '</div>' +
+        '<div style="font-size:0.875rem;font-weight:600;' + (r.type === 'brief' ? 'white-space:normal;line-height:1.45' : 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis') + '">' + escHtml(r.title) + '</div>' +
         '<div style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(r.sub || '') + '</div>' +
       '</div>' +
       // โทรหาลูกค้าได้จากผลค้นหาเลย (มือถือ) ไม่ต้องเปิดหน้าลูกค้าก่อน
@@ -331,6 +341,7 @@ export function openGlobalSearch() {
         .then(([m, st]) => m.executeCommand(c).then(msg => st.showToast(msg, 'success')).catch(() => st.showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', 'error')))
       return
     }
+    if (r.type === 'brief') { import('../../utils/lamiPanel.js').then(m => { m.closeLamiPanel(); m.openLamiPanel({ navigate })?.ask(r.q) }); return }
     if (r.type === 'lead') { import('../../utils/quickLead.js').then(m => m.openQuickLead({ pasteText: r.lead, name: r.leadName })); return }
     navigate(r.route)
   }

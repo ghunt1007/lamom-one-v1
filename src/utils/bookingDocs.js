@@ -1,5 +1,6 @@
 // เอกสารใบจอง / ใบถอนจอง — สร้าง HTML แล้วสั่งพิมพ์ผ่าน print.js
 import { printDocument, docHeader, docFooter, money, bahtText, esc, getOrgInfo } from './print.js'
+import { carOf } from './carLabel.js'
 import { formatDate } from './format.js'
 
 function kv(label, value) {
@@ -22,7 +23,7 @@ function approvalCell(role) {
 export function printBooking(b) {
   if (!b) return
   const isCash = b.finStatus === 'ซื้อสด' || b.financeCo === 'ซื้อสด'
-  const car = [b.brand, b.model, b.variant].filter(Boolean).join(' ')
+  const car = carOf(b, true)
 
   const html =
     '<div class="doc">' +
@@ -85,7 +86,7 @@ export function printBooking(b) {
 // ── ใบถอนจอง / ยกเลิกการจอง ──────────────────────────────
 export function printCancellation(b, info = {}) {
   if (!b) return
-  const car = [b.brand, b.model, b.variant].filter(Boolean).join(' ')
+  const car = carOf(b, true)
   const refund = info.refund != null ? info.refund : (Number(b.bookingDeposit) || 0)
 
   const html =
@@ -151,7 +152,7 @@ export function printCancellation(b, info = {}) {
 // ดึงข้อมูลจากใบจองให้อัตโนมัติ ช่องที่ยังไม่มีข้อมูลเว้นเป็นเส้นให้เขียนมือ
 // หน้าตาเป็นแบบร่างก่อน — เมื่อได้แบบฟอร์มจริงของบริษัท จะปรับให้ตรงแบบ
 const blank = (v, w = 40) => (v == null || v === '' ? '<span style="display:inline-block;min-width:' + w + 'mm;border-bottom:1px dotted #94a3b8">&nbsp;</span>' : esc(v))
-const carName = b => [b.brand, b.model, b.variant].filter(Boolean).join(' ')
+const carName = b => carOf(b, true)
 function signRow(left, leftName, right, rightName) {
   return '<div class="sign-row">' +
     '<div class="sign-box"><div class="sign-line"></div><div class="sign-cap">' + esc(left) + '</div><div class="sign-cap">(' + esc(leftName || '..............................') + ')</div></div>' +
