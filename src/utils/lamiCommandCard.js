@@ -165,6 +165,23 @@ export async function loadTodayBrief(q, customersPromise) {
   return { text: tb.todayBriefText(st, dmy(today)), next: tb.todayFollowUps(st) }
 }
 
+// (v1.0.1059) "พรุ่งนี้มีอะไรบ้าง / สัปดาห์นี้มีอะไรบ้าง" → null ถ้าไม่ใช่ · คืน { text, next, go }
+export async function loadAheadBrief(q, customersPromise) {
+  const ab = await import('./aheadBrief.js')
+  const spec = ab.parseAheadSpec(q)
+  if (!spec) return null
+  const [{ listDocs, listAllDocs }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok }] = await Promise.all([
+    import('../core/db.js'), import('../core/companyScope.js'), import('./customerFollowups.js'), import('./format.js')])
+  const today = todayBangkok()
+  const [customers, followups, bookings] = await Promise.all([
+    customersPromise || visibleCustomersForCommands(),
+    listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000).catch(() => []),
+    listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc').catch(() => []),
+  ])
+  const st = ab.aheadStats({ customers, followups, bookings, today, mode: spec.mode })
+  return { text: ab.aheadBriefText(st), next: ab.aheadFollowUps(st), go: { path: '/calendar', label: '🗓️ เปิดปฏิทินงาน' } }
+}
+
 // (v1.0.1051) "ยอดเดือนนี้เป็นไง / ถึงเป้าหรือยัง / ใครขายดีสุด" → null ถ้าไม่ใช่ · คืน { text, next }
 // นับเฉพาะใบจองของเซลส์ที่ผู้ใช้มองเห็น (ตัวเอง + ลูกทีม · แอดมิน/เจ้าของ = ทั้งโชว์รูม)
 export async function loadMonthBrief(q) {

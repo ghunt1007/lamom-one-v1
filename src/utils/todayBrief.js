@@ -58,5 +58,6 @@ export function todayFollowUps(s) {
     s.noDate ? 'ใครยังไม่นัดส่งมอบ' : '',
     s.newLeads ? 'ลีดใหม่วันนี้มีใครบ้าง' : '',
     s.hotNoFu ? 'ลูกค้า hot ที่ยังไม่มีนัดมีใครบ้าง' : '',
+    'พรุ่งนี้มีอะไรบ้าง',
   ].filter(Boolean)
 }

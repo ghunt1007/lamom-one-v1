@@ -243,7 +243,7 @@ export function openGlobalSearch() {
     // (v1.0.1052) พิมพ์ "วันนี้มีอะไรบ้าง" / "ยอดเดือนนี้เป็นไง" ในช่องค้นหา → เห็นคำตอบเป็นบรรทัดๆ ตรงนี้เลย · Enter = เปิด LAMI พร้อมปุ่มถามต่อ
     try {
       const card = await import('../../utils/lamiCommandCard.js')
-      const br = await card.loadTodayBrief(qRaw, Promise.resolve(fetched[custIdx] || [])) || await card.loadMonthBrief(qRaw) || await card.loadIncomeBrief(qRaw) || await card.loadTeamBrief(qRaw) || await card.loadStockAnswer(qRaw) || await card.loadPayAnswer(qRaw)
+      const br = await card.loadTodayBrief(qRaw, Promise.resolve(fetched[custIdx] || [])) || await card.loadAheadBrief(qRaw, Promise.resolve(fetched[custIdx] || [])) || await card.loadMonthBrief(qRaw) || await card.loadIncomeBrief(qRaw) || await card.loadTeamBrief(qRaw) || await card.loadStockAnswer(qRaw) || await card.loadPayAnswer(qRaw)
       if (br) {
         const lines = br.text.split('\n').filter(Boolean)
         lines.slice(1).reverse().forEach(l => { const m = l.match(/^(\S+)\s+(.*)$/) || [0, '•', l]; results.unshift({ type: 'brief', q: qRaw.trim(), icon: /^\d/.test(m[1]) ? '•' : m[1], group: 'LAMI ตอบ', title: /^\d/.test(m[1]) ? l : m[2], sub: '' }) })

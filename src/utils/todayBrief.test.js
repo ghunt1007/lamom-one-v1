@@ -1,3 +1,4 @@
+import { parseAheadSpec } from './aheadBrief.js'
 import { describe, it, expect } from 'vitest'
 import { isTodayQuestion, todayStats, todayBriefText, todayFollowUps } from './todayBrief.js'
 import { parseListSpec } from './listQuestions.js'
@@ -45,8 +46,8 @@ describe('todayStats / text', () => {
   })
   it('every follow-up chip is a question LAMI answers locally', () => {
     const f = todayFollowUps(s)
-    expect(f.length).toBe(5)
-    for (const q of f) expect(isCallListQuestion(q) || !!parseBookingListSpec(q) || !!parseListSpec(q)).toBe(true)
+    expect(f.length).toBe(6)
+    for (const q of f) expect(isCallListQuestion(q) || !!parseBookingListSpec(q) || !!parseListSpec(q) || !!parseAheadSpec(q)).toBe(true)
     expect(parseListSpec('ลูกค้า hot ที่ยังไม่มีนัดมีใครบ้าง')).toMatchObject({ temp: 'hot', noFu: true })
   })
 })
