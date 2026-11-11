@@ -9,6 +9,7 @@ import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { getSalesStaff } from '../../data/masterData.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { callLink } from '../../utils/callLink.js'
 import { kpi } from '../../utils/kpiCard.js'
 
 const INTEREST_LEVEL = {
@@ -120,7 +121,7 @@ export default async function WalkInPage(container) {
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
                 <div>
                   <div style="font-weight:700;font-size:0.87rem">${escHtml(w.name)}</div>
-                  <div style="font-size:0.72rem;color:var(--text-muted)">📞 ${escHtml(w.phone)} · ${escHtml(w.staff)} · ${timeAgo(w.visitTime)}</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted)">${callLink(w.phone, w.name)} · ${escHtml(w.staff)} · ${timeAgo(w.visitTime)}</div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">🚗 สนใจ: ${escHtml(w.interestedIn)}</div>
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">

@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
+import { callLink } from '../../utils/callLink.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
 
@@ -107,7 +108,7 @@ export default async function WinBackPage(container) {
             return `<div class="card" style="padding:12px 14px;border-left:3px solid var(--${ws?.color})">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
                 <div>
-                  <div style="font-weight:700;font-size:0.86rem">${escHtml(t.customer)} <span style="font-size:0.7rem;color:var(--text-muted)">📞 ${escHtml(t.phone)}</span></div>
+                  <div style="font-weight:700;font-size:0.86rem">${escHtml(t.customer)} <span style="font-size:0.7rem;color:var(--text-muted)">${callLink(t.phone, t.customer)}</span></div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">หายไป ${timeAgo(t.lastVisit)} · สาเหตุ: ${CHURN_REASONS[t.reason]}</div>
                   ${t.offer ? `<div style="font-size:0.72rem;color:var(--warning)">🎁 ข้อเสนอ: ${t.offer}</div>` : ''}
                   ${t.attempts > 0 ? `<div style="font-size:0.68rem;color:var(--text-muted)">📞 ติดต่อแล้ว ${t.attempts} ครั้ง</div>` : ''}

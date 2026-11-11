@@ -6,6 +6,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { callLink } from '../../utils/callLink.js'
 import { kpi } from '../../utils/kpiCard.js'
 
 const PRIORITY = {
@@ -207,7 +208,7 @@ export default async function ComplaintsPage(container) {
       body: `<div style="display:flex;flex-direction:column;gap:12px">
         <div style="display:flex;gap:6px"><span class="badge badge-${pr.color}">${pr.label}</span><span class="badge badge-${st.color}">${st.label}</span></div>
         <div class="grid-2" style="font-size:0.83rem">
-          <div>👤 ${escHtml(c.custName)}</div><div>📱 ${escHtml(c.phone)}</div>
+          <div>👤 ${escHtml(c.custName)}</div><div>${callLink(c.phone, c.custName, { icon: '📱 ' })}</div>
           <div>🚗 ${escHtml(c.vehicle)}</div><div>📅 ${escHtml(c.openDate)}</div>
           <div>🗂 ${escHtml(CATEGORIES[c.category]||c.category)}</div>
           <div>👤 ${escHtml(c.assignedTo||'ยังไม่มอบหมาย')}</div>
