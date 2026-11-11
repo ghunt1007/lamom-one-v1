@@ -31,10 +31,10 @@ const SOURCES = [
     text: c => [c.firstName, c.lastName, c.phone, c.email, c.lineId, c.interestedModel].join(' '),
     title: c => [c.firstName, c.lastName].filter(Boolean).join(' '),
     sub: c => (c.phone || '') + (c.interestedModel ? ' · สนใจ ' + c.interestedModel : ''), tel: c => c.phone, callLog: true },
-  { col: 'vehicles', icon: '🚗', groupKey: 'grpStock', route: '/dms/stock',
+  { col: 'vehicles', icon: '🚗', groupKey: 'grpStock', route: v => '/dms/stock' + (v.vin ? '?q=' + encodeURIComponent(v.vin) : ''), // (v1.0.1053) เปิดหน้าสต็อกที่กรองคันนั้นไว้แล้ว
     text: v => [v.brand, v.model, v.variant, v.color, v.vin, v.status, v.location].join(' '),
     title: v => carOf(v, true),
-    sub: v => (v.color || '') + ' · ' + (v.vin || '') + ' · ' + (v.status || '') },
+    sub: v => (v.color || '') + ' · ' + (v.vin || '') + ' · ' + ({ available: 'พร้อมขาย', reserved: 'จองแล้ว', sold: 'ขายแล้ว', transit: 'อยู่ระหว่างขนส่ง', pdi: 'อยู่ใน PDI', demo: 'รถทดลองขับ' }[v.status] || v.status || '') },
   { col: 'staff', icon: '🧑‍💼', groupKey: 'grpStaff', route: '/hr/staff',
     text: s => [s.firstName, s.lastName, s.nickname, s.dept, s.role, s.phone, s.email].join(' '),
     title: s => [s.firstName, s.lastName].filter(Boolean).join(' ') + (s.nickname ? ' (' + s.nickname + ')' : ''),
@@ -243,7 +243,7 @@ export function openGlobalSearch() {
     // (v1.0.1052) พิมพ์ "วันนี้มีอะไรบ้าง" / "ยอดเดือนนี้เป็นไง" ในช่องค้นหา → เห็นคำตอบเป็นบรรทัดๆ ตรงนี้เลย · Enter = เปิด LAMI พร้อมปุ่มถามต่อ
     try {
       const card = await import('../../utils/lamiCommandCard.js')
-      const br = await card.loadTodayBrief(qRaw, Promise.resolve(fetched[custIdx] || [])) || await card.loadMonthBrief(qRaw)
+      const br = await card.loadTodayBrief(qRaw, Promise.resolve(fetched[custIdx] || [])) || await card.loadMonthBrief(qRaw) || await card.loadStockAnswer(qRaw)
       if (br) {
         const lines = br.text.split('\n').filter(Boolean)
         lines.slice(1).reverse().forEach(l => { const m = l.match(/^(\S+)\s+(.*)$/) || [0, '•', l]; results.unshift({ type: 'brief', q: qRaw.trim(), icon: /^\d/.test(m[1]) ? '•' : m[1], group: 'LAMI ตอบ', title: /^\d/.test(m[1]) ? l : m[2], sub: '' }) })

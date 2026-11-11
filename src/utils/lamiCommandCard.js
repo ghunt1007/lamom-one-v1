@@ -186,6 +186,18 @@ export async function loadMonthBrief(q) {
   return { text: mb.monthBriefText(st, { scope: whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ' }), next: mb.monthFollowUps(st) }
 }
 
+// (v1.0.1053) "S07 สีขาวมีไหม / มีรถอะไรพร้อมขาย / รถค้างสต็อกนานมีคันไหน" → null ถ้าไม่ใช่ · คืน { text, next, go }
+export async function loadStockAnswer(q) {
+  const sq = await import('./stockQuestions.js')
+  if (!sq.maybeStockQuestion(q)) return null
+  const [{ listDocs }, { companyScopeFilters }, { todayBangkok }] = await Promise.all([import('../core/db.js'), import('../core/companyScope.js'), import('./format.js')])
+  const vehicles = await listDocs('vehicles', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => [])
+  const spec = sq.parseStockSpec(q, vehicles)
+  if (!spec) return null
+  const res = sq.stockAnswer({ vehicles, spec, today: todayBangkok() })
+  return { text: res.text, next: res.next, go: { path: '/dms/stock' + (res.query ? '?q=' + encodeURIComponent(res.query) : ''), label: '🚙 เปิดหน้าสต็อก' } }
+}
+
 // (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อพร้อมปุ่มโทร (ลูกค้าที่ผู้ใช้เห็นเท่านั้น)
 export async function loadCallListCommands(customersPromise) {
   const [{ listDocs }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok }, { callList, callListCommands }] = await Promise.all([

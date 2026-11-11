@@ -111,7 +111,7 @@ async function main() {
   for (let i = 0; i < 20; i++) {
     const [brand, model, price] = pick(MODELS)
     await put('vehicles', 'vh' + i, { vin: 'STOCKVIN' + String(20000 + i), brand, model, variant: '', color: pick(['ขาว', 'ดำ', 'เทา']), year: 2026, price, cost: Math.round(price * 0.9),
-      status: pick(['available', 'available', 'reserved', 'sold', 'in_transit']), location: 'โชว์รูม', mileage: int(0, 30), arrivedAt: day(-int(1, 150)), companyId: coFor(brand), createdAt: ts(-int(1, 150)) })
+      status: pick(['available', 'available', 'reserved', 'sold', 'transit']), location: 'โชว์รูม', mileage: int(0, 30), arrivedAt: day(-int(1, 150)), companyId: coFor(brand), createdAt: ts(-int(1, 150)) })
   }
 
   for (let i = 0; i < 15; i++) {

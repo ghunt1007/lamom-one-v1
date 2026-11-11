@@ -181,7 +181,9 @@ export default async function StockPage(container) {
     filtered = stock.filter(v => {
       const ms = statusFilter === 'all' || v.status === statusFilter || (statusFilter === 'aged' && isAged(v))
       const bs = brandFilter === 'all' || v.brand === brandFilter
-      const ss = !search || `${v.brand} ${v.model} ${v.color} ${v.vin}`.toLowerCase().includes(search)
+      // (v1.0.1053) ค้นหลายคำได้ เช่น "s07 ขาว" — ทุกคำต้องเจอ ไม่ต้องเรียงติดกัน
+      const hay = `${v.brand} ${v.model} ${v.color} ${v.vin}`.toLowerCase()
+      const ss = !search || search.split(/\s+/).filter(Boolean).every(w => hay.includes(w))
       return ms && bs && ss
     })
     renderContent()
@@ -700,6 +702,8 @@ export default async function StockPage(container) {
 
   document.getElementById('add-stock-btn').addEventListener('click', () => openForm())
   document.getElementById('stock-search').addEventListener('input', e => { search = e.target.value.toLowerCase(); applyFilter() })
+  // (v1.0.1053) เปิดมาพร้อมคำค้น (/dms/stock?q=...) จาก LAMI หรือช่องค้นหา
+  { const q0 = new URLSearchParams(location.search).get('q'); if (q0) { document.getElementById('stock-search').value = q0; search = q0.toLowerCase(); applyFilter() } }
   document.getElementById('brand-filter').addEventListener('change', e => { brandFilter = e.target.value; applyFilter() })
   document.getElementById('view-toggle-btn').addEventListener('click', () => {
     viewMode = viewMode === 'table' ? 'card' : 'table'
