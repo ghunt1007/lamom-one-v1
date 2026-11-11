@@ -45,6 +45,17 @@ export function pickModel(models, query) {
   return keys[0]
 }
 
+// อ่านเงื่อนไขจากลิงก์ — รับเฉพาะค่าที่หน้านี้เลือกได้จริง (ดาวน์ 0–50% · 48/60/72/84 งวด)
+export function loanPreset(qs) {
+  const num = k => { const v = Number(qs.get(k)); return qs.get(k) != null && qs.get(k) !== '' && Number.isFinite(v) ? v : null }
+  const price = num('price'), down = num('down'), term = num('term')
+  return {
+    price: price != null && price >= 100000 && price <= 20000000 ? Math.round(price) : null,
+    down: down != null && down >= 0 && down <= 50 ? Math.round(down) : null,
+    term: [48, 60, 72, 84].includes(term) ? term : null,
+  }
+}
+
 function monthly(principal, flatRate, months) {
   const years = months / 12
   const interest = principal * (flatRate / 100) * years
@@ -55,10 +66,13 @@ export default async function LoanCalculatorPage(container) {
   const myGen = container.__routerGen
   let models = MODELS
   try { models = catalogPriceList(getVehicles()) || MODELS } catch {}
-  let model = pickModel(models, new URLSearchParams(window.location.search).get('model'))
-  let customPrice = null
-  let downPct = 20
-  let term = 60
+  // (v1.0.1062) เปิดจากคำตอบค่างวดของ LAMI (?model=&price=&down=&term=) → ตั้งเงื่อนไขเดียวกันให้เลย ไม่ต้องกรอกซ้ำ
+  const qs = new URLSearchParams(window.location.search)
+  const pre = loanPreset(qs)
+  let model = pickModel(models, qs.get('model'))
+  let customPrice = pre.price && pre.price !== models[model] ? pre.price : null
+  let downPct = pre.down ?? 20
+  let term = pre.term ?? 60
   let banks = BANKS.map(b => ({ ...b, rates: { ...b.rates } }))
   let dataSource = 'demo'
 

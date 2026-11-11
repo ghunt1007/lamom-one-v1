@@ -94,3 +94,13 @@ export function payFollowUps(spec) {
   }
   return out
 }
+
+// (v1.0.1062) ลิงก์ไปหน้าคำนวณสินเชื่อพร้อมเงื่อนไขเดียวกับคำตอบ (รุ่น ราคา ดาวน์ งวด)
+export function loanCalcQuery(spec) {
+  const p = new URLSearchParams()
+  if (spec.car) p.set('model', spec.car.replace(' (รุ่นเริ่มต้น)', ''))
+  p.set('price', String(Math.round(spec.price)))
+  if (spec.downPct != null) p.set('down', String(Math.round(spec.downPct)))
+  if (spec.months != null) p.set('term', String(spec.months))
+  return p.toString()
+}
