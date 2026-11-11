@@ -96,6 +96,18 @@ export function openLamiPanel({ navigate } = {}) {
             return
           }
         }
+        // (v1.0.1049) "วันนี้มีอะไรบ้าง / สรุปวันนี้" → สรุปงานวันนี้จากข้อมูลจริง + ปุ่มถามต่อเฉพาะหัวข้อที่มีงาน
+        {
+          const card = await import('./lamiCommandCard.js')
+          const tb = await card.loadTodayBrief(q, custPromise).catch(() => null)
+          if (tb) {
+            history.push({ role: 'user', text: q }, { role: 'lami', text: tb.text })
+            wait.outerHTML = `<div class="lp-a">${formatAiText(tb.text)}</div>${tb.next.length ? `<div class="lp-asks lp-brief lp-today">${tb.next.map(x => `<button class="lp-ask" type="button" data-q="${esc(x)}">${esc(x)}</button>`).join('')}</div>` : ''}`
+            const wrap = [...body.querySelectorAll('.lp-today')].pop()
+            wrap?.querySelectorAll('.lp-ask').forEach(b => b.addEventListener('click', () => setTimeout(() => ask(b.dataset.q), 0)))
+            return
+          }
+        }
         // (v1.0.1048) "สมชายถึงไหนแล้ว / สรุปมานี" → สรุปลูกค้าจากข้อมูลจริงทันที + ปุ่มทำต่อในแตะเดียว
         {
           const card = await import('./lamiCommandCard.js')
@@ -200,7 +212,7 @@ export function openLamiPanel({ navigate } = {}) {
     const n = exampleName(list)
     const hint = body.querySelector('.lp-hint')
     if (!hint || !list.some(x => x.firstName === n)) return
-    const ex = ['ลูกค้า hot มีใครบ้าง', `นัด${n}พรุ่งนี้ 10 โมง`, `${n} hot`, `นัดลองขับ ${n} เสาร์บ่าย 2`, `จด ${n} รอโบนัสสิ้นปี`, `โทรหา${n}แล้ว สนใจผ่อน`]
+    const ex = ['วันนี้มีอะไรบ้าง', 'ลูกค้า hot มีใครบ้าง', `นัด${n}พรุ่งนี้ 10 โมง`, `${n} hot`, `นัดลองขับ ${n} เสาร์บ่าย 2`, `จด ${n} รอโบนัสสิ้นปี`, `โทรหา${n}แล้ว สนใจผ่อน`]
     hint.insertAdjacentHTML('afterend', `<div class="lp-try"><span>🪄 สั่งงานได้ด้วย ลองกด:</span>${ex.map(x => `<button type="button" class="lp-ask lp-fill" data-fill="${esc(x)}">${esc(x)}</button>`).join('')}</div>`)
     body.querySelectorAll('.lp-fill').forEach(b => b.addEventListener('click', () => { input.value = b.dataset.fill; input.focus() }))
   })

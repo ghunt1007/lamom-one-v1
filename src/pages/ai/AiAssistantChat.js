@@ -393,6 +393,18 @@ export default async function AiAssistantChatPage(container) {
         }
       }
       pendingMulti = false
+      // (v1.0.1049) "วันนี้มีอะไรบ้าง / สรุปวันนี้" → สรุปงานวันนี้จากข้อมูลจริงทันที
+      {
+        const card = await import('../../utils/lamiCommandCard.js')
+        const tb = await card.loadTodayBrief(text, Promise.resolve(chatCustomers)).catch(() => null)
+        if (tb) {
+          pendingCmds = []
+          try { await createDoc('chat_ai_assistant', { role:'ai', text: tb.text + (tb.next.length ? '\n\n💬 ถามต่อได้: ' + tb.next.map(x => `"${x}"`).join(' · ') : ''), time:now(), uid }) } catch (e) {}
+          waiting = false
+          await loadData()
+          return
+        }
+      }
       // (v1.0.1048) "สมชายถึงไหนแล้ว / สรุปมานี" → สรุปลูกค้าจากข้อมูลจริงทันที พร้อมปุ่มโทร/เปิด
       {
         const card = await import('../../utils/lamiCommandCard.js')
