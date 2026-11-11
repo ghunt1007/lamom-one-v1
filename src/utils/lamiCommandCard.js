@@ -186,6 +186,22 @@ export async function loadMonthBrief(q) {
   return { text: mb.monthBriefText(st, { scope: whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ' }), next: mb.monthFollowUps(st) }
 }
 
+// (v1.0.1058) "ค่าคอมเดือนนี้เท่าไหร่ / รายได้เดือนก่อน" → null ถ้าไม่ใช่ · คืน { text, next, go } · ขอบเขตเดียวกับหน้ารายได้รายเซลส์
+export async function loadIncomeBrief(q) {
+  const ib = await import('./incomeBrief.js')
+  if (!ib.isIncomeQuestion(q)) return null
+  const [{ listAllDocs }, { companyScopeFilters }, { getVisibilityScope, scopeIncludesRecord }, { todayBangkok }] = await Promise.all([
+    import('../core/db.js'), import('../core/companyScope.js'), import('../core/hierarchy.js'), import('./format.js')])
+  const [all, vis] = await Promise.all([
+    listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc').catch(() => []),
+    getVisibilityScope().catch(() => null),
+  ])
+  if (!vis) return null
+  const whole = !!(vis.unrestricted || vis.companyOnly)
+  const st = ib.incomeStats({ bookings: all.filter(b => !b.deleted && scopeIncludesRecord(vis, b.salesName, b)), today: todayBangkok(), prev: ib.wantsPrevMonth(q) })
+  return { text: ib.incomeBriefText(st, { scope: whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ' }), next: ib.incomeFollowUps(st), go: { path: '/crm/sales-income', label: '💰 เปิดหน้ารายได้รายเซลส์' } }
+}
+
 // (v1.0.1053) "S07 สีขาวมีไหม / มีรถอะไรพร้อมขาย / รถค้างสต็อกนานมีคันไหน" → null ถ้าไม่ใช่ · คืน { text, next, go }
 export async function loadStockAnswer(q) {
   const sq = await import('./stockQuestions.js')
