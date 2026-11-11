@@ -149,6 +149,22 @@ export async function loadCustomerBrief(q, customersPromise) {
   return { text: cb.customerBrief({ customer: c, followups, booking: booking && !booking.deleted ? booking : null, today }), cmds: cb.briefCommands(c), customer: c, chips: quickChips(c).filter(x => !/\s$/.test(x)) }
 }
 
+// (v1.0.1049) "วันนี้มีอะไรบ้าง / สรุปวันนี้" → null ถ้าไม่ใช่ · คืน { text, next: [ประโยคถามต่อ] }
+export async function loadTodayBrief(q, customersPromise) {
+  const tb = await import('./todayBrief.js')
+  if (!tb.isTodayQuestion(q)) return null
+  const [{ listDocs, listAllDocs }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok, addDaysBangkok, dmy }] = await Promise.all([
+    import('../core/db.js'), import('../core/companyScope.js'), import('./customerFollowups.js'), import('./format.js')])
+  const today = todayBangkok()
+  const [customers, followups, bookings] = await Promise.all([
+    customersPromise || visibleCustomersForCommands(),
+    listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000).catch(() => []),
+    listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc').catch(() => []),
+  ])
+  const st = tb.todayStats({ customers, followups, bookings, today, tomorrow: addDaysBangkok(1) })
+  return { text: tb.todayBriefText(st, dmy(today)), next: tb.todayFollowUps(st) }
+}
+
 // (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อพร้อมปุ่มโทร (ลูกค้าที่ผู้ใช้เห็นเท่านั้น)
 export async function loadCallListCommands(customersPromise) {
   const [{ listDocs }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok }, { callList, callListCommands }] = await Promise.all([
