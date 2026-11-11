@@ -346,6 +346,7 @@ export default async function CustomersPage(container) {
         <td class="cc-age" style="color:var(--text-muted);font-size:0.8rem">${timeAgo(c.createdAt)}${quietBadge(c)}</td>
         <td class="cc-act">
           <div style="display:flex;gap:4px">
+            ${!c.isLost && String(c.phone || '').replace(/[^\d+]/g, '').length >= 9 ? `<a class="btn btn-ghost btn-sm call-btn" href="tel:${String(c.phone).replace(/[^\d+]/g, '')}" title="โทรหา ${escHtml(fullName(c))}" aria-label="โทรหา ${escHtml(fullName(c))}">📞</a>` : ''}
             <button class="btn btn-ghost btn-sm edit-btn" data-id="${c.id}" title="แก้ไข">✏️</button>
             <button class="btn btn-ghost btn-sm del-btn" data-id="${c.id}" title="ลบ" style="color:var(--danger)">🗑</button>
           </div>
@@ -355,7 +356,7 @@ export default async function CustomersPage(container) {
 
     tbody.querySelectorAll('.cust-row').forEach(row => {
       row.addEventListener('click', e => {
-        if (e.target.closest('.edit-btn,.del-btn')) return
+        if (e.target.closest('.edit-btn,.del-btn,.call-btn')) return
         const c = filtered.find(x => x.id === row.dataset.id)
         if (c) openDetail(c)
       })
