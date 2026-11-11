@@ -165,6 +165,27 @@ export async function loadTodayBrief(q, customersPromise) {
   return { text: tb.todayBriefText(st, dmy(today)), next: tb.todayFollowUps(st) }
 }
 
+// (v1.0.1051) "ยอดเดือนนี้เป็นไง / ถึงเป้าหรือยัง / ใครขายดีสุด" → null ถ้าไม่ใช่ · คืน { text, next }
+// นับเฉพาะใบจองของเซลส์ที่ผู้ใช้มองเห็น (ตัวเอง + ลูกทีม · แอดมิน/เจ้าของ = ทั้งโชว์รูม)
+export async function loadMonthBrief(q) {
+  const mb = await import('./monthBrief.js')
+  if (!mb.isMonthQuestion(q)) return null
+  const [{ listAllDocs, readDoc }, { companyScopeFilters }, { getVisibilityScope, scopeIncludesRecord, normName }, { todayBangkok }, { SALES_TARGETS_COLLECTION }] = await Promise.all([
+    import('../core/db.js'), import('../core/companyScope.js'), import('../core/hierarchy.js'), import('./format.js'), import('./salesTargets.js')])
+  const today = todayBangkok()
+  const [all, vis, tdoc] = await Promise.all([
+    listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc').catch(() => []),
+    getVisibilityScope().catch(() => null),
+    readDoc(SALES_TARGETS_COLLECTION, today.slice(0, 7)).catch(() => null),
+  ])
+  if (!vis) return null
+  const whole = !!(vis.unrestricted || vis.companyOnly)
+  const bookings = all.filter(b => !b.deleted && scopeIncludesRecord(vis, b.salesName, b))
+  const target = Object.entries(tdoc?.targets || {}).reduce((s, [n, v]) => s + (whole || vis.names?.has(normName(n)) ? Number(v) || 0 : 0), 0)
+  const st = mb.monthStats({ bookings, today, target })
+  return { text: mb.monthBriefText(st, { scope: whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ' }), next: mb.monthFollowUps(st) }
+}
+
 // (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อพร้อมปุ่มโทร (ลูกค้าที่ผู้ใช้เห็นเท่านั้น)
 export async function loadCallListCommands(customersPromise) {
   const [{ listDocs }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok }, { callList, callListCommands }] = await Promise.all([
