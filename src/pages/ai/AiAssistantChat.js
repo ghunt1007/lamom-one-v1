@@ -396,7 +396,7 @@ export default async function AiAssistantChatPage(container) {
       // (v1.0.1049) "วันนี้มีอะไรบ้าง / สรุปวันนี้" → สรุปงานวันนี้จากข้อมูลจริงทันที
       {
         const card = await import('../../utils/lamiCommandCard.js')
-        const tb = await card.loadTodayBrief(text, Promise.resolve(chatCustomers)).catch(() => null) || await card.loadMonthBrief(text).catch(() => null) // (v1.0.1051) + สรุปยอดเดือนนี้
+        const tb = await card.loadTodayBrief(text, Promise.resolve(chatCustomers)).catch(() => null) || await card.loadMonthBrief(text).catch(() => null) || await card.loadStockAnswer(text).catch(() => null) // (v1.0.1051) + ยอดเดือนนี้ (v1.0.1053) + สต็อก
         if (tb) {
           pendingCmds = []
           try { await createDoc('chat_ai_assistant', { role:'ai', text: tb.text + (tb.next.length ? '\n\n💬 ถามต่อได้: ' + tb.next.map(x => `"${x}"`).join(' · ') : ''), time:now(), uid }) } catch (e) {}
