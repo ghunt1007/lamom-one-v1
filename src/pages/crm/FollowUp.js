@@ -30,7 +30,7 @@ const FU_STATUS = {
 
 const PURPOSES = FOLLOWUP_PURPOSES
 // เบอร์โทรกดโทรออกได้เลยบนมือถือ
-const telLink = p => { const n = String(p || '').replace(/[^\d+]/g, ''); return n ? `<a href="tel:${n}" style="color:inherit;text-decoration:underline">📞 ${escHtml(p)}</a>` : '' }
+import { callLink } from '../../utils/callLink.js'
 
 const today = addDays(0)
 
@@ -228,7 +228,7 @@ export default async function FollowUpPage(container) {
             ${overdue ? `<span class="badge badge-danger" style="font-size:0.65rem">⚠️ เลย ${Math.max(1, Math.round((Date.parse(today) - Date.parse(String(f.dueDate).slice(0, 10))) / 86400e3))} วัน</span>` : ''}
             ${isT && f.status === 'pending' ? `<span class="badge badge-warning" style="font-size:0.65rem">📅 วันนี้</span>` : ''}
           </div>
-          <div style="font-size:0.8rem;color:var(--text-muted)">${[f.vehicleModel ? escHtml(f.vehicleModel) : '', f.salesperson ? '👤 ' + escHtml(f.salesperson) : '', telLink(f.phone)].filter(Boolean).join(' · ')}</div>
+          <div style="font-size:0.8rem;color:var(--text-muted)">${[f.vehicleModel ? escHtml(f.vehicleModel) : '', f.salesperson ? '👤 ' + escHtml(f.salesperson) : '', callLink(f.phone, f.customerName)].filter(Boolean).join(' · ')}</div>
           <div style="font-size:0.82rem;margin-top:4px"><strong>${escHtml(f.purpose)}</strong>${f.note ? ` — ${escHtml(f.note)}` : ''}</div>
           ${f.result ? `<div style="font-size:0.8rem;margin-top:4px;color:var(--success)">✓ ${escHtml(f.result)}</div>` : ''}
         </div>
@@ -295,7 +295,7 @@ export default async function FollowUpPage(container) {
       title: `📞 ${f.id} — Follow-up Detail`,
       size: 'md',
       body: `
-        ${rowD('ลูกค้า', escHtml(f.customerName))}${rowD('โทร', telLink(f.phone))}${rowD('รถ', escHtml(f.vehicleModel))}${rowD('เซลส์', escHtml(f.salesperson))}
+        ${rowD('ลูกค้า', escHtml(f.customerName))}${rowD('โทร', callLink(f.phone, f.customerName))}${rowD('รถ', escHtml(f.vehicleModel))}${rowD('เซลส์', escHtml(f.salesperson))}
         ${rowD('ประเภท', `${tp.icon} ${tp.label}`)}
         ${rowD('วัตถุประสงค์', escHtml(f.purpose))}
         ${rowD('กำหนดวันที่', formatDate(f.dueDate))}
