@@ -2,18 +2,22 @@
  * Birthday & Anniversary — วันเกิดและวันครบรอบลูกค้า
  * Route: /crm/birthdays
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
+import { addDays } from '../../utils/aheadBrief.js'
+import { nextAnniversary } from '../../utils/anniversary.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { sendSms } from '../../utils/comms.js'
 import { escHtml } from '../../utils/escape.js'
+import { callLink } from '../../utils/callLink.js'
 import { kpi } from '../../utils/kpiCard.js'
 
+// วันตามเวลาไทย (เดิมใช้ toISOString = เวลา UTC ทำให้ช่วง 00:00–07:00 ได้วันของเมื่อวาน)
 function dayInMonth(offsetDays) {
-  const d = new Date(); d.setDate(d.getDate() + offsetDays)
-  return { day: d.getDate(), month: d.getMonth() + 1, iso: d.toISOString().slice(0,10) }
+  const iso = addDays(todayBangkok(), offsetDays)
+  return { day: +iso.slice(8, 10), month: +iso.slice(5, 7), iso }
 }
 
 const EVENT_TYPES = {
@@ -50,10 +54,11 @@ export default async function BirthdayGreetingsPage(container) {
       const sentSet = new Set(sentLog.map(l => sentKey(l.customer, l.eventDate)))
       events = delivered.map((s, i) => {
         const delivDate = s.deliveryDate || s.bookingDate || ''
-        const yearsAgo = delivDate ? Math.floor((Date.now() - new Date(delivDate).getTime()) / (365.25 * 86400000)) : 1
-        const annivDate = delivDate ? (() => {
-          const d = new Date(delivDate); d.setFullYear(new Date().getFullYear()); return d.toISOString().slice(0, 10)
-        })() : t0.iso
+        // ครบรอบ "รอบถัดไป" — เดิมใช้วันครบรอบของปีนี้เสมอ รอบที่ผ่านไปแล้วและรถที่เพิ่งส่งมอบ (ครบ 0 ปี)
+        // จึงไปโผล่ในกลุ่ม "ภายใน 7 วัน" ชวนให้ส่งคำอวยพรผิดคน
+        const next = nextAnniversary(delivDate, t0.iso)
+        if (!next) return null
+        const yearsAgo = next.years, annivDate = next.date
         const customer = s.customerName || s.custName || 'ลูกค้า'
         const already = sentLog.find(l => l.customer === customer && l.eventDate === annivDate)
         return {
@@ -62,7 +67,7 @@ export default async function BirthdayGreetingsPage(container) {
           model: s.model || '', sent: sentSet.has(sentKey(customer, annivDate)), channel: already?.channel || 'SMS',
           note: `ครบ ${yearsAgo} ปี`,
         }
-      })
+      }).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date))
       dataSource = 'live'
     }
   } catch {}
@@ -114,7 +119,7 @@ export default async function BirthdayGreetingsPage(container) {
               <div>
                 <div style="font-weight:700;font-size:0.85rem">${et?.icon} ${escHtml(e.customer)}</div>
                 <div style="font-size:0.7rem;color:var(--text-muted)">
-                  ${et?.label}${e.note ? ' (' + escHtml(e.note) + ')' : ''} · ${formatDate(e.date)} · 🚗 ${escHtml(e.model)} · 📞 ${escHtml(e.phone)}
+                  ${et?.label}${e.note ? ' (' + escHtml(e.note) + ')' : ''} · ${formatDate(e.date)} · 🚗 ${escHtml(e.model)}${e.phone ? ' · ' + callLink(e.phone, e.customer) : ''}
                 </div>
               </div>
               <div style="display:flex;gap:6px;align-items:center">

@@ -12,6 +12,7 @@ import { testDriveThanks } from '../../utils/bookingNotify.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml } from '../../utils/escape.js'
+import { callLink } from '../../utils/callLink.js'
 import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
 
 // (v1.0.523) เดิมหน้านี้เขียน collection แยก 'test_drive_records' ของตัวเอง ในขณะที่ TestDriveScheduler.js
@@ -182,7 +183,7 @@ export default async function TestDrivePage(container) {
                 return `<tr>
                   <td>
                     <div style="font-weight:600">${escHtml(t.customerName)}</div>
-                    <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(t.phone)}</div>
+                    <div style="font-size:0.73rem;color:var(--text-muted)">${callLink(t.phone, t.customerName)}</div>
                   </td>
                   <td style="font-size:0.83rem">${escHtml(t.model)}</td>
                   <td style="font-size:0.82rem;white-space:nowrap">📅 ${t.date ? formatDate(t.date) : '-'} ${escHtml(t.time)}</td>
@@ -222,7 +223,7 @@ export default async function TestDrivePage(container) {
       body: `<div style="display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;gap:6px">${rs ? `<span class="badge badge-${rs.badge}">${rs.label}</span>` : ''}<span class="badge badge-${st?.badge}">${st?.label}</span></div>
         ${dr('🚗','รถ',t.model)}${dr('📅','วันที่',t.date+' '+t.time)}
-        ${dr('👤','เซลส์',t.staff)}${dr('📞','โทร',t.phone)}
+        ${dr('👤','เซลส์',t.staff)}<div style="font-size:0.83rem;display:flex;gap:6px"><span>📞</span><span style="color:var(--text-muted);min-width:70px">โทร</span><span>${callLink(t.phone, t.customerName, { icon: '' })}</span></div>
         ${t.km ? dr('📏','ระยะทาง',t.km+' กม.') : ''}
         ${t.duration ? dr('⏱','ระยะเวลา',t.duration+' นาที') : ''}
         ${t.notes ? `<div style="background:var(--surface-2);padding:10px;border-radius:var(--radius-md);font-size:0.85rem">${escHtml(t.notes)}</div>` : ''}

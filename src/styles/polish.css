@@ -462,3 +462,8 @@ input.dt-input.dt-bad { border-color: var(--danger) !important; box-shadow: 0 0 
 @media (max-width: 1180px) { .cust-table .cc-act .call-btn { padding: 6px 12px; min-height: 34px; display: inline-flex; align-items: center; } .cust-table .cc-act > div { align-items: center; } }
 /* (v1.0.1065) เบอร์โทรบนการ์ดใบจอง — กดโทรได้เลย */
 .bk-card .bk-call { display: inline-flex; align-items: center; min-height: 30px; padding: 3px 10px; margin: -3px 0; border-radius: 999px; text-decoration: none; color: var(--success); font-weight: 600; background: color-mix(in srgb, var(--success) 12%, transparent); border: 1px solid color-mix(in srgb, var(--success) 32%, transparent); }
+
+/* v1.0.1066 — เบอร์โทรที่แตะแล้วโทรได้ (ใช้ร่วมทุกหน้า) */
+.call-pill { display: inline-flex; align-items: center; min-height: 28px; padding: 2px 9px; margin: -2px 0; border-radius: 999px; text-decoration: none; white-space: nowrap; color: var(--success); font-weight: 600; background: color-mix(in srgb, var(--success) 12%, transparent); border: 1px solid color-mix(in srgb, var(--success) 32%, transparent); }
+.call-pill:hover { background: color-mix(in srgb, var(--success) 22%, transparent); }
+@media (pointer: coarse) { .call-pill { min-height: 32px; padding: 3px 11px; } }

@@ -8,6 +8,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { getSalesStaff } from '../../data/masterData.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { callLink } from '../../utils/callLink.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { findDuplicate } from '../../utils/quickLead.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
@@ -212,7 +213,7 @@ export default async function ShowroomAppointmentPage(container) {
             <span class="badge badge-${st.color}" style="font-size:0.63rem">${st.label}</span>
           </div>
           <div style="font-size:0.78rem;color:var(--text-muted)">${escHtml(a.purpose)} · ${escHtml(a.interestedIn)}</div>
-          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">📞 ${escHtml(a.phone)} · 👤 ${escHtml(a.salesperson)} · 📣 ${escHtml(a.source)}</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">${callLink(a.phone, a.custName)} · 👤 ${escHtml(a.salesperson)} · 📣 ${escHtml(a.source)}</div>
           ${a.note ? `<div style="font-size:0.72rem;margin-top:4px;color:var(--primary)">📝 ${escHtml(a.note)}</div>` : ''}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0" onclick="event.stopPropagation()">
@@ -234,7 +235,7 @@ export default async function ShowroomAppointmentPage(container) {
             const st = APPT_STATUS[a.status] || APPT_STATUS.scheduled
             return `<tr class="appt-row" data-id="${a.id}" style="cursor:pointer">
               <td style="font-size:0.8rem;white-space:nowrap">${escHtml(a.date)}<br><span style="color:var(--primary);font-weight:700">${escHtml(a.time)}</span></td>
-              <td><div style="font-weight:600;font-size:0.85rem">${escHtml(a.custName)}</div><div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(a.phone)}</div></td>
+              <td><div style="font-weight:600;font-size:0.85rem">${escHtml(a.custName)}</div><div style="font-size:0.72rem;color:var(--text-muted)">${callLink(a.phone, a.custName)}</div></td>
               <td style="font-size:0.82rem">${escHtml(a.purpose)}</td>
               <td style="font-size:0.82rem">${escHtml(a.interestedIn)}</td>
               <td style="font-size:0.8rem">${escHtml(a.salesperson)}</td>
