@@ -208,6 +208,21 @@ export async function loadPayAnswer(q) {
   return { text: pq.payAnswer(spec), next: pq.payFollowUps(spec), go: { path: '/finance/loan-calc', label: '🧮 เปิดหน้าคำนวณสินเชื่อ' } }
 }
 
+// (v1.0.1056) "ทีมวันนี้เป็นไง / ใครมีนัดค้างเยอะสุด" → null ถ้าไม่ใช่ · คืน { text, next, go }
+export async function loadTeamBrief(q, customersPromise) {
+  const tm = await import('./teamBrief.js')
+  if (!tm.isTeamQuestion(q)) return null
+  const [{ listDocs }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok, dmy }] = await Promise.all([
+    import('../core/db.js'), import('../core/companyScope.js'), import('./customerFollowups.js'), import('./format.js')])
+  const today = todayBangkok()
+  const [customers, followups] = await Promise.all([
+    customersPromise || visibleCustomersForCommands(),
+    listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000).catch(() => []),
+  ])
+  const st = tm.teamStats({ customers, followups, today })
+  return { text: tm.teamBriefText(st, dmy(today)), next: tm.teamFollowUps(st), go: { path: '/crm/followup', label: '📞 เปิดหน้าติดตามลูกค้า' } }
+}
+
 // (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อพร้อมปุ่มโทร (ลูกค้าที่ผู้ใช้เห็นเท่านั้น)
 export async function loadCallListCommands(customersPromise) {
   const [{ listDocs }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok }, { callList, callListCommands }] = await Promise.all([
