@@ -399,7 +399,7 @@ export default async function AiAssistantChatPage(container) {
         const tb = await card.loadTodayBrief(text, Promise.resolve(chatCustomers)).catch(() => null) || await card.loadMonthBrief(text).catch(() => null) || await card.loadStockAnswer(text).catch(() => null) || await card.loadPayAnswer(text).catch(() => null) // (v1.0.1051) + ยอดเดือนนี้ (v1.0.1053) + สต็อก
         if (tb) {
           pendingCmds = []
-          try { await createDoc('chat_ai_assistant', { role:'ai', text: tb.text + (tb.next.length ? '\n\n💬 ถามต่อได้: ' + tb.next.map(x => `"${x}"`).join(' · ') : ''), time:now(), uid }) } catch (e) {}
+          try { await createDoc('chat_ai_assistant', { role:'ai', text: tb.text, next: tb.next, ...(tb.go ? { links: [{ label: tb.go.label, path: tb.go.path }] } : {}), time:now(), uid }) } catch (e) {} // (v1.0.1055) ถามต่อเป็นปุ่มกดได้ ไม่ต้องพิมพ์เอง
           waiting = false
           await loadData()
           return
@@ -435,7 +435,7 @@ export default async function AiAssistantChatPage(container) {
         const lst = await card.loadListCommands(text, Promise.resolve(chatCustomers)).catch(() => null)
         if (lst) {
           pendingCmds = lst.cmds
-          try { await createDoc('chat_ai_assistant', { role:'ai', text: lst.intro + (lst.next ? `\n💡 พิมพ์ "${lst.next}" เพื่อนัดทั้งกลุ่มในครั้งเดียว` : ''), cmd: lst.cmds.length > 0, time:now(), uid }) } catch (e) {}
+          try { await createDoc('chat_ai_assistant', { role:'ai', text: lst.intro + (lst.next ? '\n💡 กดปุ่มด้านล่างเพื่อนัดทั้งกลุ่มในครั้งเดียว' : ''), next: lst.next ? [lst.next] : [], cmd: lst.cmds.length > 0, time:now(), uid }) } catch (e) {}
           waiting = false
           await loadData()
           return
