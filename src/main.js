@@ -5,7 +5,7 @@ import './styles/polish.css'
 
 import { initAuth, logout } from './core/auth.js'
 import { initRouter, navigate } from './core/router.js'
-import { getState, on } from './core/store.js'
+import { getState, setState, on } from './core/store.js'
 import { applyMode, applyUi, loadUi, clearOldTheme } from './utils/appearance.js'
 import { seedDemoData } from './core/db.js'
 import { loadMasterData } from './data/masterData.js'
@@ -31,6 +31,7 @@ import { initThaiTitles } from './utils/thaiTitle.js'
 import { breadcrumbFor } from './utils/breadcrumb.js'
 import { NAV } from './data/navMenu.js'
 import { initFocusGuard } from './utils/keepFocus.js'
+import { initMultiWindow } from './utils/multiWindow.js'
 
 initStaleChunkReload()
 
@@ -163,6 +164,9 @@ on('user', (user) => {
     initRouter(app)
   }
 })
+
+// หลายหน้าต่างพร้อมกัน: ชื่อหน้าต่างตามหน้า + มืด/สว่าง/ภาษา/หน้าตา ตามกันทุกหน้าต่าง (utils/multiWindow.js)
+initMultiWindow({ getState, setState, on, applyMode, applyUi, loadUi })
 
 // พิมพ์ต่อเนื่องได้เสมอ: ถ้าหน้าวาดช่องที่กำลังพิมพ์ใหม่ เคอร์เซอร์จะกลับไปที่ช่องเดิมเอง
 initFocusGuard()

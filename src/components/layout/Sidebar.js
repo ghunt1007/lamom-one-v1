@@ -1,4 +1,5 @@
 import { isNarrowLayout } from '../../utils/phoneLayout.js'
+import { canUseWindows, wantsNewWindow, openInNewWindow } from '../../utils/multiWindow.js'
 import { getState, on, toggleSidebar } from '../../core/store.js'
 import { menuMatches } from '../../utils/menuSearch.js'
 import { isMergedPath } from '../../utils/linkedViews.js'
@@ -169,7 +170,15 @@ export function Sidebar(container) {
     })
 
     el.querySelectorAll('.nav-item[data-path]').forEach(item => {
-      item.addEventListener('click', () => navigate(item.dataset.path))
+      // Ctrl/Shift+คลิก หรือคลิกปุ่มกลาง = เปิดหน้านั้นในหน้าต่างใหม่ (utils/multiWindow.js)
+      item.addEventListener('click', (e) => {
+        if (wantsNewWindow(e) && canUseWindows()) { e.preventDefault(); openInNewWindow(item.dataset.path); return }
+        navigate(item.dataset.path)
+      })
+      item.addEventListener('auxclick', (e) => {
+        if (e.button === 1 && canUseWindows()) { e.preventDefault(); openInNewWindow(item.dataset.path) }
+      })
+      item.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault() }) // กันลูกศรเลื่อนหน้าของปุ่มกลาง
     })
     el.querySelector('#nav-mode')?.addEventListener('click', () => {
       writeNavMode(readNavMode() === 'simple' ? 'all' : 'simple')
