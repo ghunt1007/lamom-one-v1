@@ -638,6 +638,8 @@
 
 /* ตารางในคำตอบ LAMI: เลื่อนข้างได้ในกรอบ ไม่ดันจอ */
 .ai-tbl { overflow-x: auto; margin: 6px 0; max-width: 100%; }
+/* (v1.0.1081) รายการในคำตอบ LAMI: บรรทัดที่ล้นเยื้องตรงกับข้อความ ไม่ชิดใต้จุด */
+.ai-li { display: inline-block; padding-left: 0.9em; text-indent: -0.9em; }
 .ai-tbl table { border-collapse: collapse; font-size: 0.8rem; min-width: 100%; }
 .ai-tbl th, .ai-tbl td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
 .ai-tbl th { color: var(--text-muted); font-weight: 600; font-size: 0.74rem; }

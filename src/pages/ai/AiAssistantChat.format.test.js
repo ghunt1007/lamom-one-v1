@@ -12,7 +12,7 @@ const { formatAiText } = await import('./AiAssistantChat.js')
 
 describe('formatAiText', () => {
   it('bolds, bullets and line breaks', () => {
-    expect(formatAiText('**โทรหา** สมชาย\n* ข้อ 1')).toBe('<b>โทรหา</b> สมชาย<br>• ข้อ 1')
+    expect(formatAiText('**โทรหา** สมชาย\n* ข้อ 1')).toBe('<b>โทรหา</b> สมชาย<br><span class="ai-li">• ข้อ 1</span>')
   })
   it('never lets HTML from AI through', () => {
     expect(formatAiText('<img src=x onerror=alert(1)>')).not.toContain('<img')
@@ -44,5 +44,18 @@ describe('formatAiText tables', () => {
   })
   it('headings become bold', () => {
     expect(formatAiText('### หัวข้อ\nข้อความ')).toBe('<b>หัวข้อ</b><br>ข้อความ')
+  })
+})
+
+describe('formatAiText headings', () => {
+  it('bolds an emoji title line and short emoji section heads after a blank line', () => {
+    const h = formatAiText('📉 เดือนนี้เสียดีล 2 ราย\n\n❓ เหตุผล\n• ราคา 1 ราย\n🔴 Hot 0 · จองแล้ว 1')
+    expect(h).toContain('<b>📉 เดือนนี้เสียดีล 2 ราย</b>')
+    expect(h).toContain('<b>❓ เหตุผล</b>')
+    expect(h).toContain('<span class="ai-li">• ราคา 1 ราย</span>')
+    expect(h).toContain('<br>🔴 Hot 0')
+  })
+  it('leaves plain sentences alone', () => {
+    expect(formatAiText('สวัสดีค่ะ\nวันนี้มีงาน 3 อย่าง')).toBe('สวัสดีค่ะ<br>วันนี้มีงาน 3 อย่าง')
   })
 })
