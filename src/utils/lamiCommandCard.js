@@ -241,6 +241,23 @@ export async function loadPayAnswer(q) {
   return { text: pq.payAnswer(spec), copy: pq.payCustomerText(spec), next: pq.payFollowUps(spec), go: { path: '/finance/loan-calc?' + pq.loanCalcQuery(spec), label: '🧮 เทียบไฟแนนซ์ด้วยเงื่อนไขนี้' } }
 }
 
+// (v1.0.1073) "ใบเสนอราคาค้างอยู่กี่ใบ / ใบไหนใกล้หมดอายุ" → null ถ้าไม่ใช่ · คืน { text, next, go } · ขอบเขตเดียวกับหน้าใบเสนอราคา
+export async function loadQuoteAnswer(q) {
+  const qq = await import('./quoteQuestions.js')
+  const spec = qq.parseQuoteSpec(q)
+  if (!spec) return null
+  const [{ listDocs }, { companyScopeFilters }, { getVisibilityScope, scopeIncludesRecord }, { todayBangkok }] = await Promise.all([
+    import('../core/db.js'), import('../core/companyScope.js'), import('../core/hierarchy.js'), import('./format.js')])
+  const [all, vis] = await Promise.all([
+    listDocs('quotations', companyScopeFilters(), 'createdDate', 'desc', 500).catch(() => []),
+    getVisibilityScope().catch(() => null),
+  ])
+  if (!vis) return null
+  const st = qq.quoteStats({ quotes: all.filter(r => !r.deleted && scopeIncludesRecord(vis, r.salesperson, r)), today: todayBangkok() })
+  const status = qq.quotePageQuery(st, spec)
+  return { text: qq.quoteBriefText(st, spec), next: qq.quoteFollowUps(st, spec), go: { path: '/crm/quotation' + (status ? '?status=' + status : ''), label: '📄 เปิดหน้าใบเสนอราคา' } }
+}
+
 // (v1.0.1070) "รถไฟฟ้าไม่เกิน 1 ล้าน / SUV 7 ที่นั่ง งบ 1.2 ล้าน" → null ถ้าไม่ใช่ · คืน { text, next, go, copy }
 export async function loadCarPick(q) {
   const cp = await import('./carPick.js')

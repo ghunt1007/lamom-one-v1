@@ -92,6 +92,8 @@ export default async function QuotationBuilderPage(container) {
 
   let quotes = []
   let statusFilter = 'all'
+  // (v1.0.1073) ?status=sent → เปิดหน้ามาพร้อมตัวกรองสถานะ (ลิงก์จาก LAMI)
+  try { const st = new URLSearchParams(location.search).get('status'); if (st && QT_STATUS[st]) statusFilter = st } catch (e) { /* ใช้ค่าเริ่มต้น */ }
   let loading = true
   // เซลส์เห็นเฉพาะใบเสนอราคาของตัวเอง/ลูกทีม (หรือที่ตัวเองสร้าง) — ผู้บริหาร/เจ้าของเห็นทั้งหมด
   const visScope = await getVisibilityScope()
@@ -107,6 +109,22 @@ export default async function QuotationBuilderPage(container) {
   function filtered() {
     return quotes.filter(q => statusFilter === 'all' || q.status === statusFilter)
       .sort((a, b) => String(b.createdDate || '').localeCompare(String(a.createdDate || '')))
+  }
+
+  // (v1.0.1073) บรรทัดเตือนใต้วันหมดอายุ: หมดแล้ว / เหลือกี่วัน / ส่งไปกี่วัน / ยอมรับแล้วรอทำใบจอง
+  function quoteHint(q, isExpired) {
+    const today = addDays(0)
+    const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000)
+    let t = ''
+    if (q.status === 'accepted' && !q.bookingId) t = '<span style="color:var(--success)">✅ รอทำใบจอง</span>'
+    else if (!['draft', 'sent'].includes(q.status)) return ''
+    else if (isExpired) t = '<span style="color:var(--danger)">⌛ หมดอายุแล้ว</span>'
+    else {
+      const left = /^\d{4}-\d{2}-\d{2}/.test(q.validUntil || '') ? days(today, String(q.validUntil).slice(0, 10)) : null
+      if (left != null && left <= 7) t = `<span style="color:var(--warning)">⏳ ${left === 0 ? 'หมดวันนี้' : 'เหลือ ' + left + ' วัน'}</span>`
+      else if (q.status === 'sent' && /^\d{4}-\d{2}-\d{2}/.test(q.sentDate || '')) { const d = days(String(q.sentDate).slice(0, 10), today); if (d > 0) t = `<span style="color:var(--text-muted)">📞 ส่งไป ${d} วัน</span>` }
+    }
+    return t ? `<div style="font-size:0.7rem;margin-top:2px">${t}</div>` : ''
   }
 
   function renderPage() {
@@ -139,7 +157,7 @@ export default async function QuotationBuilderPage(container) {
         </div>` : ''}
         <!-- ยังไม่มีใบเสนอราคาเลย: ซ่อนตัวเลข 0 / ปุ่มกรอง / ตารางว่าง ให้เหลือการ์ดชวนสร้างใบแรกอย่างเดียว -->
         <div ${quotes.length ? '' : 'hidden'}>
-        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));margin-bottom:16px">
           ${kpi('📄 ทั้งหมด', quotes.length, 'primary')}
           ${kpi('✅ ยอมรับ', quotes.filter(q=>q.status==='accepted').length, 'success')}
           ${kpi('💰 มูลค่ายอมรับ', formatCurrency(totalValue), 'success')}
@@ -147,22 +165,22 @@ export default async function QuotationBuilderPage(container) {
         </div>
 
         <div class="chip-scroll" style="overflow-x:auto;display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap">
-          <button class="btn btn-sm ${statusFilter==='all'?'btn-primary':'btn-secondary'} sf-btn" data-s="all">ทั้งหมด</button>
-          ${Object.entries(QT_STATUS).map(([k,v]) => `<button class="btn btn-sm ${statusFilter===k?'btn-'+v.color:'btn-secondary'} sf-btn" data-s="${k}">${v.label}</button>`).join('')}
+          <button class="btn btn-sm ${statusFilter==='all'?'btn-primary':'btn-secondary'} sf-btn" data-s="all">ทั้งหมด (${quotes.length})</button>
+          ${Object.entries(QT_STATUS).map(([k,v]) => { const n = quotes.filter(q => q.status === k).length; return n || statusFilter === k ? `<button class="btn btn-sm ${statusFilter===k?'btn-primary':'btn-secondary'} sf-btn" data-s="${k}">${v.label} (${n})</button>` : '' }).join('')}
         </div>
 
         <div class="card" style="padding:0;overflow:hidden">
           <div class="table-wrap"><table class="table">
-            <thead><tr><th>เลขที่</th><th>ลูกค้า</th><th>รถ</th><th class="text-right">ราคาสุทธิ</th><th class="text-right">ดาวน์</th><th class="text-right">ผ่อน/เดือน</th><th>วันหมดอายุ</th><th>สถานะ</th><th></th></tr></thead>
+            <thead><tr><th>วันที่</th><th>ลูกค้า</th><th>รถ</th><th class="text-right">ราคาสุทธิ</th><th class="text-right">ดาวน์</th><th class="text-right">ผ่อน/เดือน</th><th>วันหมดอายุ</th><th>สถานะ</th><th></th></tr></thead>
             <tbody>
               ${list.map(q => {
                 const st = QT_STATUS[q.status]
                 const isExpired = q.validUntil < addDays(0) && !['accepted','rejected'].includes(q.status)
                 return `<tr>
-                  <td style="font-family:monospace;font-weight:700;font-size:0.8rem">${escHtml(q.id)}</td>
+                  <td style="font-size:0.8rem;white-space:nowrap" title="${escHtml(q.id)}">${formatDate(q.createdDate)}</td>
                   <td>
                     <div style="font-weight:600;font-size:0.85rem">${escHtml(q.customerName)}${q.customerId ? ' <span title="ลิงค์กับข้อมูลลูกค้า" style="font-size:0.7rem">🔗</span>' : ''}</div>
-                    <div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(q.phone)}</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted)">${callLink(q.phone, q.customerName)}</div>
                   </td>
                   <td>
                     <div style="font-size:0.85rem">${escHtml(q.vehicleLabel)}</div>
@@ -171,7 +189,7 @@ export default async function QuotationBuilderPage(container) {
                   <td class="text-right" style="font-weight:700;color:var(--success)">${formatCurrency(q.finalPrice)}</td>
                   <td class="text-right" style="font-size:0.82rem">${formatCurrency(q.downPayment)}</td>
                   <td class="text-right" style="font-size:0.82rem">${formatCurrency(q.monthlyPayment)}</td>
-                  <td style="font-size:0.82rem;color:${isExpired?'var(--danger)':'inherit'}">${formatDate(q.validUntil)}</td>
+                  <td style="font-size:0.82rem;color:${isExpired?'var(--danger)':'inherit'}">${formatDate(q.validUntil)}${quoteHint(q, isExpired)}</td>
                   <td><span class="badge badge-${st?.color}">${st?.label}</span></td>
                   <td>
                     <div style="display:flex;gap:4px">
@@ -240,7 +258,7 @@ export default async function QuotationBuilderPage(container) {
   async function markSent(q) {
     const copied = await copyText(quoteText(q, normalizeAccessories(q.accessories)), '', '')
     try {
-      if (q.status === 'draft') await updateDocData('quotations', q.id, { status: 'sent' })
+      if (q.status === 'draft') await updateDocData('quotations', q.id, { status: 'sent', sentDate: todayBangkok() })
       const fu = q.status === 'draft' ? await scheduleQuoteFollowup(q) : null
       showToast(`${copied ? '📋 คัดลอกใบเสนอราคาแล้ว วางใน LINE ส่งลูกค้าได้เลย' : '📤 บันทึกว่าส่งแล้ว (คัดลอกไม่สำเร็จ กดเปิดใบเสนอราคาเพื่อคัดลอกเอง)'}${fu ? ' · นัดโทรถามผลอีก 2 วัน' : ''}`, copied ? 'success' : 'warning')
       await loadData()
