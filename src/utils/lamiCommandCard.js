@@ -223,8 +223,8 @@ export async function loadMonthBrief(q) {
   const scopeLabel = seller ? `👤 ${seller}` : whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ'
   if (per) return { text: mb.periodBriefText(mb.periodStats({ bookings, today, period: per.period, prev: per.prev }), { scope: scopeLabel, colors: mb.isColorRankQuestion(q) }), next: ['ยอดเดือนนี้เป็นไง', per.period === 'year' ? 'ยอดไตรมาสนี้' : 'ปีนี้ขายได้กี่คัน', 'รถรุ่นไหนขายดีสุดเดือนนี้'] }
   const st = mb.monthStats({ bookings, today, target })
-  if (past) return { text: mb.monthBriefText(st, { scope: scopeLabel, past: true, models: mb.isModelRankQuestion(q), colors: mb.isColorRankQuestion(q) }), next: ['ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนก่อนเท่าไหร่', 'ลูกค้าเสียดีลเดือนก่อนมีใครบ้าง'] }
-  return { text: mb.monthBriefText(st, { scope: scopeLabel, models: mb.isModelRankQuestion(q), colors: mb.isColorRankQuestion(q) }), next: mb.monthFollowUps(st) }
+  if (past) return { text: mb.monthBriefText(st, { scope: scopeLabel, past: true, models: mb.isModelRankQuestion(q), colors: mb.isColorRankQuestion(q), value: mb.isValueQuestion(q) }), next: ['ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนก่อนเท่าไหร่', 'ลูกค้าเสียดีลเดือนก่อนมีใครบ้าง'] }
+  return { text: mb.monthBriefText(st, { scope: scopeLabel, models: mb.isModelRankQuestion(q), colors: mb.isColorRankQuestion(q), value: mb.isValueQuestion(q) }), next: mb.monthFollowUps(st) }
 }
 
 // (v1.0.1058) "ค่าคอมเดือนนี้เท่าไหร่ / รายได้เดือนก่อน" → null ถ้าไม่ใช่ · คืน { text, next, go } · ขอบเขตเดียวกับหน้ารายได้รายเซลส์

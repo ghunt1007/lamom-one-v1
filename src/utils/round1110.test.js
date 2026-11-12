@@ -438,3 +438,18 @@ describe('v1.0.1119 approvals queue + staff count', async () => {
     expect(r.text).toContain('ก (01/10/')
   })
 })
+
+describe('v1.0.1119 month value', async () => {
+  const mb = await import('./monthBrief.js')
+  it('sums price of delivered bookings, flags missing prices', () => {
+    const bks = [{ bookingDate: '2026-11-01', deliveryDate: '2026-11-05', actualDeliveryDate: '2026-11-05', status: 'ส่งมอบแล้ว', price: 900000 },
+      { bookingDate: '2026-10-01', deliveryDate: '2026-11-06', actualDeliveryDate: '2026-11-06', status: 'ส่งมอบแล้ว' },
+      { bookingDate: '2026-11-03', status: 'รอรถ', price: 1000000 }]
+    const st = mb.monthStats({ bookings: bks, today: '2026-11-12' })
+    const t = mb.monthBriefText(st, { value: true })
+    expect(mb.isValueQuestion('ยอดขายรวมเป็นเงินเดือนนี้')).toBe(true)
+    expect(t).toContain('💵 มูลค่ารถที่ส่งมอบเดือนนี้')
+    expect(st.deliveredNoPrice + (st.deliveredValue > 0 ? 1 : 0)).toBe(st.delivered)
+    expect(t).toContain('฿1,900,000')
+  })
+})
