@@ -7,6 +7,8 @@ import { t, LANGUAGES } from '../../i18n/index.js'
 import { NAV } from '../../data/navMenu.js'
 import { breadcrumbFor } from '../../utils/breadcrumb.js'
 import { escHtml } from '../../utils/escape.js'
+import { canUseWindows, openWindowMenu } from '../../utils/multiWindow.js'
+import { getModuleForPath, hasModuleAccess } from '../../core/permissions.js'
 
 export async function refreshUnreadCount() {
   try {
@@ -49,6 +51,7 @@ export function Topbar(container) {
           <button class="topbar-btn topbar-search-btn" id="mobile-search-btn" title="ค้นหา / ถาม LAMI">🔍</button>
           ${getState('companies').length > 1 ? `<button class="topbar-btn" id="company-filter-btn" title="${t('filterCompany')}">🏢</button>` : ''}
           <button class="topbar-btn" id="quick-lead-btn" title="เพิ่ม Lead ด่วน" style="width:auto;padding:0 10px;font-size:0.78rem;font-weight:700;white-space:nowrap">🧲 + Lead</button>
+          ${canUseWindows() ? '<button class="topbar-btn topbar-win-btn" id="win-btn" title="เปิดหลายหน้าต่าง — หน้านี้หรือหน้าอื่นในหน้าต่างใหม่ (ลากไปอีกจอได้)" aria-label="เปิดหน้าต่างใหม่">🗗</button>' : ''}
           <button class="topbar-btn" id="lang-btn" title="${t('selectLanguage')}">${curLangInfo.flag}</button>
           <button class="topbar-btn" id="theme-btn" title="${t('changeTheme')}">🎨</button>
           <button class="topbar-btn" id="notif-btn" title="${t('notifications')}">
@@ -89,6 +92,12 @@ export function Topbar(container) {
       import('../../utils/lamiPanel.js').then(m => m.openLamiPanel({ navigate }))
     })
     document.getElementById('quick-lead-btn')?.addEventListener('click', () => import('../../utils/quickLead.js').then(m => m.openQuickLead()))
+    // 🗗 เปิดหน้าต่างใหม่ (utils/multiWindow.js) — เมนูแสดงเฉพาะหน้าที่ผู้ใช้มีสิทธิ์เปิด
+    document.getElementById('win-btn')?.addEventListener('click', (e) => {
+      if (document.getElementById('win-menu')) { document.getElementById('win-menu').remove(); return }
+      const u = getState('user') || {}
+      openWindowMenu(e.currentTarget, { canOpen: p => hasModuleAccess(u.role, getModuleForPath(p)?.key, u.extraGrants) })
+    })
   }
 
   render()
