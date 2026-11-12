@@ -198,10 +198,13 @@ export async function loadMonthBrief(q) {
   ])
   if (!vis) return null
   const whole = !!(vis.unrestricted || vis.companyOnly)
-  const bookings = all.filter(b => !b.deleted && scopeIncludesRecord(vis, b.salesName, b))
-  const target = Object.entries(tdoc?.targets || {}).reduce((s, [n, v]) => s + (whole || vis.names?.has(normName(n)) ? Number(v) || 0 : 0), 0)
+  let bookings = all.filter(b => !b.deleted && scopeIncludesRecord(vis, b.salesName, b))
+  // (v1.0.1088) ถามยอดของเซลส์รายคน (เฉพาะคนที่ผู้ถามมองเห็นอยู่แล้ว)
+  const seller = mb.findSeller(q, bookings.map(b => b.salesName))
+  if (seller) bookings = bookings.filter(b => normName(b.salesName) === normName(seller))
+  const target = Object.entries(tdoc?.targets || {}).reduce((s, [n, v]) => s + ((seller ? normName(n) === normName(seller) : whole || vis.names?.has(normName(n))) ? Number(v) || 0 : 0), 0)
   const st = mb.monthStats({ bookings, today, target })
-  const scopeLabel = whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ'
+  const scopeLabel = seller ? `👤 ${seller}` : whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ'
   if (past) return { text: mb.monthBriefText(st, { scope: scopeLabel, past: true }), next: ['ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนก่อนเท่าไหร่', 'ลูกค้าเสียดีลเดือนก่อนมีใครบ้าง'] }
   return { text: mb.monthBriefText(st, { scope: scopeLabel }), next: mb.monthFollowUps(st) }
 }

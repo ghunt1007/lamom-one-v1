@@ -95,3 +95,14 @@ describe('previous month (v1.0.1086)', () => {
     expect(t).toContain('ทำได้')
   })
 })
+
+describe('findSeller (v1.0.1088)', () => {
+  it('matches full names ignoring spaces, unique first names only', async () => {
+    const { findSeller } = await import('./monthBrief.js')
+    const N = ['เซลส์ หนึ่ง', 'เซลส์ สอง', 'สมชาย ใจดี', 'สมหญิง ใจดี']
+    expect(findSeller('ใบจองเดือนนี้ของเซลส์หนึ่ง', N)).toBe('เซลส์ หนึ่ง')
+    expect(findSeller('สมชายขายได้กี่คันเดือนนี้', N)).toBe('สมชาย ใจดี')
+    expect(findSeller('ยอดของเซลส์เดือนนี้', N)).toBe('')
+    expect(findSeller('ยอดเดือนนี้เป็นไง', N)).toBe('')
+  })
+})
