@@ -411,3 +411,45 @@ describe('v1.0.1118 recall + service ranking', async () => {
     expect(oq.serviceTopAnswer(jobs, { today: '2026-11-12', by: 'tech' }).text).toContain('1. ช่าง1 — ค้างอยู่ 1 งาน · เปิดเดือนนี้ 1 งาน')
   })
 })
+
+describe('v1.0.1119 approvals queue + staff count', async () => {
+  const oq = await import('./opsQuestions.js')
+  const mb = await import('./monthBrief.js')
+  it('parses', () => {
+    expect(oq.parseOpsSpec('ใบเบิกที่รออนุมัติ')).toEqual({ kind: 'approvals', only: 'money' })
+    expect(oq.parseOpsSpec('มีอะไรรออนุมัติ')).toEqual({ kind: 'approvals', only: '' })
+    expect(oq.parseOpsSpec('ลูกค้าที่รออนุมัติไฟแนนซ์')).toBe(null)
+    expect(oq.parseOpsSpec('พนักงานทั้งหมดกี่คน')).toEqual({ kind: 'staffcount' })
+    expect(oq.parseOpsSpec('ใครลาวันนี้').kind).toBe('leave')
+    expect(mb.isMonthQuestion('ภาษีขายเดือนนี้เท่าไหร่')).toBe(false)
+  })
+  it('approvals lists pending leave and money', () => {
+    const r = oq.approvalsAnswer({ leaves: [{ staff: 'ก', type: 'sick', from: '2026-11-13', status: 'pending' }, { staff: 'ข', status: 'approved', from: '2026-11-13' }],
+      claims: [{ staffName: 'ค', desc: 'ค่าน้ำมัน', amount: 500, status: 'pending', date: '2026-11-10' }], expenses: [{ submittedBy: 'ง', title: 'ป้ายโฆษณา', amount: 3000, status: 'pending' }],
+      petty: [{ by: 'จ', type: 'out', amount: 200, status: 'pending' }, { type: 'in', amount: 9000, status: 'pending' }] })
+    expect(r.n).toBe(4)
+    expect(r.text).toContain('ใบเบิก 3 รายการ รวม ฿3,700')
+    expect(oq.approvalsAnswer({ only: 'leave' }).text).toContain('ไม่มีใบลารออนุมัติ')
+  })
+  it('staff count and new hires', () => {
+    const r = oq.staffCountAnswer([{ firstName: 'ก', position: 'เซลส์', startDate: '2026-10-01' }, { firstName: 'ข', position: 'เซลส์', startDate: '2024-01-01' }, { firstName: 'ค', status: 'inactive' }], { today: '2026-11-12' })
+    expect(r.text).toContain('ทำงานอยู่ 2 คน')
+    expect(r.text).toContain('เซลส์ 2')
+    expect(r.text).toContain('ก (01/10/')
+  })
+})
+
+describe('v1.0.1119 month value', async () => {
+  const mb = await import('./monthBrief.js')
+  it('sums price of delivered bookings, flags missing prices', () => {
+    const bks = [{ bookingDate: '2026-11-01', deliveryDate: '2026-11-05', actualDeliveryDate: '2026-11-05', status: 'ส่งมอบแล้ว', price: 900000 },
+      { bookingDate: '2026-10-01', deliveryDate: '2026-11-06', actualDeliveryDate: '2026-11-06', status: 'ส่งมอบแล้ว' },
+      { bookingDate: '2026-11-03', status: 'รอรถ', price: 1000000 }]
+    const st = mb.monthStats({ bookings: bks, today: '2026-11-12' })
+    const t = mb.monthBriefText(st, { value: true })
+    expect(mb.isValueQuestion('ยอดขายรวมเป็นเงินเดือนนี้')).toBe(true)
+    expect(t).toContain('💵 มูลค่ารถที่ส่งมอบเดือนนี้')
+    expect(st.deliveredNoPrice + (st.deliveredValue > 0 ? 1 : 0)).toBe(st.delivered)
+    expect(t).toContain('฿1,900,000')
+  })
+})
