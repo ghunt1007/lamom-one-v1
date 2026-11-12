@@ -1,6 +1,6 @@
 // (v1.0.1051) "ยอดเดือนนี้เป็นไง" / "ถึงเป้าหรือยัง" / "เดือนนี้ขายได้กี่คัน" / "ใครขายดีสุด" → LAMI สรุปยอดเดือนนี้จากใบจองจริงทันที (ไม่ต้องรอ AI)
 // ใช้สูตรเดียวกับหน้าภาพรวม (dashStats) ตัวเลขจึงตรงกัน · เทียบช่วงเดียวกันของเดือนก่อน · ฟังก์ชันล้วน ทดสอบได้
-import { rangeStats, shiftYm, periodLabel, openBookings, salesBoard, statRows } from './dashStats.js'
+import { rangeStats, shiftYm, periodLabel, openBookings, salesBoard, statRows, periodMonths, prevPeriodAnchor } from './dashStats.js'
 import { carOf } from './carLabel.js'
 
 // (v1.0.1090) "รถรุ่นไหนขายดีสุดเดือนนี้" → เพิ่มอันดับรุ่นรถในสรุปยอด
@@ -18,7 +18,7 @@ const FIN = ['รอผลไฟแนนซ์', 'จัดไฟแนนซ�
 export function isMonthQuestion(q) {
   const s = String(q || '').trim().replace(/[?？]+$/, '').trim()
   if (!s || s.length > 60) return false
-  if (/โทร|นัด|ดาวน์|ผ่อน|ราคา|ดอกเบี้ย|คงค้าง|วันนี้|พรุ่งนี้|ปีนี้|ไตรมาส|เดือน(?:ก่อน|ที่แล้ว|หน้า)|ทำไม|(?<!เป็น)ยังไง|อย่างไร|เพราะ|ค่าคอม|รายได้|กำไร|ค่าใช้จ่าย|สต็อก|สต๊อก/.test(s)) return false
+  if (/โทร|นัด|ดาวน์|ผ่อน|ราคา|ดอกเบี้ย|คงค้าง|วันนี้|พรุ่งนี้|ปีนี้|ไตรมาส|เดือน(?:ก่อน|ที่แล้ว|หน้า)|ทำไม|(?<!เป็น)ยังไง|อย่างไร|เพราะ|ค่าคอม|รายได้|กำไร|ค่าใช้จ่าย|สต็อก|สต๊อก|ถอน|ไฟแนนซ์/.test(s)) return false
   if (/ใครขายดี|ใครขายเก่ง|(?:คนไหน|ใคร)\s*ขาย(?:ดี|เก่ง|เยอะ|ได้มาก)|ขายดีสุด|ขายดีที่สุด|อันดับ\s*(?:เซลส์|ยอด|การขาย)|ยอดใคร(?:สูง|ดี|เยอะ)/.test(s)) return true
   if (/ใครบ้าง|มีใคร|คนไหน|รายชื่อ|^ใคร/.test(s)) return false
   if (/เดือนนี้/.test(s) && /ยอด|ขาย|ส่งมอบ|จอง|เป้า|สรุป/.test(s)) return true
@@ -111,4 +111,45 @@ export function monthFollowUps(s) {
     s.open ? 'ใบจองไหนค้างนานสุด' : '',
     'ลูกค้า hot มีใครบ้าง',
   ].filter(Boolean)
+}
+
+// (v1.0.1091) "ปีนี้ขายได้กี่คัน" / "ยอดไตรมาสนี้" / "สรุปยอดปีที่แล้ว" → สรุปทั้งช่วง + รายเดือน + อันดับเซลส์/รุ่น
+export function periodSpec(q) {
+  const s = String(q || '').trim().replace(/[?？]+$/, '').trim()
+  if (!s || s.length > 60) return null
+  if (!/ยอด|ขาย|ส่งมอบ|จอง|สรุป|กี่คัน|เป้า/.test(s) || /โทร|นัด|ค่าคอม|รายได้|กำไร|ค่าใช้จ่าย|ภาษี|ผ่อน|ดาวน์/.test(s)) return null
+  const period = /ไตรมาส|quarter|\bQ[1-4]\b/i.test(s) ? 'quarter' : /ปี(?:นี้|ที่แล้ว|ก่อน|\s*25\d\d|\s*20\d\d)/.test(s) ? 'year' : null
+  if (!period) return null
+  return { period, prev: new RegExp((period === 'year' ? 'ปี' : 'ไตรมาส') + '\\s*(?:ที่แล้ว|ก่อน)').test(s) }
+}
+
+const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+export function periodStats({ bookings = [], today, period, prev = false }) {
+  const rows = bookings.filter(b => b && !b.deleted)
+  const ym = today.slice(0, 7)
+  const anchor = prev ? prevPeriodAnchor(ym, period) : ym
+  const months = periodMonths(anchor, period).filter(m => m <= ym)
+  const before = periodMonths(prevPeriodAnchor(anchor, period), period)
+  const cur = rangeStats(rows, months), old = rangeStats(rows, before)
+  return {
+    label: periodLabel(anchor, period), prevLabel: periodLabel(prevPeriodAnchor(anchor, period), period), partial: !prev,
+    delivered: cur.delivered, booked: cur.booked, withdrawn: cur.withdrawn, prevDelivered: old.delivered, prevBooked: old.booked,
+    perMonth: months.map(m => ({ m, ...rangeStats(rows, [m]) })),
+    board: salesBoard(rows, months).filter(r => r.delivered || r.booked).slice(0, 3),
+    models: modelBoard(rows, months).slice(0, 3),
+  }
+}
+export function periodBriefText(s, { scope = '' } = {}) {
+  const lines = [`📊 ยอด${s.label}${scope ? ` — ${scope}` : ''}${s.partial ? ' (ถึงวันนี้)' : ''}`,
+    `🚗 ส่งมอบ ${s.delivered} คัน · ${s.prevLabel} ${s.prevDelivered} คัน${s.partial ? '' : ` (${diff(s.delivered, s.prevDelivered)})`}`,
+    `📝 จองใหม่ ${s.booked} ใบ${s.withdrawn ? ` · ถอน ${s.withdrawn} ใบ` : ''} · ${s.prevLabel} ${s.prevBooked} ใบ`]
+  const shown = s.perMonth.filter(r => r.delivered || r.booked)
+  if (shown.length) lines.push('📅 รายเดือน', ...shown.map(r => `• ${TH_M[+r.m.slice(5, 7) - 1]} — ส่งมอบ ${r.delivered} · จอง ${r.booked}`))
+  if (s.board.length) lines.push('🏆 เซลส์', ...s.board.map((r, i) => `${i + 1}. ${r.name} — ส่งมอบ ${r.delivered} · จอง ${r.booked}`))
+  if (s.models.length) lines.push('🚘 รุ่นขายดี', ...s.models.map((r, i) => `${i + 1}. ${r.name} — จอง ${r.booked} · ส่งมอบ ${r.delivered}`))
+  if (s.partial && s.perMonth.length > 1) {
+    const done = s.perMonth.slice(0, -1), avg = done.reduce((a, r) => a + r.delivered, 0) / done.length
+    lines.push(`💡 เฉลี่ยส่งมอบเดือนละ ${Math.round(avg * 10) / 10} คัน${s.perMonth.at(-1).delivered < avg ? ' — เดือนนี้ยังต่ำกว่าค่าเฉลี่ย เร่งรถที่พร้อมส่ง' : ''}`)
+  }
+  return lines.join('\n')
 }

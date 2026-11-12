@@ -9,7 +9,7 @@ export const BK_LIST_MAX = 10
 const DAY = 86400e3
 const dayNum = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / DAY
 const isDate = d => /^\d{4}-\d{2}-\d{2}/.test(d || '')
-const ASK = /ใครบ้าง|มีใคร|คนไหน|กี่คน|กี่ราย|กี่ใบ|กี่คัน|รายชื่อ|ขอดู|^ใคร|ใบไหน|ใบจองไหน|คันไหน|ของใคร|รถใคร|^มี.{2,60}(?:ไหม|มั้ย|หรือเปล่า|รึเปล่า|หรือยัง)(?:ครับ|คะ|ค่ะ)?$/
+const ASK = /ใครบ้าง|มีใคร|คนไหน|กี่คน|กี่ราย|กี่ใบ|กี่คัน|รายชื่อ|ขอดู|^ใคร|ใบไหน|ใบจองไหน|คันไหน|ของใคร|รถใคร|^ใบจอง(?:ที่)?|^มี.{2,60}(?:ไหม|มั้ย|หรือเปล่า|รึเปล่า|หรือยัง)(?:ครับ|คะ|ค่ะ)?$/
 const FIN = ['รอผลไฟแนนซ์', 'จัดไฟแนนซ์ก่อนจอง']
 const WAIT_DELIV = ['รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
 
@@ -19,8 +19,8 @@ export function parseBookingListSpec(q) {
   if (/ทุกคน|ทั้งหมด|ยอด|เป้า|เซลส์|พนักงาน|ทีม|ยังไง|อย่างไร|ทำไม|เพราะ|ลองขับ/.test(s)) return null
   const noDate = /ไม่(?:ได้|มี)?\s*นัด\s*(?:วัน)?\s*(?:ส่งมอบ|ส่งรถ|รับรถ)|ส่งมอบ.*ยังไม่(?:ได้|มี)?\s*นัด/.test(s)
   const when = !noDate && /ส่งมอบ|ส่งรถ|รับรถ/.test(s) ? (/พรุ่งนี้/.test(s) ? 'tomorrow' : /วันนี้/.test(s) ? 'today' : /สัปดาห์นี้|อาทิตย์นี้|7\s*วัน/.test(s) ? 'week' : null) : null
-  const stuck = /ค้างนาน|ค้างเกิน|นานสุด|นานที่สุด|ค้างสถานะ/.test(s) && /จอง|ใบ/.test(s)
-  const sd = s.match(/ค้างเกิน\s*(\d{1,3})\s*วัน/)
+  const stuck = /ค้างนาน|ค้างเกิน|นานเกิน|นานสุด|นานที่สุด|ค้างสถานะ|เกิน\s*\d{1,3}\s*วัน/.test(s) && /จอง|ใบ|ไฟแนนซ์|รอรถ|รอส่งมอบ/.test(s)
+  const sd = s.match(/(?:ค้าง|นาน)?เกิน\s*(\d{1,3})\s*วัน/)
   const statuses = noDate ? WAIT_DELIV
     : /รอ(?:ผล)?\s*ไฟแนนซ์|ไฟแนนซ์(?:ยัง)?ไม่ผ่าน|ติดไฟแนนซ์/.test(s) ? FIN
     : /รอรถ/.test(s) ? ['รอรถ']
@@ -41,7 +41,7 @@ export function bookingListLabel(spec) {
   if (spec.noDeposit) return 'ใบจองที่ยังไม่มียอดมัดจำ'
   if (spec.noDate) return 'รถพร้อมส่งที่ยังไม่นัดวันส่งมอบ'
   if (spec.when) return `นัดส่งมอบ${{ today: 'วันนี้', tomorrow: 'พรุ่งนี้', week: 'ใน 7 วันนี้' }[spec.when]}`
-  if (spec.stuck) return `ใบจองที่ค้างเกิน ${spec.stuckDays} วัน`
+  if (spec.stuck) return `ใบจอง${spec.statuses ? 'สถานะ ' + (spec.statuses[0] === 'รอผลไฟแนนซ์' ? 'รอไฟแนนซ์' : spec.statuses[0]) + ' ' : 'ที่'}ค้างเกิน ${spec.stuckDays} วัน`
   return `ใบจองสถานะ ${spec.statuses[0] === 'รอผลไฟแนนซ์' ? 'รอไฟแนนซ์' : spec.statuses[0]}`
 }
 

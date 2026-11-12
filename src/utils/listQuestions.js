@@ -11,7 +11,8 @@ const bkkDate = v => {
   return t && !isNaN(t) ? new Date(t.getTime() + 7 * 3600e3).toISOString().slice(0, 10) : ''
 }
 const fullName = c => [c.firstName, c.lastName].filter(Boolean).join(' ') || c.nickname || 'ลูกค้า'
-const ASK = /ใครบ้าง|มีใคร|คนไหน|กี่คน|กี่ราย|รายชื่อ|ขอดู|^ใคร|ลูกค้า\s*ใคร|ลีด\s*ใคร/
+// (v1.0.1091) "ลูกค้า hot ที่ไม่ได้ติดต่อเกิน 7 วัน" (ขึ้นต้นด้วยลูกค้า/ลีด ไม่มีคำถาม) ก็นับเป็นคำถามหารายชื่อ
+const ASK = /ใครบ้าง|มีใคร|คนไหน|กี่คน|กี่ราย|รายชื่อ|ขอดู|^ใคร|ลูกค้า\s*ใคร|ลีด\s*ใคร|^(?:ลูกค้า|ลีด|lead)/i
 
 // อ่านคำถาม → เงื่อนไข (null = ไม่ใช่คำถามหารายชื่อ)
 export function parseListSpec(q) {
