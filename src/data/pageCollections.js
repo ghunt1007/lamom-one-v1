@@ -76,6 +76,7 @@ export const PAGE_COLLECTIONS = {
   "customers",
   "followups",
   "marketing_events",
+  "quotations",
   "sales_programs",
   "social_threads",
   "staff",
