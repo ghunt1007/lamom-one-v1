@@ -13,6 +13,7 @@ import { formatDate } from './format.js'
 const STAGE_TH = { lead: 'Lead', pp: 'Prospect (กำลังคุย)', booking: 'จองแล้ว', delivered: 'ส่งมอบแล้ว' }
 const TEMP_TH = { hot: 'ร้อน (พร้อมซื้อ)', warm: 'อุ่น', cold: 'เย็น' }
 const norm = s => String(s || '').toLowerCase().replace(/\s+/g, '')
+export const GENERIC_FIRST = /^(?:ลูกค้า|คุณ|นาย|นาง|นางสาว|น\.ส\.|พี่|น้อง|เซลส์|เซล|ทดสอบ|test)$/i
 const digits = s => String(s || '').replace(/\D/g, '')
 const DAY = 86400000
 const dayNum = d => { const t = Date.parse(String(d || '').slice(0, 10) + 'T00:00:00Z'); return isNaN(t) ? null : Math.round(t / DAY) }
@@ -42,7 +43,9 @@ export function mentionedBookings(question, bookings = [], max = 3) {
     if (!b || b.deleted) continue
     const no = norm(b.bookingNo)
     const name = norm(b.custName)
-    const first = norm(String(b.custName || '').trim().split(/\s+/)[0])
+    let first = norm(String(b.custName || '').trim().split(/\s+/)[0])
+    // (v1.0.1093) คำทั่วไป ("ลูกค้า ทดสอบ" / "คุณ สมชาย") ไม่นับเป็นชื่อ — เดิมถาม "ลูกค้าของฉันมีกี่คน" แล้วดึงใบจองคนชื่อ "ลูกค้า ..." มาตอบ
+    if (GENERIC_FIRST.test(first)) first = ''
     const score = no.length >= 4 && q.includes(no) ? 3 : name.length >= 4 && q.includes(name) ? 2 : first.length >= 3 && q.includes(first) ? 1 : 0
     if (score) hits.push({ b, score })
   }
