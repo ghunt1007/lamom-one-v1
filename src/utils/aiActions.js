@@ -23,8 +23,13 @@ export function customerActionsFor(question, customers = []) {
   const q = String(question || '')
   const wantsTd = /ทดลองขับ|ลองขับ|test\s*drive/i.test(q)
   const wantsCall = /โทร|call/i.test(q)
-  return mentionedCustomers(q, customers).flatMap(c => {
-    const name = c.firstName || c.nickname || 'ลูกค้า'
+  // (v1.0.1091) คำถามยอดขาย/ค่าคอมที่เอ่ยชื่อเซลส์ ("ค่าคอมของสมชาย") ไม่ใช่เรื่องลูกค้า → ไม่ต้องมีปุ่มโทรลูกค้า
+  if (!wantsCall && !wantsTd && /ค่าคอม|รายได้|ยอด(?:ขาย|จอง|ส่งมอบ|เดือน)?|ขายได้|ขายดี|เป้า|เซลส์/.test(q)) return []
+  const hits = mentionedCustomers(q, customers)
+  const dupFirst = hits.length > 1 && new Set(hits.map(c => norm(c.firstName))).size < hits.length
+  return hits.flatMap(c => {
+    // ชื่อซ้ำกัน (สมชาย 2 คน) → ใส่นามสกุลให้แยกปุ่มออก
+    const name = (dupFirst ? [c.firstName, c.lastName].filter(Boolean).join(' ') : '') || c.firstName || c.nickname || 'ลูกค้า'
     const acts = []
     if (wantsTd) acts.push({ kind: 'td', id: c.id, label: `🚗 นัดลองขับ ${name}` })
     if (c.phone && (wantsCall || !wantsTd)) acts.push({ kind: 'tel', id: c.id, label: `📞 โทร ${name}`, phone: String(c.phone).replace(/[^\d+]/g, '') })

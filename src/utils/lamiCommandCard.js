@@ -187,7 +187,8 @@ export async function loadAheadBrief(q, customersPromise) {
 export async function loadMonthBrief(q) {
   const mb = await import('./monthBrief.js')
   const past = mb.isPrevMonthQuestion(q)
-  if (!past && !mb.isMonthQuestion(q)) return null
+  const per = !past ? mb.periodSpec(q) : null
+  if (!past && !per && !mb.isMonthQuestion(q)) return null
   const [{ listAllDocs, readDoc }, { companyScopeFilters }, { getVisibilityScope, scopeIncludesRecord, normName }, { todayBangkok }, { SALES_TARGETS_COLLECTION }] = await Promise.all([
     import('../core/db.js'), import('../core/companyScope.js'), import('../core/hierarchy.js'), import('./format.js'), import('./salesTargets.js')])
   const today = past ? mb.prevMonthEnd(todayBangkok()) : todayBangkok()
@@ -203,8 +204,9 @@ export async function loadMonthBrief(q) {
   const seller = mb.findSeller(q, bookings.map(b => b.salesName))
   if (seller) bookings = bookings.filter(b => normName(b.salesName) === normName(seller))
   const target = Object.entries(tdoc?.targets || {}).reduce((s, [n, v]) => s + ((seller ? normName(n) === normName(seller) : whole || vis.names?.has(normName(n))) ? Number(v) || 0 : 0), 0)
-  const st = mb.monthStats({ bookings, today, target })
   const scopeLabel = seller ? `👤 ${seller}` : whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ'
+  if (per) return { text: mb.periodBriefText(mb.periodStats({ bookings, today, period: per.period, prev: per.prev }), { scope: scopeLabel }), next: ['ยอดเดือนนี้เป็นไง', per.period === 'year' ? 'ยอดไตรมาสนี้' : 'ปีนี้ขายได้กี่คัน', 'รถรุ่นไหนขายดีสุดเดือนนี้'] }
+  const st = mb.monthStats({ bookings, today, target })
   if (past) return { text: mb.monthBriefText(st, { scope: scopeLabel, past: true, models: mb.isModelRankQuestion(q) }), next: ['ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนก่อนเท่าไหร่', 'ลูกค้าเสียดีลเดือนก่อนมีใครบ้าง'] }
   return { text: mb.monthBriefText(st, { scope: scopeLabel, models: mb.isModelRankQuestion(q) }), next: mb.monthFollowUps(st) }
 }
@@ -221,8 +223,13 @@ export async function loadIncomeBrief(q) {
   ])
   if (!vis) return null
   const whole = !!(vis.unrestricted || vis.companyOnly)
-  const st = ib.incomeStats({ bookings: all.filter(b => !b.deleted && scopeIncludesRecord(vis, b.salesName, b)), today: todayBangkok(), prev: ib.wantsPrevMonth(q) })
-  return { text: ib.incomeBriefText(st, { scope: whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ' }), next: ib.incomeFollowUps(st), go: { path: '/crm/sales-income', label: '💰 เปิดหน้ารายได้รายเซลส์' } }
+  let rows = all.filter(b => !b.deleted && scopeIncludesRecord(vis, b.salesName, b))
+  // (v1.0.1091) "ค่าคอมของสมชายเดือนนี้" → เฉพาะเซลส์คนนั้น (ต้องอยู่ในขอบเขตที่มองเห็น)
+  const { findSeller } = await import('./monthBrief.js')
+  const seller = findSeller(q, rows.map(b => b.salesName))
+  if (seller) rows = rows.filter(b => String(b.salesName || '').trim() === seller)
+  const st = ib.incomeStats({ bookings: rows, today: todayBangkok(), prev: ib.wantsPrevMonth(q) })
+  return { seller, text: ib.incomeBriefText(st, { scope: seller ? '👤 ' + seller : whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ' }), next: ib.incomeFollowUps(st), go: { path: '/crm/sales-income', label: '💰 เปิดหน้ารายได้รายเซลส์' } }
 }
 
 // (v1.0.1053) "S07 สีขาวมีไหม / มีรถอะไรพร้อมขาย / รถค้างสต็อกนานมีคันไหน" → null ถ้าไม่ใช่ · คืน { text, next, go }
@@ -295,6 +302,17 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'lost') {
     const customers = await (customersPromise || visibleCustomersForCommands())
     res = oq.lostAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, prev: spec.prev })
+  } else if (spec.kind === 'withdrawn' || spec.kind === 'finbank') {
+    const bks = (await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b))
+    res = spec.kind === 'withdrawn' ? oq.withdrawnAnswer(bks, { today, prev: spec.prev }) : oq.finBankAnswer(bks, { today })
+  } else if (spec.kind === 'noshow') {
+    const [appts, drives] = await Promise.all([listDocs('appointments', f, 'date', 'desc', 500).catch(() => []), listDocs('test_drives', f, 'date', 'desc', 500).catch(() => [])])
+    res = oq.noShowAnswer(appts.filter(a => mine(a.salesperson, a)), drives.filter(t => mine(t.staff, t)), { today, range: spec.range })
+  } else if (spec.kind === 'nobookseller') {
+    const [{ getSalesStaff }, customers, bks] = await Promise.all([import('../data/masterData.js'), customersPromise || visibleCustomersForCommands(), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])])
+    const whole = !!(vis.unrestricted || vis.companyOnly)
+    let staff = []; try { staff = whole ? (getSalesStaff() || []) : [] } catch {}
+    res = oq.noBookSellerAnswer({ sellers: staff, customers: (customers || []).filter(c => mine(c.assignedTo, c)), bookings: bks.filter(b => mine(b.salesName, b)), today })
   } else if (spec.kind === 'bookday') {
     res = oq.bookDayAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, day: spec.day })
   } else if (spec.kind === 'delivery' || spec.kind === 'income') {
