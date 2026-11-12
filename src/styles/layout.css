@@ -854,8 +854,8 @@
 @media (max-width: 640px), (max-height: 500px) and (pointer: coarse) { .view-tabs { width: 100%; } .view-tab { flex: 1 1 0; min-width: 0; white-space: normal; line-height: 1.25; font-size: .82rem; padding: 8px 6px; } .view-tabs.many .view-tab { flex: 0 0 auto; white-space: nowrap; padding: 8px 10px; } }
 
 /* (v1.0.958) มือถือแนวนอน: จอเตี้ยแค่ ~390px — ย่อแถบบน/แถบล่าง/หัวหน้า ให้เหลือพื้นที่ดูข้อมูลมากที่สุด
-   (เดิมแถบบน 56 + หัวหน้า + ตัวกรอง + แถบล่าง 60 กินจอหมด ต้องเลื่อนกว่าจะเห็นรายการแรก) */
-@media (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
+   (เดิมแถบบน 56 + หัวหน้า + ตัวกรอง + แถบล่าง 60 กินจอหมด ต้องเลื่อนกว่าจะเห็นรายการแรก) · (v1.0.1085) รวมหน้าต่างคอมที่แคบและเตี้ย (เช่น 4 จอบนจอ 1366px) */
+@media (max-height: 500px) and (pointer: coarse) and (orientation: landscape), (max-height: 500px) and (max-width: 768px) {
   :root { --topbar-height: 44px; --bottom-nav-h: calc(46px + env(safe-area-inset-bottom, 0px)); }
   .bottom-nav { height: calc(44px + env(safe-area-inset-bottom, 0px)); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
   .bottom-nav-item { flex-direction: row; gap: 6px; font-size: 0.72rem; }
