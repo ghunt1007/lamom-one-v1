@@ -81,6 +81,7 @@ export function commandHelpText(n = 'สมชาย') {
     `• 🚗 วันส่งมอบ: "นัดส่งมอบ${n} ศุกร์นี้ 10 โมง" · "เลื่อนส่งมอบ${n}ไป 20/11"`,
     `• 📅 เลื่อน/ยกเลิกนัด: "เลื่อนนัด${n}ไปศุกร์ 10 โมง" · "ยกเลิกนัด${n}"`,
     `• 📞 โทร: "โทรหา ${n}"`,
+    `• ✏️ แก้ข้อมูลลูกค้า: "${n}เบอร์ 0812345678" · "${n}สนใจ AION V" · "${n}เสียดีล ซื้อยี่ห้ออื่น" · "มอบ${n}ให้เซลส์ สอง"`,
     `• 👤 ถามถึงลูกค้า: "${n}ถึงไหนแล้ว" · "สรุป${n}" (ขั้น ความสนใจ ติดต่อล่าสุด นัดถัดไป ใบจอง + คำแนะนำ)`,
     '• ☀️ งานวันนี้: "วันนี้มีอะไรบ้าง" · "สรุปวันนี้" (นัดวันนี้ เลยกำหนด ส่งมอบ ลีดใหม่ + ปุ่มถามต่อ)',
     '• 📊 ยอดขาย: "ยอดเดือนนี้เป็นไง" · "ถึงเป้าหรือยัง" · "เซลส์คนไหนขายดีสุด" · "ยอดเดือนก่อนเป็นไง" · "ยอดเดือนนี้ของสมชาย" · "ยอดจองวันนี้" · "รถรุ่นไหนขายดีสุดเดือนนี้" · "ปีนี้ขายได้กี่คัน" · "ยอดไตรมาสนี้" · "ใครถอนจองเดือนนี้" · "เซลส์คนไหนยังไม่มีใบจองเดือนนี้" · "ไฟแนนซ์ไหนอนุมัติเยอะสุด" (ส่งมอบ จองใหม่ เทียบเดือนก่อน เป้า อันดับ)',
@@ -161,6 +162,35 @@ export function parseLamiCommand(q, customers = [], today) {
     }
     return out
   }
+  // (v1.0.1094) คำสั่งแก้ข้อมูลลูกค้าในประโยคเดียว: เสียดีล · เบอร์ · รุ่นที่สนใจ · มอบให้เซลส์ดูแล
+  const plain = !isNote && !isLog && !stage && !isBook && !isTd && !isFu
+  const LOST = /เสียดีล|(?:ไป)?ซื้อ(?:ที่|กับ|ยี่ห้อ|เจ้า|ค่าย|ของ|รถ)?\s*(?:อื่น|คู่แข่ง)(?:ไป)?(?:แล้ว)?|ไม่ซื้อแล้ว|ไม่เอาแล้ว|ไม่สนใจแล้ว|ปิดไม่ได้แล้ว|ยกเลิกความสนใจ/
+  if (plain && LOST.test(s)) {
+    let reason = s.replace(/^(?:ช่วย\s*)?(?:มาร์ค|ตั้ง|บันทึก)?\s*/, '')
+    hits.flatMap(c => [[c.firstName, c.lastName].filter(Boolean).join(' '), c.firstName, c.nickname]).filter(n => n && n.length >= 2).sort((a, b) => b.length - a.length).forEach(n => { reason = reason.split(n).join(' ') })
+    reason = reason.replace(/(?:ลูกค้า|คุณ)\s*(?=\s|$)/g, ' ').replace(/^\s*(?:เป็น)?\s*(?:เสียดีล)?\s*[-:,]?\s*/, '').replace(/\s+/g, ' ').trim() || 'เสียดีล'
+    return hits.filter(c => !c.isLost).map(c => ({ kind: 'lost', customer: c, reason: reason.slice(0, 120), label: `⬛ มาร์คเสียดีล ${fullName(c)}`, desc: `เหตุผล: ${reason.slice(0, 60)} · ปิดนัดอัตโนมัติที่ค้างให้` }))
+  }
+  const phoneM = plain && s.match(/เบอร์(?:ใหม่|โทร|มือถือ)?\s*(?:คือ|เป็น|=|:)?\s*((?:\+66|0)[\d\s-]{8,13})/)
+  if (phoneM) {
+    const ph = phoneM[1].replace(/[^\d+]/g, '').replace(/^\+66/, '0')
+    if (/^0\d{8,9}$/.test(ph)) return hits.slice(0, 1).map(c => ({ kind: 'phone', customer: c, phone: ph, label: `📞 บันทึกเบอร์ ${fullName(c)} → ${ph}`, desc: c.phone ? `เดิม ${c.phone}` : 'ยังไม่มีเบอร์เดิม' }))
+  }
+  const modelM = plain && !WHEN.test(s) && s.match(/(?:สนใจ|อยากได้|เล็ง)\s*(?:รุ่น|รถ)?\s*([A-Za-z0-9ก-๙][A-Za-z0-9ก-๙ .\-]{1,24})$/)
+  if (modelM && !/ผ่อน|ดาวน์|ราคา|โปร|ไหน|อะไร|ใด|บ้าง|หรือ/.test(modelM[1])) {
+    const model = modelM[1].trim()
+    return hits.slice(0, 1).map(c => ({ kind: 'model', customer: c, model, label: `🚗 ${fullName(c)} สนใจ ${model}`, desc: c.interestedModel ? `เดิม ${c.interestedModel}` : 'บันทึกรุ่นที่สนใจ' }))
+  }
+  if (plain && /^(?:ช่วย\s*)?(?:มอบ|ย้าย|โอน|ส่งต่อ|เปลี่ยน(?:คน|เซลส์)?ดูแล)|ให้\s*.{2,30}?\s*(?:ดูแล|รับผิดชอบ)/.test(s)) {
+    const sq = v => String(v || '').replace(/\s+/g, '').toLowerCase()
+    const sellers = [...new Set(customers.map(c => String(c?.assignedTo || '').trim()).filter(Boolean))]
+    const ss = sq(s)
+    const seller = sellers.filter(n => sq(n).length >= 2 && ss.includes(sq(n))).sort((a, b) => sq(b).length - sq(a).length)[0]
+    if (seller) {
+      const targets = hits.filter(c => !sq(seller).includes(sq(c.firstName)) && String(c.assignedTo || '').trim() !== seller)
+      return targets.map(c => ({ kind: 'assign', customer: c, to: seller, label: `👤 ให้ ${seller} ดูแล ${fullName(c)}`, desc: c.assignedTo ? `เดิม ${c.assignedTo}` : 'ยังไม่มีผู้ดูแล' }))
+    }
+  }
   for (const c of hits) {
     const name = fullName(c)
     if (stage && c.bookingId) out.push({ kind: 'stage', customer: c, status: stage, label: `📝 ${name} → ${stage}`,
@@ -192,7 +222,7 @@ export function parseLamiCommand(q, customers = [], today) {
     else if (isFu) {
       const due = suggestNextDue(s, today)
       if (due.skip) continue
-      const type = /ไลน์|line/i.test(s) ? 'line' : /เข้าโชว์รูม|นัดพบ|เจอ|มาที่|ไปหา|เยี่ยม/.test(s) ? 'visit' : 'call'
+      const type = /ไลน์|line/i.test(s) ? 'line' : /เข้าโชว์รูม|มาโชว์รูม|นัดพบ|เจอ|มาที่|ไปหา|เยี่ยม/.test(s) ? 'visit' : 'call'
       const note = s.slice(0, 120)
       out.push({ kind: 'fu', customer: c, dueDate: due.dueDate, time, type, note, ...(tempHit ? { temp: tempHit[1] } : {}),
         label: `📅 นัดติดตาม ${name} · ${dmy(due.dueDate)}${time ? ' ' + time + ' น.' : ''}${tempHit ? ' · ' + tempHit[2] : ''}`,
@@ -308,6 +338,28 @@ export async function runLamiCommand(cmd, { me = '', db, companyId, followupFilt
   if (cmd.kind === 'note') {
     await db.createDoc('customer_notes', { customerId: c.id, customer: fullName(c), type: cmd.type || 'internal', text: cmd.text, staff: me, time: new Date().toISOString(), pinned: false, companyId: c.companyId ?? companyId ?? null })
     return `📝 จดไว้ที่ ${fullName(c)} แล้ว`
+  }
+  if (cmd.kind === 'lost') {
+    const patch = { isLost: true, lostReason: cmd.reason, lostAt: new Date().toISOString() }
+    await db.updateDocData('customers', c.id, patch)
+    Object.assign(c, patch)
+    try { const { closeAutoLeadFollowups } = await import('./leadFollowups.js'); await closeAutoLeadFollowups(c.id, `ปิดอัตโนมัติ: เสียดีล (${cmd.reason})`) } catch {}
+    return `⬛ มาร์ค ${fullName(c)} เป็นเสียดีลแล้ว (${cmd.reason})`
+  }
+  if (cmd.kind === 'phone') {
+    await db.updateDocData('customers', c.id, { phone: cmd.phone })
+    c.phone = cmd.phone
+    return `📞 บันทึกเบอร์ ${fullName(c)} เป็น ${cmd.phone} แล้ว`
+  }
+  if (cmd.kind === 'model') {
+    await db.updateDocData('customers', c.id, { interestedModel: cmd.model })
+    c.interestedModel = cmd.model
+    return `🚗 บันทึกว่า ${fullName(c)} สนใจ ${cmd.model} แล้ว`
+  }
+  if (cmd.kind === 'assign') {
+    await db.updateDocData('customers', c.id, { assignedTo: cmd.to })
+    c.assignedTo = cmd.to
+    return `👤 ${fullName(c)} ให้ ${cmd.to} ดูแลแล้ว`
   }
   if (cmd.kind === 'temp') {
     await db.updateDocData('customers', c.id, { temperature: cmd.temp })
