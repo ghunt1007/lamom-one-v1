@@ -26,22 +26,25 @@ export function parseBookingListSpec(q) {
     : /รอรถ|ยังไม่มาถึง|รถยังไม่มา|ยังไม่ได้รถ|รถยังไม่เข้า|ยังไม่มี(?:รถ)?(?:ใน)?(?:สต็อก|สต๊อก)/.test(s) ? ['รอรถ']
     : !when && /รอส่งมอบ|ค้างส่งมอบ|พร้อมส่ง/.test(s) ? WAIT_DELIV : null
   // (v1.0.1086) "ใบจองไหนยังไม่มีเลขตัวถัง" (ไม่นับใบที่ยังรอรถ เพราะยังไม่ได้จัดรถ)
-  const noVin = /(?:ยังไม่|ไม่)(?:ได้)?\s*(?:กรอก|ใส่|มี|ลง)?\s*(?:เลข)?\s*(?:ตัวถัง|vin|คัสซี)/i.test(s)
+  const noVin = /(?:ยังไม่|ไม่)(?:ได้)?\s*(?:กรอก|ใส่|มี|ลง|ผูก|จับคู่|จับ)?\s*(?:เลข)?\s*(?:ตัวถัง|vin|คัสซี)/i.test(s)
   // (v1.0.1087) "จองแล้วแต่ยังไม่ได้วางมัดจำ"
   const noDeposit = /ยังไม่(?:ได้)?\s*(?:วาง|จ่าย|ชำระ|โอน)?\s*(?:เงิน)?\s*มัดจำ|ไม่มี(?:เงิน)?มัดจำ|ไม่ได้วางมัดจำ/.test(s)
+  // (v1.0.1103) "ใครยังไม่ได้วางเงินดาวน์" → ใบจองผ่อน (ไม่ใช่ซื้อสด) ที่ยังไม่ได้กรอกยอดดาวน์
+  const noDown = !noDeposit && /ยังไม่(?:ได้)?\s*(?:วาง|จ่าย|ชำระ|โอน|กรอก|ใส่|ระบุ)?\s*(?:เงิน|ยอด)?\s*ดาวน์|ไม่มี(?:เงิน|ยอด)?ดาวน์/.test(s)
   // (v1.0.1090) "ลูกค้าที่จองแต่ยังไม่ส่งมอบมีกี่คน" → ใบจองที่ยังเปิดอยู่ทั้งหมด
   // (v1.0.1096) "ใครยังไม่ได้รับรถทั้งที่ถึงวันนัด" → นัดส่งมอบเลยวันแล้วแต่ยังไม่ส่งมอบ
   const late = /ถึงวันนัด|เลย(?:วัน)?(?:นัด|กำหนด)\s*(?:ส่งมอบ|ส่งรถ|รับรถ)?|(?:ส่งมอบ|ส่งรถ)\s*(?:ช้า|ล่าช้า|เลยกำหนด|เกินกำหนด)|เกินวัน(?:นัด)?\s*ส่งมอบ/.test(s) && /ส่งมอบ|รับรถ|ส่งรถ|วันนัด/.test(s)
   const allOpen = !late && !statuses && !when && /ยังไม่(?:ได้)?\s*(?:ส่งมอบ|ส่งรถ|รับรถ)|ค้างจอง/.test(s)
-  if (!statuses && !when && !stuck && !noVin && !noDeposit && !allOpen && !late) return null
-  return { late, allOpen, noVin, noDeposit, statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
+  if (!statuses && !when && !stuck && !noVin && !noDeposit && !noDown && !allOpen && !late) return null
+  return { late, allOpen, noVin, noDeposit, noDown, statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
 }
 
 export function bookingListLabel(spec) {
   if (spec.late) return 'นัดส่งมอบเลยวันแล้วแต่ยังไม่ส่งมอบ'
-  if (spec.allOpen && !spec.noVin && !spec.noDeposit && !spec.stuck) return 'ใบจองที่ยังไม่ส่งมอบ'
+  if (spec.allOpen && !spec.noVin && !spec.noDeposit && !spec.noDown && !spec.stuck) return 'ใบจองที่ยังไม่ส่งมอบ'
   if (spec.noVin) return 'ใบจองที่ยังไม่มีเลขตัวถัง (ไม่นับใบที่รอรถ)'
   if (spec.noDeposit) return 'ใบจองที่ยังไม่มียอดมัดจำ'
+  if (spec.noDown) return 'ใบจองผ่อนที่ยังไม่ได้กรอกยอดดาวน์'
   if (spec.noDate) return 'รถพร้อมส่งที่ยังไม่นัดวันส่งมอบ'
   if (spec.when) return `นัดส่งมอบ${{ today: 'วันนี้', tomorrow: 'พรุ่งนี้', week: 'ใน 7 วันนี้' }[spec.when]}`
   if (spec.stuck) return `ใบจอง${spec.statuses ? 'สถานะ ' + (spec.statuses[0] === 'รอผลไฟแนนซ์' ? 'รอไฟแนนซ์' : spec.statuses[0]) + ' ' : 'ที่'}ค้างเกิน ${spec.stuckDays} วัน`
@@ -66,6 +69,7 @@ export function bookingTargets({ customers = [], bookings = [], today, spec, tom
     if (spec.late && !(isDate(b.deliveryDate) && String(b.deliveryDate).slice(0, 10) < today)) return
     if (spec.noVin && (String(b.vin || '').trim() || b.status === 'รอรถ')) return
     if (spec.noDeposit && (Number(b.bookingDeposit) || 0) > 0) return
+    if (spec.noDown && ((Number(b.down) || 0) > 0 || b.finStatus === 'ซื้อสด')) return
     if (spec.when) {
       const d = String(b.deliveryDate || '').slice(0, 10)
       if (!isDate(d)) return

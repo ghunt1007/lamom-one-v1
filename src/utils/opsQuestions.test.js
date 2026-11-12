@@ -202,6 +202,6 @@ describe('walk-in (v1.0.1087)', () => {
     expect(r.n).toBe(2)
     expect(r.text).toContain('Hot 1')
     expect(r.text).toContain('📝 จอง 1')
-    expect(walkinAnswer([], { today: T, day: 'week' }).text).toContain('7 วันล่าสุด')
+    expect(walkinAnswer([], { today: T, day: 'week' }).text).toContain('ในรอบ 7 วัน')
   })
 })
