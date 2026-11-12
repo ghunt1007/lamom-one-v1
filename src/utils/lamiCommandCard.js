@@ -409,7 +409,7 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'pdi') {
     res = oq.pdiAnswer(await listDocs('pdi', f, 'startDate', 'desc', 300).catch(() => []), { today })
   } else if (spec.kind === 'stale') {
-    res = oq.staleProspectAnswer(((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c)), { today })
+    res = oq.staleProspectAnswer(((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c)), { today, ...(spec.min ? { min: spec.min } : {}), silent: !!spec.silent })
   } else if (spec.kind === 'tradein') {
     res = oq.tradeInAnswer(await listDocs('trade_ins', f, 'date', 'desc', 300).catch(() => []), { today, month: !!spec.month })
   } else if (spec.kind === 'closerate') {
