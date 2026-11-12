@@ -11,6 +11,8 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { callLink } from '../../utils/callLink.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { getVehicles } from '../../data/vehicleDatabase.js'
+import { carOf } from '../../utils/carLabel.js'
 
 const INTEREST_LEVEL = {
   hot:    { label: 'Hot', color: 'danger', icon: '🔥' },
@@ -27,15 +29,17 @@ const VISIT_OUTCOMES = {
   leave:      { label: 'กลับโดยไม่ตัดสินใจ', color: 'secondary' },
 }
 
-const MODELS = ['BYD Dolphin', 'BYD Atto 3', 'BYD Seal AWD', 'MG ZS EV', 'BYD Han', 'ยังไม่แน่ใจ']
+// (v1.0.1105) รุ่นที่สนใจ = รุ่นที่โชว์รูมขายจริง (แคตตาล็อกรถ) — เดิมเป็นรายชื่อ BYD/MG ที่ร้านไม่ได้ขาย
+function modelChoices() {
+  let list = []
+  try { list = [...new Set(getVehicles().map(v => carOf(v)).filter(Boolean))] } catch {}
+  return [...list.slice(0, 60), 'ยังไม่แน่ใจ']
+}
 
-// Fallback ตัวอย่างล้วน — ใช้แสดงเฉพาะตอนยังไม่มี walk-in จริงเลย (คำนวณจริงจาก w.visitTime ด้านล่างแทน)
-const HOURLY_TRAFFIC_DEMO = [2, 3, 8, 12, 15, 18, 14, 10, 7, 3] // 9-18
 
 // (v1.0.xxx) เดิมกราฟนี้ปั้นตายตัวเสมอ ทั้งที่ walk_ins doc มี field visitTime จริงพอคำนวณ distribution
 // รายชั่วโมงได้อยู่แล้ว — นับจำนวน walk-in จริงต่อชั่วโมง 9:00-18:00 จาก walkins ที่โหลดมา
 function computeHourlyTraffic(walkins) {
-  if (!walkins.length) return HOURLY_TRAFFIC_DEMO
   const counts = new Array(10).fill(0) // ชั่วโมง 9-18
   walkins.forEach(w => {
     const d = new Date(w.visitTime)
@@ -84,7 +88,7 @@ export default async function WalkInPage(container) {
           </div>
         </div>
 
-        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:16px">
           ${kpi('🚶 Walk-In วันนี้', walkins.length + ' คน', 'primary')}
           ${kpi('🔥 ลีดร้อน', hot, hot > 0 ? 'danger' : 'secondary')}
           ${kpi('🎯 จองแล้ว', booked, 'success')}
@@ -93,7 +97,7 @@ export default async function WalkInPage(container) {
 
         <!-- Hourly traffic mini chart -->
         <div class="card" style="padding:14px;margin-bottom:14px">
-          <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 Traffic รายชั่วโมง</div>
+          <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 Traffic รายชั่วโมง${walkins.length ? '' : ' <span style="font-weight:400">· ยังไม่มีลูกค้า walk-in บันทึกไว้</span>'}</div>
           <div style="display:flex;gap:4px;align-items:flex-end;height:50px">
             ${HOURLY_TRAFFIC.map((v, i) => {
               const maxV = Math.max(...HOURLY_TRAFFIC, 1)
@@ -145,11 +149,11 @@ export default async function WalkInPage(container) {
       title: '🚶 บันทึกลูกค้า Walk-In',
       size: 'md',
       body: `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
           <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="wi-name"></div>
           <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="wi-phone"></div>
           <div class="input-group"><label class="input-label">รุ่นที่สนใจ</label>
-            <select class="input" id="wi-model">${MODELS.map(m=>`<option>${m}</option>`).join('')}</select>
+            <select class="input" id="wi-model">${modelChoices().map(m=>`<option>${escHtml(m)}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ความสนใจ</label>
             <select class="input" id="wi-interest">${Object.entries(INTEREST_LEVEL).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
