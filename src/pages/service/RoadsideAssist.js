@@ -181,7 +181,7 @@ export default async function RoadsideAssistPage(container) {
           if (!plate || !location) { showToast('❗ กรอกทะเบียนและจุดเกิดเหตุ', 'error'); return false }
           try {
             await createDoc('roadside_cases', { customer:'(ค้นจากทะเบียน)', phone:document.getElementById('ra-phone')?.value||'—', plate, model:'—', type:document.getElementById('ra-type')?.value||'breakdown', location, status:'new', reported:new Date().toISOString(), team:null, eta:0 })
-            showToast('🆘 รับแจ้งแล้ว — เร่งส่งทีมภายใน 5 นาที!', 'error')
+            showToast('🆘 บันทึกเหตุแล้ว — มอบหมายทีมในรายการด้านล่างได้เลย', 'warning')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }

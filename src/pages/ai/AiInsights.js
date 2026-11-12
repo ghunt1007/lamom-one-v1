@@ -5,7 +5,12 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { getSalesData, getCommissionData, listDocs, createDoc } from '../../core/db.js'
+import { listDocs, listAllDocs, createDoc } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
+import { navigate } from '../../core/router.js'
+import { todayBangkok } from '../../utils/format.js'
+import { buildInsights } from '../../utils/aiInsights.js'
+import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 
 const INSIGHT_CATS = {
@@ -22,68 +27,37 @@ const PRIORITY = {
   low:    { label: 'ต่ำ', color: 'secondary' },
 }
 
-const AI_INSIGHTS = [
-  { id: 'I001', cat: 'sales', priority: 'high', title: 'ยอดขาย BYD Dolphin เพิ่ม 28% MoM', detail: 'จากการวิเคราะห์ข้อมูล 6 เดือน พบว่า BYD Dolphin มียอดขายเพิ่มขึ้น 28% ในเดือนที่ผ่านมา เหตุจาก Campaign โปรโมชั่นและราคาที่เข้าถึงได้', recommendation: 'เพิ่มสต็อก BYD Dolphin อีก 10 คัน และขยาย Campaign ต่อเนื่อง', confidence: 94, impact: 'สูง' },
-  { id: 'I002', cat: 'risk', priority: 'high', title: '56 ลูกค้า At-Risk ต้องการ Win-back', detail: 'ลูกค้า 56 รายที่เคยเป็น Loyal Customers ไม่มีการติดต่อนานกว่า 12 เดือน มีความเสี่ยงที่จะไปซื้อรถกับคู่แข่ง', recommendation: 'ส่ง Win-back Campaign ทันที พร้อม Special Offer สำหรับลูกค้า At-Risk', confidence: 87, impact: 'สูง' },
-  { id: 'I003', cat: 'opportunity', priority: 'medium', title: 'Fleet Deal กับบริษัทโลจิสติกส์ 3 แห่ง', detail: 'AI ตรวจพบบริษัทโลจิสติกส์ในฐานข้อมูล Lead ที่มีความสนใจ Fleet EV 3 บริษัท รวม ~50 คัน', recommendation: 'มอบหมายทีม B2B ติดต่อทั้ง 3 บริษัทภายใน 1 สัปดาห์', confidence: 72, impact: 'สูง' },
-  { id: 'I004', cat: 'customer', priority: 'medium', title: 'Customer Satisfaction ลดลง 0.3 คะแนน', detail: 'คะแนนเฉลี่ยจาก Google Review ลดลง 0.3 คะแนนใน 2 เดือนที่ผ่านมา สาเหตุหลักคือเวลารอคอยที่บริการ', recommendation: 'เพิ่มช่าง 1 คน หรือนัดหมายออนไลน์ล่วงหน้า 100%', confidence: 91, impact: 'ปานกลาง' },
-  { id: 'I005', cat: 'ops', priority: 'low', title: 'อะไหล่ยอดใช้สูง 3 รายการ', detail: 'ไส้กรองอากาศ, น้ำมันเครื่อง, แผ่นเบรก — ใช้เกิน 80% ของสต็อก และอาจหมดภายใน 3 สัปดาห์', recommendation: 'สั่ง Replenishment ทั้ง 3 รายการก่อนหมดสต็อก', confidence: 99, impact: 'ต่ำ' },
-  { id: 'I006', cat: 'sales', priority: 'medium', title: 'Lead Conversion Rate ต่ำกว่า Benchmark', detail: 'Conversion Rate อยู่ที่ 14% ต่ำกว่า Industry Benchmark 18% สาเหตุหลักคือ Follow-up ไม่ทันเวลา', recommendation: 'ตั้ง Automation Follow-up ทุก 48 ชม. สำหรับ Hot Lead', confidence: 83, impact: 'สูง' },
-]
-
 export default async function AiInsightsPage(container) {
   const myGen = container.__routerGen
   let catFilter = 'all'
   let priorityFilter = 'all'
-  let insights = [...AI_INSIGHTS]
-  let dataSource = 'demo'
+  let insights = []
+  let loading = true, failed = false
 
-  try {
-    const [sales, coms, actions] = await Promise.all([
-      getSalesData().catch(() => []),
-      getCommissionData().catch(() => []),
-      listDocs('ai_insight_actions', [], 'createdAt', 'desc', 500).catch(() => []),
-    ])
-    if (container.__routerGen !== myGen) return
-
-    // (v1.0.346) เดิมปุ่ม "✅ ดำเนินการ"/"✗ ไม่สนใจ" แค่แก้ตัวแปรในหน่วยความจำ (ins.actionTaken ไม่ถูกใช้แสดง
-    // ผลอะไรเลยด้วยซ้ำ, insights ที่ถูก dismiss ก็แค่ filter ออกจาก array ชั่วคราว) ไม่เขียน Firestore เลย
-    // พอรีเฟรช/เปิดหน้าใหม่ insight ที่กด dismiss ไปแล้วก็โผล่กลับมาเหมือนไม่เคยกด — แก้ให้บันทึกจริงลง
-    // collection ใหม่ ai_insight_actions จับคู่ด้วย insight id (LI001/LI002/... เป็น "ช่อง" ประเภท insight
-    // ที่คงที่ ไม่ใช่เนื้อหาที่คงที่ — ยอมรับ trade-off นี้เพราะเป็นรายการ Priority ต่ำสุดของ audit ไม่คุ้มที่จะ
-    // สร้างระบบ dismiss-ต่อเนื้อหา/expire อัตโนมัติที่ซับซ้อนกว่านี้)
-    const dismissedIds = new Set(actions.filter(a => a.type === 'dismiss').map(a => a.insightId))
-    const actionedIds = new Set(actions.filter(a => a.type === 'action').map(a => a.insightId))
-
-    if (sales.length >= 2) {
-      const liveInsights = []
-      // Top brand insight
-      const byBrand = {}
-      sales.forEach(s => { const b = s.brand||'อื่นๆ'; byBrand[b] = (byBrand[b]||0)+1 })
-      const topBrand = Object.entries(byBrand).sort((a,b)=>b[1]-a[1])[0]
-      if (topBrand) {
-        liveInsights.push({ id:'LI001', cat:'sales', priority:'medium', title:`${topBrand[0]} มียอดขายสูงสุด ${topBrand[1]} คัน`, detail:`จากการวิเคราะห์ใบจอง ${sales.length} รายการ ${topBrand[0]} คือแบรนด์ที่ขายดีที่สุด`, recommendation:`เพิ่มสต็อก ${topBrand[0]} และทำโปรโมชันต่อเนื่อง`, confidence:95, impact:'สูง' })
-      }
-      // Top salesperson insight
-      if (coms.length) {
-        const topSales = [...coms].sort((a,b)=>b.carsSold-a.carsSold)[0]
-        if (topSales) {
-          liveInsights.push({ id:'LI002', cat:'sales', priority:'low', title:`${topSales.salesName} ปิดดีลสูงสุด ${topSales.carsSold} คัน`, detail:`ยอดรวม ${formatCurrency(topSales.incomeTotal)} — ผลงานอยู่ระดับ Top Performer`, recommendation:`ให้เป็น Mentor ให้กับเซลส์ใหม่เพื่อ Transfer ทักษะ`, confidence:99, impact:'ปานกลาง' })
-        }
-      }
-      // Revenue trend insight
-      const totalRev = sales.reduce((a,s)=>a+(s.salePrice||0),0)
-      const avgDeal = Math.round(totalRev / sales.length)
-      liveInsights.push({ id:'LI003', cat:'ops', priority:'low', title:`Avg Deal Size ${formatCurrency(avgDeal)} จาก ${sales.length} ดีล`, detail:`วิเคราะห์จากใบจองจริง — ค่าเฉลี่ยต่อคันอยู่ที่ ${formatCurrency(avgDeal)}`, recommendation:`เน้น Upsell Option/Accessories เพื่อเพิ่ม Deal Size`, confidence:98, impact:'ต่ำ' })
-
-      // เดิมต่อ insight ตัวอย่าง (ข้อความสมมติเช่น "56 ลูกค้า At-Risk") เข้ากับของจริงเสมอเมื่อมีข้อมูลจริง
-      // ทำให้ insight ปลอมปนกับของจริงถาวรตั้งแต่มีข้อมูลจริงเพียงพอ ไม่ใช่ fallback เฉพาะตอนไม่มีข้อมูลจริงเลย
-      insights = liveInsights
-      dataSource = 'live'
-    }
-
-    insights = insights.filter(i => !dismissedIds.has(i.id)).map(i => actionedIds.has(i.id) ? { ...i, actionTaken: true } : i)
-  } catch {}
+  // (v1.0.1106) ข้อสังเกตทุกข้อมาจากข้อมูลจริง (utils/aiInsights.js) — เดิมโชว์ข้อความสมมติ ("BYD Dolphin เพิ่ม 28%",
+  // "56 ลูกค้า At-Risk") เมื่อข้อมูลน้อย และ "ความมั่นใจ %" ก็เป็นเลขที่ตั้งไว้เอง · ปุ่มรีเฟรชคำนวณใหม่จริง
+  async function load() {
+    loading = true
+    const f = companyScopeFilters()
+    try {
+      const [bookings, customers, followups, vehicles, actions, { QUICK_SOURCES }] = await Promise.all([
+        listAllDocs('bookings', f, 'createdAt', 'desc'),
+        listAllDocs('customers', f, 'createdAt', 'desc'),
+        listDocs('followups', f, 'dueDate', 'desc', 3000).catch(() => []),
+        listAllDocs('vehicles', f, 'createdAt', 'desc').catch(() => []),
+        listDocs('ai_insight_actions', [], 'createdAt', 'desc', 500).catch(() => []),
+        import('../../utils/quickLead.js').catch(() => ({ QUICK_SOURCES: [] })),
+      ])
+      const dismissed = new Set(actions.filter(a => a.type === 'dismiss').map(a => a.insightId))
+      const done = new Set(actions.filter(a => a.type === 'action').map(a => a.insightId))
+      insights = buildInsights({ bookings, customers, followups, vehicles, today: todayBangkok(), sourceLabel: { event: '🎪 ออกบูธ/อีเวนต์', ...Object.fromEntries(QUICK_SOURCES || []) } })
+        .filter(i => !dismissed.has(i.id)).map(i => done.has(i.id) ? { ...i, actionTaken: true } : i)
+      failed = false
+    } catch { failed = true; insights = [] }
+    loading = false
+  }
+  await load()
+  if (container.__routerGen !== myGen) return
 
   function renderPage() {
     const list = insights.filter(i =>
@@ -96,62 +70,54 @@ export default async function AiInsightsPage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">🔮 AI Insights</div>
-            <div class="page-subtitle">ข้อมูลเชิงลึกจาก AI — วิเคราะห์และแนะนำ</div>
+            <div class="page-title">🔮 ข้อสังเกตจาก AI</div>
+            <div class="page-subtitle">ระบบอ่านข้อมูลจริงของร้าน แล้วบอกเรื่องที่ควรจัดการก่อน</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="refresh-insights-btn">🔄 รีเฟรช</button>
           </div>
         </div>
 
-        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('🔮 ข้อค้นพบ', insights.length + (dataSource === 'live' ? ' ●' : ''), 'primary')}
-          ${kpi('🚨 Priority สูง', highPriority, highPriority > 0 ? 'danger' : 'secondary')}
-          ${kpi('⭐ ความมั่นใจเฉลี่ย', (insights.length ? Math.round(insights.reduce((a, i) => a + i.confidence, 0) / insights.length) : 0) + '%', 'success')}
-          ${kpi('📊 หมวดหมู่', Object.keys(INSIGHT_CATS).length, 'secondary')}
+        ${failed ? '<div class="card" style="padding:12px 14px;margin-bottom:12px;color:var(--danger)">โหลดข้อมูลไม่สำเร็จ กด 🔄 รีเฟรช อีกครั้ง</div>' : ''}
+        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:16px">
+          ${kpi('🔮 เรื่องที่ควรรู้', insights.length + ' เรื่อง', 'primary')}
+          ${kpi('🚨 เร่งด่วน', highPriority, highPriority > 0 ? 'danger' : 'success')}
+          ${kpi('✅ จัดการแล้ว', insights.filter(i => i.actionTaken).length, 'success')}
         </div>
 
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-          <div style="display:flex;gap:4px">
+          <div class="chip-scroll" style="display:flex;gap:4px;flex-wrap:wrap">
             <button class="btn btn-xs ${catFilter==='all'?'btn-primary':'btn-secondary'} cf-btn" data-c="all">ทั้งหมด</button>
-            ${Object.entries(INSIGHT_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-'+v.color:'btn-secondary'} cf-btn" data-c="${k}" title="${v.label || k}">${v.icon}</button>`).join('')}
-          </div>
-          <div style="display:flex;gap:4px">
-            <button class="btn btn-xs ${priorityFilter==='all'?'btn-primary':'btn-secondary'} pf-btn" data-p="all">ทุก Priority</button>
-            ${Object.entries(PRIORITY).map(([k,v]) => `<button class="btn btn-xs ${priorityFilter===k?'btn-'+v.color:'btn-secondary'} pf-btn" data-p="${k}">${v.label}</button>`).join('')}
+            ${Object.entries(INSIGHT_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-'+v.color:'btn-secondary'} cf-btn" data-c="${k}">${v.icon} ${v.label}</button>`).join('')}
           </div>
         </div>
 
         <div style="display:flex;flex-direction:column;gap:10px">
+          ${!list.length ? `<div class="empty-state" style="padding:40px"><div class="empty-icon">✨</div><div class="empty-title">${insights.length ? 'ไม่มีเรื่องในหมวดนี้' : 'ตอนนี้ไม่มีเรื่องที่ต้องเร่งจัดการ'}</div><div class="empty-desc">ระบบดูจากใบจอง ลูกค้า นัดติดตาม และสต็อกจริง — มีเรื่องใหม่จะขึ้นที่นี่เอง</div></div>` : ''}
           ${list.map(ins => {
             const cat = INSIGHT_CATS[ins.cat]
             const pri = PRIORITY[ins.priority]
             return `<div class="card" style="padding:14px;border-left:4px solid var(--${cat?.color})">
-              <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
-                <div style="display:flex;gap:10px;align-items:center;flex:1">
-                  <span style="font-size:1.6rem">${cat?.icon}</span>
-                  <div>
-                    <div style="font-weight:700;font-size:0.9rem">${ins.title}</div>
-                    <div style="display:flex;gap:6px;margin-top:4px">
-                      <span class="badge badge-${pri?.color}" style="font-size:0.62rem">Priority: ${pri?.label}</span>
-                      <span class="badge badge-${cat?.color}" style="font-size:0.62rem">${cat?.label}</span>
-                    </div>
+              <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:8px">
+                <span style="font-size:1.5rem;line-height:1">${cat?.icon}</span>
+                <div style="min-width:0;flex:1">
+                  <div style="font-weight:700;font-size:0.9rem;overflow-wrap:anywhere">${escHtml(ins.title)}</div>
+                  <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
+                    <span class="badge badge-${pri?.color}" style="font-size:0.62rem">ความเร่งด่วน: ${pri?.label}</span>
+                    <span class="badge badge-${cat?.color}" style="font-size:0.62rem">${cat?.label}</span>
                   </div>
                 </div>
-                <div style="text-align:right;min-width:70px">
-                  <div style="font-size:0.75rem;color:var(--text-muted)">Confidence</div>
-                  <div style="font-size:1.1rem;font-weight:900;color:var(--${ins.confidence >= 90 ? 'success' : ins.confidence >= 75 ? 'warning' : 'danger'})">${ins.confidence}%</div>
-                </div>
               </div>
-              <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:10px">${ins.detail}</div>
-              <div style="padding:8px 10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.78rem;margin-bottom:10px">
-                💡 <strong>แนะนำ:</strong> ${ins.recommendation}
+              <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:10px;overflow-wrap:anywhere">${escHtml(ins.detail)}</div>
+              <div style="padding:8px 10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.78rem;margin-bottom:10px;overflow-wrap:anywhere">
+                💡 <strong>แนะนำ:</strong> ${escHtml(ins.recommendation)}
               </div>
-              <div style="display:flex;gap:6px">
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                ${ins.link ? `<button class="btn btn-xs btn-primary go-btn" data-path="${escHtml(ins.link.path)}">${escHtml(ins.link.label)} →</button>` : ''}
                 ${ins.actionTaken
-                  ? `<span class="badge badge-success" style="font-size:0.72rem;padding:5px 10px">✅ ดำเนินการแล้ว</span>`
-                  : `<button class="btn btn-xs btn-primary action-btn" data-id="${ins.id}">✅ ดำเนินการ</button>`}
-                <button class="btn btn-xs btn-secondary dismiss-btn" data-id="${ins.id}">✗ ไม่สนใจ</button>
+                  ? `<span class="badge badge-success" style="font-size:0.72rem;padding:5px 10px">✅ จัดการแล้ว</span>`
+                  : `<button class="btn btn-xs btn-secondary action-btn" data-id="${ins.id}">✅ จัดการแล้ว</button>`}
+                <button class="btn btn-xs btn-secondary dismiss-btn" data-id="${ins.id}">✗ ซ่อนเดือนนี้</button>
               </div>
             </div>`
           }).join('')}
@@ -161,9 +127,13 @@ export default async function AiInsightsPage(container) {
 
     container.querySelectorAll('.cf-btn').forEach(b => b.addEventListener('click', () => { catFilter = b.dataset.c; renderPage() }))
     container.querySelectorAll('.pf-btn').forEach(b => b.addEventListener('click', () => { priorityFilter = b.dataset.p; renderPage() }))
-    document.getElementById('refresh-insights-btn')?.addEventListener('click', () => {
-      showToast('🔄 วิเคราะห์ข้อมูลใหม่เสร็จแล้ว', 'success')
+    container.querySelectorAll('.go-btn').forEach(b => b.addEventListener('click', () => navigate(b.dataset.path)))
+    document.getElementById('refresh-insights-btn')?.addEventListener('click', async e => {
+      e.currentTarget.disabled = true
+      await load()
+      if (container.__routerGen !== myGen) return
       renderPage()
+      showToast(failed ? 'รีเฟรชไม่สำเร็จ' : `🔄 คำนวณใหม่จากข้อมูลล่าสุดแล้ว · ${insights.length} เรื่อง`, failed ? 'error' : 'success')
     })
     container.querySelectorAll('.action-btn').forEach(b => b.addEventListener('click', async () => {
       const ins = insights.find(x => x.id === b.dataset.id)
@@ -176,7 +146,7 @@ export default async function AiInsightsPage(container) {
       }
       ins.actionTaken = true
       renderPage()
-      showToast(`✅ บันทึก Action สำหรับ "${ins.title}" แล้ว`, 'success')
+      showToast('✅ บันทึกว่าจัดการแล้ว', 'success')
     }))
     container.querySelectorAll('.dismiss-btn').forEach(b => b.addEventListener('click', async () => {
       const ins = insights.find(x => x.id === b.dataset.id)
@@ -189,7 +159,7 @@ export default async function AiInsightsPage(container) {
       }
       insights = insights.filter(x => x.id !== b.dataset.id)
       renderPage()
-      showToast('ซ่อน Insight แล้ว', 'warning')
+      showToast('ซ่อนเรื่องนี้ถึงสิ้นเดือนแล้ว', 'info')
     }))
   }
 

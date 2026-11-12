@@ -131,11 +131,24 @@ export default async function VehicleTransferPage(container) {
     container.querySelectorAll('.transit-btn').forEach(b => b.addEventListener('click', async () => {
       const t = transfers.find(x => x.id === b.dataset.id)
       if (!t) return
-      try {
-        await updateDocData('vehicle_transfers', t.id, { status: 'in_transit', transferDate: addDays(0), eta: addDays(2), trackingNo: 'TH' + Math.floor(Math.random()*9000000000+1000000000) })
-        showToast('🚚 เริ่มขนส่งแล้ว', 'success')
-        await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      // (v1.0.1106) เดิมสุ่มเลขพัสดุ "TH…" ขึ้นมาเอง (ไม่ใช่เลขจริง) — ให้กรอกเลขจริงได้ (ไม่บังคับ) และเลือกวันถึงโดยประมาณ
+      openModal({
+        title: '🚚 เริ่มขนส่งรถ',
+        size: 'sm',
+        body: `<div style="display:grid;gap:10px">
+          <div class="input-group"><label class="input-label">เลขติดตาม / ทะเบียนรถขนส่ง (ถ้ามี)</label><input class="input" id="tr-no" autocomplete="off"></div>
+          <div class="input-group"><label class="input-label">คาดว่าถึงวันที่</label><input class="input" id="tr-eta" type="date" value="${addDays(2)}"></div>
+        </div>`,
+        async onConfirm() {
+          const no = document.getElementById('tr-no')?.value?.trim() || null
+          const eta = document.getElementById('tr-eta')?.value || addDays(2)
+          try {
+            await updateDocData('vehicle_transfers', t.id, { status: 'in_transit', transferDate: addDays(0), eta, trackingNo: no })
+            showToast('🚚 เริ่มขนส่งแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+        }
+      })
     }))
     container.querySelectorAll('.arrived-btn').forEach(b => b.addEventListener('click', async () => {
       const t = transfers.find(x => x.id === b.dataset.id)
