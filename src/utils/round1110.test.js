@@ -144,3 +144,31 @@ describe('v1.0.1114', () => {
     expect(r.text).toContain('รอคืนเงินมัดจำ 1 ราย · รวม ฿10,000')
   })
 })
+
+import { isCallListQuestion } from './callList.js'
+import { parseListSpec } from './listQuestions.js'
+import { showroomAnswer } from './opsQuestions.js'
+describe('v1.0.1115', () => {
+  it('ยังไม่ได้โทรหาวันนี้ → รายการโทร · นัดดูรถสัปดาห์นี้ · ฉันมีลูกค้ากี่คน · เพิ่งได้มา', () => {
+    expect(parseListSpec('ลูกค้าที่ยังไม่ได้โทรหาวันนี้')).toBeNull()
+    expect(isCallListQuestion('ลูกค้าที่ยังไม่ได้โทรหาวันนี้')).toBe(true)
+    expect(parseOpsSpec('ใครนัดดูรถสัปดาห์นี้')).toEqual({ kind: 'showroom', day: 'week' })
+    expect(parseOpsSpec('ฉันมีลูกค้ากี่คน')).toEqual({ kind: 'mycust' })
+    expect(parseOpsSpec('ลูกค้าที่ฉันเพิ่งได้มาสัปดาห์นี้')).toEqual({ kind: 'newcust', period: 'week' })
+    const r = showroomAnswer([{ date: '2026-11-14', time: '10:00', customerName: 'ก' }, { date: '2026-11-25', customerName: 'ข' }], { today: T, day: 'week' })
+    expect(r.text).toContain('นัดเข้าโชว์รูม 7 วันนี้ — 1 ราย')
+  })
+})
+
+import { listTargets } from './listQuestions.js'
+describe('v1.0.1115 fuel interest', () => {
+  it('ลูกค้าคนไหนสนใจรถไฟฟ้า', () => {
+    const spec = parseListSpec('ลูกค้าคนไหนสนใจรถไฟฟ้า')
+    expect(spec.fuel).toBe('ev')
+    expect(spec.model).toBeNull()
+    const customers = [{ id: 'a', stage: 'lead', interestedModel: 'ATTO 3' }, { id: 'b', stage: 'lead', interestedModel: 'Camry' }]
+    const r = listTargets({ customers, today: T, spec, catalog: [{ model: 'Atto 3', fuel: 'BEV' }, { model: 'Camry', fuel: 'Hybrid' }] })
+    expect(r.list.map(x => x.c.id)).toEqual(['a'])
+    expect(parseListSpec('ลูกค้าสนใจ S05 มีใครบ้าง').model).toBe('s05')
+  })
+})
