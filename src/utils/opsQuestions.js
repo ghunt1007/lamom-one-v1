@@ -71,6 +71,9 @@ export function parseOpsSpec(q) {
   if (has(s, /(?:ยังไม่มี|ไม่มี|ไร้)\s*(?:ผู้ดูแล|คนดูแล|เซลส์ดูแล|เซลส์)|ยังไม่(?:ได้)?(?:มอบ|แจก|แบ่ง)|ยังไม่มีเจ้าของ/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'unassigned' }
   // (v1.0.1087) "วันนี้มีลูกค้า walk in กี่คน" / "เมื่อวานมีคนเดินเข้าโชว์รูมกี่คน"
   if (has(s, /walk\s*-?\s*in|วอล์?คอิน|เดินเข้า/i)) return { kind: 'walkin', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : /เดือน/.test(s) ? 'month' : 'today' }
+  // (v1.0.1098) "ค่าใช้จ่ายเดือนนี้เท่าไหร่" / "กำไรเดือนนี้เท่าไหร่" (ภาพรวมโชว์รูม · เฉพาะผู้จัดการ/เจ้าของ)
+  if (has(s, /กำไร|ขาดทุน|p\s*&\s*l|ค่าใช้จ่าย|รายจ่าย|ใช้เงินไป/i) && !has(s, /ต่อคัน|คันละ|รุ่น|ลูกค้า|ดาวน์|ผ่อน|ค่าคอม|อะไหล่|ศูนย์บริการ|ซ่อม|เบิก(?:ได้|ยังไง)/) && !has(s, /^(?:เพิ่ม|บันทึก|เบิก)/))
+    return { kind: has(s, /กำไร|ขาดทุน|p\s*&\s*l/i) ? 'profit' : 'expense', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
   // (v1.0.1097) "ใครลางานวันนี้" / "พรุ่งนี้มีใครลาบ้าง"
   if (has(s, /ลา(?:งาน|ป่วย|กิจ|พักร้อน|หยุด)|ใครลา|มีคนลา|ลากี่คน|ขอลา|หยุดงาน/) && !has(s, /^(?:ขอ)?ลา(?:งาน|ป่วย|กิจ)?\s*(?:พรุ่งนี้|วันที่|\d)/)) return { kind: 'leave', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
   // (v1.0.1097) "รถที่กำลังจะมาถึงมีกี่คัน" / "รถสั่งไว้มาเมื่อไหร่"
@@ -496,6 +499,37 @@ export function lowStockAnswer(vehicles, bookings) {
     rows.some(r => r.gap < 0) ? '💡 สั่งรุ่นที่ขาดก่อน — มีลูกค้าจองรออยู่แล้ว' : '💡 รุ่นที่เหลือคันเดียว ควรสั่งเพิ่มก่อนหมด'].join('\n') }
 }
 
+// (v1.0.1098) ค่าใช้จ่าย / กำไรของเดือน — นิยามเดียวกับหน้า P&L (รายได้+ต้นทุนจากใบจอง · ค่าใช้จ่ายที่เบิกผ่านระบบ ไม่รวมเงินเดือน)
+const thb = n => '฿' + Math.round(Number(n) || 0).toLocaleString('th-TH')
+const prevYm = ym => { const [y, m] = ym.split('-').map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}` }
+export function moneyMonthAnswer({ sales = [], opex = [], today, prev = false, kind = 'expense', saleCost }) {
+  const ym = prev ? prevYm(today.slice(0, 7)) : today.slice(0, 7)
+  const word = prev ? 'เดือนก่อน' : 'เดือนนี้'
+  const label = `${word} (${ym.slice(5, 7)}/${+ym.slice(0, 4) + 543})`
+  const ex = opex.filter(e => e.month === ym)
+  const exTotal = ex.reduce((a, e) => a + e.amt, 0)
+  const byCat = {}
+  ex.forEach(e => { byCat[e.label] = (byCat[e.label] || 0) + e.amt })
+  const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1])
+  const exLines = cats.length ? cats.slice(0, 5).map(([k, v]) => `• ${k} ${thb(v)}`) : []
+  if (kind === 'expense') {
+    const before = opex.filter(e => e.month === prevYm(ym)).reduce((a, e) => a + e.amt, 0)
+    if (!ex.length) return { n: 0, text: `💸 ค่าใช้จ่าย${label}: ยังไม่มีรายการเบิกที่อนุมัติ${before ? ` · เดือนก่อนหน้า ${thb(before)}` : ''}\nℹ️ นับจากเบิกพนักงาน + เงินสดย่อยที่อนุมัติแล้ว (ไม่รวมเงินเดือน)` }
+    return { n: ex.length, text: [`💸 ค่าใช้จ่าย${label} ${thb(exTotal)}${before ? ` · เดือนก่อนหน้า ${thb(before)}` : ''}`, ...exLines, 'ℹ️ นับจากเบิกพนักงาน + เงินสดย่อยที่อนุมัติแล้ว (ไม่รวมเงินเดือน)'].join('\n') }
+  }
+  const rows = sales.filter(x => String(x.date || '').startsWith(ym))
+  const rev = rows.reduce((a, x) => a + (Number(x.salePrice) || 0), 0)
+  const cogs = rows.reduce((a, x) => a + saleCost(x), 0)
+  const est = rows.filter(x => !(Number(x.cost) > 0) && (Number(x.salePrice) || 0) > 0).length
+  const gross = rev - cogs, net = gross - exTotal
+  if (!rev && !exTotal) return { n: 0, text: `📈 กำไร${label}: ยังไม่มียอดขายหรือค่าใช้จ่ายในระบบ` }
+  return { n: rows.length, text: [`📈 กำไร${label} (ประมาณการจากระบบ)`,
+    `💰 รายได้ ${thb(rev)} (${rows.length} คัน · นับแบบเดียวกับหน้า P&L) · ต้นทุนรถ ${thb(cogs)}`,
+    `📊 กำไรขั้นต้น ${thb(gross)}${rev ? ` (${Math.round(gross / rev * 100)}%)` : ''}`,
+    `💸 ค่าใช้จ่ายที่เบิก ${thb(exTotal)} → กำไรสุทธิ ${thb(net)}`,
+    est ? `ℹ️ ${est} คันยังไม่ได้ใส่ต้นทุนจริง ใช้ต้นทุนประมาณการแทน · ยังไม่รวมเงินเดือน` : 'ℹ️ ยังไม่รวมเงินเดือน'].join('\n') }
+}
+
 export function topScoreAnswer(customers, { scoreOf, max = MAX }) {
   const list = alive(customers).filter(c => !c.isLost && !c.bookingId && ['lead', 'pp', undefined, ''].includes(c.stage))
     .map(c => ({ c, s: scoreOf(c) })).sort((a, b) => b.s.score - a.s.score).slice(0, max)
@@ -801,6 +835,8 @@ export const OPS_LINKS = {
   stale: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
   noanswer: { path: '/crm/followup', label: '📞 เปิดหน้านัดติดตาม' },
   leave: { path: '/hr/leave', label: '👥 เปิดหน้าการลา' },
+  expense: { path: '/finance/pl', label: '📈 เปิดหน้ากำไร-ขาดทุน' },
+  profit: { path: '/finance/pl', label: '📈 เปิดหน้ากำไร-ขาดทุน' },
   incoming: { path: '/dms/orders', label: '📦 เปิดหน้าสั่งรถ' },
   lowstock: { path: '/dms/stock', label: '🚙 เปิดหน้าสต็อก' },
   hotbyseller: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
@@ -819,7 +855,7 @@ export const OPS_LINKS = {
 }
 
 export function opsFollowUps(spec) {
-  const all = { leave: 'วันนี้มีอะไรบ้าง', incoming: 'รถรุ่นไหนเหลือน้อย', lowstock: 'รถที่กำลังจะมาถึงมีกี่คัน', noanswer: 'ลูกค้า hot ที่ยังไม่มีนัด', hotbyseller: 'ลูกค้า hot มีใครบ้าง', pdi: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', stale: 'ลูกค้าคนไหนยังไม่ได้ทดลองขับ', tradein: 'ใครรอไฟแนนซ์', closerate: 'ลูกค้าใหม่เดือนนี้กี่คน', noquote: 'ใบเสนอราคาค้างอยู่กี่ใบ', bookmodel: 'รถรุ่นไหนขายดีสุดเดือนนี้', notd: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', claim: 'งานซ่อมค้างอยู่กี่งาน', parts: 'รถรออะไหล่มีคันไหน', servicerev: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', yesterday: 'วันนี้มีอะไรบ้าง', referask: 'ใครครบรอบซื้อรถเดือนนี้', eventbest: 'ลีดจากบูธเดือนนี้กี่คน', campaignbest: 'โปรเดือนนี้มีอะไรบ้าง', delivered: 'ใครครบรอบซื้อรถเดือนนี้', mycust: 'ลูกค้า hot มีใครบ้าง', nophone: 'ลูกค้าที่ยังไม่มีผู้ดูแล', topscore: 'วันนี้ควรโทรหาใคร', withdrawn: 'ยอดเดือนนี้เป็นไง', finbank: 'ใครรอไฟแนนซ์', noshow: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', nobookseller: 'ทีมวันนี้เป็นไง', bookday: 'ยอดเดือนนี้เป็นไง', tdnobook: 'ลูกค้า hot มีใครบ้าง', testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', insurance: 'รับประกันรถคันไหนใกล้หมด', walkin: 'walk in สัปดาห์นี้กี่คน', warranty: 'ประกันภัยใครใกล้หมด', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
+  const all = { expense: 'กำไรเดือนนี้เท่าไหร่', profit: 'ค่าใช้จ่ายเดือนนี้เท่าไหร่', leave: 'วันนี้มีอะไรบ้าง', incoming: 'รถรุ่นไหนเหลือน้อย', lowstock: 'รถที่กำลังจะมาถึงมีกี่คัน', noanswer: 'ลูกค้า hot ที่ยังไม่มีนัด', hotbyseller: 'ลูกค้า hot มีใครบ้าง', pdi: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', stale: 'ลูกค้าคนไหนยังไม่ได้ทดลองขับ', tradein: 'ใครรอไฟแนนซ์', closerate: 'ลูกค้าใหม่เดือนนี้กี่คน', noquote: 'ใบเสนอราคาค้างอยู่กี่ใบ', bookmodel: 'รถรุ่นไหนขายดีสุดเดือนนี้', notd: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', claim: 'งานซ่อมค้างอยู่กี่งาน', parts: 'รถรออะไหล่มีคันไหน', servicerev: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', yesterday: 'วันนี้มีอะไรบ้าง', referask: 'ใครครบรอบซื้อรถเดือนนี้', eventbest: 'ลีดจากบูธเดือนนี้กี่คน', campaignbest: 'โปรเดือนนี้มีอะไรบ้าง', delivered: 'ใครครบรอบซื้อรถเดือนนี้', mycust: 'ลูกค้า hot มีใครบ้าง', nophone: 'ลูกค้าที่ยังไม่มีผู้ดูแล', topscore: 'วันนี้ควรโทรหาใคร', withdrawn: 'ยอดเดือนนี้เป็นไง', finbank: 'ใครรอไฟแนนซ์', noshow: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', nobookseller: 'ทีมวันนี้เป็นไง', bookday: 'ยอดเดือนนี้เป็นไง', tdnobook: 'ลูกค้า hot มีใครบ้าง', testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', insurance: 'รับประกันรถคันไหนใกล้หมด', walkin: 'walk in สัปดาห์นี้กี่คน', warranty: 'ประกันภัยใครใกล้หมด', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
   const out = [all[spec.kind]]
   if (spec.kind === 'testdrive' && spec.day === 'tomorrow') out[0] = 'พรุ่งนี้มีใครนัดเข้าโชว์รูม'
   if (spec.kind === 'delivery' && spec.day === 'week') out[0] = 'มีนัดส่งมอบพรุ่งนี้ไหม'

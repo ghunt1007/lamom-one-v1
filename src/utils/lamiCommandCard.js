@@ -320,6 +320,14 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.eventBestAnswer(events, e => eventMetrics(e, { customers, bookings: bks, testDrives: drives }), { today })
   } else if (spec.kind === 'campaignbest') {
     res = oq.campaignBestAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today })
+  } else if (spec.kind === 'expense' || spec.kind === 'profit') {
+    if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, text: '🔒 ตัวเลขกำไร/ค่าใช้จ่ายของโชว์รูมดูได้เฉพาะผู้จัดการและเจ้าของ — ถามค่าคอมของตัวเองได้ เช่น "ค่าคอมเดือนนี้เท่าไหร่"' }
+    else {
+      const [{ opexEntries }, { saleCost }, { getSalesData }, claims, petty] = await Promise.all([import('./opex.js'), import('./saleCost.js'), import('../core/db.js'),
+        listDocs('expense_claims', f, 'date', 'desc', 2000).catch(() => []), listDocs('petty_cash', f, 'time', 'desc', 2000).catch(() => [])])
+      const sales = spec.kind === 'profit' ? await getSalesData().catch(() => []) : []
+      res = oq.moneyMonthAnswer({ sales, opex: opexEntries(claims, petty), today, prev: spec.prev, kind: spec.kind, saleCost })
+    }
   } else if (spec.kind === 'leave') {
     const whole = !!(vis.unrestricted || vis.companyOnly)
     if (!whole && !vis.hasSubordinates) res = { n: 0, text: '👥 ข้อมูลการลาของพนักงานดูได้เฉพาะหัวหน้าทีมและผู้จัดการ — เปิดหน้าการลาเพื่อดูของตัวเอง' }
