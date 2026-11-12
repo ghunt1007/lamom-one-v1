@@ -241,6 +241,18 @@ export async function loadPayAnswer(q) {
   return { text: pq.payAnswer(spec), copy: pq.payCustomerText(spec), next: pq.payFollowUps(spec), go: { path: '/finance/loan-calc?' + pq.loanCalcQuery(spec), label: '🧮 เทียบไฟแนนซ์ด้วยเงื่อนไขนี้' } }
 }
 
+// (v1.0.1070) "รถไฟฟ้าไม่เกิน 1 ล้าน / SUV 7 ที่นั่ง งบ 1.2 ล้าน" → null ถ้าไม่ใช่ · คืน { text, next, go, copy }
+export async function loadCarPick(q) {
+  const cp = await import('./carPick.js')
+  if (!cp.maybeCarPick(q)) return null
+  const spec = cp.parseCarPick(q)
+  if (!spec) return null
+  const { getVehicles, dealerRank, DEALER_BRANDS } = await import('../data/vehicleDatabase.js')
+  const res = cp.carPick(spec, getVehicles(), { dealerRank, dealerCount: DEALER_BRANDS.length })
+  const ids = res.top.slice(0, 3).map(g => g.vs[0].id).filter(Boolean)
+  return { text: res.text, next: res.next, copy: res.copy || undefined, go: ids.length >= 2 ? { path: '/dms/compare?ids=' + encodeURIComponent(ids.join(',')), label: '⚖️ เทียบรุ่นที่แนะนำ' } : { path: '/dms/vehicle-db', label: '🚗 เปิดฐานข้อมูลรถ' } }
+}
+
 // (v1.0.1069) "โปรเดือนนี้มีอะไรบ้าง / S07 มีโปรอะไร / โปรไหนใกล้หมด" → null ถ้าไม่ใช่ · คืน { text, next, go, copy }
 export async function loadPromoAnswer(q) {
   const pq = await import('./promoQuestions.js')
