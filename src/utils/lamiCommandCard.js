@@ -310,6 +310,11 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'testdrive') res = oq.testDriveAnswer((await listDocs('test_drives', f, 'date', 'desc', 300).catch(() => [])).filter(t => mine(t.staff, t)), { today, day: spec.day })
   else if (spec.kind === 'showroom') res = oq.showroomAnswer((await listDocs('appointments', f, 'date', 'desc', 300).catch(() => [])).filter(a => mine(a.salesperson, a)), { today, day: spec.day })
   else if (spec.kind === 'complaint') res = oq.complaintAnswer(await listDocs('complaints', f, 'createdAt', 'desc', 300).catch(() => []), { today })
+  else if (spec.kind === 'metachat') res = oq.metaChatAnswer()
+  else if (spec.kind === 'noservice') {
+    const [bks, jobs] = await Promise.all([listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('job_cards', f, 'createdAt', 'desc', 3000).catch(() => [])])
+    res = oq.noServiceAnswer(bks.filter(b => mine(b.salesName, b)), jobs, { today })
+  }
   else if (spec.kind === 'line') {
     const [threads, customers] = await Promise.all([listDocs('social_threads', [], 'lastAt', 'desc', 300).catch(() => []), customersPromise || visibleCustomersForCommands()])
     const mineIds = new Set((customers || []).filter(c => mine(c.assignedTo, c)).map(c => c.lineUserId).filter(Boolean))
@@ -417,7 +422,7 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.bookingsByModelAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, model: spec.model, period: spec.period })
   } else if (spec.kind === 'notd') {
     const [customers, drives] = await Promise.all([customersPromise || visibleCustomersForCommands(), listDocs('test_drives', f, 'date', 'desc', 2000).catch(() => [])])
-    res = oq.noTestDriveAnswer((customers || []).filter(c => mine(c.assignedTo, c)), drives, { model: spec.model })
+    res = oq.noTestDriveAnswer((customers || []).filter(c => mine(c.assignedTo, c)), drives, { model: spec.model, temp: spec.temp })
   } else if (spec.kind === 'mycust' || spec.kind === 'nophone' || spec.kind === 'topscore') {
     const customers = ((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c))
     if (spec.kind === 'topscore') { const { heuristicScore } = await import('./leadScore.js'); res = oq.topScoreAnswer(customers, { scoreOf: c => heuristicScore(c) }) }
@@ -431,7 +436,7 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = spec.kind === 'withdrawn' ? oq.withdrawnAnswer(bks, { today, prev: spec.prev }) : oq.finBankAnswer(bks, { today })
   } else if (spec.kind === 'noshow') {
     const [appts, drives] = await Promise.all([listDocs('appointments', f, 'date', 'desc', 500).catch(() => []), listDocs('test_drives', f, 'date', 'desc', 500).catch(() => [])])
-    res = oq.noShowAnswer(appts.filter(a => mine(a.salesperson, a)), drives.filter(t => mine(t.staff, t)), { today, range: spec.range })
+    res = oq.noShowAnswer(appts.filter(a => mine(a.salesperson, a)), drives.filter(t => mine(t.staff, t)), { today, range: spec.range, cancelled: spec.cancelled })
   } else if (spec.kind === 'nobookseller') {
     const [{ getSalesStaff }, customers, bks] = await Promise.all([import('../data/masterData.js'), customersPromise || visibleCustomersForCommands(), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])])
     const whole = !!(vis.unrestricted || vis.companyOnly)

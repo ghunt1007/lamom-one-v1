@@ -482,3 +482,55 @@ describe('v1.0.1120 delivered yesterday / last week', async () => {
     expect(w.text).toContain('02/11/')
   })
 })
+
+describe('v1.0.1121 hot not-driven, cancelled appts, docs, finance follow-up', () => {
+  it('notd hot filter', async () => {
+    const oq = await import('./opsQuestions.js')
+    expect(parseOpsSpec('ลูกค้า hot ที่ยังไม่ได้ทดลองขับ')).toMatchObject({ kind: 'notd', temp: 'hot' })
+    const cs = [{ id: 1, firstName: 'ก', temperature: 'hot', stage: 'lead' }, { id: 2, firstName: 'ข', temperature: 'warm', stage: 'lead' }]
+    const r = oq.noTestDriveAnswer(cs, [], { temp: 'hot' })
+    expect(r.n).toBe(1)
+    expect(r.text).toContain('HOT')
+    expect(oq.noTestDriveAnswer(cs, [{ customerName: 'ก' }], { temp: 'hot' }).text).toContain('ทดลองขับแล้วทุกคน')
+  })
+  it('cancelled appointments', async () => {
+    const oq = await import('./opsQuestions.js')
+    expect(parseOpsSpec('ใครยกเลิกนัด')).toMatchObject({ kind: 'noshow', cancelled: true })
+    expect(parseOpsSpec('ยกเลิกนัดสมชาย')).toBe(null)
+    const r = oq.noShowAnswer([{ name: 'ก', date: '2026-11-10', status: 'cancelled' }, { name: 'ข', date: '2026-11-10', status: 'noshow' }], [{ customerName: 'ค', date: '2026-11-11', status: 'cancelled' }], { today: T, cancelled: true })
+    expect(r.n).toBe(2)
+    expect(r.text).toContain('ยกเลิกนัด')
+  })
+  it('bookings without documents + finance follow-up', () => {
+    expect(parseBookingListSpec('ลูกค้าที่จองแล้วยังไม่ได้ส่งเอกสาร')).toMatchObject({ noDocs: true })
+    expect(parseBookingListSpec('ลูกค้าที่ต้องโทรตามผลไฟแนนซ์').statuses[0]).toBe('รอผลไฟแนนซ์')
+    const spec = parseBookingListSpec('ใบจองไหนเอกสารไม่ครบ')
+    const r = bookingTargets({ customers: [{ id: 'c1' }], bookings: [{ id: 'b1', customerId: 'c1', status: 'รอรถ' }, { id: 'b2', customerId: 'c1', status: 'รอรถ', files: [{ name: 'x' }] }], today: T, spec })
+    expect(r.list.map(x => x.b.id)).toEqual(['b1'])
+    expect(bookingListLabel(spec)).toContain('เอกสาร')
+  })
+})
+
+describe('v1.0.1121 never serviced + Facebook chat', () => {
+  it('lists delivered customers with no job card', async () => {
+    const oq = await import('./opsQuestions.js')
+    expect(parseOpsSpec('ลูกค้าที่ซื้อรถไปแล้วยังไม่เคยเข้าศูนย์')).toMatchObject({ kind: 'noservice' })
+    const bks = [
+      { id: 1, custName: 'ก', status: 'ส่งมอบแล้ว', deliveryDate: '2026-08-01', vin: 'V1' },
+      { id: 2, custName: 'ข', status: 'ส่งมอบแล้ว', deliveryDate: '2026-08-01', phone: '081-111-2222' },
+      { id: 3, custName: 'ค', status: 'ส่งมอบแล้ว', deliveryDate: '2026-11-05' },
+      { id: 4, custName: 'ง', status: 'รอส่งมอบ', deliveryDate: '2026-08-01' },
+    ]
+    const r = oq.noServiceAnswer(bks, [{ vin: 'v1' }, { phone: '0811112222' }], { today: T })
+    expect(r.n).toBe(0)
+    const r2 = oq.noServiceAnswer(bks, [], { today: T })
+    expect(r2.n).toBe(2)
+    expect(r2.text).toContain('01/08/')
+  })
+  it('Facebook chat question is answered honestly', async () => {
+    const oq = await import('./opsQuestions.js')
+    expect(parseOpsSpec('ใครยังไม่ได้ตอบแชทเฟซ')).toMatchObject({ kind: 'metachat' })
+    expect(parseOpsSpec('ใครยังไม่ได้ตอบไลน์')).toMatchObject({ kind: 'line' })
+    expect(oq.metaChatAnswer().text).toContain('Facebook')
+  })
+})
