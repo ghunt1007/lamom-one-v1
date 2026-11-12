@@ -5,9 +5,12 @@ import { carOf } from './carLabel.js'
 
 // (v1.0.1090) "รถรุ่นไหนขายดีสุดเดือนนี้" → เพิ่มอันดับรุ่นรถในสรุปยอด
 export const isModelRankQuestion = q => /รุ่น|ยี่ห้อ|แบรนด์|รถอะไร|คันไหน|แบบไหน/.test(String(q || ''))
-export function modelBoard(rows, months, upToDay) {
+// (v1.0.1095) "เดือนนี้ขายสีอะไรดีสุด" → จัดอันดับตามสีแทนรุ่น
+export const isColorRankQuestion = q => /สี\s*(?:อะไร|ไหน|ใด)|สี\s*(?:ขายดี|ยอดนิยม|ฮิต)|สีที่ขายดี/.test(String(q || ''))
+const colorOf = b => String(b.color || '').trim() || 'ไม่ระบุสี'
+export function modelBoard(rows, months, upToDay, keyOf = carOf) {
   const m = new Map()
-  const add = (b, k) => { const n = carOf(b) || 'ไม่ระบุรุ่น'; const r = m.get(n) || { name: n, booked: 0, delivered: 0 }; r[k]++; m.set(n, r) }
+  const add = (b, k) => { const n = keyOf(b) || 'ไม่ระบุรุ่น'; const r = m.get(n) || { name: n, booked: 0, delivered: 0 }; r[k]++; m.set(n, r) }
   statRows(rows, months, 'booked', upToDay).forEach(b => add(b, 'booked'))
   statRows(rows, months, 'delivered', upToDay).forEach(b => add(b, 'delivered'))
   return [...m.values()].sort((a, b) => (b.booked + b.delivered) - (a.booked + a.delivered) || b.delivered - a.delivered).slice(0, 5)
@@ -69,20 +72,28 @@ export function monthStats({ bookings = [], today, target = 0 }) {
     daysLeft: new Date(Date.UTC(y, m, 0)).getUTCDate() - day,
     board: board.length > 1 ? board.slice(0, 3) : [],
     models: modelBoard(rows, [ym]),
+    colors: modelBoard(rows, [ym], undefined, colorOf),
   }
 }
 
 const diff = (a, b) => a === b ? 'เท่าเดิม' : a > b ? `▲${a - b}` : `▼${b - a}`
 
+const colorLines = (s, word) => {
+  const named = (s.colors || []).filter(r => r.name !== 'ไม่ระบุสี')
+  if (s.colors?.length && !named.length) return [`🎨 ใบจอง${word}ยังไม่ได้ระบุสีรถ — ใส่สีในใบจองแล้ว LAMI จะบอกสีขายดีได้`]
+  return colorLinesRaw({ colors: named }, word)
+}
+const colorLinesRaw = (s, word) => s.colors?.length ? [`🎨 สีขายดี${word}`, ...s.colors.map((r, i) => `${i + 1}. ${r.name} — จอง ${r.booked} · ส่งมอบ ${r.delivered}`)] : [`🎨 ${word}ยังไม่มีใบจองหรือส่งมอบ`]
 const modelLines = (s, word) => s.models?.length ? [`🚘 รุ่นขายดี${word}`, ...s.models.map((r, i) => `${i + 1}. ${r.name} — จอง ${r.booked} · ส่งมอบ ${r.delivered}`)] : [`🚘 ${word}ยังไม่มีใบจองหรือส่งมอบ`]
 
-export function monthBriefText(s, { scope = '', past = false, models = false } = {}) {
+export function monthBriefText(s, { scope = '', past = false, models = false, colors = false } = {}) {
   if (past) {
     const out = [`📊 ยอดเดือนก่อน ${s.label}${scope ? ` — ${scope}` : ''} (ทั้งเดือน)`,
       `🚗 ส่งมอบ ${s.delivered} คัน · เดือนก่อนหน้านั้น ${s.prevDelivered} คัน (${diff(s.delivered, s.prevDelivered)})`,
       `📝 จองใหม่ ${s.booked} ใบ${s.withdrawn ? ` · ถอน ${s.withdrawn} ใบ` : ''} · เดือนก่อนหน้านั้น ${s.prevBooked} ใบ (${diff(s.booked, s.prevBooked)})`]
     if (s.target) out.push(`🎯 เป้าส่งมอบ ${s.target} คัน · ทำได้ ${Math.round(s.delivered / s.target * 100)}%${s.left ? ` · ขาด ${s.left} คัน` : ' · ✅ ถึงเป้า'}`)
     if (models) out.push(...modelLines(s, 'เดือนนั้น'))
+    if (colors) out.push(...colorLines(s, 'เดือนนั้น'))
     if (s.board.length) out.push('🏆 อันดับเดือนนั้น', ...s.board.map((r, i) => `${i + 1}. ${r.name} — ส่งมอบ ${r.delivered} · จอง ${r.booked}`))
     return out.join('\n')
   }
@@ -93,6 +104,7 @@ export function monthBriefText(s, { scope = '', past = false, models = false } =
   if (s.target) lines.push(`🎯 เป้าส่งมอบ ${s.target} คัน · ทำได้ ${Math.round(s.delivered / s.target * 100)}%${s.left ? ` · ขาดอีก ${s.left} คัน` : ' · ถึงเป้าแล้ว 🎉'} · เหลือ ${s.daysLeft} วัน`)
   else lines.push('🎯 ยังไม่ได้ตั้งเป้าส่งมอบเดือนนี้ (ตั้งได้ที่หน้ารายได้รายเซลส์)')
   if (models) lines.push(...modelLines(s, 'เดือนนี้'))
+  if (colors) lines.push(...colorLines(s, 'เดือนนี้'))
   if (s.board.length) lines.push('🏆 อันดับเดือนนี้', ...s.board.map((r, i) => `${i + 1}. ${r.name} — ส่งมอบ ${r.delivered} · จอง ${r.booked}`))
   const tip = s.target && !s.left ? 'ถึงเป้าแล้ว — ดันใบจองที่รอไฟแนนซ์/รอรถให้เป็นยอดเดือนหน้า'
     : s.target && s.waitDeliv >= s.left ? `รถพร้อมรอส่งมอบมี ${s.waitDeliv} คัน พอถึงเป้า — นัดวันส่งมอบให้ครบ`
@@ -137,16 +149,18 @@ export function periodStats({ bookings = [], today, period, prev = false }) {
     perMonth: months.map(m => ({ m, ...rangeStats(rows, [m]) })),
     board: salesBoard(rows, months).filter(r => r.delivered || r.booked).slice(0, 3),
     models: modelBoard(rows, months).slice(0, 3),
+    colors: modelBoard(rows, months, undefined, colorOf),
   }
 }
-export function periodBriefText(s, { scope = '' } = {}) {
+export function periodBriefText(s, { scope = '', colors = false } = {}) {
   const lines = [`📊 ยอด${s.label}${scope ? ` — ${scope}` : ''}${s.partial ? ' (ถึงวันนี้)' : ''}`,
     `🚗 ส่งมอบ ${s.delivered} คัน · ${s.prevLabel} ${s.prevDelivered} คัน${s.partial ? '' : ` (${diff(s.delivered, s.prevDelivered)})`}`,
     `📝 จองใหม่ ${s.booked} ใบ${s.withdrawn ? ` · ถอน ${s.withdrawn} ใบ` : ''} · ${s.prevLabel} ${s.prevBooked} ใบ`]
   const shown = s.perMonth.filter(r => r.delivered || r.booked)
   if (shown.length) lines.push('📅 รายเดือน', ...shown.map(r => `• ${TH_M[+r.m.slice(5, 7) - 1]} — ส่งมอบ ${r.delivered} · จอง ${r.booked}`))
   if (s.board.length) lines.push('🏆 เซลส์', ...s.board.map((r, i) => `${i + 1}. ${r.name} — ส่งมอบ ${r.delivered} · จอง ${r.booked}`))
-  if (s.models.length) lines.push('🚘 รุ่นขายดี', ...s.models.map((r, i) => `${i + 1}. ${r.name} — จอง ${r.booked} · ส่งมอบ ${r.delivered}`))
+  if (colors) lines.push(...colorLines(s, ''))
+  if (s.models.length && !colors) lines.push('🚘 รุ่นขายดี', ...s.models.map((r, i) => `${i + 1}. ${r.name} — จอง ${r.booked} · ส่งมอบ ${r.delivered}`))
   if (s.partial && s.perMonth.length > 1) {
     const done = s.perMonth.slice(0, -1), avg = done.reduce((a, r) => a + r.delivered, 0) / done.length
     lines.push(`💡 เฉลี่ยส่งมอบเดือนละ ${Math.round(avg * 10) / 10} คัน${s.perMonth.at(-1).delivered < avg ? ' — เดือนนี้ยังต่ำกว่าค่าเฉลี่ย เร่งรถที่พร้อมส่ง' : ''}`)
