@@ -258,6 +258,36 @@ export async function loadQuoteAnswer(q) {
   return { text: qq.quoteBriefText(st, spec), next: qq.quoteFollowUps(st, spec), go: { path: '/crm/quotation' + (status ? '?status=' + status : ''), label: '📄 เปิดหน้าใบเสนอราคา' } }
 }
 
+// (v1.0.1079) "นัดทดลองขับวันนี้มีใครบ้าง / LINE รอตอบไหม / ร้องเรียนค้างไหม / ลูกค้าใหม่เดือนนี้กี่คน / ครบรอบซื้อรถ" → null ถ้าไม่ใช่
+// ขอบเขต: เซลส์เห็นของตัวเอง/ลูกทีม (ตามผู้ดูแล) · หัวหน้า/เจ้าของเห็นทั้งโชว์รูม
+export async function loadOpsAnswer(q, customersPromise) {
+  const oq = await import('./opsQuestions.js')
+  const spec = oq.parseOpsSpec(q)
+  if (!spec) return null
+  const [{ listDocs, listAllDocs }, { companyScopeFilters }, { getVisibilityScope, scopeIncludesRecord }, { todayBangkok }] = await Promise.all([
+    import('../core/db.js'), import('../core/companyScope.js'), import('../core/hierarchy.js'), import('./format.js')])
+  const today = todayBangkok()
+  const f = companyScopeFilters()
+  const vis = await getVisibilityScope().catch(() => null)
+  if (!vis) return null
+  const mine = (name, rec) => scopeIncludesRecord(vis, name, rec)
+  let res
+  if (spec.kind === 'testdrive') res = oq.testDriveAnswer((await listDocs('test_drives', f, 'date', 'desc', 300).catch(() => [])).filter(t => mine(t.staff, t)), { today, day: spec.day })
+  else if (spec.kind === 'showroom') res = oq.showroomAnswer((await listDocs('appointments', f, 'date', 'desc', 300).catch(() => [])).filter(a => mine(a.salesperson, a)), { today, day: spec.day })
+  else if (spec.kind === 'complaint') res = oq.complaintAnswer(await listDocs('complaints', f, 'createdAt', 'desc', 300).catch(() => []), { today })
+  else if (spec.kind === 'line') {
+    const [threads, customers] = await Promise.all([listDocs('social_threads', [], 'lastAt', 'desc', 300).catch(() => []), customersPromise || visibleCustomersForCommands()])
+    const mineIds = new Set((customers || []).filter(c => mine(c.assignedTo, c)).map(c => c.lineUserId).filter(Boolean))
+    const whole = !!(vis.unrestricted || vis.companyOnly)
+    res = oq.lineWaitingAnswer(threads.filter(t => whole || mineIds.has(t.userId)), customers || [])
+  } else if (spec.kind === 'newcust') {
+    const [{ QUICK_SOURCES }, customers] = await Promise.all([import('./quickLead.js'), customersPromise || visibleCustomersForCommands()])
+    res = oq.newCustomerAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, period: spec.period, sourceLabel: { event: '🎪 ออกบูธ/อีเวนต์', ...Object.fromEntries(QUICK_SOURCES) } })
+  } else if (spec.kind === 'anniv') res = oq.annivAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, range: spec.range, asked: q })
+  if (!res) return null
+  return { text: res.text, next: oq.opsFollowUps(spec), go: oq.OPS_LINKS[spec.kind] }
+}
+
 // (v1.0.1070) "รถไฟฟ้าไม่เกิน 1 ล้าน / SUV 7 ที่นั่ง งบ 1.2 ล้าน" → null ถ้าไม่ใช่ · คืน { text, next, go, copy }
 export async function loadCarPick(q) {
   const cp = await import('./carPick.js')
