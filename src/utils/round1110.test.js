@@ -86,3 +86,19 @@ describe('v1.0.1111', () => {
     expect(sourceOf('ลูกค้าจากเฟซบุ๊ก')).toBe('facebook')
   })
 })
+
+import { lateAnswer } from './opsQuestions.js'
+describe('v1.0.1112', () => {
+  it('ใครมาสายวันนี้ → สาย/ขาด/ยังไม่ลงเวลา ไม่นับคนลา', () => {
+    expect(parseOpsSpec('ใครมาสายวันนี้')).toEqual({ kind: 'late' })
+    expect(parseOpsSpec('พนักงานลาวันนี้มีใครบ้าง')).toEqual({ kind: 'leave', day: 'today' })
+    const staff = [{ id: 's1', firstName: 'ก', lastName: 'หนึ่ง' }, { id: 's2', firstName: 'ข', lastName: 'สอง' }, { id: 's3', firstName: 'ค', lastName: 'สาม' }]
+    const rows = [{ staffId: 's1', staffName: 'ก หนึ่ง', date: T, checkIn: '08:47', status: 'late' }]
+    const leaves = [{ staff: 'ค สาม', status: 'approved', from: T, to: T }]
+    const r = lateAnswer(rows, staff, leaves, { today: T })
+    expect(r.text).toContain('มาสาย 1 คน')
+    expect(r.text).toContain('• ก หนึ่ง · เข้า 08:47')
+    expect(r.text).toContain('ยังไม่ลงเวลา 1 คน')
+    expect(r.text).not.toContain('ค สาม')
+  })
+})

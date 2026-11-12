@@ -37,29 +37,10 @@ export default async function CreditControlPage(container) {
     loading = true
     try {
       const stored = await listDocs('debt_settlements', companyScopeFilters(), 'oldest', 'asc', 300)
-      let virtual = []
-      try {
-        const bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 300)
-        const outstanding = bookings.filter(b => ['ยืนยัน', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status))
-        virtual = outstanding.filter(b => !stored.some(s => s.sourceBookingId === b.id)).map(b => {
-          const bookDate = (b.bookingDate || b.createdAt?.toDate?.()?.toISOString() || '').slice(0, 10)
-          const dueDate = bookDate ? new Date(new Date(bookDate).getTime() + 30 * 86400000).toISOString().slice(0, 10) : ''
-          const daysPast = dueDate ? Math.max(0, Math.round((Date.now() - new Date(dueDate)) / 86400000)) : 0
-          // หมายเหตุ (ตรวจสอบแล้ว ยังไม่แก้): ตั้ง creditLimit = used = b.price เสมอ ทำให้ "% ใช้เครดิต" เป็น
-          // ~100% ทุกรายเสมอ ไม่มีความหมายจริง — ตรวจสอบแล้วว่าระบบยังไม่มี field วงเงินเครดิตจริงต่อลูกค้า
-          // เลย (ค้นทั้งโค้ดพบแค่ creditLimit ของ vendor/supplier ใน SupplierManagement.js ซึ่งเป็นคนละเรื่อง)
-          // จะต้องเพิ่ม field ใหม่ในระบบลูกค้าก่อนถึงจะแก้ % นี้ให้มีความหมายจริงได้ — ไม่ทำในรอบนี้เพราะเกิน
-          // ขอบเขตของหน้านี้ไฟล์เดียว
-          return {
-            id: 'CR-' + b.id, customerId: b.id, sourceBookingId: b.id,
-            customer: b.custName || 'ลูกค้า', contact: b.custName || '', phone: b.phone || '',
-            type: 'retail', invoices: 1, oldest: dueDate,
-            creditLimit: b.price || 0, used: b.price || 0,
-            status: daysPast > 30 ? 'overdue_30' : daysPast > 0 ? 'overdue_7' : 'current',
-            notes: carOf(b), _source: 'booking',
-          }
-        })
-      } catch (e) {}
+      // (v1.0.1112) เดิมเอาใบจองที่ยังไม่ส่งมอบทุกใบมาเป็น "ลูกหนี้" เต็มราคารถ และขึ้น "เกินกำหนด" 30 วันหลังจอง
+      // ทั้งที่ลูกค้ายังไม่ต้องจ่าย (จ่ายตอนรับรถ/ไฟแนนซ์โอน) และระบบยังไม่มีช่องบันทึกยอดที่รับเงินแล้ว → ตัวเลขหลอก
+      // ตอนนี้แสดงเฉพาะลูกหนี้ที่บันทึกจริง (+ เพิ่มลูกหนี้) เท่านั้น
+      const virtual = []
       debtors = [...stored, ...virtual]
     } catch (e) { debtors = [] }
     loading = false
@@ -98,7 +79,7 @@ export default async function CreditControlPage(container) {
           </div>
         </div>
 
-        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:16px">
           ${kpi('💸 ยอดค้างชำระรวม', formatCurrency(totalOutstanding), 'primary')}
           ${kpi('⚠️ ค้างเกินกำหนด', formatCurrency(overdueAmount), 'warning')}
           ${kpi('❌ หนี้เสีย', formatCurrency(badDebtAmount), badDebtAmount > 0 ? 'danger' : 'secondary')}
@@ -111,6 +92,7 @@ export default async function CreditControlPage(container) {
         </div>
 
         <div style="display:flex;flex-direction:column;gap:10px">
+          ${!list.length ? `<div class="empty-state" style="padding:32px"><div class="empty-icon">💸</div><div class="empty-title">${debtors.length ? 'ไม่มีลูกหนี้ในตัวกรองนี้' : 'ยังไม่มีลูกหนี้ที่บันทึกไว้'}</div><div class="empty-desc">กด "+ เพิ่มลูกหนี้" เมื่อมีลูกค้าค้างจ่ายจริง (เช่น ค้างส่วนต่าง/ค่าอุปกรณ์หลังรับรถ)</div></div>` : ''}
           ${list.map(d => {
             const st = DEBT_STATUS[d.status]
             const utilPct = d.creditLimit ? Math.round(d.used / d.creditLimit * 100) : 0
