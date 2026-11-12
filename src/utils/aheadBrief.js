@@ -5,11 +5,11 @@ import { dmy } from './format.js'
 
 const isDate = d => /^\d{4}-\d{2}-\d{2}/.test(d || '')
 const DOW = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
-const WHEN = '(พรุ่งนี้|สัปดาห์นี้|อาทิตย์นี้|7\\s*วัน(?:ข้างหน้า|นี้)?)'
+const WHEN = '(พรุ่งนี้|สัปดาห์นี้|อาทิตย์นี้|สัปดาห์หน้า|อาทิตย์หน้า|7\\s*วัน(?:ข้างหน้า|นี้)?)'
 const Q1 = new RegExp(WHEN + '\\s*(?:ฉัน|ผม|หนู|เรา)?\\s*(?:มี|ต้อง)\\s*(?:อะไร|งานอะไร|ทำอะไร|นัดอะไร|นัดกี่|นัดไหม|งานไหม)')
 // (v1.0.1108) "ฉันมีนัดอะไรพรุ่งนี้" (วันไว้ท้าย)
 const Q3 = new RegExp('^(?:ฉัน|ผม|หนู|เรา)?\\s*(?:มี|ต้อง)\\s*(?:อะไร|งานอะไร|ทำอะไร|นัดอะไร|นัด)\\s*(?:บ้าง)?\\s*' + WHEN + '$')
-const Q2 = new RegExp('^(?:สรุป|ดู|ขอดู)?\\s*(?:งาน|ตาราง|ตารางงาน|นัดหมาย|คิว)?\\s*(?:ของ)?(?:ฉัน|ผม|หนู|เรา)?\\s*' + WHEN + '$')
+const Q2 = new RegExp('^(?:ช่วย)?(?:สรุป|ดู|ขอดู)?\\s*(?:งาน|ตาราง|ตารางงาน|นัดหมาย|นัด|คิว)?\\s*(?:ของ)?(?:ฉัน|ผม|หนู|เรา)?\\s*' + WHEN + '$')
 
 export function addDays(ymd, n) {
   const d = new Date(ymd + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n)
@@ -24,16 +24,23 @@ const dow = ymd => DOW[new Date(ymd + 'T00:00:00Z').getUTCDay()]
 export function parseAheadSpec(q) {
   const s = String(q || '').trim().replace(/[?？]+$/, '').replace(/\s*(?:บ้าง|ครับ|ค่ะ|คะ)+$/, '').trim()
   if (!s || s.length > 60) return null
+  // (v1.0.1118) "ช่วยสรุปลูกค้าที่ต้องตามสัปดาห์นี้" = นัดติดตามล่วงหน้า
+  const fu = s.match(new RegExp('^(?:ช่วย)?\\s*(?:สรุป|ดู|ขอดู)?\\s*(?:ลูกค้า|นัด)\\s*(?:ที่)?\\s*(?:ฉัน|ผม|หนู|เรา)?\\s*(?:ต้อง|ควร)\\s*(?:ตาม|โทร)(?:หา)?\\s*' + WHEN + '$'))
+  if (fu) return { mode: modeOf(fu[1]) }
   if (/โทร|ตาม(?!ที่)|ติดต่อ|ยอด|เป้า|ทีม|เซลส์|ใคร|ส่งมอบ|ลูกค้า|ลีด|สต็อก|ค่าคอม|รายได้/.test(s)) return null
   const m = s.match(Q1) || s.match(Q2) || s.match(Q3)
   if (!m || s === m[1]) return null // พิมพ์แค่ "พรุ่งนี้" เฉยๆ ไม่นับเป็นคำถาม
-  return { mode: m[1] === 'พรุ่งนี้' ? 'tomorrow' : 'week' }
+  return { mode: modeOf(m[1]) }
 }
+const modeOf = w => w === 'พรุ่งนี้' ? 'tomorrow' : /^(?:สัปดาห์|อาทิตย์)หน้า$/.test(w) ? 'nextweek' : 'week'
 
 export function aheadStats({ customers = [], followups = [], bookings = [], today, mode = 'week' }) {
   const vis = new Map(), byBooking = new Map()
   customers.forEach(c => { if (!c || c.deleted) return; vis.set(c.id, c); if (c.bookingId) byBooking.set(c.bookingId, c) })
-  const from = mode === 'tomorrow' ? addDays(today, 1) : today, to = mode === 'tomorrow' ? from : addDays(today, 6)
+  // (v1.0.1118) สัปดาห์หน้า = จันทร์–อาทิตย์ถัดไป
+  const dw = new Date(today + 'T00:00:00Z').getUTCDay()
+  const from = mode === 'tomorrow' ? addDays(today, 1) : mode === 'nextweek' ? addDays(today, ((8 - dw) % 7) || 7) : today
+  const to = mode === 'tomorrow' ? from : addDays(from, 6)
   const pend = followups.filter(f => f && !f.deleted && f.status === 'pending' && vis.has(f.customerId) && isDate(f.dueDate))
   const bks = bookings.filter(b => b && !b.deleted && (byBooking.has(b.id) || vis.has(b.customerId)) && (isOpenBooking(b) || b.status === 'ตัดตัวเลขรอส่งมอบ') && isDate(b.deliveryDate))
   const custName = f => { const c = vis.get(f.customerId); return [c?.firstName, c?.lastName].filter(Boolean).join(' ') || f.customerName || 'ลูกค้า' }
@@ -53,7 +60,7 @@ const some = (list, n) => list.slice(0, n).join(', ') + (list.length > n ? ` +${
 
 export function aheadBriefText(s) {
   const tm = s.mode === 'tomorrow'
-  const lines = [tm ? `🗓️ งานพรุ่งนี้ ${dow(s.from)} ${dmyOf(s.from)}` : `🗓️ งาน 7 วันข้างหน้า ${dmyOf(s.from)} – ${dmyOf(s.to)}`]
+  const lines = [tm ? `🗓️ งานพรุ่งนี้ ${dow(s.from)} ${dmyOf(s.from)}` : `🗓️ งาน${s.mode === 'nextweek' ? 'สัปดาห์หน้า' : ' 7 วันข้างหน้า'} ${dmyOf(s.from)} – ${dmyOf(s.to)}`]
   if (tm) {
     const d = s.days[0]
     lines.push(d.followups ? `📞 นัดติดตาม ${d.followups} นัด — ${some(d.fuNames, 6)}` : '📞 ยังไม่มีนัดติดตาม')
@@ -69,7 +76,7 @@ export function aheadBriefText(s) {
   }
   if (s.overdue) lines.push(`⚠️ ยังมีนัดเลยกำหนดค้างอยู่ ${s.overdue} นัด`)
   const tip = s.overdue ? 'เคลียร์นัดที่เลยกำหนดก่อน งานข้างหน้าจะไม่ทับกัน'
-    : !s.followups && !s.deliveries ? (tm ? 'พรุ่งนี้ยังว่าง — นัดลูกค้า HOT หรือหาลีดใหม่ได้เลย' : 'สัปดาห์นี้ยังไม่มีนัด — เริ่มนัดลูกค้าที่ยังไม่มีนัด')
+    : !s.followups && !s.deliveries ? (tm ? 'พรุ่งนี้ยังว่าง — นัดลูกค้า HOT หรือหาลีดใหม่ได้เลย' : `${s.mode === 'nextweek' ? 'สัปดาห์หน้า' : 'สัปดาห์นี้'}ยังไม่มีนัด — เริ่มนัดลูกค้าที่ยังไม่มีนัด`)
     : s.deliveries ? 'เช็กรถและเอกสารส่งมอบให้พร้อมล่วงหน้า 1 วัน' : ''
   if (tip) lines.push(`💡 ${tip}`)
   return lines.join('\n')

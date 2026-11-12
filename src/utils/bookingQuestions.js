@@ -9,7 +9,7 @@ export const BK_LIST_MAX = 10
 const DAY = 86400e3
 const dayNum = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / DAY
 const isDate = d => /^\d{4}-\d{2}-\d{2}/.test(d || '')
-const ASK = /ใครบ้าง|มีใคร|คนไหน|กี่คน|กี่ราย|กี่ใบ|กี่คัน|รายชื่อ|ขอดู|^ใคร|ใบไหน|ใบจองไหน|คันไหน|ของใคร|รถใคร|^ใบจอง(?:ที่)?|^ลูกค้าที่|^ลูกค้า\s*(?:ของ)?\s*(?:ฉัน|ผม|หนู|เรา)\s*ที่|^รถ(?:ที่)?ลูกค้า.{0,30}(?:หรือ|รึ)ยัง|นานสุด|นานที่สุด|^มี.{2,60}(?:ไหม|มั้ย|หรือเปล่า|รึเปล่า|หรือยัง)(?:ครับ|คะ|ค่ะ)?$/
+const ASK = /ใครบ้าง|มีใคร|คนไหน|กี่คน|กี่ราย|กี่ใบ|กี่คัน|รายชื่อ|ขอดู|^ใคร|ใบไหน|ใบจองไหน|คันไหน|ของใคร|รถใคร|^ใบจอง(?:ที่)?|^ลูกค้าที่|^ลูกค้า\s*(?:ของ)?\s*(?:ฉัน|ผม|หนู|เรา)\s*ที่|^รถ(?:ที่)?ลูกค้า.{0,30}(?:หรือ|รึ)ยัง|^รถ(?:ที่)?ลูกค้า\s*จอง|นานสุด|นานที่สุด|^มี.{2,60}(?:ไหม|มั้ย|หรือเปล่า|รึเปล่า|หรือยัง)(?:ครับ|คะ|ค่ะ)?$/
 const FIN = ['รอผลไฟแนนซ์', 'จัดไฟแนนซ์ก่อนจอง']
 const WAIT_DELIV = ['รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
 
@@ -18,7 +18,9 @@ export function parseBookingListSpec(q) {
   if (!s || s.length > 120 || !ASK.test(s)) return null
   // (v1.0.1116) "ทีมฉันมีใบจองค้างกี่ใบ" — คำว่าทีมใช้ได้ถ้าถามเรื่องใบจอง (ขอบเขตทีมจัดการโดยสิทธิ์อยู่แล้ว)
   if (/ทีม/.test(s) && !/ใบจอง/.test(s)) return null
-  if (/ทุกคน|ทั้งหมด|ยอด|เป้า|เซลส์|พนักงาน|ยังไง|อย่างไร|ทำไม|เพราะ|ลองขับ/.test(s)) return null
+  // (v1.0.1118) "ใบจองของเซลส์สอง" → กรองตามเซลส์ (หาชื่อจริงตอนโหลด)
+  const seller = /(?:ของ|ที่)\s*(?:เซลส์|เซล|คุณ|พี่|น้อง)\s*\S/.test(s) && !/ทีม|ทุกคน|แต่ละ/.test(s)
+  if (/ทุกคน|ทั้งหมด|ยอด|เป้า|พนักงาน|ยังไง|อย่างไร|ทำไม|เพราะ|ลองขับ/.test(s) || (!seller && /เซลส์/.test(s))) return null
   const noDate = /ไม่(?:ได้|มี)?\s*นัด\s*(?:วัน)?\s*(?:ส่งมอบ|ส่งรถ|รับรถ)|ส่งมอบ.*ยังไม่(?:ได้|มี)?\s*นัด/.test(s)
   const when = !noDate && /ส่งมอบ|ส่งรถ|รับรถ/.test(s) ? (/พรุ่งนี้/.test(s) ? 'tomorrow' : /วันนี้/.test(s) ? 'today' : /สัปดาห์นี้|อาทิตย์นี้|7\s*วัน/.test(s) ? 'week' : null) : null
   const stuck = /ค้างนาน|ค้างเกิน|นานเกิน|นานสุด|นานที่สุด|ค้างสถานะ|เกิน\s*\d{1,3}\s*วัน/.test(s) && /จอง|ใบ|ไฟแนนซ์|รอรถ|รอส่งมอบ/.test(s)
@@ -31,7 +33,11 @@ export function parseBookingListSpec(q) {
     : arrive ? ['รอรถ']
     : /รอ(?:ผล)?\s*ไฟแนนซ์|ไฟแนนซ์(?:ยัง)?ไม่(?:ได้)?\s*(?:ผ่าน|อนุมัติ)|ติดไฟแนนซ์|ยังไม่(?:ได้)?\s*(?:อนุมัติ|ผ่าน)\s*ไฟแนนซ์/.test(s) ? FIN
     : /รอรถ|ยังไม่มาถึง|รถยังไม่มา|ยังไม่ได้รถ|รถยังไม่เข้า|ยังไม่มี(?:รถ)?(?:ใน)?(?:สต็อก|สต๊อก)/.test(s) ? ['รอรถ']
-    : !when && /รอส่งมอบ|ค้างส่งมอบ|พร้อมส่ง/.test(s) ? WAIT_DELIV : null
+    : !when && /รอส่งมอบ|ค้างส่งมอบ|พร้อมส่ง/.test(s) ? WAIT_DELIV
+    // (v1.0.1118) สถานะอื่นในใบจอง (ตรงกับคอลัมน์ Sheet)
+    : /ผ่านไฟแนนซ์(?:แล้ว)?\s*(?:รอ)?\s*เบิก|รอเบิก(?!รถ)/.test(s) ? ['ผ่านไฟแนนซ์รอเบิก']
+    : /ไฟแนนซ์\s*(?:อนุมัติ|ผ่าน)\s*แล้ว|ผ่านไฟแนนซ์(?:แล้ว)?/.test(s) ? ['ผ่านไฟแนนซ์รอจอง', 'ผ่านไฟแนนซ์รอเบิก']
+    : /ซื้อสด|เงินสด/.test(s) ? ['ซื้อสดรอเบิกรถ'] : null
   // (v1.0.1086) "ใบจองไหนยังไม่มีเลขตัวถัง" (ไม่นับใบที่ยังรอรถ เพราะยังไม่ได้จัดรถ)
   const noVin = /(?:ยังไม่|ไม่)(?:ได้)?\s*(?:กรอก|ใส่|มี|ลง|ผูก|จับคู่|จับ)?\s*(?:เลข)?\s*(?:ตัวถัง|vin|คัสซี)/i.test(s)
   // (v1.0.1110) "ใบจองไหนยังไม่ได้ใส่สีรถ"
@@ -44,11 +50,17 @@ export function parseBookingListSpec(q) {
   // (v1.0.1096) "ใครยังไม่ได้รับรถทั้งที่ถึงวันนัด" → นัดส่งมอบเลยวันแล้วแต่ยังไม่ส่งมอบ
   const late = /ถึงวันนัด|เลย(?:วัน)?(?:นัด|กำหนด)\s*(?:ส่งมอบ|ส่งรถ|รับรถ)?|(?:ส่งมอบ|ส่งรถ)\s*(?:ช้า|ล่าช้า|เลยกำหนด|เกินกำหนด)|เกินวัน(?:นัด)?\s*ส่งมอบ/.test(s) && /ส่งมอบ|รับรถ|ส่งรถ|วันนัด/.test(s)
   const allOpen = !late && !statuses && !when && /ยังไม่(?:ได้)?\s*(?:ส่งมอบ|ส่งรถ|รับรถ)|ค้างจอง|ใบจอง\s*(?:ที่)?\s*ค้าง\s*(?:อยู่)?\s*(?:กี่|อะไร|ใคร|บ้าง)|^ใบจอง\s*(?:ของ)?\s*(?:ฉัน|ผม|หนู|เรา)\s*(?:มี|ค้าง)?\s*(?:กี่ใบ|อะไรบ้าง|มีใครบ้าง|ใครบ้าง)|^ใบจอง(?:ที่)?ค้างอยู่/.test(s)
-  if (!statuses && !when && !stuck && !noVin && !noDeposit && !noDown && !noColor && !finFail && !allOpen && !late) return null
-  return { late, allOpen, noVin, noDeposit, noDown, ...(noColor ? { noColor } : {}), ...(finFail ? { finFail } : {}), ...(arrive && !noDate && !finFail ? { arrive: true } : {}), statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
+  const none = !statuses && !when && !stuck && !noVin && !noDeposit && !noDown && !noColor && !finFail && !allOpen && !late
+  if (none && !(seller && /ใบจอง/.test(s))) return null
+  return { late, allOpen: allOpen || none, ...(seller ? { seller: true } : {}), noVin, noDeposit, noDown, ...(noColor ? { noColor } : {}), ...(finFail ? { finFail } : {}), ...(arrive && !noDate && !finFail ? { arrive: true } : {}), statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
 }
 
 export function bookingListLabel(spec) {
+  const lbl = bookingListLabel0(spec)
+  return spec.sellerName ? `${lbl} ของ ${spec.sellerName}` : lbl
+}
+const ST_LABEL = { 'รอผลไฟแนนซ์': 'รอไฟแนนซ์', 'ผ่านไฟแนนซ์รอจอง': 'ผ่านไฟแนนซ์แล้ว' }
+function bookingListLabel0(spec) {
   if (spec.late) return 'นัดส่งมอบเลยวันแล้วแต่ยังไม่ส่งมอบ'
   if (spec.allOpen && !spec.noVin && !spec.noDeposit && !spec.noDown && !spec.noColor && !spec.finFail && !spec.stuck) return 'ใบจองที่ยังไม่ส่งมอบ'
   if (spec.noColor) return 'ใบจองที่ยังไม่ได้ใส่สีรถ'
@@ -59,8 +71,8 @@ export function bookingListLabel(spec) {
   if (spec.noDown) return 'ใบจองผ่อนที่ยังไม่ได้กรอกยอดดาวน์'
   if (spec.noDate) return 'รถพร้อมส่งที่ยังไม่นัดวันส่งมอบ'
   if (spec.when) return `นัดส่งมอบ${{ today: 'วันนี้', tomorrow: 'พรุ่งนี้', week: 'ใน 7 วันนี้' }[spec.when]}`
-  if (spec.stuck) return `ใบจอง${spec.statuses ? 'สถานะ ' + (spec.statuses[0] === 'รอผลไฟแนนซ์' ? 'รอไฟแนนซ์' : spec.statuses[0]) + ' ' : 'ที่'}ค้างเกิน ${spec.stuckDays} วัน`
-  return `ใบจองสถานะ ${spec.statuses[0] === 'รอผลไฟแนนซ์' ? 'รอไฟแนนซ์' : spec.statuses[0]}`
+  if (spec.stuck) return `ใบจอง${spec.statuses ? 'สถานะ ' + (ST_LABEL[spec.statuses[0]] || spec.statuses[0]) + ' ' : 'ที่'}ค้างเกิน ${spec.stuckDays} วัน`
+  return `ใบจองสถานะ ${ST_LABEL[spec.statuses[0]] || spec.statuses[0]}`
 }
 
 // เห็นเฉพาะใบจองที่ผูกกับลูกค้าที่ผู้ใช้มองเห็น
@@ -77,6 +89,7 @@ export function bookingTargets({ customers = [], bookings = [], today, spec, tom
     const open = isOpenBooking(b) || b.status === 'ตัดตัวเลขรอส่งมอบ'
     if (!open) return
     if (spec.statuses && !spec.statuses.includes(b.status)) return
+    if (spec.sellerName && String(b.salesName || '').trim() !== spec.sellerName) return
     if (spec.noDate && isDate(b.deliveryDate)) return
     if (spec.late && !(isDate(b.deliveryDate) && String(b.deliveryDate).slice(0, 10) < today)) return
     if (spec.noVin && (String(b.vin || '').trim() || b.status === 'รอรถ')) return

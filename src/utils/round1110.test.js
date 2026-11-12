@@ -306,3 +306,108 @@ describe('v1.0.1117 marketing spend', async () => {
     expect(r.text).toContain('ลูกค้าใหม่ทั้งเดือนนี้ 5 คน → เฉลี่ย ฿2,000/คน')
   })
 })
+
+describe('v1.0.1118 trade-ins this month', async () => {
+  const oq = await import('./opsQuestions.js')
+  it('counts every trade-in dated this month', () => {
+    expect(oq.parseOpsSpec('มีรถเทิร์นกี่คันเดือนนี้')).toEqual({ kind: 'tradein', month: true })
+    expect(oq.parseOpsSpec('รถเทิร์นคันไหนยังไม่ได้ประเมิน')).toEqual({ kind: 'tradein' })
+    const r = oq.tradeInAnswer([{ date: '2026-11-02', status: 'received' }, { date: '2026-11-05', status: 'declined' }, { date: '2026-10-05', status: 'appraisal' }], { today: '2026-11-12', month: true })
+    expect(r.n).toBe(2)
+    expect(r.text).toContain('ไม่ตกลง 1')
+  })
+})
+
+describe('v1.0.1118 calls made, next-week brief', async () => {
+  const oq = await import('./opsQuestions.js')
+  const ab = await import('./aheadBrief.js')
+  const cl = await import('./callList.js')
+  it('parses', () => {
+    expect(oq.parseOpsSpec('วันนี้ฉันโทรไปกี่คนแล้ว')).toEqual({ kind: 'calls', day: 'today', team: false })
+    expect(oq.parseOpsSpec('เมื่อวานฉันโทรไปกี่สาย').day).toBe('yesterday')
+    expect(oq.parseOpsSpec('ทีมโทรไปกี่สายวันนี้').team).toBe(true)
+    expect(oq.parseOpsSpec('วันนี้ควรโทรหาใคร')).toBe(null)
+    expect(ab.parseAheadSpec('นัดของฉันสัปดาห์หน้า')).toEqual({ mode: 'nextweek' })
+    expect(ab.parseAheadSpec('ช่วยสรุปลูกค้าที่ต้องตามสัปดาห์นี้')).toEqual({ mode: 'week' })
+    expect(ab.parseAheadSpec('ลูกค้าที่ต้องตามพรุ่งนี้')).toEqual({ mode: 'tomorrow' })
+    expect(cl.isCallListQuestion('ลูกค้าที่ต้องตามพรุ่งนี้')).toBe(false)
+    expect(cl.isCallListQuestion('ลูกค้าที่ฉันต้องตามวันนี้')).toBe(true)
+  })
+  it('next week = next Monday to Sunday', () => {
+    const s = ab.aheadStats({ today: '2026-11-12', mode: 'nextweek' })
+    expect([s.from, s.to]).toEqual(['2026-11-16', '2026-11-22'])
+    expect(ab.aheadBriefText(s)).toContain('งานสัปดาห์หน้า')
+  })
+  it('counts logged calls with outcomes', () => {
+    const logs = [{ type: 'call', createdAt: '2026-11-12T03:00', customerId: 'a', note: 'คุยแล้ว สนใจ', createdBy: 'ก' },
+      { type: 'call', createdAt: '2026-11-12T04:00', customerId: 'a', note: 'ไม่รับสาย', createdBy: 'ข' },
+      { type: 'call', createdAt: '2026-11-11T04:00', customerId: 'b', note: 'ไม่สนใจ', createdBy: 'ก' }, { type: 'line', createdAt: '2026-11-12' }]
+    const r = oq.callsAnswer(logs, { today: '2026-11-12', team: true })
+    expect(r.text).toContain('โทรไป 2 สาย · 1 คน')
+    expect(r.text).toContain('📵 ไม่รับสาย 1')
+    expect(r.text).toContain('1. ก — 1 สาย')
+    expect(oq.callsAnswer(logs, { today: '2026-11-12', day: 'yesterday' }).n).toBe(1)
+    expect(oq.callsAnswer([], { today: '2026-11-12' }).text).toContain('ยังไม่มีการโทร')
+  })
+})
+
+describe('v1.0.1118 car ranking', async () => {
+  const cp = await import('./carPick.js')
+  const V = [
+    { id: 'a1', brand: 'DEEPAL', model: 'S05 (2026)', year: 2026, variant: 'LITE', price: 799000, range: 450, power: 218, fuel: 'BEV' },
+    { id: 'a2', brand: 'DEEPAL', model: 'S05 (2026)', year: 2026, variant: 'LR', price: 999000, range: 550, power: 238, fuel: 'BEV' },
+    { id: 'b1', brand: 'DEEPAL', model: 'S07 (2026)', year: 2026, price: 1099000, range: 485, power: 258, fuel: 'BEV' },
+    { id: 'c1', brand: 'OTHER', model: 'X9', year: 2026, price: 500000, range: 700, power: 100, fuel: 'BEV' }]
+  const opt = { dealerRank: b => b === 'DEEPAL' ? 0 : 9, dealerCount: 6 }
+  it('parses and ignores customer/sales questions', () => {
+    expect(cp.parseRankPick('รถรุ่นไหนวิ่งไกลสุด')).toMatchObject({ by: 'range', all: false })
+    expect(cp.parseRankPick('รุ่นไหนขายดีสุด')).toBe(null)
+    expect(cp.parseRankPick('ลูกค้าคนไหนวิ่งไกลสุด')).toBe(null)
+  })
+  it('ranks our brands by best variant; cheapest by min price', () => {
+    const r = cp.rankPick({ by: 'range' }, V, opt)
+    expect(r.text.split('\n')[1]).toContain('S05')
+    expect(r.text.split('\n')[1]).toContain('550 กม.')
+    expect(r.text).not.toContain('X9')
+    expect(cp.rankPick({ by: 'cheap' }, V, opt).text.split('\n')[1]).toContain('฿799,000')
+    expect(cp.rankPick({ by: 'range', all: true }, V, opt).text.split('\n')[1]).toContain('X9')
+  })
+})
+
+describe('v1.0.1118 booking statuses + seller', async () => {
+  const bq = await import('./bookingQuestions.js')
+  const cs = [{ id: 'c1' }]
+  const bks = [{ id: 'b1', customerId: 'c1', status: 'ผ่านไฟแนนซ์รอเบิก', salesName: 'เซลส์ สอง' }, { id: 'b2', customerId: 'c1', status: 'ผ่านไฟแนนซ์รอจอง', salesName: 'เซลส์ หนึ่ง' },
+    { id: 'b3', customerId: 'c1', status: 'ซื้อสดรอเบิกรถ', salesName: 'เซลส์ สอง' }, { id: 'b4', customerId: 'c1', status: 'ส่งมอบแล้ว', salesName: 'เซลส์ สอง' }]
+  const ids = (q, extra = {}) => bq.bookingTargets({ customers: cs, bookings: bks, today: '2026-11-12', spec: { ...bq.parseBookingListSpec(q), ...extra } }).list.map(x => x.b.id)
+  it('maps statuses', () => {
+    expect(ids('ใบจองไหนผ่านไฟแนนซ์แล้วรอเบิก')).toEqual(['b1'])
+    expect(ids('ลูกค้าที่ไฟแนนซ์อนุมัติแล้วยังไม่ทำสัญญา').sort()).toEqual(['b1', 'b2'])
+    expect(ids('ลูกค้าซื้อสดมีใครบ้าง')).toEqual(['b3'])
+    expect(bq.bookingListLabel(bq.parseBookingListSpec('ลูกค้าที่ไฟแนนซ์อนุมัติแล้วยังไม่ทำสัญญา'))).toContain('ผ่านไฟแนนซ์แล้ว')
+  })
+  it('filters by named seller', () => {
+    expect(bq.parseBookingListSpec('ยอดจองของเซลส์หนึ่งเดือนนี้')).toBe(null)
+    expect(ids('ใบจองของเซลส์สอง', { sellerName: 'เซลส์ สอง' }).sort()).toEqual(['b1', 'b3'])
+    expect(bq.bookingListLabel({ ...bq.parseBookingListSpec('ใบจองของเซลส์สอง'), sellerName: 'เซลส์ สอง' })).toContain('ของ เซลส์ สอง')
+  })
+})
+
+describe('v1.0.1118 recall + service ranking', async () => {
+  const oq = await import('./opsQuestions.js')
+  it('recall pending vehicles', () => {
+    const r = oq.recallAnswer([{ id: 'r1', title: 'ถุงลม', status: 'open' }, { id: 'r2', title: 'เก่า', status: 'closed' }],
+      [{ recallId: 'r1', plate: 'กข 1', vStatus: 'scheduled' }, { recallId: 'r1', plate: 'กข 2' }, { recallId: 'r1', plate: 'กข 3', vStatus: 'fixed' }, { recallId: 'r2', plate: 'กข 4' }])
+    expect(r.n).toBe(2)
+    expect(r.text.split('\n')[1]).toContain('กข 2')
+    expect(oq.recallAnswer([], []).text).toContain('ยังไม่มีแคมเปญ')
+  })
+  it('ranks customers and techs from job cards', () => {
+    const jobs = [{ customerId: 'a', customerName: 'ก', createdAt: '2026-11-01', techName: 'ช่าง1', status: 'inprogress' },
+      { customerId: 'a', customerName: 'ก', createdAt: '2026-06-01', techName: 'ช่าง2', status: 'delivered' },
+      { customerId: 'b', customerName: 'ข', createdAt: '2026-10-01', techName: 'ช่าง1', status: 'delivered' }]
+    expect(oq.serviceTopAnswer(jobs, { today: '2026-11-12' }).text.split('\n')[1]).toContain('ก — 2 ครั้ง')
+    expect(oq.serviceTopAnswer(jobs.slice(1), { today: '2026-11-12' }).text).toContain('ยังไม่มีลูกค้าที่เข้าศูนย์ซ้ำ')
+    expect(oq.serviceTopAnswer(jobs, { today: '2026-11-12', by: 'tech' }).text).toContain('1. ช่าง1 — ค้างอยู่ 1 งาน · เปิดเดือนนี้ 1 งาน')
+  })
+})

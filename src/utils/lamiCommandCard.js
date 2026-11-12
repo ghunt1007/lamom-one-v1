@@ -135,6 +135,11 @@ export async function loadBookingListCommands(q, customersPromise) {
     customersPromise || visibleCustomersForCommands(),
     listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc').catch(() => []),
   ])
+  if (spec.seller) {
+    const { findSeller } = await import('./monthBrief.js')
+    spec.sellerName = findSeller(q, (bookings || []).map(b => b && b.salesName))
+    if (!spec.sellerName) return null
+  }
   const res = bq.bookingTargets({ customers, bookings, today: todayBangkok(), spec })
   return { cmds: bq.bookingListCommands(res.list), intro: bq.bookingListIntro(spec, res) }
 }
@@ -344,6 +349,14 @@ export async function loadOpsAnswer(q, customersPromise) {
       const sales = spec.kind === 'profit' ? await getSalesData().catch(() => []) : []
       res = oq.moneyMonthAnswer({ sales, opex: opexEntries(claims, petty), today, prev: spec.prev, kind: spec.kind, saleCost, perUnit: !!spec.perUnit, low: !!spec.low, byModel: !!spec.byModel })
     }
+  } else if (spec.kind === 'calls') {
+    const whole = !!(vis.unrestricted || vis.companyOnly)
+    const { getState } = await import('../core/store.js')
+    const u = getState('user') || {}
+    const ids = new Set([u.displayName, u.email, u.uid].filter(Boolean).map(x => String(x).trim()))
+    const logs = await listDocs('comm_logs', f, 'createdAt', 'desc', 2000).catch(() => [])
+    const team = spec.team && (whole || vis.hasSubordinates)
+    res = oq.callsAnswer(logs.filter(l => team ? (whole || ids.has(String(l.createdBy || '').trim()) || mine(l.createdBy, l)) : ids.has(String(l.createdBy || '').trim())), { today, day: spec.day, team })
   } else if (spec.kind === 'mktspend') {
     if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 ค่าการตลาดของโชว์รูมดูได้เฉพาะผู้จัดการและเจ้าของ' }
     else {
@@ -393,7 +406,7 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'stale') {
     res = oq.staleProspectAnswer(((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c)), { today })
   } else if (spec.kind === 'tradein') {
-    res = oq.tradeInAnswer(await listDocs('trade_ins', f, 'date', 'desc', 300).catch(() => []), { today })
+    res = oq.tradeInAnswer(await listDocs('trade_ins', f, 'date', 'desc', 300).catch(() => []), { today, month: !!spec.month })
   } else if (spec.kind === 'closerate') {
     const [customers, bks] = await Promise.all([customersPromise || visibleCustomersForCommands(), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])])
     res = oq.closeRateAnswer((customers || []).filter(c => mine(c.assignedTo, c)), bks.filter(b => mine(b.salesName, b)), { today, prev: spec.prev })
@@ -454,6 +467,12 @@ export async function loadOpsAnswer(q, customersPromise) {
       listDocs('followups', [...f, ...followupWindowFilters(today)], 'dueDate', 'asc', 3000).catch(() => []), g('service_appointments', f, 'date'), g('tasks', f, 'dueDate')])
     const items = buildWorkItems({ bookings, appointments, testDrives, followups, serviceAppts, tasks }, today).filter(it => it.shared || mine(it.owner, it.rec))
     res = oq.overdueAnswer(items, { today, labels: KINDS })
+  } else if (spec.kind === 'recall') {
+    const [camps, vs] = await Promise.all([listDocs('recall_campaigns', f, 'issueDate', 'desc', 200).catch(() => []), listDocs('recall_campaign_vehicles', f, 'plate', 'asc', 500).catch(() => [])])
+    res = oq.recallAnswer(camps, vs)
+  } else if (spec.kind === 'servicetop') {
+    const jobs = await listDocs('job_cards', f, 'createdAt', 'desc', 2000).catch(() => [])
+    res = oq.serviceTopAnswer(spec.by === 'tech' ? jobs.filter(j => mine(j.techName, j)) : jobs, { today, by: spec.by })
   } else if (spec.kind === 'service') {
     const [ap, jobs] = await Promise.all([listDocs('service_appointments', f, 'date', 'desc', 300).catch(() => []), listDocs('job_cards', f, 'createdAt', 'desc', 500).catch(() => [])])
     res = oq.serviceAnswer(ap.filter(a => mine(a.tech, a)), jobs.filter(j => mine(j.techName, j)), { today, day: spec.day })
@@ -472,6 +491,13 @@ export async function loadOpsAnswer(q, customersPromise) {
 // (v1.0.1070) "รถไฟฟ้าไม่เกิน 1 ล้าน / SUV 7 ที่นั่ง งบ 1.2 ล้าน" → null ถ้าไม่ใช่ · คืน { text, next, go, copy }
 export async function loadCarPick(q) {
   const cp = await import('./carPick.js')
+  const rk = cp.parseRankPick(q)
+  if (rk) {
+    const { getVehicles, dealerRank, DEALER_BRANDS } = await import('../data/vehicleDatabase.js')
+    const res = cp.rankPick(rk, getVehicles(), { dealerRank, dealerCount: DEALER_BRANDS.length })
+    const ids = res.top.slice(0, 3).map(g => g.vs[0].id).filter(Boolean)
+    return { text: res.text, next: res.next, go: ids.length >= 2 ? { path: '/dms/compare?ids=' + encodeURIComponent(ids.join(',')), label: '⚖️ เทียบรุ่นที่ติดอันดับ' } : { path: '/dms/vehicle-db', label: '🚗 เปิดฐานข้อมูลรถ' } }
+  }
   if (!cp.maybeCarPick(q)) return null
   const spec = cp.parseCarPick(q)
   if (!spec) return null
