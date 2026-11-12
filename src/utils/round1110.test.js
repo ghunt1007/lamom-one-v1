@@ -261,3 +261,24 @@ describe('v1.0.1117 staff phrasings', async () => {
     expect(oq.leaveAnswer(rows, { today: '2026-11-03' }).n).toBe(1)
   })
 })
+
+describe('v1.0.1117 list by seller + manager phrasings', async () => {
+  const lq = await import('./listQuestions.js')
+  const oq = await import('./opsQuestions.js')
+  const tb = await import('./teamBrief.js')
+  it('filters list by named seller', () => {
+    const spec = lq.parseListSpec('ลูกค้า hot ของเซลส์หนึ่ง')
+    expect(spec).toMatchObject({ temp: 'hot', seller: true })
+    expect(lq.parseListSpec('ลูกค้า hot ของทีม')).toBe(null)
+    spec.sellerName = 'เซลส์ หนึ่ง'
+    const cs = [{ id: 1, stage: 'lead', temperature: 'hot', assignedTo: 'เซลส์ หนึ่ง' }, { id: 2, stage: 'lead', temperature: 'hot', assignedTo: 'เซลส์ สอง' }]
+    expect(lq.listTargets({ customers: cs, today: '2026-11-12', spec }).total).toBe(1)
+    expect(lq.listLabel(spec)).toContain('ของ เซลส์ หนึ่ง')
+    expect(lq.listFollowUp(spec, { total: 1 })).toBe('')
+  })
+  it('manager phrasings', () => {
+    expect(oq.parseOpsSpec('ลูกทีมคนไหนยังไม่มียอดจองเดือนนี้').kind).toBe('nobookseller')
+    expect(tb.isTeamQuestion('เซลส์คนไหนมีลูกค้าค้างโทรเยอะสุด')).toBe(true)
+    expect(tb.isTeamQuestion('ใครในทีมยังไม่ได้อัปเดตลูกค้า')).toBe(true)
+  })
+})

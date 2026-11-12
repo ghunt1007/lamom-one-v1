@@ -114,6 +114,11 @@ export async function loadListCommands(q, customersPromise) {
     customersPromise || visibleCustomersForCommands(),
     listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000).catch(() => []),
   ])
+  if (spec.seller) {
+    const { findSeller } = await import('./monthBrief.js')
+    spec.sellerName = findSeller(q, (customers || []).map(c => c && c.assignedTo))
+    if (!spec.sellerName) return null
+  }
   const catalog = spec.fuel ? await import('../data/vehicleDatabase.js').then(m => m.getVehicles().map(v => ({ model: v.model, fuel: v.fuel }))).catch(() => []) : []
   const res = lq.listTargets({ customers, followups, today, spec, catalog })
   return { cmds: lq.listCommands(res.list), intro: lq.listIntro(spec, res), next: lq.listFollowUp(spec, res) }
