@@ -195,3 +195,50 @@ describe('v1.0.1116 team phrasings', () => {
     expect(parseBookingListSpec('ทีมฉันมีใบจองค้างกี่ใบ').allOpen).toBe(true)
   })
 })
+
+describe('v1.0.1117 test drive month/week, plate phrasings, month compare', async () => {
+  const oq = await import('./opsQuestions.js')
+  const mb = await import('./monthBrief.js')
+  it('parses', () => {
+    expect(oq.parseOpsSpec('เดือนนี้มีเทสไดรฟ์กี่ครั้ง')).toEqual({ kind: 'testdrive', day: 'month' })
+    expect(oq.parseOpsSpec('นัดทดลองขับสัปดาห์นี้มีใครบ้าง')).toEqual({ kind: 'testdrive', day: 'week' })
+    expect(oq.parseOpsSpec('ป้ายแดงคืนแล้วหรือยัง')).toEqual({ kind: 'plate' })
+    expect(oq.parseOpsSpec('ลูกค้าคนไหนยังไม่ได้ป้ายทะเบียน')).toEqual({ kind: 'plate' })
+    expect(mb.isMonthQuestion('เทียบยอดเดือนนี้กับเดือนที่แล้ว')).toBe(true)
+    expect(mb.isMonthQuestion('เทียบกำไรเดือนนี้กับเดือนที่แล้ว')).toBe(false)
+  })
+  it('month summary counts done / no-show / models', () => {
+    const rows = [
+      { date: '2026-11-02', status: 'completed', model: 'S05' }, { date: '2026-11-05', status: 'no_show', model: 'S05' },
+      { date: '2026-11-10', status: 'scheduled', model: 'AION V' }, { date: '2026-11-20', status: 'scheduled' },
+      { date: '2026-10-30', status: 'completed' }, { date: '2026-11-03', status: 'cancelled' }]
+    const r = oq.testDriveAnswer(rows, { today: '2026-11-12', day: 'month' })
+    expect(r.n).toBe(3)
+    expect(r.text).toContain('ขับแล้ว 1')
+    expect(r.text).toContain('ไม่มา 1')
+    expect(r.text).toContain('S05 2')
+    expect(oq.testDriveAnswer(rows, { today: '2026-11-12', day: 'week' }).n).toBe(0)
+    expect(oq.testDriveAnswer(rows, { today: '2026-11-15', day: 'week' }).n).toBe(1)
+  })
+})
+
+describe('v1.0.1117 rest-of-month deliveries, call list, ปิดได้กี่คัน', async () => {
+  const oq = await import('./opsQuestions.js')
+  const cl = await import('./callList.js')
+  const mb = await import('./monthBrief.js')
+  it('parses', () => {
+    expect(oq.parseOpsSpec('ใครจะส่งมอบเดือนนี้')).toEqual({ kind: 'delivery', day: 'restmonth' })
+    expect(oq.parseOpsSpec('ลูกค้าที่จะออกรถเดือนนี้')).toEqual({ kind: 'delivery', day: 'restmonth' })
+    expect(oq.parseOpsSpec('ลูกค้าที่ส่งมอบเดือนนี้').kind).toBe('delivered')
+    expect(cl.isCallListQuestion('ลูกค้าที่ฉันต้องตามวันนี้')).toBe(true)
+    expect(cl.isCallListQuestion('ลูกค้าที่ต้องตามเอกสาร')).toBe(false)
+    expect(mb.isMonthQuestion('ฉันปิดได้กี่คันเดือนนี้')).toBe(true)
+  })
+  it('lists open bookings due from today to month end', () => {
+    const bks = [{ custName: 'ก', deliveryDate: '2026-11-20', status: 'รอส่งมอบ' }, { custName: 'ข', deliveryDate: '2026-12-02', status: 'รอส่งมอบ' },
+      { custName: 'ค', deliveryDate: '2026-11-25', status: 'ส่งมอบแล้ว' }, { custName: 'ง', deliveryDate: '2026-11-10', status: 'รอส่งมอบ' }]
+    const r = oq.deliveryAnswer(bks, { today: '2026-11-12', day: 'restmonth' })
+    expect(r.n).toBe(1)
+    expect(r.text).toContain('30/11')
+  })
+})

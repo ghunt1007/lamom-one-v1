@@ -24,7 +24,7 @@ export function parseOpsSpec(q) {
   if (s.length < 4 || s.length > 80 || (COMMAND.test(s) && !topicOnly)) return null
   const day = /พรุ่งนี้/.test(s) ? 'tomorrow' : 'today'
   // (v1.0.1103) "ใครยังไม่ได้ป้ายขาว" / "ลูกค้าคนไหนยังไม่ได้จดทะเบียน" / "ใครยังใช้ป้ายแดง"
-  if (has(s, /ป้ายขาว|ป้ายแดง|จดทะเบียน|ทะเบียนรถ|เล่มทะเบียน|ได้ทะเบียน/) && has(s, /ยังไม่|ยังใช้|ค้าง|รอ|ใคร|คันไหน|กี่คัน|กี่คน|คนไหน/) && !has(s, /ราคา|ค่าจด|กี่บาท|เท่าไหร่/)) return { kind: 'plate' }
+  if (has(s, /ป้ายขาว|ป้ายแดง|ป้ายทะเบียน|จดทะเบียน|ทะเบียนรถ|เล่มทะเบียน|ได้ทะเบียน/) && has(s, /ยังไม่|ยังใช้|ค้าง|รอ|ใคร|คันไหน|กี่คัน|กี่คน|คนไหน|คืน|(?:หรือ|รึ)ยัง/) && !has(s, /ราคา|ค่าจด|กี่บาท|เท่าไหร่/)) return { kind: 'plate' }
   // (v1.0.1092) "ลูกค้าที่ส่งมอบเดือนที่แล้ว" / "ลูกค้าที่ซื้อรถไปแล้วปีนี้" → รายชื่อลูกค้าที่รับรถแล้ว
   if (has(s, /ส่งมอบแล้ว|ซื้อ(?:รถ)?(?:ไป)?แล้ว|ที่ส่งมอบ|รับรถ(?:ไป)?แล้ว|ออกรถ(?:ไป)?แล้ว/) && has(s, /ลูกค้า|ใคร|รายชื่อ|กี่คน/) && !has(s, /นัด|พรุ่งนี้|ยอด|เป้า/))
     return { kind: 'delivered', period: /เดือน(?:ก่อน|ที่แล้ว)/.test(s) ? 'prevmonth' : /ปี/.test(s) ? 'year' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'month' }
@@ -49,6 +49,8 @@ export function parseOpsSpec(q) {
   if (has(s, /ไฟแนนซ์|แบงก์|ธนาคาร|ลีสซิ่ง/) && has(s, /ไหน|อันดับ|เยอะ|มากสุด|บ่อย|สรุป|ผ่านกี่|อนุมัติกี่|เปอร์เซ็นต์|%/) && !has(s, /ดอกเบี้ย|ผ่อน|ดาวน์|งวด|รอ(?:ผล)?\s*ไฟแนนซ์|ใคร|ใบจองไหน|ใบไหน|ยังไม่(?:ได้)?\s*(?:ผ่าน|อนุมัติ)/)) return { kind: 'finbank' }
   if (has(s, /รายได้|ค่าคอม/) && has(s, /ยังไม่กรอก|ไม่ได้กรอก|ค้างกรอก|ยังไม่ใส่|ขาด/)) return { kind: 'income' }
   if (has(s, /ส่งมอบ/) && has(s, /เดือนหน้า/) && !has(s, /ยอด|เป้า/)) return { kind: 'delivery', day: 'nextmonth' }
+  // (v1.0.1117) "ใครจะส่งมอบเดือนนี้" / "ลูกค้าที่จะออกรถเดือนนี้" → นัดส่งมอบที่เหลือของเดือนนี้ (ไม่ใช่ยอดที่ส่งไปแล้ว)
+  if (has(s, /ส่งมอบ|ออกรถ|รับรถ/) && has(s, /เดือนนี้/) && has(s, /จะ|นัด|กำหนด|ที่เหลือ/) && !has(s, /ยอด|เป้า|แล้ว(?!ยัง)/)) return { kind: 'delivery', day: 'restmonth' }
   if (has(s, /ส่งมอบ/) && !has(s, /ยอด|เป้า|เดือน|ปีนี้|ทั้งปี|ปีก่อน|ปีที่แล้ว|ประเมิน|พึงพอใจ|แบบสอบถาม|รีวิว|ยังไม่(?:ได้)?\s*นัด|ไม่ได้นัด/) && has(s, /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์|นัด|ใคร|กี่คัน|ไหม/)) return { kind: 'delivery', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /สัปดาห์หน้า|อาทิตย์หน้า/.test(s) ? 'nextweek' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
   if (has(s, /ช่องทาง|ที่มา|มาจาก/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'newcust', ...(sourceOf(s) ? { source: sourceOf(s) } : {}), period: /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
   // (v1.0.1094) "เคลมประกันค้างกี่เรื่อง" (เคลมประกันภัยรถยนต์ ไม่ใช่เคลมรับประกันศูนย์)
@@ -126,8 +128,10 @@ export function parseOpsSpec(q) {
   // (v1.0.1095) "ลูกค้าคนไหนยังไม่ได้ทดลองขับ" → ลูกค้าที่กำลังคุย (ยังไม่จอง) ที่ไม่มีประวัติทดลองขับเลย
   if (has(s, /ยังไม่(?:ได้|เคย)?\s*(?:นัด\s*)?(?:ทดลอง|ลอง)\s*ขับ|ไม่เคย(?:ทดลอง|ลอง)\s*ขับ|ไม่ได้(?:ทดลอง|ลอง)\s*ขับ/) && !has(s, /^(?:นัด|บันทึก)/)) return { kind: 'notd' }
   // (v1.0.1090) "ลูกค้าที่ทดลองขับแล้วยังไม่จอง" → รายชื่อที่ควรตามต่อ (ไม่ใช่นัดวันนี้)
-  if (has(s, /ทดลองขับ|ลองขับ|test\s*drive/i) && has(s, /ยังไม่(?:ได้)?(?:จอง|ซื้อ|ปิด)|ไม่จอง|ไม่ซื้อ|แล้วไม่/)) return { kind: 'tdnobook', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : /3 เดือน|90 วัน/.test(s) ? 90 : 30 }
-  if (has(s, /ทดลองขับ|ลองขับ|test\s*drive/i) && !(has(s, /แล้ว(?:หรือ)?ยัง|รึยัง|หรือยัง|เคย/) && !has(s, /ใคร|กี่|บ้าง|มีใคร/))) return { kind: 'testdrive', day }
+  if (has(s, /ทดลองขับ|ลองขับ|test\s*drive|เทสไดร(?:ฟ|ว)์?/i) && has(s, /ยังไม่(?:ได้)?(?:จอง|ซื้อ|ปิด)|ไม่จอง|ไม่ซื้อ|แล้วไม่/)) return { kind: 'tdnobook', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : /3 เดือน|90 วัน/.test(s) ? 90 : 30 }
+  // (v1.0.1117) "เดือนนี้มีเทสไดรฟ์กี่ครั้ง" → สรุปทั้งเดือน · "สัปดาห์นี้" → นัด 7 วันข้างหน้า
+  if (has(s, /ทดลองขับ|ลองขับ|test\s*drive|เทสไดร(?:ฟ|ว)์?/i) && !(has(s, /แล้ว(?:หรือ)?ยัง|รึยัง|หรือยัง|เคย/) && !has(s, /ใคร|กี่|บ้าง|มีใคร/)))
+    return { kind: 'testdrive', day: /เดือนนี้/.test(s) ? 'month' : /สัปดาห์|อาทิตย์|7\s*วัน/.test(s) ? 'week' : day }
   // (v1.0.1091) "ลูกค้ามาโชว์รูมเดือนนี้กี่คน" → นับ walk-in ตามช่วง (นัดโชว์รูมดูได้ทีละวัน)
   if (has(s, /โชว์รูม|showroom/i) && has(s, /เดือน|สัปดาห์|อาทิตย์|7 วัน/) && !has(s, /นัด/)) return { kind: 'walkin', day: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'month' }
   if ((has(s, /โชว์รูม|showroom/i) && has(s, /นัด|เข้า|มา/)) || has(s, /นัด\s*(?:มา)?\s*ดูรถ|มาดูรถ/)) return { kind: 'showroom', day: /สัปดาห์|อาทิตย์|7\s*วัน/.test(s) ? 'week' : day }
@@ -155,6 +159,24 @@ const nm = c => String(c?.name || [c?.firstName, c?.lastName].filter(Boolean).jo
 const dayWord = day => day === 'tomorrow' ? 'พรุ่งนี้' : 'วันนี้'
 
 export function testDriveAnswer(rows, { today, day = 'today' }) {
+  if (day === 'month') {
+    const from = today.slice(0, 8) + '01'
+    const ml = alive(rows).filter(t => ymd(t.date) >= from && ymd(t.date) <= today && !['cancelled', 'canceled'].includes(t.status))
+    if (!ml.length) return { n: 0, text: `🚗 เดือนนี้ (${dmy(from)}–${dmy(today)}) ยังไม่มีการทดลองขับ` }
+    const done = ml.filter(t => ['completed', 'done'].includes(t.status)).length, miss = ml.filter(t => ['no_show', 'noshow'].includes(t.status)).length
+    const byModel = {}; ml.forEach(t => { const m = String(t.model || '').trim(); if (m) byModel[m] = (byModel[m] || 0) + 1 })
+    const top = Object.entries(byModel).sort((a, b) => b[1] - a[1]).slice(0, 3)
+    return { n: ml.length, text: [`🚗 ทดลองขับเดือนนี้ ${ml.length} ครั้ง (${dmy(from)}–${dmy(today)})`,
+      `✅ ขับแล้ว ${done}${miss ? ` · ❌ ไม่มา ${miss}` : ''} · ⏳ รอ/อื่นๆ ${ml.length - done - miss}`,
+      ...(top.length ? ['🚘 รุ่นที่ขับมากสุด: ' + top.map(([m, n]) => `${m} ${n}`).join(' · ')] : [])].join('\n') }
+  }
+  if (day === 'week') {
+    const to = addDays(today, 6)
+    const wl = alive(rows).filter(t => ymd(t.date) >= today && ymd(t.date) <= to && ['scheduled', 'confirmed', 'in_progress', ''].includes(t.status || ''))
+      .sort((a, b) => (ymd(a.date) + (a.time || '')).localeCompare(ymd(b.date) + (b.time || '')))
+    if (!wl.length) return { n: 0, text: `🚗 7 วันนี้ (${dmy(today)}–${dmy(to)}) ไม่มีนัดทดลองขับ` }
+    return { n: wl.length, text: [`🚗 นัดทดลองขับ 7 วันนี้ — ${wl.length} ราย`, ...wl.slice(0, MAX).map(t => `• ${dmy(ymd(t.date)).slice(0, 5)} ${t.time ? String(t.time).slice(0, 5) + ' ' : ''}${nm(t)}${t.model ? ' · ' + t.model : ''}`), ...more(wl.length)].join('\n') }
+  }
   const date = day === 'tomorrow' ? addDays(today, 1) : today
   const list = alive(rows).filter(t => ymd(t.date) === date && ['scheduled', 'confirmed', 'in_progress', ''].includes(t.status || ''))
     .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
@@ -510,7 +532,7 @@ export function plateAnswer(bookings, { today, days = 180 }) {
 const LEAVE_TH = { sick: '🤒 ลาป่วย', personal: '📋 ลากิจ', annual: '🏖 ลาพักร้อน', maternity: '👶 ลาคลอด', ordain: '🧡 ลาบวช', unpaid: '💔 ลาไม่รับค่าจ้าง' }
 export function leaveAnswer(rows, { today, day = 'today' }) {
   const from = day === 'tomorrow' ? addDays(today, 1) : today
-  const to = day === 'week' ? addDays(today, 6) : from
+  const to = day === 'restmonth' ? addDays(nm1 + '-01', -1) : day === 'week' ? addDays(today, 6) : from
   const list = alive(rows).filter(r => ['approved', 'pending'].includes(r.status) && ymd(r.from) <= to && (ymd(r.to) || ymd(r.from)) >= from)
     .sort((a, b) => ymd(a.from).localeCompare(ymd(b.from)))
   const word = day === 'week' ? `7 วันนี้ (${dmy(from)}–${dmy(to)})` : `${dayWord(day)} ${dmy(from)}`
@@ -868,12 +890,12 @@ export function deliveryAnswer(bookings, { today, day = 'today' }) {
   const dow = new Date(today + 'T00:00:00Z').getUTCDay()
   const nm1 = (() => { const y = +today.slice(0, 4), m = +today.slice(5, 7); return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}` })()
   const from = day === 'tomorrow' ? addDays(today, 1) : day === 'nextweek' ? addDays(today, ((8 - dow) % 7) || 7) : day === 'nextmonth' ? nm1 + '-01' : today
-  const to = day === 'week' ? addDays(today, 6) : day === 'nextweek' ? addDays(from, 6) : day === 'nextmonth' ? addDays((() => { const [y, m] = nm1.split('-').map(Number); return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01` })(), -1) : from
+  const to = day === 'restmonth' ? addDays(nm1 + '-01', -1) : day === 'week' ? addDays(today, 6) : day === 'nextweek' ? addDays(from, 6) : day === 'nextmonth' ? addDays((() => { const [y, m] = nm1.split('-').map(Number); return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01` })(), -1) : from
   const list = alive(bookings).filter(b => !DONE.includes(b.status) && ymd(b.deliveryDate) >= from && ymd(b.deliveryDate) <= to)
     .sort((a, b) => ymd(a.deliveryDate).localeCompare(ymd(b.deliveryDate)) || String(a.deliveryTime || '').localeCompare(String(b.deliveryTime || '')))
-  const when = day === 'week' ? ` 7 วันนี้ (${dmy(from)}–${dmy(to)})` : day === 'nextweek' ? `สัปดาห์หน้า (${dmy(from)}–${dmy(to)})` : day === 'nextmonth' ? `เดือนหน้า (${dmy(from)}–${dmy(to)})` : `${dayWord(day)} ${dmy(from)}`
+  const when = day === 'restmonth' ? `ที่เหลือเดือนนี้ (${dmy(from)}–${dmy(to)})` : day === 'week' ? ` 7 วันนี้ (${dmy(from)}–${dmy(to)})` : day === 'nextweek' ? `สัปดาห์หน้า (${dmy(from)}–${dmy(to)})` : day === 'nextmonth' ? `เดือนหน้า (${dmy(from)}–${dmy(to)})` : `${dayWord(day)} ${dmy(from)}`
   if (!list.length) return { text: `🚗 ไม่มีนัดส่งมอบ${when}`, n: 0 }
-  return { n: list.length, text: [`🚗 นัดส่งมอบ${when} — ${list.length} คัน`, ...list.slice(0, MAX).map(b => `• ${['week', 'nextweek', 'nextmonth'].includes(day) ? dmy(b.deliveryDate) + ' ' : ''}${b.deliveryTime ? String(b.deliveryTime).slice(0, 5) + ' ' : ''}${nm(b)}${b.model ? ' · ' + b.model : ''}${b.status ? ' · ' + b.status : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''}`), ...more(list.length)].join('\n') }
+  return { n: list.length, text: [`🚗 นัดส่งมอบ${when} — ${list.length} คัน`, ...list.slice(0, MAX).map(b => `• ${['week', 'nextweek', 'nextmonth', 'restmonth'].includes(day) ? dmy(b.deliveryDate) + ' ' : ''}${b.deliveryTime ? String(b.deliveryTime).slice(0, 5) + ' ' : ''}${nm(b)}${b.model ? ' · ' + b.model : ''}${b.status ? ' · ' + b.status : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''}`), ...more(list.length)].join('\n') }
 }
 
 // ส่งมอบแล้วเดือนนี้แต่ยังไม่กรอกรายได้ (นิยามเดียวกับหน้างานวันนี้/รายงาน 18:00)
