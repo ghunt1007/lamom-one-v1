@@ -15,6 +15,19 @@ export function isMonthQuestion(q) {
   return /^(?:สรุป|ดู|ขอดู|ขอ)?\s*ยอด\s*(?:ขาย|ส่งมอบ|จอง)?\s*(?:ของ)?(?:ฉัน|ผม|หนู|เรา)?\s*(?:ตอนนี้|ล่าสุด)?\s*(?:เป็นไง|เป็นยังไง|เท่าไหร่|เท่าไร|ถึงไหนแล้ว)?\s*(?:บ้าง|แล้ว)?$/.test(s)
 }
 
+// (v1.0.1088) "ยอดเดือนนี้ของเซลส์หนึ่ง" / "สมชายขายได้กี่คันเดือนนี้" → หาชื่อเซลส์ในคำถาม (เทียบแบบไม่สนช่องว่าง)
+// ชื่อเต็มตรงก่อน · ไม่เจอค่อยลองชื่อแรก (ต้องตรงคนเดียว ไม่งั้นไม่เดา)
+const squash = v => String(v || '').toLowerCase().replace(/\s+/g, '')
+const GENERIC_NAME = /^(?:เซลส์|เซล|คุณ|พี่|น้อง|นาย|นาง|นางสาว|sales)$/i
+export function findSeller(q, names = []) {
+  const s = squash(q)
+  const uniq = [...new Set(names.map(n => String(n || '').trim()).filter(Boolean))]
+  const full = uniq.filter(n => squash(n).length >= 3 && s.includes(squash(n))).sort((a, b) => squash(b).length - squash(a).length)
+  if (full.length) return full[0]
+  const first = uniq.filter(n => { const w = n.split(/\s+/)[0]; return w.length >= 2 && !GENERIC_NAME.test(w) && s.includes(squash(w)) })
+  return first.length === 1 ? first[0] : ''
+}
+
 // (v1.0.1086) "ยอดเดือนก่อนเป็นไง" / "เดือนที่แล้วขายได้กี่คัน" → สรุปเดือนก่อนทั้งเดือน (เทียบกับเดือนก่อนหน้านั้น)
 const PREV = /เดือน(?:ก่อน|ที่แล้ว)/
 export function isPrevMonthQuestion(q) {
