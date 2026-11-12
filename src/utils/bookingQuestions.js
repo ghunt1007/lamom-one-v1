@@ -31,7 +31,7 @@ export function parseBookingListSpec(q) {
   const statuses = noDate ? WAIT_DELIV
     : finFail ? null
     : arrive ? ['รอรถ']
-    : /รอ(?:ผล)?\s*ไฟแนนซ์|ไฟแนนซ์(?:ยัง)?ไม่(?:ได้)?\s*(?:ผ่าน|อนุมัติ)|ติดไฟแนนซ์|ยังไม่(?:ได้)?\s*(?:อนุมัติ|ผ่าน)\s*ไฟแนนซ์/.test(s) ? FIN
+    : /รอ(?:ผล)?\s*ไฟแนนซ์|ตาม\s*ผล\s*ไฟแนนซ์|ไฟแนนซ์(?:ยัง)?ไม่(?:ได้)?\s*(?:ผ่าน|อนุมัติ)|ติดไฟแนนซ์|ยังไม่(?:ได้)?\s*(?:อนุมัติ|ผ่าน)\s*ไฟแนนซ์/.test(s) ? FIN
     : /รอรถ|ยังไม่มาถึง|รถยังไม่มา|ยังไม่ได้รถ|รถยังไม่เข้า|ยังไม่มี(?:รถ)?(?:ใน)?(?:สต็อก|สต๊อก)/.test(s) ? ['รอรถ']
     : !when && /รอส่งมอบ|ค้างส่งมอบ|พร้อมส่ง/.test(s) ? WAIT_DELIV
     // (v1.0.1118) สถานะอื่นในใบจอง (ตรงกับคอลัมน์ Sheet)
@@ -46,13 +46,15 @@ export function parseBookingListSpec(q) {
   const noDeposit = /ยังไม่(?:ได้)?\s*(?:วาง|จ่าย|ชำระ|โอน)?\s*(?:เงิน)?\s*มัดจำ|ไม่มี(?:เงิน)?มัดจำ|ไม่ได้วางมัดจำ/.test(s)
   // (v1.0.1103) "ใครยังไม่ได้วางเงินดาวน์" → ใบจองผ่อน (ไม่ใช่ซื้อสด) ที่ยังไม่ได้กรอกยอดดาวน์
   const noDown = !noDeposit && /ยังไม่(?:ได้)?\s*(?:วาง|จ่าย|ชำระ|โอน|กรอก|ใส่|ระบุ)?\s*(?:เงิน|ยอด)?\s*ดาวน์|ไม่มี(?:เงิน|ยอด)?ดาวน์/.test(s)
+  // (v1.0.1121) "ลูกค้าที่จองแล้วยังไม่ได้ส่งเอกสาร" → ใบจองที่ยังไม่มีไฟล์แนบ (📎 ในใบจอง)
+  const noDocs = /(?:ยังไม่|ไม่)(?:ได้)?\s*(?:ส่ง|แนบ|อัปโหลด|อัพโหลด|ให้|ครบ)?\s*(?:ไฟล์\s*)?เอกสาร|เอกสาร\s*(?:ยัง)?\s*ไม่ครบ/.test(s)
   // (v1.0.1090) "ลูกค้าที่จองแต่ยังไม่ส่งมอบมีกี่คน" → ใบจองที่ยังเปิดอยู่ทั้งหมด
   // (v1.0.1096) "ใครยังไม่ได้รับรถทั้งที่ถึงวันนัด" → นัดส่งมอบเลยวันแล้วแต่ยังไม่ส่งมอบ
   const late = /ถึงวันนัด|เลย(?:วัน)?(?:นัด|กำหนด)\s*(?:ส่งมอบ|ส่งรถ|รับรถ)?|(?:ส่งมอบ|ส่งรถ)\s*(?:ช้า|ล่าช้า|เลยกำหนด|เกินกำหนด)|เกินวัน(?:นัด)?\s*ส่งมอบ/.test(s) && /ส่งมอบ|รับรถ|ส่งรถ|วันนัด/.test(s)
   const allOpen = !late && !statuses && !when && /ยังไม่(?:ได้)?\s*(?:ส่งมอบ|ส่งรถ|รับรถ)|ค้างจอง|ใบจอง\s*(?:ที่)?\s*ค้าง\s*(?:อยู่)?\s*(?:กี่|อะไร|ใคร|บ้าง)|^ใบจอง\s*(?:ของ)?\s*(?:ฉัน|ผม|หนู|เรา)\s*(?:มี|ค้าง)?\s*(?:กี่ใบ|อะไรบ้าง|มีใครบ้าง|ใครบ้าง)|^ใบจอง(?:ที่)?ค้างอยู่/.test(s)
-  const none = !statuses && !when && !stuck && !noVin && !noDeposit && !noDown && !noColor && !finFail && !allOpen && !late
+  const none = !statuses && !when && !stuck && !noVin && !noDeposit && !noDown && !noColor && !noDocs && !finFail && !allOpen && !late
   if (none && !(seller && /ใบจอง/.test(s))) return null
-  return { late, allOpen: allOpen || none, ...(seller ? { seller: true } : {}), noVin, noDeposit, noDown, ...(noColor ? { noColor } : {}), ...(finFail ? { finFail } : {}), ...(arrive && !noDate && !finFail ? { arrive: true } : {}), statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
+  return { late, allOpen: allOpen || none, ...(seller ? { seller: true } : {}), noVin, noDeposit, noDown, ...(noColor ? { noColor } : {}), ...(noDocs ? { noDocs } : {}), ...(finFail ? { finFail } : {}), ...(arrive && !noDate && !finFail ? { arrive: true } : {}), statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
 }
 
 export function bookingListLabel(spec) {
@@ -62,8 +64,9 @@ export function bookingListLabel(spec) {
 const ST_LABEL = { 'รอผลไฟแนนซ์': 'รอไฟแนนซ์', 'ผ่านไฟแนนซ์รอจอง': 'ผ่านไฟแนนซ์แล้ว' }
 function bookingListLabel0(spec) {
   if (spec.late) return 'นัดส่งมอบเลยวันแล้วแต่ยังไม่ส่งมอบ'
-  if (spec.allOpen && !spec.noVin && !spec.noDeposit && !spec.noDown && !spec.noColor && !spec.finFail && !spec.stuck) return 'ใบจองที่ยังไม่ส่งมอบ'
+  if (spec.allOpen && !spec.noVin && !spec.noDeposit && !spec.noDown && !spec.noColor && !spec.noDocs && !spec.finFail && !spec.stuck) return 'ใบจองที่ยังไม่ส่งมอบ'
   if (spec.noColor) return 'ใบจองที่ยังไม่ได้ใส่สีรถ'
+  if (spec.noDocs) return 'ใบจองที่ยังไม่ได้แนบเอกสาร'
   if (spec.finFail) return 'ใบจองที่ไฟแนนซ์ไม่ผ่าน'
   if (spec.arrive && !spec.stuck) return 'ใบจองที่รถยังไม่มาถึง (รอรถ)'
   if (spec.noVin) return 'ใบจองที่ยังไม่มีเลขตัวถัง (ไม่นับใบที่รอรถ)'
@@ -96,6 +99,7 @@ export function bookingTargets({ customers = [], bookings = [], today, spec, tom
     if (spec.noDeposit && (Number(b.bookingDeposit) || 0) > 0) return
     if (spec.noDown && ((Number(b.down) || 0) > 0 || b.finStatus === 'ซื้อสด')) return
     if (spec.noColor && String(b.color || '').trim()) return
+    if (spec.noDocs && (b.files || []).length) return
     if (spec.finFail && b.finStatus !== 'ไม่ผ่าน') return
     if (spec.when) {
       const d = String(b.deliveryDate || '').slice(0, 10)
