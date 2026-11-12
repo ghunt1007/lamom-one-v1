@@ -550,3 +550,14 @@ describe('v1.0.1122 silent customers', () => {
     expect(oq.noTestDriveAnswer([], []).text).toContain('ยังไม่มีลูกค้า')
   })
 })
+
+describe('v1.0.1122 team phrasings', () => {
+  it('routes manager questions', async () => {
+    const { isTeamQuestion } = await import('./teamBrief.js')
+    expect(isMonthQuestion('ทีมฉันใครยังไม่มียอดเดือนนี้')).toBe(false)
+    expect(parseOpsSpec('ทีมฉันใครยังไม่มียอดเดือนนี้')).toMatchObject({ kind: 'nobookseller' })
+    expect(isTeamQuestion('ลูกน้องคนไหนลูกค้าค้างเยอะสุด')).toBe(true)
+    expect(isTeamQuestion('เซลส์คนไหนยังไม่ได้อัปเดตลูกค้าวันนี้')).toBe(true)
+    expect(parseOpsSpec('เซลส์คนไหนโทรเยอะสุดสัปดาห์นี้')).toMatchObject({ kind: 'calls', day: 'week', team: true })
+  })
+})
