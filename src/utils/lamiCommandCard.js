@@ -389,7 +389,15 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'nobookseller') {
     const [{ getSalesStaff }, customers, bks] = await Promise.all([import('../data/masterData.js'), customersPromise || visibleCustomersForCommands(), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])])
     const whole = !!(vis.unrestricted || vis.companyOnly)
-    let staff = []; try { staff = whole ? (getSalesStaff() || []) : [] } catch {}
+    // (v1.0.1111) หัวหน้าทีม: ใช้รายชื่อเซลส์ที่อยู่ในทีมตัวเอง (เดิมว่างเลย ถ้าทีมยังไม่มีลูกค้า/ใบจอง จะตอบว่า "ไม่มีเซลส์")
+    let staff = []; try { staff = (getSalesStaff() || []).filter(n => whole || mine(n)) } catch {}
+    if (!whole && vis?.staffIds?.size) {
+      const [{ scopeIncludesStaff }, { fullName }, { getState }] = await Promise.all([import('../core/hierarchy.js'), import('./format.js'), import('../core/store.js')])
+      const me = getState('user') || {}
+      const team = (await listDocs('staff', f, 'firstName', 'asc', 500).catch(() => []))
+        .filter(x => x && !x.deleted && x.active !== false && !/ลาออก|resign/i.test(x.status || '') && x.uid !== me.uid && x.email !== me.email && scopeIncludesStaff(vis, x))
+      staff = [...new Set([...staff, ...team.map(x => fullName(x)).filter(Boolean)])]
+    }
     res = oq.noBookSellerAnswer({ sellers: staff, customers: (customers || []).filter(c => mine(c.assignedTo, c)), bookings: bks.filter(b => mine(b.salesName, b)), today })
   } else if (spec.kind === 'bookday') {
     res = oq.bookDayAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, day: spec.day })

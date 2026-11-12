@@ -61,3 +61,28 @@ describe('v1.0.1110 LAMI', () => {
     expect(bookingTargets({ customers, bookings, today: T, spec: f }).list.map(x => x.b.id)).toEqual(['b1'])
   })
 })
+
+import { serviceAnswer } from './opsQuestions.js'
+describe('v1.0.1110 service period', () => {
+  it('"เดือนนี้ลูกค้าเข้าศูนย์กี่คัน" นับทั้งเดือน', () => {
+    expect(parseOpsSpec('เดือนนี้ลูกค้าเข้าศูนย์กี่คัน')).toEqual({ kind: 'service', day: 'month' })
+    expect(parseOpsSpec('พรุ่งนี้มีรถเข้าศูนย์กี่คัน')).toEqual({ kind: 'service', day: 'tomorrow' })
+    const ap = [{ id: 'a', date: '2026-11-03', customerName: 'ก' }, { id: 'b', date: '2026-11-20', customerName: 'ข' }, { id: 'c', date: '2026-11-21', status: 'cancelled' }, { id: 'd', date: '2026-10-30' }]
+    const r = serviceAnswer(ap, [], { today: T, day: 'month' })
+    expect(r.n).toBe(2)
+    expect(r.text).toContain('เข้ามาแล้ว 1 คัน · ยังไม่ถึงวันนัด 1 คัน')
+    expect(r.text).toContain('20/11 ข')
+  })
+})
+
+import { lostAnswer, sourceOf } from './opsQuestions.js'
+describe('v1.0.1111', () => {
+  it('เหตุผลที่ลูกค้าไม่ซื้อ → lost · เดือนนี้ไม่มีก็ดูย้อน 3 เดือน', () => {
+    expect(parseOpsSpec('เหตุผลที่ลูกค้าไม่ซื้อ')).toEqual({ kind: 'lost', prev: false })
+    const r = lostAnswer([{ id: 'x', isLost: true, lostAt: '2026-10-05', lostReason: 'ราคาแพงไป' }], { today: T })
+    expect(r.text).toContain('เหตุผลที่เสียดีล 3 เดือนล่าสุด (1 ราย)')
+  })
+  it('เฟซบุ๊ก (ซ) = facebook', () => {
+    expect(sourceOf('ลูกค้าจากเฟซบุ๊ก')).toBe('facebook')
+  })
+})

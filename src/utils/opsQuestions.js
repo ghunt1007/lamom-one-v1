@@ -13,7 +13,7 @@ const has = (s, re) => re.test(s)
 const COMMAND = /^(นัด|บันทึก|สร้าง|เพิ่ม|ลบ|แก้|ย้าย|มอบ)(?!.*(มีใคร|กี่|ไหม|บ้าง|อะไร|เลยกำหนด|ค้าง|ที่))/
 
 // (v1.0.1090) "ลูกค้าจากเฟสบุ๊คเดือนนี้กี่คน" → กรองตามช่องทาง (คีย์เดียวกับ quickLead QUICK_SOURCES)
-const SOURCE_WORDS = [['facebook', /เฟส|facebook|\bfb\b/i], ['line', /ไลน์|\bline\b/i], ['tiktok', /ติ๊?กต็?อก|tiktok/i], ['instagram', /ไอจี|instagram|\big\b/i],
+const SOURCE_WORDS = [['facebook', /เฟส|เฟซ|facebook|\bfb\b/i], ['line', /ไลน์|\bline\b/i], ['tiktok', /ติ๊?กต็?อก|tiktok/i], ['instagram', /ไอจี|instagram|\big\b/i],
   ['phone', /โทรเข้า/], ['referral', /แนะนำ|บอกต่อ/], ['event', /บูธ|อีเวนต์|event/i]]
 export function sourceOf(s) { const hit = SOURCE_WORDS.find(([, re]) => re.test(s)); return hit ? hit[0] : '' }
 
@@ -34,6 +34,8 @@ export function parseOpsSpec(q) {
   if (has(s, /(?:ไม่มี|ยังไม่มี|ไม่ได้ใส่|ยังไม่ได้ใส่|ขาด)\s*เบอร์|เบอร์\s*(?:ว่าง|หาย)/) && !has(s, /^(?:เพิ่ม|ใส่|แก้)/)) return { kind: 'nophone' }
   // (v1.0.1092) "ลูกค้าคนไหนมีโอกาสปิดสูงสุด"
   if (has(s, /โอกาส(?:ปิด)?(?:การขาย)?\s*(?:สูง|มาก|เยอะ|ดี)|ใกล้ปิด|น่าจะปิด|มีแวว(?:ปิด|ซื้อ)|ปิดง่าย|พร้อมซื้อ|ใกล้(?:จะ)?ตัดสินใจ|ใกล้(?:จะ)?ซื้อ/)) return { kind: 'topscore' }
+  // (v1.0.1111) "เหตุผลที่ลูกค้าไม่ซื้อ" / "ลูกค้าไม่ซื้อเพราะอะไร" = สรุปดีลที่หลุด
+  if (has(s, /(?:เหตุผล|สาเหตุ).{0,12}(?:ไม่ซื้อ|ไม่จอง|ไม่เอา|เสียดีล|หลุด)|(?:ไม่ซื้อ|ไม่จอง)\s*(?:เพราะ|เพราะอะไร|ทำไม)/) && !has(s, /บันทึก/)) return { kind: 'lost', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
   if (has(s, /เสียดีล|เสียลูกค้า|lost|ปิดไม่ได้|หลุด/i) && !has(s, /บันทึก/) && has(s, /ใคร|กี่|บ้าง|เดือน|สัปดาห์|อาทิตย์|ปีนี้|สรุป|ทำไม|เหตุผล|เพราะ|รายชื่อ|ยอด/)) return { kind: 'lost', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
   // (v1.0.1090) "ยอดจองวันนี้" / "เมื่อวานปิดได้กี่คัน" / "สัปดาห์นี้มีใครจองบ้าง"
   if (has(s, /ยอดจอง|จองใหม่|ใบจองใหม่|เพิ่งจอง|ลูกค้า(?:ที่)?จอง(?!แล้วยัง)|ปิดการขาย|ปิดได้|ปิดดีล|ใครจอง|มีคนจอง|จองกี่|จองไป|จองได้/) && has(s, /วันนี้|เมื่อวาน|สัปดาห์|อาทิตย์|7 วัน/) && !has(s, /ส่งมอบ|ทดลองขับ|ลองขับ/)) return { kind: 'bookday', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
@@ -71,7 +73,7 @@ export function parseOpsSpec(q) {
   // (v1.0.1086) "งานที่เลยกำหนดมีอะไรบ้าง" → งานในปฏิทินที่เลยวันแล้วยังไม่ได้ทำ (เงื่อนไขเดียวกับปฏิทินงาน)
   if (has(s, /เลยกำหนด|เกินกำหนด|เลยวันนัด|ตกค้าง|^(?:มี)?งานค้าง|งานที่ค้าง|ค้างทำ|งาน.{0,10}ค้าง(?:จาก)?(?:เมื่อวาน|อยู่)|ค้างจากเมื่อวาน/) && !has(s, /ร้องเรียน|ซ่อม|ประกัน|ผ่อน|ชำระ|ไฟแนนซ์|ส่งมอบ|รับรถ|ส่งรถ/)) return { kind: 'overdue' }
   // (v1.0.1082) งานศูนย์บริการ: "รถเข้าศูนย์วันนี้กี่คัน" / "งานซ่อมค้างอยู่กี่งาน" / "รถรออะไหล่มีคันไหน"
-  if (has(s, /เข้าศูนย์|นัดซ่อม|นัดเซอร์วิส|นัดเช็คระยะ|เช็คระยะ|งานซ่อม|ใบสั่งซ่อม|job\s*card|รถซ่อม|ซ่อมค้าง|รออะไหล่|ซ่อมเสร็จ/i) && !has(s, /ราคา|ค่าซ่อม|กี่บาท|เท่าไหร่/)) return { kind: 'service', day }
+  if (has(s, /เข้าศูนย์|นัดซ่อม|นัดเซอร์วิส|นัดเช็คระยะ|เช็คระยะ|งานซ่อม|ใบสั่งซ่อม|job\s*card|รถซ่อม|ซ่อมค้าง|รออะไหล่|ซ่อมเสร็จ/i) && !has(s, /ราคา|ค่าซ่อม|กี่บาท|เท่าไหร่/)) return { kind: 'service', day: /เดือนนี้/.test(s) ? 'month' : /สัปดาห์นี้|อาทิตย์นี้|7\s*วัน/.test(s) ? 'week' : day }
   // (v1.0.1082) "ลูกค้าที่ยังไม่มีผู้ดูแลมีใครบ้าง"
   if (has(s, /(?:ยังไม่มี|ไม่มี|ไร้)\s*(?:ผู้ดูแล|คนดูแล|เซลส์ดูแล|เซลส์)|ยังไม่(?:ได้)?(?:มอบ|แจก|แบ่ง)|ยังไม่มีเจ้าของ/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'unassigned' }
   // (v1.0.1087) "วันนี้มีลูกค้า walk in กี่คน" / "เมื่อวานมีคนเดินเข้าโชว์รูมกี่คน"
@@ -765,7 +767,14 @@ export function lostAnswer(customers, { today, prev = false }) {
   const rows = lostBySeller(customers, month)
   const total = rows.reduce((s, r) => s + r.total, 0)
   const label = prev ? 'เดือนก่อน' : 'เดือนนี้'
-  if (!total) return { text: `📉 ${label}ยังไม่มีลูกค้าที่เสียดีล 👍`, n: 0 }
+  if (!total) {
+    // (v1.0.1111) เดือนนี้ยังไม่มี → ให้ดูเหตุผลย้อนหลัง 3 เดือนแทน (ตอบ "ลูกค้าไม่ซื้อเพราะอะไร" ได้)
+    const back = new Set([0, 1, 2].map(i => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - i, 1)).toISOString().slice(0, 7)))
+    const r3 = {}; let n3 = 0
+    alive(customers).filter(c => c.isLost && back.has(ymd(c.lostAt).slice(0, 7))).forEach(c => { const k = classifyLostReason(c.lostReason); r3[k] = (r3[k] || 0) + 1; n3++ })
+    const tail = n3 ? ['', `❓ เหตุผลที่เสียดีล 3 เดือนล่าสุด (${n3} ราย)`, ...Object.entries(r3).sort((a, b) => b[1] - a[1]).map(([k, v]) => `• ${LOST_REASON_LABELS[k] || k} ${v} ราย`)] : []
+    return { text: [`📉 ${label}ยังไม่มีลูกค้าที่เสียดีล 👍`, ...tail].join('\n'), n: 0 }
+  }
   const reasons = {}
   alive(customers).filter(c => c.isLost && ymd(c.lostAt).slice(0, 7) === month).forEach(c => { const k = classifyLostReason(c.lostReason); reasons[k] = (reasons[k] || 0) + 1 })
   return { n: total, text: [`📉 ${label}เสียดีล ${total} ราย`, '', '❓ เหตุผล', ...Object.entries(reasons).sort((a, b) => b[1] - a[1]).map(([k, v]) => `• ${LOST_REASON_LABELS[k] || k} ${v} ราย`), ...(rows.length > 1 ? ['', '👤 รายเซลส์', ...rows.slice(0, MAX).map(r => `• ${r.name} ${r.total} ราย${r.top[0] ? ' (ส่วนใหญ่: ' + r.top[0].label + ')' : ''}`)] : [])].join('\n') }
@@ -775,6 +784,18 @@ const APPT_DONE = ['cancelled', 'noshow']
 const JOB_OPEN = { waiting: '⏳ รอรับรถ', checkin: '🔑 รับรถแล้ว', diagnosing: '🔍 วินิจฉัย', inprogress: '🔧 กำลังซ่อม', waiting_parts: '📦 รออะไหล่', qc: '✅ QC', done: '🏁 เสร็จ รอส่งคืน' }
 // นัดเข้าศูนย์ของวัน + งานซ่อม (Job Card) ที่ยังไม่ส่งคืนลูกค้า แยกตามสถานะ
 export function serviceAnswer(appts, jobs, { today, day = 'today' }) {
+  // (v1.0.1110) "เดือนนี้ลูกค้าเข้าศูนย์กี่คัน" / "สัปดาห์นี้มีรถเข้าศูนย์กี่คัน" → นับนัดทั้งช่วง (ไม่นับยกเลิก/ไม่มา)
+  if (day === 'month' || day === 'week') {
+    const from = day === 'month' ? today.slice(0, 8) + '01' : today, to = day === 'month' ? today.slice(0, 8) + '31' : addDays(today, 6)
+    const ap = alive(appts).filter(a => { const d = ymd(a.date); return d >= from && d <= to && !APPT_DONE.includes(a.status || '') })
+    const past = ap.filter(a => ymd(a.date) < today).length, ahead = ap.length - past
+    const word = day === 'month' ? 'เดือนนี้' : 'ใน 7 วันนี้'
+    const open = alive(jobs).filter(j => JOB_OPEN[j.status || 'waiting']).length
+    if (!ap.length) return { n: 0, text: [`🛠 ${word} (${dmy(from)}–${dmy(day === 'month' ? today : to)}) ยังไม่มีนัดเข้าศูนย์`, open ? `🔧 งานซ่อมที่ยังไม่ส่งคืน ${open} งาน` : ''].filter(Boolean).join('\n') }
+    return { n: ap.length, text: [`🛠 นัดเข้าศูนย์${word} ${ap.length} คัน`, day === 'month' ? `• เข้ามาแล้ว ${past} คัน · ยังไม่ถึงวันนัด ${ahead} คัน` : '',
+      ...ap.filter(a => ymd(a.date) >= today).sort((a, b) => (ymd(a.date) + (a.time || '')).localeCompare(ymd(b.date) + (b.time || ''))).slice(0, MAX).map(a => `• ${dmy(ymd(a.date)).slice(0, 5)} ${a.time ? String(a.time).slice(0, 5) + ' ' : ''}${nm(a)}${a.plate ? ' · ' + a.plate : ''}`),
+      open ? `🔧 งานซ่อมที่ยังไม่ส่งคืน ${open} งาน` : ''].filter(Boolean).join('\n') }
+  }
   const date = day === 'tomorrow' ? addDays(today, 1) : today
   const ap = alive(appts).filter(a => ymd(a.date) === date && !APPT_DONE.includes(a.status || ''))
     .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
