@@ -18,3 +18,10 @@ describe('v1.0.1101 per-customer field questions', () => {
     expect(customerBrief({ customer: cs[0], followups: [], today, drives: [] })).toContain('🚗 ยังไม่เคยทดลองขับ')
   })
 })
+
+import { closeRateAnswer } from './opsQuestions.js'
+describe('v1.0.1102 close rate with no bookings', () => {
+  it('says no bookings', () => {
+    expect(closeRateAnswer([], [], { today }).text).toContain('⏱ เดือนนี้ยังไม่มีใบจอง')
+  })
+})

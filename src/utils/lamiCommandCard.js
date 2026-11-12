@@ -325,7 +325,7 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'csat') {
     res = oq.csatAnswer(await listDocs('csat', [], 'createdAt', 'desc', 500).catch(() => []), { today, prev: spec.prev, low: spec.low })
   } else if (spec.kind === 'expense' || spec.kind === 'profit') {
-    if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, text: '🔒 ตัวเลขกำไร/ค่าใช้จ่ายของโชว์รูมดูได้เฉพาะผู้จัดการและเจ้าของ — ถามค่าคอมของตัวเองได้ เช่น "ค่าคอมเดือนนี้เท่าไหร่"' }
+    if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 ตัวเลขกำไร/ค่าใช้จ่ายของโชว์รูมดูได้เฉพาะผู้จัดการและเจ้าของ — ถามค่าคอมของตัวเองได้ เช่น "ค่าคอมเดือนนี้เท่าไหร่"' }
     else {
       const [{ opexEntries }, { saleCost }, { getSalesData }, claims, petty] = await Promise.all([import('./opex.js'), import('./saleCost.js'), import('../core/db.js'),
         listDocs('expense_claims', f, 'date', 'desc', 2000).catch(() => []), listDocs('petty_cash', f, 'time', 'desc', 2000).catch(() => [])])
@@ -334,7 +334,7 @@ export async function loadOpsAnswer(q, customersPromise) {
     }
   } else if (spec.kind === 'leave') {
     const whole = !!(vis.unrestricted || vis.companyOnly)
-    if (!whole && !vis.hasSubordinates) res = { n: 0, text: '👥 ข้อมูลการลาของพนักงานดูได้เฉพาะหัวหน้าทีมและผู้จัดการ — เปิดหน้าการลาเพื่อดูของตัวเอง' }
+    if (!whole && !vis.hasSubordinates) res = { n: 0, locked: true, text: '👥 ข้อมูลการลาของพนักงานดูได้เฉพาะหัวหน้าทีมและผู้จัดการ — เปิดหน้าการลาเพื่อดูของตัวเอง' }
     else { const rows = await listDocs('leave_requests', f, 'from', 'desc', 500).catch(() => []); res = oq.leaveAnswer(whole ? rows : rows.filter(r => mine(r.staff, r)), { today, day: spec.day }) }
   } else if (spec.kind === 'incoming') {
     const [vs, ords] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listDocs('vehicle_orders', f, 'createdAt', 'desc', 500).catch(() => [])])
@@ -411,6 +411,8 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.unassignedAnswer(await (customersPromise || visibleCustomersForCommands()) || [])
   } else if (spec.kind === 'anniv') res = oq.annivAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, range: spec.range, asked: q, nextMonth: !!spec.nextMonth })
   if (!res) return null
+  // (v1.0.1102) ถามเรื่องที่ไม่มีสิทธิ์ดู → ไม่ต้องมีปุ่มเปิดหน้านั้น/ถามต่อเรื่องเดียวกัน
+  if (res.locked) return { text: res.text, next: ['ค่าคอมเดือนนี้เท่าไหร่', 'วันนี้มีอะไรบ้าง'] }
   return { text: res.text, next: oq.opsFollowUps(spec), go: oq.OPS_LINKS[spec.kind] }
 }
 

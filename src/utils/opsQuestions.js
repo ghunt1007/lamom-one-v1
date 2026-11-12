@@ -408,7 +408,7 @@ export function closeRateAnswer(customers, bookings, { today, prev = false }) {
   const word = prev ? 'เดือนก่อน' : 'เดือนนี้'
   const lines = [`📈 อัตราปิดการขาย${word} (${ym.slice(5, 7)}/${+ym.slice(0, 4) + 543})`,
     fresh.length ? `👥 ลูกค้าใหม่ ${fresh.length} คน → จองแล้ว ${won} คน (${Math.round(won / fresh.length * 100)}%)${lost ? ` · เสียดีล ${lost} คน` : ''}` : `👥 ${word}ยังไม่มีลูกค้าใหม่`,
-    avg != null ? `⏱ ใบจอง${word} ${gaps.length} ใบ ใช้เวลาเฉลี่ย ${avg} วัน จากวันที่ลูกค้าเข้ามาถึงวันจอง` : `⏱ ใบจอง${word}ยังไม่ได้ผูกกับลูกค้า จึงคำนวณเวลาเฉลี่ยไม่ได้`]
+    avg != null ? `⏱ ใบจอง${word} ${gaps.length} ใบ ใช้เวลาเฉลี่ย ${avg} วัน จากวันที่ลูกค้าเข้ามาถึงวันจอง` : bks.some(b => ymd(b.bookingDate).startsWith(ym)) ? `⏱ ใบจอง${word}ยังไม่ได้ผูกกับลูกค้า จึงคำนวณเวลาเฉลี่ยไม่ได้` : `⏱ ${word}ยังไม่มีใบจอง`]
   if (fresh.length && won / fresh.length < 0.2) lines.push('💡 ปิดได้ต่ำกว่า 20% — ชวนลูกค้าใหม่มาทดลองขับภายใน 7 วันแรก')
   return { n: fresh.length, text: lines.join('\n') }
 }
