@@ -135,6 +135,11 @@ export async function loadBookingListCommands(q, customersPromise) {
     customersPromise || visibleCustomersForCommands(),
     listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc').catch(() => []),
   ])
+  if (spec.seller) {
+    const { findSeller } = await import('./monthBrief.js')
+    spec.sellerName = findSeller(q, (bookings || []).map(b => b && b.salesName))
+    if (!spec.sellerName) return null
+  }
   const res = bq.bookingTargets({ customers, bookings, today: todayBangkok(), spec })
   return { cmds: bq.bookingListCommands(res.list), intro: bq.bookingListIntro(spec, res) }
 }

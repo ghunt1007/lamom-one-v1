@@ -373,3 +373,22 @@ describe('v1.0.1118 car ranking', async () => {
     expect(cp.rankPick({ by: 'range', all: true }, V, opt).text.split('\n')[1]).toContain('X9')
   })
 })
+
+describe('v1.0.1118 booking statuses + seller', async () => {
+  const bq = await import('./bookingQuestions.js')
+  const cs = [{ id: 'c1' }]
+  const bks = [{ id: 'b1', customerId: 'c1', status: 'ผ่านไฟแนนซ์รอเบิก', salesName: 'เซลส์ สอง' }, { id: 'b2', customerId: 'c1', status: 'ผ่านไฟแนนซ์รอจอง', salesName: 'เซลส์ หนึ่ง' },
+    { id: 'b3', customerId: 'c1', status: 'ซื้อสดรอเบิกรถ', salesName: 'เซลส์ สอง' }, { id: 'b4', customerId: 'c1', status: 'ส่งมอบแล้ว', salesName: 'เซลส์ สอง' }]
+  const ids = (q, extra = {}) => bq.bookingTargets({ customers: cs, bookings: bks, today: '2026-11-12', spec: { ...bq.parseBookingListSpec(q), ...extra } }).list.map(x => x.b.id)
+  it('maps statuses', () => {
+    expect(ids('ใบจองไหนผ่านไฟแนนซ์แล้วรอเบิก')).toEqual(['b1'])
+    expect(ids('ลูกค้าที่ไฟแนนซ์อนุมัติแล้วยังไม่ทำสัญญา').sort()).toEqual(['b1', 'b2'])
+    expect(ids('ลูกค้าซื้อสดมีใครบ้าง')).toEqual(['b3'])
+    expect(bq.bookingListLabel(bq.parseBookingListSpec('ลูกค้าที่ไฟแนนซ์อนุมัติแล้วยังไม่ทำสัญญา'))).toContain('ผ่านไฟแนนซ์แล้ว')
+  })
+  it('filters by named seller', () => {
+    expect(bq.parseBookingListSpec('ยอดจองของเซลส์หนึ่งเดือนนี้')).toBe(null)
+    expect(ids('ใบจองของเซลส์สอง', { sellerName: 'เซลส์ สอง' }).sort()).toEqual(['b1', 'b3'])
+    expect(bq.bookingListLabel({ ...bq.parseBookingListSpec('ใบจองของเซลส์สอง'), sellerName: 'เซลส์ สอง' })).toContain('ของ เซลส์ สอง')
+  })
+})
