@@ -64,7 +64,8 @@ describe('bookingTargets', () => {
 
 describe('parseBookingListSpec มี…ไหม form (v1.0.1082)', () => {
   it('accepts yes/no questions', () => {
-    expect(parseBookingListSpec('มีใบจองที่ไฟแนนซ์ไม่ผ่านไหม').statuses[0]).toBe('รอผลไฟแนนซ์')
+    expect(parseBookingListSpec('มีใบจองที่ไฟแนนซ์ไม่ผ่านไหม').finFail).toBe(true) // (v1.0.1110) ไม่ผ่าน = โดนปฏิเสธ
+    expect(parseBookingListSpec('มีใบจองที่ไฟแนนซ์ยังไม่ผ่านไหม').statuses[0]).toBe('รอผลไฟแนนซ์')
     expect(parseBookingListSpec('มีใครรอรถไหมคะ').statuses).toEqual(['รอรถ'])
   })
 })

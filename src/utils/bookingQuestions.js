@@ -9,7 +9,7 @@ export const BK_LIST_MAX = 10
 const DAY = 86400e3
 const dayNum = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / DAY
 const isDate = d => /^\d{4}-\d{2}-\d{2}/.test(d || '')
-const ASK = /ใครบ้าง|มีใคร|คนไหน|กี่คน|กี่ราย|กี่ใบ|กี่คัน|รายชื่อ|ขอดู|^ใคร|ใบไหน|ใบจองไหน|คันไหน|ของใคร|รถใคร|^ใบจอง(?:ที่)?|^ลูกค้าที่|นานสุด|นานที่สุด|^มี.{2,60}(?:ไหม|มั้ย|หรือเปล่า|รึเปล่า|หรือยัง)(?:ครับ|คะ|ค่ะ)?$/
+const ASK = /ใครบ้าง|มีใคร|คนไหน|กี่คน|กี่ราย|กี่ใบ|กี่คัน|รายชื่อ|ขอดู|^ใคร|ใบไหน|ใบจองไหน|คันไหน|ของใคร|รถใคร|^ใบจอง(?:ที่)?|^ลูกค้าที่|^ลูกค้า\s*(?:ของ)?\s*(?:ฉัน|ผม|หนู|เรา)\s*ที่|^รถ(?:ที่)?ลูกค้า.{0,30}(?:หรือ|รึ)ยัง|นานสุด|นานที่สุด|^มี.{2,60}(?:ไหม|มั้ย|หรือเปล่า|รึเปล่า|หรือยัง)(?:ครับ|คะ|ค่ะ)?$/
 const FIN = ['รอผลไฟแนนซ์', 'จัดไฟแนนซ์ก่อนจอง']
 const WAIT_DELIV = ['รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
 
@@ -21,7 +21,12 @@ export function parseBookingListSpec(q) {
   const when = !noDate && /ส่งมอบ|ส่งรถ|รับรถ/.test(s) ? (/พรุ่งนี้/.test(s) ? 'tomorrow' : /วันนี้/.test(s) ? 'today' : /สัปดาห์นี้|อาทิตย์นี้|7\s*วัน/.test(s) ? 'week' : null) : null
   const stuck = /ค้างนาน|ค้างเกิน|นานเกิน|นานสุด|นานที่สุด|ค้างสถานะ|เกิน\s*\d{1,3}\s*วัน/.test(s) && /จอง|ใบ|ไฟแนนซ์|รอรถ|รอส่งมอบ/.test(s)
   const sd = s.match(/(?:ค้าง|นาน)?เกิน\s*(\d{1,3})\s*วัน/)
+  // (v1.0.1110) "ลูกค้าที่ไฟแนนซ์ไม่ผ่าน" (โดนปฏิเสธ ≠ "ยังไม่ผ่าน" ที่รอผล) · "รถที่ลูกค้าจองมาถึงหรือยัง" = รอรถ
+  const finFail = /ไฟแนนซ์\s*(?:ไม่ผ่าน|ไม่อนุมัติ|ตก|ปฏิเสธ)|(?:ไม่ผ่าน|ตก)\s*ไฟแนนซ์|โดน(?:ไฟแนนซ์)?\s*ปฏิเสธ/.test(s) && !/ยัง\s*ไม่(?:ได้)?\s*(?:ผ่าน|อนุมัติ)/.test(s)
+  const arrive = /จอง/.test(s) && /(?:มาถึง|มา|เข้า)\s*(?:หรือ|รึ)?\s*ยัง/.test(s)
   const statuses = noDate ? WAIT_DELIV
+    : finFail ? null
+    : arrive ? ['รอรถ']
     : /รอ(?:ผล)?\s*ไฟแนนซ์|ไฟแนนซ์(?:ยัง)?ไม่(?:ได้)?\s*(?:ผ่าน|อนุมัติ)|ติดไฟแนนซ์|ยังไม่(?:ได้)?\s*(?:อนุมัติ|ผ่าน)\s*ไฟแนนซ์/.test(s) ? FIN
     : /รอรถ|ยังไม่มาถึง|รถยังไม่มา|ยังไม่ได้รถ|รถยังไม่เข้า|ยังไม่มี(?:รถ)?(?:ใน)?(?:สต็อก|สต๊อก)/.test(s) ? ['รอรถ']
     : !when && /รอส่งมอบ|ค้างส่งมอบ|พร้อมส่ง/.test(s) ? WAIT_DELIV : null
@@ -37,14 +42,15 @@ export function parseBookingListSpec(q) {
   // (v1.0.1096) "ใครยังไม่ได้รับรถทั้งที่ถึงวันนัด" → นัดส่งมอบเลยวันแล้วแต่ยังไม่ส่งมอบ
   const late = /ถึงวันนัด|เลย(?:วัน)?(?:นัด|กำหนด)\s*(?:ส่งมอบ|ส่งรถ|รับรถ)?|(?:ส่งมอบ|ส่งรถ)\s*(?:ช้า|ล่าช้า|เลยกำหนด|เกินกำหนด)|เกินวัน(?:นัด)?\s*ส่งมอบ/.test(s) && /ส่งมอบ|รับรถ|ส่งรถ|วันนัด/.test(s)
   const allOpen = !late && !statuses && !when && /ยังไม่(?:ได้)?\s*(?:ส่งมอบ|ส่งรถ|รับรถ)|ค้างจอง|^ใบจอง\s*(?:ของ)?\s*(?:ฉัน|ผม|หนู|เรา)\s*(?:มี|ค้าง)?\s*(?:กี่ใบ|อะไรบ้าง|มีใครบ้าง|ใครบ้าง)|^ใบจอง(?:ที่)?ค้างอยู่/.test(s)
-  if (!statuses && !when && !stuck && !noVin && !noDeposit && !noDown && !noColor && !allOpen && !late) return null
-  return { late, allOpen, noVin, noDeposit, noDown, ...(noColor ? { noColor } : {}), statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
+  if (!statuses && !when && !stuck && !noVin && !noDeposit && !noDown && !noColor && !finFail && !allOpen && !late) return null
+  return { late, allOpen, noVin, noDeposit, noDown, ...(noColor ? { noColor } : {}), ...(finFail ? { finFail } : {}), statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
 }
 
 export function bookingListLabel(spec) {
   if (spec.late) return 'นัดส่งมอบเลยวันแล้วแต่ยังไม่ส่งมอบ'
-  if (spec.allOpen && !spec.noVin && !spec.noDeposit && !spec.noDown && !spec.noColor && !spec.stuck) return 'ใบจองที่ยังไม่ส่งมอบ'
+  if (spec.allOpen && !spec.noVin && !spec.noDeposit && !spec.noDown && !spec.noColor && !spec.finFail && !spec.stuck) return 'ใบจองที่ยังไม่ส่งมอบ'
   if (spec.noColor) return 'ใบจองที่ยังไม่ได้ใส่สีรถ'
+  if (spec.finFail) return 'ใบจองที่ไฟแนนซ์ไม่ผ่าน'
   if (spec.noVin) return 'ใบจองที่ยังไม่มีเลขตัวถัง (ไม่นับใบที่รอรถ)'
   if (spec.noDeposit) return 'ใบจองที่ยังไม่มียอดมัดจำ'
   if (spec.noDown) return 'ใบจองผ่อนที่ยังไม่ได้กรอกยอดดาวน์'
@@ -74,6 +80,7 @@ export function bookingTargets({ customers = [], bookings = [], today, spec, tom
     if (spec.noDeposit && (Number(b.bookingDeposit) || 0) > 0) return
     if (spec.noDown && ((Number(b.down) || 0) > 0 || b.finStatus === 'ซื้อสด')) return
     if (spec.noColor && String(b.color || '').trim()) return
+    if (spec.finFail && b.finStatus !== 'ไม่ผ่าน') return
     if (spec.when) {
       const d = String(b.deliveryDate || '').slice(0, 10)
       if (!isDate(d)) return

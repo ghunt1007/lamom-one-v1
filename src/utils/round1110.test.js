@@ -47,4 +47,16 @@ describe('v1.0.1110 LAMI', () => {
     const r = bookingTargets({ customers, bookings, today: T, spec })
     expect(r.list.map(x => x.b.id)).toEqual(['b1'])
   })
+  it('ไฟแนนซ์ไม่ผ่าน ≠ ยังไม่ผ่าน · รถที่จองมาถึงหรือยัง = รอรถ · เพิ่งจองเมื่อวาน', () => {
+    const f = parseBookingListSpec('ลูกค้าฉันที่ไฟแนนซ์ไม่ผ่าน')
+    expect(f.finFail).toBe(true)
+    expect(parseBookingListSpec('ใบจองไหนไฟแนนซ์ยังไม่ผ่าน').finFail).toBeUndefined()
+    expect(parseOpsSpec('ใบจองไหนไฟแนนซ์ยังไม่ผ่าน')).toBeNull()
+    expect(parseOpsSpec('ไฟแนนซ์ไหนอนุมัติเยอะสุด')).toEqual({ kind: 'finbank' })
+    expect(parseBookingListSpec('รถที่ลูกค้าฉันจองมาถึงหรือยัง').statuses).toEqual(['รอรถ'])
+    expect(parseOpsSpec('ลูกค้าที่เพิ่งจองเมื่อวาน')).toEqual({ kind: 'bookday', day: 'yesterday' })
+    const customers = [{ id: 'c1', bookingId: 'b1' }, { id: 'c2', bookingId: 'b2' }]
+    const bookings = [{ id: 'b1', status: 'รอผลไฟแนนซ์', finStatus: 'ไม่ผ่าน', bookingDate: '2026-11-01' }, { id: 'b2', status: 'รอผลไฟแนนซ์', finStatus: 'รอผล', bookingDate: '2026-11-01' }]
+    expect(bookingTargets({ customers, bookings, today: T, spec: f }).list.map(x => x.b.id)).toEqual(['b1'])
+  })
 })

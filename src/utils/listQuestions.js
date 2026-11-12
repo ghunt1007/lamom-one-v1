@@ -46,7 +46,7 @@ export function listTargets({ customers = [], followups = [], today, spec }) {
     if (spec.leadsOnly ? c.stage !== 'lead' : !['lead', 'pp'].includes(c.stage)) return false
     if (spec.temp && c.temperature !== spec.temp) return false
     if (spec.newToday && bkkDate(c.createdAt) !== today) return false
-    if (spec.model && !String(c.interestedModel || '').toLowerCase().includes(spec.model)) return false
+    if (spec.model && !String(c.interestedModel || '').toLowerCase().replace(/[\s\-]+/g, '').includes(String(spec.model).replace(/[\s\-]+/g, ''))) return false
     if (spec.quietDays && quiet(c) < spec.quietDays) return false
     if (spec.noFu && pending.has(c.id)) return false
     return true
