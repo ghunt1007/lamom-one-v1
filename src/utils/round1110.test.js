@@ -130,3 +130,17 @@ describe('v1.0.1113 per-unit profit', () => {
     expect(m.text).toContain('1. B — เฉลี่ย ฿200,000/คัน (20%) · 1 คัน')
   })
 })
+
+import { debtAnswer, refundAnswer } from './opsQuestions.js'
+describe('v1.0.1114', () => {
+  it('ลูกหนี้ / รอคืนเงิน / ใบสั่งรถ / อุปกรณ์ขายดี', () => {
+    expect(parseOpsSpec('ลูกค้าคนไหนค้างจ่าย')).toEqual({ kind: 'debt' })
+    expect(parseOpsSpec('ลูกค้าที่รอคืนเงินมัดจำ')).toEqual({ kind: 'refund' })
+    expect(parseOpsSpec('ใบสั่งรถที่ยังไม่มา').kind).toBe('incoming')
+    expect(isMonthQuestion('อุปกรณ์เสริมขายดีสุด')).toBe(false)
+    const d = debtAnswer([{ customer: 'ก', used: 5000, status: 'overdue_7' }, { customer: 'ข', used: 9000, status: 'settled' }])
+    expect(d.text).toContain('ลูกหนี้ค้างชำระ 1 ราย · รวม ฿5,000 · เกินกำหนด 1 ราย')
+    const r = refundAnswer([{ status: 'ถอนจอง', bookingDeposit: 10000, custName: 'ค' }, { status: 'ถอนจอง', bookingDeposit: 5000, refundStatus: 'คืนแล้ว' }, { status: 'ถอนจอง', bookingDeposit: 3000, rightsOnly: true }])
+    expect(r.text).toContain('รอคืนเงินมัดจำ 1 ราย · รวม ฿10,000')
+  })
+})
