@@ -241,6 +241,18 @@ export async function loadPayAnswer(q) {
   return { text: pq.payAnswer(spec), copy: pq.payCustomerText(spec), next: pq.payFollowUps(spec), go: { path: '/finance/loan-calc?' + pq.loanCalcQuery(spec), label: '🧮 เทียบไฟแนนซ์ด้วยเงื่อนไขนี้' } }
 }
 
+// (v1.0.1069) "โปรเดือนนี้มีอะไรบ้าง / S07 มีโปรอะไร / โปรไหนใกล้หมด" → null ถ้าไม่ใช่ · คืน { text, next, go, copy }
+export async function loadPromoAnswer(q) {
+  const pq = await import('./promoQuestions.js')
+  if (!pq.maybePromoQuestion(q)) return null
+  const [{ listDocs }, { getVehicles }, { normalizeProgram }, { todayBangkok }] = await Promise.all([import('../core/db.js'), import('../data/vehicleDatabase.js'), import('./salesPrograms.js'), import('./format.js')])
+  const spec = pq.parsePromoSpec(q, getVehicles())
+  if (!spec) return null
+  const programs = (await listDocs('sales_programs', [], 'dateFrom', 'desc', 1000).catch(() => [])).filter(r => !r.deleted).map(r => ({ ...normalizeProgram(r), id: r.id }))
+  const res = pq.promoAnswer({ programs, spec, today: todayBangkok() })
+  return { text: res.text, next: res.next, copy: res.copy || undefined, go: { path: '/crm/programs', label: '🎁 เปิดหน้าแคมเปญ & อัตรา' } }
+}
+
 // (v1.0.1068) "ราคา AION V เท่าไหร่ / S07 วิ่งได้กี่กิโล / เทียบ AION V กับ S07" → null ถ้าไม่ใช่ · คืน { text, next, go, copy }
 export async function loadModelAnswer(q) {
   const mq = await import('./modelQuestions.js')
