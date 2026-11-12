@@ -14,7 +14,7 @@ export const maybeStockQuestion = q => { const s = String(q || ''); return s.len
 export function parseStockSpec(q, vehicles = []) {
   const s = String(q || '').trim().replace(/[?？]+$/, '').trim()
   if (!s || s.length > 80) return null
-  if (/นัด|โทร|ยอด|เป้า|ราคา|ดาวน์|ผ่อน|ดอกเบี้ย|ลูกค้า|ลีด|ใบจอง|ส่งมอบ|ไฟแนนซ์|ทำไม|ยังไง|อย่างไร|อะไหล่|มูลค่า|ต้นทุน|กำไร|ขายได้|ขายไป|ขายแล้ว|ปิดได้/.test(s)) return null
+  if (/นัด|โทร|ยอด|เป้า|ราคา|ดาวน์|ผ่อน|ดอกเบี้ย|ลูกค้า|ลีด|ใบจอง|ส่งมอบ|ไฟแนนซ์|ทำไม|ยังไง|อย่างไร|อะไหล่|มูลค่า|ต้นทุน|กำไร|ขายได้|ขายไป|ขายแล้ว|ปิดได้|จองแล้วแต่|ยังไม่มี(?:ใน)?(?:สต็อก|สต๊อก)|เหลือน้อย|ใกล้หมด|สั่งเพิ่ม|กำลัง(?:จะ)?มา/.test(s)) return null
   const aged = AGED.test(s)
   if (!aged && !INTENT.test(s)) return null
   const live = vehicles.filter(v => v && !v.deleted)
