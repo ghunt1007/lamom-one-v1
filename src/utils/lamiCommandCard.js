@@ -339,6 +339,8 @@ export async function loadOpsAnswer(q, customersPromise) {
       const sales = spec.kind === 'profit' ? await getSalesData().catch(() => []) : []
       res = oq.moneyMonthAnswer({ sales, opex: opexEntries(claims, petty), today, prev: spec.prev, kind: spec.kind, saleCost, perUnit: !!spec.perUnit, low: !!spec.low, byModel: !!spec.byModel })
     }
+  } else if (spec.kind === 'dup') {
+    res = oq.dupAnswer(((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c)))
   } else if (spec.kind === 'debt') {
     if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 ข้อมูลลูกหนี้ดูได้เฉพาะผู้บริหาร/บัญชี' }
     else res = oq.debtAnswer(await listDocs('debt_settlements', f, 'oldest', 'asc', 500).catch(() => []))

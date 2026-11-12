@@ -172,3 +172,16 @@ describe('v1.0.1115 fuel interest', () => {
     expect(parseListSpec('ลูกค้าสนใจ S05 มีใครบ้าง').model).toBe('s05')
   })
 })
+
+import { dupAnswer } from './opsQuestions.js'
+describe('v1.0.1116', () => {
+  it('ลูกค้าซ้ำ / ครบ 1 ปีเดือนหน้า / ขายยาก / ประเมินหลังส่งมอบ', () => {
+    expect(parseOpsSpec('ลูกค้าซ้ำมีไหม')).toEqual({ kind: 'dup' })
+    expect(parseOpsSpec('ลูกค้าที่รับรถครบ 1 ปีเดือนหน้า')).toMatchObject({ kind: 'anniv', nextMonth: true })
+    expect(parseStockSpec('รถคันไหนขายยาก', []).aged).toBe(true)
+    expect(parseOpsSpec('ใครยังไม่ได้ประเมินความพึงพอใจหลังส่งมอบ')?.kind).not.toBe('delivery')
+    const r = dupAnswer([{ id: 'a', firstName: 'สม', lastName: 'ชาย', phone: '081-234-5678' }, { id: 'b', firstName: 'สมชาย', phone: '0812345678' }, { id: 'c', firstName: 'ก', phone: '0899999999' }])
+    expect(r.text).toContain('พบลูกค้าที่น่าจะซ้ำ 1 กลุ่ม')
+    expect(r.text).toContain('เบอร์ซ้ำ')
+  })
+})
