@@ -453,3 +453,19 @@ describe('v1.0.1119 month value', async () => {
     expect(t).toContain('฿1,900,000')
   })
 })
+
+describe('v1.0.1120 list source, notd model, newcust yesterday', async () => {
+  const oq = await import('./opsQuestions.js')
+  const lq = await import('./listQuestions.js')
+  it('filters', () => {
+    expect(oq.parseOpsSpec('ลูกค้าที่สนใจ S07 แต่ยังไม่ได้ทดลองขับ')).toEqual({ kind: 'notd', model: 'S07' })
+    expect(oq.parseOpsSpec('ลูกค้าที่เพิ่มเข้ามาเมื่อวาน')).toMatchObject({ kind: 'newcust', period: 'yesterday' })
+    const cs = [{ id: 1, firstName: 'ก', interestedModel: 'DEEPAL S07', stage: 'lead' }, { id: 2, firstName: 'ข', interestedModel: 'S05', stage: 'lead' }]
+    const r = oq.noTestDriveAnswer(cs, [], { model: 'S07' })
+    expect(r.n).toBe(1)
+    const spec = lq.parseListSpec('ลีดจากเฟซบุ๊กที่ยังไม่มีนัด')
+    expect(spec.source).toBe('facebook')
+    expect(lq.listTargets({ customers: [{ id: 1, stage: 'lead', source: 'facebook' }, { id: 2, stage: 'lead', source: 'line' }], today: '2026-11-12', spec }).total).toBe(1)
+    expect(lq.listLabel(spec)).toContain('จาก Facebook')
+  })
+})
