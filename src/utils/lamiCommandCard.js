@@ -368,6 +368,8 @@ export async function loadOpsAnswer(q, customersPromise) {
     const customers = ((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c))
     if (spec.kind === 'topscore') { const { heuristicScore } = await import('./leadScore.js'); res = oq.topScoreAnswer(customers, { scoreOf: c => heuristicScore(c) }) }
     else res = spec.kind === 'mycust' ? oq.myCustomersAnswer(customers, { today }) : oq.noPhoneAnswer(customers)
+  } else if (spec.kind === 'plate') {
+    res = oq.plateAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today })
   } else if (spec.kind === 'delivered') {
     res = oq.deliveredAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, period: spec.period })
   } else if (spec.kind === 'withdrawn' || spec.kind === 'finbank') {
@@ -413,7 +415,9 @@ export async function loadOpsAnswer(q, customersPromise) {
   if (!res) return null
   // (v1.0.1102) ถามเรื่องที่ไม่มีสิทธิ์ดู → ไม่ต้องมีปุ่มเปิดหน้านั้น/ถามต่อเรื่องเดียวกัน
   if (res.locked) return { text: res.text, next: ['ค่าคอมเดือนนี้เท่าไหร่', 'วันนี้มีอะไรบ้าง'] }
-  return { text: res.text, next: oq.opsFollowUps(spec), go: oq.OPS_LINKS[spec.kind] }
+  // (v1.0.1103) ไม่เสนอปุ่มถามซ้ำคำถามเดิม
+  const same = x => String(x).replace(/\s+/g, '').toLowerCase() === String(q || '').replace(/[?？\s]+/g, '').toLowerCase()
+  return { text: res.text, next: oq.opsFollowUps(spec).filter(x => !same(x)), go: oq.OPS_LINKS[spec.kind] }
 }
 
 // (v1.0.1070) "รถไฟฟ้าไม่เกิน 1 ล้าน / SUV 7 ที่นั่ง งบ 1.2 ล้าน" → null ถ้าไม่ใช่ · คืน { text, next, go, copy }

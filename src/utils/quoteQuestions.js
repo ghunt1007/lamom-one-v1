@@ -15,6 +15,8 @@ export function maybeQuoteQuestion(q) {
 export function parseQuoteSpec(q) {
   if (!maybeQuoteQuestion(q)) return null
   const s = String(q)
+  // (v1.0.1103) "ลูกค้าที่ยังไม่ได้ส่งใบเสนอราคา" = ถามหาลูกค้า (ให้ opsQuestions ตอบ) ไม่ใช่ใบที่ยังไม่ส่ง
+  if (/^(?:ลูกค้า|ใคร|รายชื่อ)/.test(s.trim()) && /ยังไม่(?:ได้|มี)?\s*(?:ทำ|ออก|มี|ให้|ส่ง)\s*ใบเสนอ/.test(s)) return null
   if (/ใกล้หมด|หมดอายุ|จะหมด|หมดเขต/.test(s)) return { focus: 'expiring' }
   if (/ยังไม่ส่ง|ยังไม่ได้ส่ง|ร่าง/.test(s)) return { focus: 'unsent' }
   if (/รอ(คำ)?ตอบ|ยังไม่ตอบ|ตามผล|ต้องตาม|ส่งแล้ว/.test(s)) return { focus: 'waiting' }
