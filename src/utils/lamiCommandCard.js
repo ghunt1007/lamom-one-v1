@@ -302,6 +302,12 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'lost') {
     const customers = await (customersPromise || visibleCustomersForCommands())
     res = oq.lostAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, prev: spec.prev })
+  } else if (spec.kind === 'mycust' || spec.kind === 'nophone' || spec.kind === 'topscore') {
+    const customers = ((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c))
+    if (spec.kind === 'topscore') { const { heuristicScore } = await import('./leadScore.js'); res = oq.topScoreAnswer(customers, { scoreOf: c => heuristicScore(c) }) }
+    else res = spec.kind === 'mycust' ? oq.myCustomersAnswer(customers, { today }) : oq.noPhoneAnswer(customers)
+  } else if (spec.kind === 'delivered') {
+    res = oq.deliveredAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, period: spec.period })
   } else if (spec.kind === 'withdrawn' || spec.kind === 'finbank') {
     const bks = (await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b))
     res = spec.kind === 'withdrawn' ? oq.withdrawnAnswer(bks, { today, prev: spec.prev }) : oq.finBankAnswer(bks, { today })

@@ -3,12 +3,13 @@
 //   "เรื่องร้องเรียนค้างอยู่ไหม" · "ลูกค้าใหม่เดือนนี้กี่คน" · "ใครเกิดวันนี้ / ครบรอบซื้อรถสัปดาห์นี้"
 // ฟังก์ชันล้วน ทดสอบได้ · ตัวโหลดข้อมูลอยู่ใน lamiCommandCard.js (loadOpsAnswer)
 import { dmy } from './format.js'
+import { carOf } from './carLabel.js'
 import { nextAnniversary } from './anniversary.js'
 import { lostBySeller, classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
 
 const has = (s, re) => re.test(s)
 // คำสั่งให้ทำ (นัด/บันทึก/สร้าง) ไม่ใช่คำถาม → ปล่อยให้ตัวสั่งงานจัดการ
-const COMMAND = /^(นัด|บันทึก|สร้าง|เพิ่ม|ลบ|แก้|ย้าย|มอบ)(?!.*(มีใคร|กี่|ไหม|บ้าง|อะไร))/
+const COMMAND = /^(นัด|บันทึก|สร้าง|เพิ่ม|ลบ|แก้|ย้าย|มอบ)(?!.*(มีใคร|กี่|ไหม|บ้าง|อะไร|เลยกำหนด|ค้าง|ที่))/
 
 // (v1.0.1090) "ลูกค้าจากเฟสบุ๊คเดือนนี้กี่คน" → กรองตามช่องทาง (คีย์เดียวกับ quickLead QUICK_SOURCES)
 const SOURCE_WORDS = [['facebook', /เฟส|facebook|\bfb\b/i], ['line', /ไลน์|\bline\b/i], ['tiktok', /ติ๊?กต็?อก|tiktok/i], ['instagram', /ไอจี|instagram|\big\b/i],
@@ -19,13 +20,22 @@ export function parseOpsSpec(q) {
   const s = String(q || '').trim().replace(/[?？]+$/, '')
   if (s.length < 4 || s.length > 80 || COMMAND.test(s)) return null
   const day = /พรุ่งนี้/.test(s) ? 'tomorrow' : 'today'
+  // (v1.0.1092) "ลูกค้าที่ส่งมอบเดือนที่แล้ว" / "ลูกค้าที่ซื้อรถไปแล้วปีนี้" → รายชื่อลูกค้าที่รับรถแล้ว
+  if (has(s, /ส่งมอบแล้ว|ซื้อ(?:รถ)?(?:ไป)?แล้ว|ที่ส่งมอบ|รับรถ(?:ไป)?แล้ว|ออกรถ(?:ไป)?แล้ว/) && has(s, /ลูกค้า|ใคร|รายชื่อ|กี่คน/) && !has(s, /นัด|พรุ่งนี้|ยอด|เป้า/))
+    return { kind: 'delivered', period: /เดือน(?:ก่อน|ที่แล้ว)/.test(s) ? 'prevmonth' : /ปี/.test(s) ? 'year' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'month' }
+  // (v1.0.1092) "ลูกค้าของฉันมีกี่คน" → สรุปลูกค้าในมือตามขั้น/ความร้อน
+  if (has(s, /ลูกค้า\s*(?:ของ)?\s*(?:ฉัน|ผม|หนู|เรา|ตัวเอง)|ลูกค้าที่(?:ฉัน|ผม)?ดูแล|ลูกค้าในมือ|ลูกค้าทั้งหมด/) && has(s, /กี่|สรุป|เท่าไ|มีเท่า|ภาพรวม/)) return { kind: 'mycust' }
+  // (v1.0.1092) "ลูกค้าที่ยังไม่มีเบอร์โทร" → ข้อมูลที่ต้องเติม
+  if (has(s, /(?:ไม่มี|ยังไม่มี|ไม่ได้ใส่|ยังไม่ได้ใส่|ขาด)\s*เบอร์|เบอร์\s*(?:ว่าง|หาย)/) && !has(s, /^(?:เพิ่ม|ใส่|แก้)/)) return { kind: 'nophone' }
+  // (v1.0.1092) "ลูกค้าคนไหนมีโอกาสปิดสูงสุด"
+  if (has(s, /โอกาส(?:ปิด)?(?:การขาย)?\s*(?:สูง|มาก|เยอะ|ดี)|ใกล้ปิด|น่าจะปิด|มีแวว(?:ปิด|ซื้อ)|ปิดง่าย|พร้อมซื้อ/)) return { kind: 'topscore' }
   if (has(s, /เสียดีล|เสียลูกค้า|lost|ปิดไม่ได้|หลุด/i) && !has(s, /บันทึก/)) return { kind: 'lost', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
   // (v1.0.1090) "ยอดจองวันนี้" / "เมื่อวานปิดได้กี่คัน" / "สัปดาห์นี้มีใครจองบ้าง"
   if (has(s, /ยอดจอง|จองใหม่|ใบจองใหม่|ปิดการขาย|ปิดได้|ปิดดีล|ใครจอง|มีคนจอง|จองกี่|จองไป|จองได้/) && has(s, /วันนี้|เมื่อวาน|สัปดาห์|อาทิตย์|7 วัน/) && !has(s, /ส่งมอบ|ทดลองขับ|ลองขับ/)) return { kind: 'bookday', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
   // (v1.0.1091) "ใครถอนจองเดือนนี้" / "เดือนนี้ถอนจองกี่ใบ"
   if (has(s, /ถอนจอง|ยกเลิกจอง|ถอนใบจอง|ยกเลิกใบจอง/) && !has(s, /^(?:ถอน|ยกเลิก)/)) return { kind: 'withdrawn', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
   // (v1.0.1091) "ลูกค้าที่นัดแล้วไม่มา" (นัดโชว์รูม + ทดลองขับที่บันทึกว่าไม่มา)
-  if (has(s, /ไม่มา(?:ตามนัด)?|no\s*-?\s*show|เบี้ยวนัด|ผิดนัด/i) && !has(s, /ทำไม/)) return { kind: 'noshow', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : 30 }
+  if (has(s, /ไม่มา(?:ตามนัด)?|no\s*-?\s*show|เบี้ยวนัด|ผิดนัด/i) && !has(s, /ทำไม|มาถึง|รถ(?:คัน)?(?:ไหน|ยัง)|ได้รถ/)) return { kind: 'noshow', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : 30 }
   // (v1.0.1091) "เซลส์คนไหนยังไม่มีใบจองเดือนนี้"
   if (has(s, /เซลส์|เซล|พนักงานขาย|ใครใน(?:ทีม)?/) && has(s, /ยังไม่(?:มี|ได้)?\s*(?:ใบ)?จอง|ยังไม่มียอด|ไม่มียอด|ยังไม่ปิด(?:การขาย|ได้)?|ยังไม่ได้ขาย|ขายไม่ได้/)) return { kind: 'nobookseller' }
   // (v1.0.1091) "ไฟแนนซ์ไหนอนุมัติเยอะสุด" / "ยื่นไฟแนนซ์ที่ไหนบ่อยสุด"
@@ -150,7 +160,7 @@ export function bookDayAnswer(bookings, { today, day = 'today' }) {
   const by = {}
   live.forEach(b => { const k = b.salesName || 'ไม่ระบุเซลส์'; by[k] = (by[k] || 0) + 1 })
   return { n: live.length, text: [`📝 ยอดจอง${word} ${live.length} ใบ${rows.length > live.length ? ` · ถอนแล้ว ${rows.length - live.length} ใบ` : ''}`,
-    ...live.slice(0, MAX).map(b => `• ${nm(b)}${b.model ? ' · ' + [b.brand, b.model].filter(Boolean).join(' ') : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''}${day !== 'today' ? ' · ' + dmy(String(b.bookingDate).slice(0, 10)) : ''}`), ...more(live.length),
+    ...live.slice(0, MAX).map(b => `• ${nm(b)}${carOf(b) ? ' · ' + carOf(b) : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''}${day !== 'today' ? ' · ' + dmy(String(b.bookingDate).slice(0, 10)) : ''}`), ...more(live.length),
     ...(Object.keys(by).length > 1 ? ['', '🏆 ' + Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ')] : [])].join('\n') }
 }
 
@@ -168,7 +178,7 @@ export function withdrawnAnswer(bookings, { today, prev = false }) {
   const span = `${dmy(from)}–${dmy(to)}`
   if (!list.length) return { n: 0, text: `✅ ${label}ยังไม่มีใบจองที่ถอน (${span}) · จองทั้งหมด ${inM.length} ใบ` }
   return { n: list.length, text: [`↩️ ถอนจอง${label} ${list.length} ใบ จาก ${inM.length} ใบ (${Math.round(list.length / inM.length * 100)}%) · ${span}`,
-    ...list.slice(0, MAX).map(b => `• ${nm(b)}${b.model ? ' · ' + [b.brand, b.model].filter(Boolean).join(' ') : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''} · จอง ${dmy(String(b.bookingDate).slice(0, 10))}${b.cancelReason || b.withdrawReason ? ' · ' + (b.cancelReason || b.withdrawReason) : ''}`),
+    ...list.slice(0, MAX).map(b => `• ${nm(b)}${carOf(b) ? ' · ' + carOf(b) : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''} · จอง ${dmy(String(b.bookingDate).slice(0, 10))}${b.cancelReason || b.withdrawReason ? ' · ' + (b.cancelReason || b.withdrawReason) : ''}`),
     ...more(list.length)].join('\n') }
 }
 
@@ -228,6 +238,55 @@ export function finBankAnswer(bookings, { today, months = 6 }) {
   return { n: rows.length, text: [`🏦 ไฟแนนซ์ ${span}`,
     ...rows.slice(0, 8).map((r, i) => `${i + 1}. ${r.name} — ยื่น ${r.n} · ✅ ผ่าน ${r.pass} · ❌ ไม่ผ่าน ${r.fail} · ⏳ รอ ${r.wait}${pct(r)}`),
     best ? `💡 ${best.name} ผ่านง่ายสุด (${Math.round(best.pass / (best.pass + best.fail) * 100)}%) — ลูกค้าเครดิตก้ำกึ่งลองยื่นที่นี่ก่อน` : '💡 ข้อมูลยังน้อย — ใส่ "สถานะไฟแนนซ์" ในใบจองให้ครบเพื่อเทียบได้แม่นขึ้น'].join('\n') }
+}
+
+const STAGE_L = { lead: '🧲 Lead', pp: '📇 Prospect', booked: '📝 จองแล้ว', booking: '📝 จองแล้ว', delivered: '✅ ส่งมอบแล้ว' }
+export function myCustomersAnswer(customers, { today }) {
+  const list = alive(customers)
+  if (!list.length) return { n: 0, text: '👥 ยังไม่มีลูกค้าในความดูแล' }
+  const lost = list.filter(c => c.isLost).length, live = list.filter(c => !c.isLost)
+  const by = {}
+  live.forEach(c => { const k = STAGE_L[c.stage] || (c.bookingId ? '📝 จองแล้ว' : '🧲 Lead'); by[k] = (by[k] || 0) + 1 })
+  const open = live.filter(c => ['lead', 'pp'].includes(c.stage) && !c.bookingId)
+  const t = k => open.filter(c => c.temperature === k).length
+  const month = list.filter(c => ymd(c.createdAt) >= today.slice(0, 7) + '-01').length
+  return { n: list.length, text: [`👥 ลูกค้าในความดูแล ${list.length} คน${lost ? ` (เสียดีล ${lost})` : ''}`,
+    ...Object.entries(by).map(([k, v]) => `• ${k} ${v} คน`),
+    open.length ? `🌡 กำลังติดตาม ${open.length} คน · 🔥 HOT ${t('hot')} · 🟡 WARM ${t('warm')} · 🔵 COLD ${t('cold')}` : '',
+    `🆕 เข้ามาใหม่เดือนนี้ ${month} คน`].filter(Boolean).join('\n') }
+}
+
+export function noPhoneAnswer(customers) {
+  const list = alive(customers).filter(c => !c.isLost && String(c.phone || '').replace(/\D/g, '').length < 9)
+  if (!list.length) return { n: 0, text: '✅ ลูกค้าทุกคนมีเบอร์โทรแล้ว' }
+  const rank = c => c.temperature === 'hot' ? 0 : c.temperature === 'warm' ? 1 : 2
+  list.sort((a, b) => rank(a) - rank(b))
+  return { n: list.length, text: [`📵 ลูกค้าที่ยังไม่มีเบอร์โทร ${list.length} คน (HOT ขึ้นก่อน)`,
+    ...list.slice(0, MAX).map(c => `• ${nm(c)}${c.temperature ? ' · ' + c.temperature.toUpperCase() : ''}${c.lineId || c.lineUserId ? ' · 💚 มี LINE' : ''}${c.assignedTo ? ' · 👤 ' + c.assignedTo : ''}`),
+    ...more(list.length), '💡 เปิดลูกค้าแล้วเติมเบอร์ — ระบบจะโทร/ส่งข้อความได้ และกันลูกค้าซ้ำได้แม่นขึ้น'].join('\n') }
+}
+
+export function topScoreAnswer(customers, { scoreOf, max = MAX }) {
+  const list = alive(customers).filter(c => !c.isLost && !c.bookingId && ['lead', 'pp', undefined, ''].includes(c.stage))
+    .map(c => ({ c, s: scoreOf(c) })).sort((a, b) => b.s.score - a.s.score).slice(0, max)
+  if (!list.length) return { n: 0, text: '👥 ยังไม่มีลูกค้าที่กำลังติดตาม' }
+  return { n: list.length, text: [`🎯 ลูกค้าที่มีโอกาสปิดสูงสุด ${list.length} คน`,
+    ...list.map(({ c, s }, i) => `${i + 1}. ${nm(c)} — ${s.score}%${c.interestedModel ? ' · 🚗 ' + c.interestedModel : ''}${(() => { const g = (s.signals || []).filter(x => !/รถที่สนใจ|ความสนใจสูง/.test(x)); return g.length ? ' · ' + g[0] : '' })()}`),
+    '💡 โทรนัดทดลองขับหรือส่งใบเสนอราคาให้ 3 คนแรกวันนี้'].join('\n') }
+}
+
+export function deliveredAnswer(bookings, { today, period = 'month' }) {
+  let from = today.slice(0, 7) + '-01', to = today, label = 'เดือนนี้'
+  if (period === 'prevmonth') { from = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 2, 1)).toISOString().slice(0, 10); to = addDays(today.slice(0, 7) + '-01', -1); label = 'เดือนก่อน' }
+  else if (period === 'year') { from = today.slice(0, 4) + '-01-01'; label = 'ปีนี้' }
+  else if (period === 'week') { from = addDays(today, -6); label = '7 วันล่าสุด' }
+  const dOf = b => String(b.actualDeliveryDate || b.deliveryDate || '').slice(0, 10)
+  const list = alive(bookings).filter(b => (b.status === 'ส่งมอบแล้ว' || b.status === 'delivered') && dOf(b) >= from && dOf(b) <= to).sort((a, b) => dOf(b).localeCompare(dOf(a)))
+  const span = `${dmy(from)}–${dmy(to)}`
+  if (!list.length) return { n: 0, text: `🚗 ${label}ยังไม่มีลูกค้ารับรถ (${span})` }
+  return { n: list.length, text: [`✅ ลูกค้ารับรถ${label} ${list.length} คน · ${span}`,
+    ...list.slice(0, MAX).map(b => `• ${dmy(dOf(b))} ${nm(b)}${carOf(b) ? ' · ' + carOf(b) : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''}`),
+    ...more(list.length), '💡 โทรถามความพึงพอใจหลังรับรถ 7 วัน และขอให้แนะนำเพื่อน'].join('\n') }
 }
 
 export function newCustomerAnswer(customers, { today, period = 'month', sourceLabel = {}, source = '' }) {
@@ -403,6 +462,10 @@ export const OPS_LINKS = {
   testdrive: { path: '/crm/testdrive', label: '🚗 เปิดหน้าทดลองขับ' },
   bookday: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   withdrawn: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
+  delivered: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
+  mycust: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
+  nophone: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
+  topscore: { path: '/ai/lead-scoring', label: '🎯 เปิดหน้า Lead Scoring' },
   finbank: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   noshow: { path: '/crm/showroom', label: '🏬 เปิดหน้านัดโชว์รูม' },
   nobookseller: { path: '/crm/sales-income', label: '💰 เปิดหน้ารายได้รายเซลส์' },
@@ -418,7 +481,7 @@ export const OPS_LINKS = {
 }
 
 export function opsFollowUps(spec) {
-  const all = { withdrawn: 'ยอดเดือนนี้เป็นไง', finbank: 'ใครรอไฟแนนซ์', noshow: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', nobookseller: 'ทีมวันนี้เป็นไง', bookday: 'ยอดเดือนนี้เป็นไง', tdnobook: 'ลูกค้า hot มีใครบ้าง', testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', insurance: 'รับประกันรถคันไหนใกล้หมด', walkin: 'walk in สัปดาห์นี้กี่คน', warranty: 'ประกันภัยใครใกล้หมด', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
+  const all = { delivered: 'ใครครบรอบซื้อรถเดือนนี้', mycust: 'ลูกค้า hot มีใครบ้าง', nophone: 'ลูกค้าที่ยังไม่มีผู้ดูแล', topscore: 'วันนี้ควรโทรหาใคร', withdrawn: 'ยอดเดือนนี้เป็นไง', finbank: 'ใครรอไฟแนนซ์', noshow: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', nobookseller: 'ทีมวันนี้เป็นไง', bookday: 'ยอดเดือนนี้เป็นไง', tdnobook: 'ลูกค้า hot มีใครบ้าง', testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', insurance: 'รับประกันรถคันไหนใกล้หมด', walkin: 'walk in สัปดาห์นี้กี่คน', warranty: 'ประกันภัยใครใกล้หมด', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
   const out = [all[spec.kind]]
   if (spec.kind === 'testdrive' && spec.day === 'tomorrow') out[0] = 'พรุ่งนี้มีใครนัดเข้าโชว์รูม'
   if (spec.kind === 'delivery' && spec.day === 'week') out[0] = 'มีนัดส่งมอบพรุ่งนี้ไหม'
