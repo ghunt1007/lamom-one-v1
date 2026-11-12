@@ -282,3 +282,27 @@ describe('v1.0.1117 list by seller + manager phrasings', async () => {
     expect(tb.isTeamQuestion('ใครในทีมยังไม่ได้อัปเดตลูกค้า')).toBe(true)
   })
 })
+
+describe('v1.0.1117 marketing spend', async () => {
+  const oq = await import('./opsQuestions.js')
+  const sa = await import('./socialAccounts.js')
+  const run = (o) => oq.mktSpendAnswer({ today: '2026-11-12', spendSummary: sa.spendSummary, accountResults: sa.accountResults, ...o })
+  it('parses', () => {
+    expect(oq.parseOpsSpec('ค่าใช้จ่ายการตลาดเดือนนี้')).toEqual({ kind: 'mktspend', prev: false })
+    expect(oq.parseOpsSpec('ต้นทุนต่อลีดเท่าไหร่').kind).toBe('mktspend')
+    expect(oq.parseOpsSpec('ค่าใช้จ่ายเดือนนี้เท่าไหร่').kind).toBe('expense')
+  })
+  it('honest when nothing entered; budget-only events not counted', () => {
+    const r = run({ events: [{ startDate: '2026-11-05', budget: 20000 }], customers: [{ createdAt: '2026-11-03' }] })
+    expect(r.n).toBe(0)
+    expect(r.text).toContain('ยังไม่ได้ใส่')
+    expect(r.text).toContain('ลูกค้าใหม่เดือนนี้ 1 คน')
+  })
+  it('sums ad spend and actual event spend, cost per new customer', () => {
+    const r = run({ accounts: [{ id: 'p1', spend: { '2026-11': 6000 } }], events: [{ startDate: '2026-11-05', spent: 4000, budget: 9000 }],
+      customers: [{ createdAt: '2026-11-03', sourceAccountId: 'p1' }, { createdAt: '2026-11-04', sourceAccountId: 'p1' }, { createdAt: '2026-10-04' }, { createdAt: '2026-11-08' }, { createdAt: '2026-11-09' }, { createdAt: '2026-11-10' }] })
+    expect(r.text).toContain('฿10,000')
+    expect(r.text).toContain('฿3,000/Lead')
+    expect(r.text).toContain('ลูกค้าใหม่ทั้งเดือนนี้ 5 คน → เฉลี่ย ฿2,000/คน')
+  })
+})
