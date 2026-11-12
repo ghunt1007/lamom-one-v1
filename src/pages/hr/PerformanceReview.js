@@ -10,6 +10,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { notifyTeam } from '../../utils/teamNotify.js'
 
 // ป้องกัน XSS — ความคิดเห็น (comment) เป็นข้อความที่ผู้จัดการพิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 
@@ -191,7 +192,12 @@ export default async function PerformanceReviewPage(container) {
     }))
     container.querySelectorAll('.remind-btn').forEach(b => b.addEventListener('click', () => {
       const r = reviews.find(x => x.id === b.dataset.id)
-      if (r) showToast(`🔔 ส่งแจ้งเตือนถึง ${r.staff} แล้ว`, 'success')
+      if (!r) return
+      // (v1.0.1106) เดิมแค่ขึ้นข้อความว่าส่งแล้ว แต่ไม่ได้ส่งอะไรจริง — ตอนนี้ส่งแจ้งเตือนในแอป (กระดิ่ง) ถึงพนักงานคนนั้นจริง
+      b.disabled = true
+      notifyTeam({ type: 'hr', title: '📝 ถึงเวลาทำแบบประเมินผลงาน', body: `${r.staff}${r.period ? ' · รอบ ' + r.period : ''} — กรุณาเข้าไปทำแบบประเมิน`, link: '/hr/performance-review', names: [r.staff] })
+        .then(() => showToast(`🔔 ส่งแจ้งเตือนในแอปถึง ${r.staff} แล้ว`, 'success'))
+        .catch(() => { showToast('ส่งแจ้งเตือนไม่สำเร็จ', 'error'); b.disabled = false })
     }))
     container.querySelectorAll('.review-btn').forEach(b => b.addEventListener('click', () => {
       const r = reviews.find(x => x.id === b.dataset.id); if (r) openMgmtReview(r)

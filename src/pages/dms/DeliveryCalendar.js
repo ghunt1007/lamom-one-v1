@@ -171,7 +171,7 @@ export default async function DeliveryCalendarPage(container) {
       if (!d) return
       try {
         await updateDocData('bookings', d.id, { status: LOCAL_TO_BOOKING_STATUS.ready, ...statusDatePatch(d.raw, LOCAL_TO_BOOKING_STATUS.ready, todayBangkok()) })
-        showToast('✅ พร้อมส่งมอบ — แจ้งลูกค้าแล้ว', 'success')
+        showToast('✅ พร้อมส่งมอบแล้ว — โทรนัดวันรับรถกับลูกค้าได้เลย', 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))

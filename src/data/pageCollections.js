@@ -584,7 +584,12 @@ export const PAGE_COLLECTIONS = {
  "/b2b/quotes": [
   "corporate_quotes"
  ],
- "/ai/insights": [],
+ "/ai/insights": [
+  "bookings",
+  "customers",
+  "followups",
+  "vehicles"
+ ],
  "/training/certification": [
   "staff",
   "staff_certifications"
