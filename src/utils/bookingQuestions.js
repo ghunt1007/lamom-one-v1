@@ -34,7 +34,7 @@ export function parseBookingListSpec(q) {
   // (v1.0.1090) "ลูกค้าที่จองแต่ยังไม่ส่งมอบมีกี่คน" → ใบจองที่ยังเปิดอยู่ทั้งหมด
   // (v1.0.1096) "ใครยังไม่ได้รับรถทั้งที่ถึงวันนัด" → นัดส่งมอบเลยวันแล้วแต่ยังไม่ส่งมอบ
   const late = /ถึงวันนัด|เลย(?:วัน)?(?:นัด|กำหนด)\s*(?:ส่งมอบ|ส่งรถ|รับรถ)?|(?:ส่งมอบ|ส่งรถ)\s*(?:ช้า|ล่าช้า|เลยกำหนด|เกินกำหนด)|เกินวัน(?:นัด)?\s*ส่งมอบ/.test(s) && /ส่งมอบ|รับรถ|ส่งรถ|วันนัด/.test(s)
-  const allOpen = !late && !statuses && !when && /ยังไม่(?:ได้)?\s*(?:ส่งมอบ|ส่งรถ|รับรถ)|ค้างจอง/.test(s)
+  const allOpen = !late && !statuses && !when && /ยังไม่(?:ได้)?\s*(?:ส่งมอบ|ส่งรถ|รับรถ)|ค้างจอง|^ใบจอง\s*(?:ของ)?\s*(?:ฉัน|ผม|หนู|เรา)\s*(?:มี|ค้าง)?\s*(?:กี่ใบ|อะไรบ้าง|มีใครบ้าง|ใครบ้าง)|^ใบจอง(?:ที่)?ค้างอยู่/.test(s)
   if (!statuses && !when && !stuck && !noVin && !noDeposit && !noDown && !allOpen && !late) return null
   return { late, allOpen, noVin, noDeposit, noDown, statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
 }

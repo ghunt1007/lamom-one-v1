@@ -11,7 +11,9 @@ const OTHER = /โทร|นัด|บันทึก|จด |แล้ว|ล�
 
 export function maybePromoQuestion(q) {
   const s = String(q || '')
-  return s.length >= 3 && s.length <= 80 && INTENT.test(s) && !OTHER.test(s)
+  // (v1.0.1108) "มีโปรอะไรให้ลูกค้า S05 บ้าง" — "ให้ลูกค้า" ไม่ได้แปลว่าถามหาลูกค้า
+  const t = s.replace(/(?:ให้|สำหรับ|แก่|บอก|เสนอ)\s*ลูกค้า/g, ' ')
+  return s.length >= 3 && s.length <= 80 && INTENT.test(t) && !OTHER.test(t)
 }
 
 export function parsePromoSpec(q, vehicles = []) {

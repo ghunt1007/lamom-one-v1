@@ -71,3 +71,20 @@ describe('v1.0.1107 arrived', () => {
     expect(r.n).toBe(1)
   })
 })
+import { parsePromoSpec } from './promoQuestions.js'
+import { parseAheadSpec } from './aheadBrief.js'
+describe('v1.0.1108 LAMI wording', () => {
+  it('ops', () => {
+    expect(parseOpsSpec('ลูกค้าคนไหนใกล้ตัดสินใจ').kind).toBe('topscore')
+    expect(parseOpsSpec('ลูกค้าที่ยังไม่ได้นัดทดลองขับ').kind).toBe('notd')
+    expect(parseOpsSpec('ลูกค้าที่ทักมาทางไลน์วันนี้').kind).toBe('line')
+    expect(parseOpsSpec('ลูกค้าหายไปนานที่สุด').kind).toBe('stale')
+    expect(parseOpsSpec('ลูกค้าที่เพิ่งเพิ่มวันนี้')).toEqual({ kind: 'newcust', period: 'today' })
+  })
+  it('booking + promo + ahead', () => {
+    expect(parseBookingListSpec('ใบจองของฉันมีกี่ใบ').allOpen).toBe(true)
+    expect(parsePromoSpec('มีโปรอะไรให้ลูกค้า S05 บ้าง')).not.toBeNull()
+    expect(parsePromoSpec('ลูกค้าที่ได้โปรเดือนนี้')).toBeNull()
+    expect(parseAheadSpec('ฉันมีนัดอะไรพรุ่งนี้')).toEqual({ mode: 'tomorrow' })
+  })
+})
