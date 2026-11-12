@@ -2930,3 +2930,52 @@ describe('self-escalation via authorization fields (v1.0.911)', () => {
     await assertFails(db.doc('commissions/x1').set({ amount: 1 }))
   })
 })
+
+describe('changing a login email (v1.0.1072)', () => {
+  it('a user can sync their profile email to their real login email, but not to someone else\'s', async () => {
+    await seedUser('em1', { role: 'sales', active: true, email: 'old@lamom.one' })
+    const db = testEnv.authenticatedContext('em1', { email: 'new@lamom.one' }).firestore()
+    await assertSucceeds(db.doc('users/em1').update({ email: 'new@lamom.one' }))
+    await assertFails(db.doc('users/em1').update({ email: 'ghunt1007@gmail.com' }))
+  })
+
+  it('the program owner (by email) can bind the program-owner right to their own account', async () => {
+    await seedUser('po1', { role: 'owner', active: true, email: 'ghunt1007@gmail.com' })
+    const db = testEnv.authenticatedContext('po1', { email: 'ghunt1007@gmail.com' }).firestore()
+    await assertSucceeds(db.doc('users/po1').update({ programOwner: true }))
+  })
+
+  it('after an email change, the bound account keeps program-owner rights', async () => {
+    await seedUser('po2', { role: 'owner', active: true, email: 'golf.new@example.com', programOwner: true })
+    await seedUser('victim', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('po2', { email: 'golf.new@example.com' }).firestore()
+    await assertSucceeds(db.doc('users/victim').delete())
+    await assertSucceeds(db.collection('audit_log').get())
+  })
+
+  it('a non-owner role holding the flag (e.g. set before these rules were deployed) gets no program-owner rights', async () => {
+    await seedUser('st11', { role: 'sales', active: true, programOwner: true })
+    await seedUser('victim11', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('st11', { email: 's@x.com' }).firestore()
+    await assertFails(db.doc('users/victim11').delete())
+  })
+
+  it('nobody else can give themselves or others the program-owner flag', async () => {
+    await seedUser('st1', { role: 'staff', active: true })
+    await seedUser('mgr9', { role: 'manager', active: true })
+    await seedUser('ow9', { role: 'owner', active: true })
+    await seedUser('target9', { role: 'staff', active: true })
+    await assertFails(testEnv.authenticatedContext('st1', { email: 's@x.com' }).firestore().doc('users/st1').update({ programOwner: true }))
+    await assertFails(testEnv.authenticatedContext('mgr9', { email: 'm@x.com' }).firestore().doc('users/target9').update({ programOwner: true }))
+    await assertFails(testEnv.authenticatedContext('ow9', { email: 'o@x.com' }).firestore().doc('users/ow9').update({ programOwner: true }))
+    await assertFails(testEnv.authenticatedContext('mgr9', { email: 'm@x.com' }).firestore().doc('users/newbie9').set({ role: 'staff', programOwner: true }))
+    await assertFails(testEnv.authenticatedContext('fresh9', { email: 'f@x.com' }).firestore().doc('users/fresh9').set({ role: 'pending', programOwner: true }))
+  })
+
+  it('managers can still edit staff profiles as before', async () => {
+    await seedUser('mgr10', { role: 'manager', active: true })
+    await seedUser('target10', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('mgr10', { email: 'm@x.com' }).firestore()
+    await assertSucceeds(db.doc('users/target10').update({ displayName: 'ใหม่' }))
+  })
+})

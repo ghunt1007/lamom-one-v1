@@ -7,9 +7,11 @@ import {
   sendPasswordResetEmail,
   reauthenticateWithCredential,
   updatePassword,
+  verifyBeforeUpdateEmail,
   EmailAuthProvider,
 } from 'firebase/auth'
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { identityPatch } from '../utils/identitySync.js'
 import { setUser, setCompany, setCompanies, setActiveCompanyFilter, setState, showToast, getState } from './store.js'
 import { navigate } from './router.js'
 import { deepSanitize, createDoc, listDocs, updateDocData } from './db.js'
@@ -138,7 +140,11 @@ async function loadUserProfile(firebaseUser) {
   try {
     const snap = await getDoc(doc(db, 'users', firebaseUser.uid))
     if (snap.exists()) {
-      const profile = { uid: firebaseUser.uid, email: firebaseUser.email, ...snap.data() }
+      // (v1.0.1072) อีเมลที่ใช้ login จริง (firebaseUser.email) ต้องชนะสำเนาเก่าในเอกสาร users เสมอ — เดิม
+      // ...snap.data() ทับอีเมลจริง ทำให้หลังเปลี่ยนอีเมล แอปยังแสดง/ส่งลิงก์รีเซ็ตรหัสไปที่อีเมลเก่า
+      const stored = snap.data()
+      const profile = { ...stored, uid: firebaseUser.uid, email: firebaseUser.email || stored.email || '' }
+      await syncProfileIdentity(firebaseUser, stored, profile)
       if (profile.active === false) {
         await signOut(auth)
         setUser(null)
@@ -231,6 +237,44 @@ async function loadUserProfile(firebaseUser) {
     }
   } catch (e) {
     console.error('loadUserProfile error:', e)
+  }
+}
+
+// (v1.0.1072) ซิงก์ข้อมูลประจำตัวลงเอกสาร users หลัง login (best-effort ห้ามทำให้ login พัง):
+//  1. อีเมลในเอกสารไม่ตรงกับอีเมล login จริง (เพิ่งเปลี่ยนอีเมล) → อัปเดตให้ตรง
+//  2. เจ้าของโปรแกรมที่ยังล็อกอินด้วยอีเมลเดิม → ตั้ง programOwner: true ผูกสิทธิ์กับรหัสบัญชี
+//     หลังจากนั้นเปลี่ยนอีเมลได้โดยไม่เสียสิทธิ์เจ้าของโปรแกรม (rules ยอมรับทั้งสองทาง)
+async function syncProfileIdentity(firebaseUser, stored, profile) {
+  const patch = identityPatch(firebaseUser.email, stored)
+  if (!Object.keys(patch).length) return
+  if (patch.programOwner) profile.programOwner = true
+  try {
+    // บัตรผ่าน (ID token) อาจยังถืออีเมลเก่าอยู่หลังเพิ่งกดลิงก์ยืนยัน — rules เทียบกับอีเมลในบัตรผ่าน จึงขอบัตรใหม่ก่อน
+    if (patch.email) await firebaseUser.getIdToken(true)
+    await updateDoc(doc(db, 'users', firebaseUser.uid), patch)
+  } catch (e) {
+    console.warn('syncProfileIdentity:', e?.code || e)
+  }
+}
+
+// (v1.0.1072) เปลี่ยนอีเมล login ของตัวเอง — ยืนยันรหัสผ่านก่อน แล้ว Firebase ส่งลิงก์ยืนยันไปที่อีเมลใหม่
+// อีเมลจะเปลี่ยนจริงหลังกดลิงก์เท่านั้น (Firebase ส่งอีเมลแจ้งไปที่อีเมลเดิมด้วย เผื่อไม่ได้เป็นคนเปลี่ยนเอง)
+// หลังกดลิงก์ ระบบจะให้ออกจากระบบ → ล็อกอินใหม่ด้วยอีเมลใหม่ แล้ว syncProfileIdentity() อัปเดตโปรไฟล์ให้เอง
+export async function changeOwnEmail(currentPassword, newEmail) {
+  const user = auth.currentUser
+  if (!user || !user.email) return { ok: false, error: 'ไม่พบผู้ใช้ที่ login อยู่' }
+  const email = String(newEmail || '').trim()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'รูปแบบอีเมลไม่ถูกต้อง' }
+  if (email.toLowerCase() === user.email.toLowerCase()) return { ok: false, error: 'อีเมลใหม่ต้องไม่ซ้ำกับอีเมลเดิม' }
+  try {
+    const cred = EmailAuthProvider.credential(user.email, currentPassword)
+    await reauthenticateWithCredential(user, cred)
+    await verifyBeforeUpdateEmail(user, email)
+    return { ok: true, email }
+  } catch (e) {
+    if (e.code === 'auth/email-already-in-use') return { ok: false, error: 'อีเมลนี้มีบัญชีอื่นใช้อยู่แล้ว' }
+    if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') return { ok: false, error: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' }
+    return { ok: false, error: authErrorMessage(e.code) }
   }
 }
 
@@ -378,6 +422,7 @@ function authErrorMessage(code) {
     'auth/weak-password': 'รหัสผ่านไม่ปลอดภัยพอ กรุณาตั้งรหัสผ่านที่ซับซ้อนขึ้น',
     'auth/user-disabled': 'บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ',
     'auth/requires-recent-login': 'ต้องเข้าสู่ระบบใหม่อีกครั้งก่อนทำรายการนี้ (เพื่อความปลอดภัย)',
+    'auth/operation-not-allowed': 'ระบบยังไม่เปิดให้ทำรายการนี้ กรุณาติดต่อผู้ดูแลระบบ',
   }
   return map[code] || 'เกิดข้อผิดพลาด กรุณาลองใหม่'
 }

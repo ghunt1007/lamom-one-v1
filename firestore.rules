@@ -16,9 +16,16 @@ service cloud.firestore {
     // (v1.0.465) เจ้าของโปรแกรม (บัญชีนี้เท่านั้น) เห็น/แก้ไขได้ทุกอย่างทุกบริษัทไม่มีข้อจำกัด — ผูกกับอีเมล
     // ไม่ใช่ role 'owner' เพราะ role นี้อาจมีเจ้าของธุรกิจจริงคนอื่น (ที่ควรถูกจำกัดแค่บริษัทตัวเอง) ถืออยู่ด้วย
     // ในอนาคต — ดู client-side ที่เทียบเคียงกันใน src/core/hierarchy.js (PROGRAM_OWNER_EMAIL)
+    // (v1.0.1072) เพิ่มทางที่ 2: users/{uid}.programOwner == true (ผูกกับรหัสบัญชี ไม่ใช่อีเมล) — แอปตั้งค่านี้ให้เอง
+    // ครั้งแรกที่เจ้าของโปรแกรมล็อกอินด้วยอีเมลเดิม หลังจากนั้นเปลี่ยนอีเมล login ได้โดยไม่เสียสิทธิ์ ไม่มีใครตั้ง
+    // field นี้ให้ตัวเองหรือคนอื่นได้ นอกจากเจ้าของโปรแกรมเอง (ดู match /users ด้านล่าง) อ่านเอกสารเดียวกับ
+    // userRole() อยู่แล้ว จึงไม่เพิ่มจำนวนการอ่านต่อ request
     function isProgramOwner() {
-      return isSignedIn() && request.auth.token.email != null
-        && request.auth.token.email.lower() == 'ghunt1007@gmail.com';
+      return isSignedIn() && (
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'ghunt1007@gmail.com')
+        || (exists(/databases/$(database)/documents/users/$(uid()))
+            && get(/databases/$(database)/documents/users/$(uid())).data.get('programOwner', false) == true
+            && get(/databases/$(database)/documents/users/$(uid())).data.get('role', '') == 'owner'));
     }
 
     // สิทธิ์แบบจำกัดเวลา (accessExpiresAt) — ถ้า field นี้มีค่าและผ่านมาแล้ว ถือว่าหมดสิทธิ์ทันที
@@ -209,22 +216,29 @@ service cloud.firestore {
       // ป้องกัน privilege escalation: ผู้ใช้ทั่วไปสร้าง/แก้ profile ตัวเองให้เป็น owner/admin เองไม่ได้
       // (v1.0.305) เพิ่ม canAssignRole() บังคับที่ระดับ rules จริง — เดิม isManager() เฉยๆยอมให้ manager
       // ตั้ง role ใหม่เป็น owner/admin ได้เอง (ดูคอมเมนต์ที่ roleLevel() ด้านบน)
-      allow create: if (isManager() && canAssignRole(request.resource.data.role))
+      allow create: if (isManager() && canAssignRole(request.resource.data.role)
+            && (!request.resource.data.keys().hasAny(['programOwner']) || isProgramOwner()))
         || (isSignedIn() && uid() == userId && isBootstrapping() && request.resource.data.role == 'owner')
         || (isSignedIn() && uid() == userId && !isBootstrapping() && request.resource.data.role == 'pending'
             // (v1.0.911) บัญชีที่สมัครเองต้องไม่มีสิทธิ์/บริษัทติดมา (permissions/companyMemberships ส่งมาเป็น [] ได้)
             && request.resource.data.get('permissions', []).size() == 0
             && request.resource.data.get('companyMemberships', []).size() == 0
-            && !request.resource.data.keys().hasAny(['extraGrants', 'groupWide', 'companyIds', 'accessExpiresAt']));
+            && !request.resource.data.keys().hasAny(['extraGrants', 'groupWide', 'companyIds', 'accessExpiresAt', 'programOwner']));
       // ผู้ใช้แก้ไข field ตัวเองได้ (เช่น displayName) แต่ห้ามแก้ role/permissions/active/accessExpiresAt เอง
       // เด็ดขาด ต้องให้ manager ขึ้นไปเป็นคนเปลี่ยนสิทธิ์เท่านั้น
       // (v1.0.305) ต้อง canAssignRole ทั้ง role เดิมและ role ใหม่ — กันไม่ให้ manager แก้ไข/ตั้ง role
       // ของคนที่ "เท่ากับหรือสูงกว่า" ตัวเอง (รวมถึงตัวเอง ผ่านสาขา isManager() นี้เอง) เป็น owner/admin
-      allow update: if (isManager() && canAssignRole(request.resource.data.get('role', 'staff')) && canAssignRole(resource.data.get('role', 'staff')))
+      // (v1.0.1072) programOwner = สิทธิ์เจ้าของโปรแกรม แก้ได้เฉพาะเจ้าของโปรแกรมเอง · email ที่แก้เองต้องตรงกับอีเมล
+      // login จริง (กันพนักงานตั้งอีเมลในโปรไฟล์ให้ตรงกับคนอื่น)
+      allow update: if (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['programOwner']) || isProgramOwner())
+        && (
+        (isManager() && canAssignRole(request.resource.data.get('role', 'staff')) && canAssignRole(resource.data.get('role', 'staff')))
         || (isSignedIn() && uid() == userId
             // (v1.0.911) รวม extraGrants/groupWide/companyIds/companyMemberships ด้วย — field พวกนี้ใช้ตัดสินสิทธิ์
             // ใน rules (myGrants/isGroupWide/myCompanyIds) เดิมพนักงานแก้ของตัวเองได้ = ให้สิทธิ์ตัวเองเพิ่มได้
-            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions', 'active', 'accessExpiresAt', 'extraGrants', 'groupWide', 'companyIds', 'companyMemberships']));
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions', 'active', 'accessExpiresAt', 'extraGrants', 'groupWide', 'companyIds', 'companyMemberships'])
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
+                || request.resource.data.email == request.auth.token.email)));
       // (v1.0.466) ลบบัญชี login — เจ้าของโปรแกรมเท่านั้น (ตัวอย่างที่ยืนยันไว้ชัดเจนว่าต้องเป็นเจ้าของโปรแกรม
       // เท่านั้น ไม่ใช่ role owner ใครก็ได้ เพราะแอดมิน/เจ้าของบริษัทควรลบได้แค่บัญชีในบริษัทตัวเอง ยังไม่มี
       // company-scoping ระดับนี้ในเอกสาร users จึงจำกัดไว้ที่เจ้าของโปรแกรมก่อนเพื่อความปลอดภัย)
