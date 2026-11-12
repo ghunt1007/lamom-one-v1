@@ -185,3 +185,13 @@ describe('v1.0.1116', () => {
     expect(r.text).toContain('เบอร์ซ้ำ')
   })
 })
+
+import { isTeamQuestion } from './teamBrief.js'
+describe('v1.0.1116 team phrasings', () => {
+  it('ลูกทีม / hot ของทีม / ใบจองค้างของทีม', () => {
+    expect(isTeamQuestion('ลูกทีมคนไหนมีนัดเลยกำหนดเยอะสุด')).toBe(true)
+    expect(isTeamQuestion('ทีมฉันมีใบจองค้างกี่ใบ')).toBe(false)
+    expect(parseOpsSpec('ลูกค้า hot ของทีมฉัน')).toEqual({ kind: 'hotbyseller' })
+    expect(parseBookingListSpec('ทีมฉันมีใบจองค้างกี่ใบ').allOpen).toBe(true)
+  })
+})
