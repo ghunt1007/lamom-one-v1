@@ -599,6 +599,10 @@ export default async function QuotationBuilderPage(container) {
     // (v1.0.1071) เปิดจาก LAMI "ราคา S07 เท่าไหร่" → ปุ่มทำใบเสนอราคา: /crm/quotation?vehicle=<id> เปิดฟอร์มพร้อมรุ่นนั้น
     const vid = new URLSearchParams(location.search).get('vehicle')
     if (vid && getVehicles().some(v => v.id === vid)) openCreateForm({ vehicleId: vid })
+    // (v1.0.1074) ?open=<id> → เปิดใบเสนอราคานั้นทันที (ลิงก์จากหน้างานวันนี้)
+    const oid = new URLSearchParams(location.search).get('open')
+    const oq = oid && quotes.find(q => q.id === oid)
+    if (oq) openQuoteDetail(oq)
   }
 }
 

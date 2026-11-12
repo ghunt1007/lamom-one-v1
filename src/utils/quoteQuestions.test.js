@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { maybeQuoteQuestion, parseQuoteSpec, quoteStats, quoteBriefText, quoteFollowUps, quotePageQuery } from './quoteQuestions.js'
+import { maybeQuoteQuestion, parseQuoteSpec, quoteStats, quoteBriefText, quoteFollowUps, quotePageQuery, quoteDueToday } from './quoteQuestions.js'
 
 const T = '2026-11-12'
 const Q = [
@@ -55,5 +55,13 @@ describe('quoteQuestions', () => {
     const done = quoteStats({ quotes: [Q[3]], today: T })
     expect(quoteBriefText(done)).toContain('ไม่มีใบเสนอราคาค้าง')
     expect(quoteBriefText(done, { focus: 'unsent' })).toContain('ส่งครบทุกใบแล้ว')
+  })
+})
+
+describe('quoteDueToday', () => {
+  it('lists accepted-not-booked first, then quotes expiring within 3 days', () => {
+    const r = quoteDueToday(Q, T)
+    expect(r.map(q => [q.id, q._why])).toEqual([['c', 'book'], ['b', 'expiring']])
+    expect(quoteDueToday(Q, T, 2).map(q => q.id)).toEqual(['c'])
   })
 })

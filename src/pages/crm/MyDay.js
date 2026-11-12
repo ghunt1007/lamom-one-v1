@@ -32,11 +32,12 @@ import { isManagerRole } from '../../utils/managerRole.js'
 import { campaignLeads, campaignMessage } from '../../utils/campaignLeads.js'
 import { modelMatches } from '../../utils/salesAi.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
+import { quoteDueToday } from '../../utils/quoteQuestions.js'
 
 const NUDGE_MAX = 8
 const SECTION_PREVIEW = 5
 // ชื่อสั้นบนแถบกระโดดไปหมวด (ตาม icon ของหมวด)
-const JUMP_LABEL = { '📞': 'นัดติดตาม', '🚙': 'ลองขับ', '🏬': 'นัดโชว์รูม', '🧲': 'Lead ใหม่', '🔴': 'Hot', '⏰': 'ไม่ได้ตาม', '🔄': 'ติดต่อใหม่', '📆': 'ยังไม่นัดส่ง', '🚗': 'ส่งมอบ', '🏦': 'ไฟแนนซ์', '💰': 'กรอกรายได้', '⏳': 'ใบจองค้าง', '🎁': 'โปรใกล้หมด', '💬': 'LINE รอตอบ' }
+const JUMP_LABEL = { '📞': 'นัดติดตาม', '🚙': 'ลองขับ', '🏬': 'นัดโชว์รูม', '🧲': 'Lead ใหม่', '🔴': 'Hot', '⏰': 'ไม่ได้ตาม', '🔄': 'ติดต่อใหม่', '📆': 'ยังไม่นัดส่ง', '🚗': 'ส่งมอบ', '🏦': 'ไฟแนนซ์', '💰': 'กรอกรายได้', '⏳': 'ใบจองค้าง', '🎁': 'โปรใกล้หมด', '💬': 'LINE รอตอบ', '📄': 'ใบเสนอราคา' }
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
 
@@ -53,6 +54,7 @@ export default async function MyDayPage(container) {
   let staff = []
   let programs = []
   let events = []
+  let quotes = []
 
   container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
   const scope = await getVisibilityScope()
@@ -75,6 +77,8 @@ export default async function MyDayPage(container) {
     try { programs = (await listDocs('sales_programs', [], 'dateFrom', 'desc', 1000)).filter(r => !r.deleted).map(r => ({ ...normalizeProgram(r), id: r.id })) } catch { programs = [] }
     // (v1.0.987) งานออกบูธ/อีเวนต์ที่กำลังจัด → ใครมีเวรวันนี้ ขึ้นเตือนบนหน้านี้
     try { events = (await listDocs('marketing_events', [], 'startDate', 'desc', 100)).filter(e => !e.deleted && e.status !== 'cancelled') } catch { events = [] }
+    // (v1.0.1074) ใบเสนอราคาที่ลูกค้ายอมรับแล้วแต่ยังไม่จอง / ใกล้หมดอายุ → ขึ้นเป็นงานวันนี้
+    try { quotes = (await listDocs('quotations', f, 'createdDate', 'desc', 500)).filter(q => !q.deleted) } catch { quotes = [] }
     try { staff = staffChoices(await listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 1000)) } catch { staff = [] }
     // ลงทะเบียนรับงานทาง LINE แล้วหรือยัง (ทัก LINE OA พิมพ์ "ลงทะเบียน ชื่อ") — โหลดไม่ได้ = ไม่แสดงคำแนะนำ
     try {
@@ -342,6 +346,10 @@ export default async function MyDayPage(container) {
           `${escHtml(String(w.text).slice(0, 80))}${ownerTag(w.owner)}`,
           `<button class="btn btn-primary btn-xs md-line" data-id="${escHtml(w.id)}">💬 ตอบ</button>`), 'success') : ''}
 
+        ${(() => { const qd = quoteDueToday(quotes.filter(q => mine(q.salesperson, q)), today); return qd.length ? section('📄', 'ใบเสนอราคาต้องปิด', 'ลูกค้าตกลงแล้ว = ทำใบจอง · ใกล้หมดอายุ = โทรชวนจอง', qd, q => line(
+          `${escHtml(q.customerName || 'ลูกค้า')} <span class="badge badge-${q._why === 'book' ? 'success' : 'warning'}" style="font-size:0.62rem">${q._why === 'book' ? 'ตกลงแล้ว รอใบจอง' : q._left === 0 ? 'หมดวันนี้' : `หมดใน ${q._left} วัน`}</span>`,
+          `${escHtml(q.vehicleLabel || '')}${ownerTag(q.salesperson)}`,
+          `${callBtn(q.phone, q.customerId || "")}<button class="btn btn-primary btn-xs md-quote" data-id="${escHtml(q.id)}">${q._why === 'book' ? '📝 ทำใบจอง' : '📄 เปิด'}</button>`), 'success') : '' })()}
         ${promoRows.length ? section('🎁', 'บอกโปรลูกค้า (โปรใกล้หมด/โปรใหม่)', 'กด 💬 ได้ข้อความพร้อมส่ง', promoRows, r => line(
           `${escHtml(r.name)} <span class="badge badge-${r.reason === 'ending' ? 'danger' : 'success'}" style="font-size:0.62rem">${r.reason === 'ending' ? (r.left === 0 ? 'หมดวันนี้' : `หมดใน ${r.left} วัน`) : 'โปรใหม่'}</span>`,
           `${escHtml(r.model)} · ${escHtml(r.lines.join(' · '))}${ownerTag(r.c.assignedTo)}`,
@@ -423,6 +431,7 @@ export default async function MyDayPage(container) {
         onNoVoice: () => { reset(); showToast('เครื่องนี้ไม่มีเสียงภาษาไทย', 'warning') },
       })
     })
+    $$('.md-quote').forEach(b => b.addEventListener('click', () => navigate(`/crm/quotation?open=${encodeURIComponent(b.dataset.id)}`)))
     $$('.md-open').forEach(b => b.addEventListener('click', () => navigate(`/crm/customers?id=${encodeURIComponent(b.dataset.id)}`)))
     $$('.md-call').forEach(a => a.addEventListener('click', () => {
       const c = data.customers.find(x => x.id === a.dataset.cid)

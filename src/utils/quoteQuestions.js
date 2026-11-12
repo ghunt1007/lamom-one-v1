@@ -94,3 +94,11 @@ export function quotePageQuery(st, spec = { focus: 'all' }) {
   if (st.unsent.length) return 'draft'
   return ''
 }
+
+// (v1.0.1074) งานวันนี้: ลูกค้ายอมรับแล้วแต่ยังไม่ทำใบจอง + ใบที่เปิดอยู่และหมดอายุภายใน 3 วัน (ไม่ซ้ำกัน)
+export function quoteDueToday(quotes = [], today, days = 3) {
+  const st = quoteStats({ quotes, today })
+  const book = st.toBook.map(q => ({ ...q, _why: 'book' }))
+  const exp = st.expiring.filter(q => q._left <= days).map(q => ({ ...q, _why: 'expiring' }))
+  return [...book, ...exp]
+}
