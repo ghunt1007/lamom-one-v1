@@ -142,11 +142,13 @@ export async function loadCustomerBrief(q, customersPromise) {
   const [{ listDocs, readDoc }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok }, { quickChips }] = await Promise.all([
     import('../core/db.js'), import('../core/companyScope.js'), import('./customerFollowups.js'), import('./format.js'), import('./lamiCommands.js')])
   const today = todayBangkok()
-  const [followups, booking] = await Promise.all([
+  const [followups, booking, drives] = await Promise.all([
     listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000).catch(() => []),
-    c.bookingId ? readDoc('bookings', c.bookingId).catch(() => null) : null,
+    c.bookingId ? readDoc('bookings', c.bookingId).catch(() => null)
+      : listDocs('bookings', [...companyScopeFilters(), ['customerId', '==', c.id]], 'createdAt', 'desc', 3).then(r => r.find(b => !b.deleted) || null).catch(() => null), // (v1.0.1101) ใบจองที่ผูกด้วย customerId
+    listDocs('test_drives', companyScopeFilters(), 'date', 'desc', 1000).catch(() => null),
   ])
-  return { text: cb.customerBrief({ customer: c, followups, booking: booking && !booking.deleted ? booking : null, today }), cmds: cb.briefCommands(c), customer: c, chips: quickChips(c).filter(x => !/\s$/.test(x)) }
+  return { text: cb.customerBrief({ customer: c, followups, booking: booking && !booking.deleted ? booking : null, today, drives }), cmds: cb.briefCommands(c), customer: c, chips: quickChips(c).filter(x => !/\s$/.test(x)) }
 }
 
 // (v1.0.1049) "วันนี้มีอะไรบ้าง / สรุปวันนี้" → null ถ้าไม่ใช่ · คืน { text, next: [ประโยคถามต่อ] }
