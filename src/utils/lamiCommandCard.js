@@ -320,6 +320,8 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.eventBestAnswer(events, e => eventMetrics(e, { customers, bookings: bks, testDrives: drives }), { today })
   } else if (spec.kind === 'campaignbest') {
     res = oq.campaignBestAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today })
+  } else if (spec.kind === 'csat') {
+    res = oq.csatAnswer(await listDocs('csat', [], 'createdAt', 'desc', 500).catch(() => []), { today, prev: spec.prev, low: spec.low })
   } else if (spec.kind === 'expense' || spec.kind === 'profit') {
     if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, text: '🔒 ตัวเลขกำไร/ค่าใช้จ่ายของโชว์รูมดูได้เฉพาะผู้จัดการและเจ้าของ — ถามค่าคอมของตัวเองได้ เช่น "ค่าคอมเดือนนี้เท่าไหร่"' }
     else {
