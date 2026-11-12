@@ -4,6 +4,7 @@
 // ฟังก์ชันล้วน ทดสอบได้ · ตัวโหลดข้อมูลอยู่ใน lamiCommandCard.js (loadOpsAnswer)
 import { dmy } from './format.js'
 import { nextAnniversary } from './anniversary.js'
+import { lostBySeller, classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
 
 const has = (s, re) => re.test(s)
 // คำสั่งให้ทำ (นัด/บันทึก/สร้าง) ไม่ใช่คำถาม → ปล่อยให้ตัวสั่งงานจัดการ
@@ -13,6 +14,10 @@ export function parseOpsSpec(q) {
   const s = String(q || '').trim().replace(/[?？]+$/, '')
   if (s.length < 4 || s.length > 80 || COMMAND.test(s)) return null
   const day = /พรุ่งนี้/.test(s) ? 'tomorrow' : 'today'
+  if (has(s, /เสียดีล|เสียลูกค้า|lost|ปิดไม่ได้|หลุด/i) && !has(s, /บันทึก/)) return { kind: 'lost', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
+  if (has(s, /รายได้|ค่าคอม/) && has(s, /ยังไม่กรอก|ไม่ได้กรอก|ค้างกรอก|ยังไม่ใส่|ขาด/)) return { kind: 'income' }
+  if (has(s, /ส่งมอบ/) && !has(s, /ยอด|เป้า|เดือน/) && has(s, /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์|นัด|ใคร|กี่คัน|ไหม/)) return { kind: 'delivery', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
+  if (has(s, /ช่องทาง|ที่มา|มาจาก/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'newcust', period: /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
   if (has(s, /ทดลองขับ|ลองขับ|test\s*drive/i)) return { kind: 'testdrive', day }
   if (has(s, /โชว์รูม|showroom/i) && has(s, /นัด|เข้า|มา/)) return { kind: 'showroom', day }
   if (has(s, /line|ไลน์|แชท|แชต|ทัก/i) && has(s, /รอ|ยังไม่ตอบ|ค้าง|ตอบ/)) return { kind: 'line' }
@@ -102,6 +107,41 @@ export function annivAnswer(bookings, { today, range = 0, asked = '' }) {
   return { n: list.length, text: [`${head}🎉 ลูกค้าครบรอบซื้อรถ (${when}) ${list.length} ราย`, ...list.slice(0, MAX).map(({ b, nx }) => `• ${dmy(nx.date)} ${nm(b)}${b.model ? ' · ' + b.model : ''} · ครบ ${nx.years} ปี`), ...more(list.length)].join('\n') }
 }
 
+const DONE = ['ส่งมอบแล้ว', 'ถอนจอง', 'ยกเลิก']
+// นัดส่งมอบ วันนี้/พรุ่งนี้/7 วัน (ยังไม่ได้ส่งจริง · ไม่นับใบที่ถอนจอง)
+export function deliveryAnswer(bookings, { today, day = 'today' }) {
+  const from = day === 'tomorrow' ? addDays(today, 1) : today
+  const to = day === 'week' ? addDays(today, 6) : from
+  const list = alive(bookings).filter(b => !DONE.includes(b.status) && ymd(b.deliveryDate) >= from && ymd(b.deliveryDate) <= to)
+    .sort((a, b) => ymd(a.deliveryDate).localeCompare(ymd(b.deliveryDate)) || String(a.deliveryTime || '').localeCompare(String(b.deliveryTime || '')))
+  const when = day === 'week' ? ` 7 วันนี้ (${dmy(from)}–${dmy(to)})` : `${dayWord(day)} ${dmy(from)}`
+  if (!list.length) return { text: `🚗 ไม่มีนัดส่งมอบ${when}`, n: 0 }
+  return { n: list.length, text: [`🚗 นัดส่งมอบ${when} — ${list.length} คัน`, ...list.slice(0, MAX).map(b => `• ${day === 'week' ? dmy(b.deliveryDate) + ' ' : ''}${b.deliveryTime ? String(b.deliveryTime).slice(0, 5) + ' ' : ''}${nm(b)}${b.model ? ' · ' + b.model : ''}${b.status ? ' · ' + b.status : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''}`), ...more(list.length)].join('\n') }
+}
+
+// ส่งมอบแล้วเดือนนี้แต่ยังไม่กรอกรายได้ (นิยามเดียวกับหน้างานวันนี้/รายงาน 18:00)
+export function incomeMissingAnswer(bookings, { today }) {
+  const month = today.slice(0, 7)
+  const list = alive(bookings).filter(b => ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status) && !(Number(b.totalIncome) || 0) && String(b.cutDate || b.actualDeliveryDate || '').startsWith(month))
+  if (!list.length) return { text: '💰 คันที่ส่งมอบเดือนนี้ กรอกรายได้ครบแล้ว 👍', n: 0 }
+  const by = {}
+  list.forEach(b => { const k = String(b.salesName || 'ไม่ระบุเซลส์').trim(); by[k] = (by[k] || 0) + 1 })
+  return { n: list.length, text: [`💰 ส่งมอบเดือนนี้แต่ยังไม่กรอกรายได้ ${list.length} คัน`, ...Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, v]) => `• ${k} — ${v} คัน`), '', 'กรอกได้ที่หน้างานวันนี้ หมวด 💰 (แตะคันนั้นแล้วใส่ตัวเลข)'].join('\n') }
+}
+
+// เสียดีลเดือนนี้ (ตามวันที่กดเสียดีล) · เหตุผลรวม + รายเซลส์
+export function lostAnswer(customers, { today, prev = false }) {
+  const d = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1 - (prev ? 1 : 0), 1))
+  const month = d.toISOString().slice(0, 7)
+  const rows = lostBySeller(customers, month)
+  const total = rows.reduce((s, r) => s + r.total, 0)
+  const label = prev ? 'เดือนก่อน' : 'เดือนนี้'
+  if (!total) return { text: `📉 ${label}ยังไม่มีลูกค้าที่เสียดีล 👍`, n: 0 }
+  const reasons = {}
+  alive(customers).filter(c => c.isLost && ymd(c.lostAt).slice(0, 7) === month).forEach(c => { const k = classifyLostReason(c.lostReason); reasons[k] = (reasons[k] || 0) + 1 })
+  return { n: total, text: [`📉 ${label}เสียดีล ${total} ราย`, '', '❓ เหตุผล', ...Object.entries(reasons).sort((a, b) => b[1] - a[1]).map(([k, v]) => `• ${LOST_REASON_LABELS[k] || k} ${v} ราย`), ...(rows.length > 1 ? ['', '👤 รายเซลส์', ...rows.slice(0, MAX).map(r => `• ${r.name} ${r.total} ราย${r.top[0] ? ' (ส่วนใหญ่: ' + r.top[0].label + ')' : ''}`)] : [])].join('\n') }
+}
+
 export const OPS_LINKS = {
   testdrive: { path: '/crm/testdrive', label: '🚗 เปิดหน้าทดลองขับ' },
   showroom: { path: '/crm/showroom', label: '🏬 เปิดหน้านัดโชว์รูม' },
@@ -109,12 +149,16 @@ export const OPS_LINKS = {
   complaint: { path: '/crm/complaints', label: '⚠️ เปิดหน้าเรื่องร้องเรียน' },
   newcust: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
   anniv: { path: '/crm/birthdays', label: '🎉 ส่งคำอวยพร' },
+  delivery: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
+  lost: { path: '/crm/lostdeals', label: '📉 เปิดหน้าดีลที่หลุด' },
+  income: { path: '/crm/my-day', label: '💰 กรอกในหน้างานวันนี้' },
 }
 
 export function opsFollowUps(spec) {
-  const all = { testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้' }
+  const all = { testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่' }
   const out = [all[spec.kind]]
   if (spec.kind === 'testdrive' && spec.day === 'tomorrow') out[0] = 'พรุ่งนี้มีใครนัดเข้าโชว์รูม'
+  if (spec.kind === 'delivery' && spec.day === 'week') out[0] = 'มีนัดส่งมอบพรุ่งนี้ไหม'
   if (spec.kind === 'showroom' && spec.day === 'tomorrow') out[0] = 'นัดทดลองขับพรุ่งนี้มีใครบ้าง'
   out.push(spec.kind === 'newcust' ? 'ยอดเดือนนี้เป็นไง' : 'วันนี้ควรโทรหาใคร')
   return out

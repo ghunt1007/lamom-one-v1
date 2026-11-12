@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseOpsSpec, testDriveAnswer, showroomAnswer, lineWaitingAnswer, complaintAnswer, newCustomerAnswer, annivAnswer, opsFollowUps } from './opsQuestions.js'
+import { parseOpsSpec, testDriveAnswer, showroomAnswer, lineWaitingAnswer, complaintAnswer, newCustomerAnswer, annivAnswer, opsFollowUps, deliveryAnswer, incomeMissingAnswer, lostAnswer } from './opsQuestions.js'
 
 const T = '2026-11-12'
 
@@ -83,5 +83,51 @@ describe('answers', () => {
   })
   it('suggests follow-ups', () => {
     expect(opsFollowUps({ kind: 'testdrive', day: 'today' })[0]).toBe('นัดทดลองขับพรุ่งนี้มีใครบ้าง')
+  })
+})
+
+describe('deliveries and missing income', () => {
+  it('routes delivery, income and source questions', () => {
+    expect(parseOpsSpec('มีนัดส่งมอบพรุ่งนี้ไหม')).toEqual({ kind: 'delivery', day: 'tomorrow' })
+    expect(parseOpsSpec('นัดส่งมอบสัปดาห์นี้มีใครบ้าง')).toEqual({ kind: 'delivery', day: 'week' })
+    expect(parseOpsSpec('ยอดส่งมอบเดือนนี้')).toBeNull()
+    expect(parseOpsSpec('ใครยังไม่กรอกรายได้')).toEqual({ kind: 'income' })
+    expect(parseOpsSpec('ลูกค้ามาจากช่องทางไหนมากสุด')).toEqual({ kind: 'newcust', period: 'month' })
+  })
+  it('lists deliveries in range, skips delivered and cancelled', () => {
+    const b = [
+      { customerName: 'ก', model: 'S07', status: 'รอส่งมอบ', deliveryDate: '2026-11-13', salesName: 'เอ' },
+      { customerName: 'ข', status: 'ส่งมอบแล้ว', deliveryDate: '2026-11-13' },
+      { customerName: 'ค', status: 'ถอนจอง', deliveryDate: '2026-11-13' },
+      { customerName: 'ง', status: 'รอรถ', deliveryDate: '2026-11-16' },
+    ]
+    expect(deliveryAnswer(b, { today: T, day: 'tomorrow' }).n).toBe(1)
+    expect(deliveryAnswer(b, { today: T, day: 'week' }).n).toBe(2)
+    expect(deliveryAnswer(b, { today: T }).text).toContain('ไม่มีนัดส่งมอบ')
+  })
+  it('groups delivered-without-income by salesperson for this month', () => {
+    const r = incomeMissingAnswer([
+      { status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-11-03', salesName: 'เอ' },
+      { status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-11-05', salesName: 'เอ' },
+      { status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-11-05', salesName: 'บี', totalIncome: 5000 },
+      { status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-10-05', salesName: 'บี' },
+    ], { today: T })
+    expect(r.n).toBe(2)
+    expect(r.text).toContain('• เอ — 2 คัน')
+  })
+})
+
+describe('lost deals', () => {
+  it('summarises this month lost deals by reason and seller', () => {
+    expect(parseOpsSpec('เดือนนี้เสียดีลไปกี่ราย เพราะอะไร')).toEqual({ kind: 'lost', prev: false })
+    const r = lostAnswer([
+      { isLost: true, lostAt: '2026-11-05T03:00:00Z', lostReason: 'ราคา แพงไป', assignedTo: 'เอ' },
+      { isLost: true, lostAt: '2026-11-06T03:00:00Z', lostReason: 'ซื้อคู่แข่ง', assignedTo: 'บี' },
+      { isLost: true, lostAt: '2026-10-06T03:00:00Z', lostReason: 'ราคา', assignedTo: 'บี' },
+    ], { today: T })
+    expect(r.n).toBe(2)
+    expect(r.text).toContain('• ราคา 1 ราย')
+    expect(r.text).toContain('👤 รายเซลส์')
+    expect(lostAnswer([], { today: T }).text).toContain('ยังไม่มี')
   })
 })
