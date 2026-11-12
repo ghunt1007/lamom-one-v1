@@ -25,6 +25,9 @@ export function parseOpsSpec(q) {
   const day = /พรุ่งนี้/.test(s) ? 'tomorrow' : 'today'
   // (v1.0.1103) "ใครยังไม่ได้ป้ายขาว" / "ลูกค้าคนไหนยังไม่ได้จดทะเบียน" / "ใครยังใช้ป้ายแดง"
   if (has(s, /ป้ายขาว|ป้ายแดง|ป้ายทะเบียน|จดทะเบียน|ทะเบียนรถ|เล่มทะเบียน|ได้ทะเบียน/) && has(s, /ยังไม่|ยังใช้|ค้าง|รอ|ใคร|คันไหน|กี่คัน|กี่คน|คนไหน|คืน|(?:หรือ|รึ)ยัง/) && !has(s, /ราคา|ค่าจด|กี่บาท|เท่าไหร่/)) return { kind: 'plate' }
+  // (v1.0.1120) "เมื่อวานส่งมอบกี่คัน" / "สัปดาห์ที่แล้วขายได้กี่คัน" → รายชื่อที่รับรถในช่วงนั้น (เดิมตอบนัดส่งมอบวันนี้)
+  if (has(s, /ส่งมอบ|ขาย(?:ได้|ไป)|ออกรถ|รับรถ/) && has(s, /เมื่อวาน|(?:สัปดาห์|อาทิตย์)\s*(?:ที่แล้ว|ก่อน)/) && !has(s, /นัด|ค่าคอม|รายได้|กำไร/))
+    return { kind: 'delivered', period: /เมื่อวาน/.test(s) ? 'yesterday' : 'prevweek' }
   // (v1.0.1092) "ลูกค้าที่ส่งมอบเดือนที่แล้ว" / "ลูกค้าที่ซื้อรถไปแล้วปีนี้" → รายชื่อลูกค้าที่รับรถแล้ว
   if (has(s, /ส่งมอบแล้ว|ซื้อ(?:รถ)?(?:ไป)?แล้ว|ที่ส่งมอบ|รับรถ(?:ไป)?แล้ว|ออกรถ(?:ไป)?แล้ว/) && has(s, /ลูกค้า|ใคร|รายชื่อ|กี่คน/) && !has(s, /นัด|พรุ่งนี้|ยอด|เป้า/))
     return { kind: 'delivered', period: /เดือน(?:ก่อน|ที่แล้ว)/.test(s) ? 'prevmonth' : /ปี/.test(s) ? 'year' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'month' }
@@ -144,7 +147,7 @@ export function parseOpsSpec(q) {
     if (m && m[0].replace(/\W/g, '').length >= 2) return { kind: 'bookmodel', model: m[0].trim(), period: /เดือนนี้/.test(s) ? 'month' : /ปีนี้/.test(s) ? 'year' : 'all' }
   }
   // (v1.0.1095) "ลูกค้าคนไหนยังไม่ได้ทดลองขับ" → ลูกค้าที่กำลังคุย (ยังไม่จอง) ที่ไม่มีประวัติทดลองขับเลย
-  if (has(s, /ยังไม่(?:ได้|เคย)?\s*(?:นัด\s*)?(?:ทดลอง|ลอง)\s*ขับ|ไม่เคย(?:ทดลอง|ลอง)\s*ขับ|ไม่ได้(?:ทดลอง|ลอง)\s*ขับ/) && !has(s, /^(?:นัด|บันทึก)/)) return { kind: 'notd' }
+  if (has(s, /ยังไม่(?:ได้|เคย)?\s*(?:นัด\s*)?(?:ทดลอง|ลอง)\s*ขับ|ไม่เคย(?:ทดลอง|ลอง)\s*ขับ|ไม่ได้(?:ทดลอง|ลอง)\s*ขับ/) && !has(s, /^(?:นัด|บันทึก)/)) return { kind: 'notd', ...((m => m ? { model: m[1] } : {})(s.match(/สนใจ\s*(?:รุ่น)?\s*([A-Za-z0-9][A-Za-z0-9 .\-]{0,20}?)\s*(?:แต่|ที่|และ|ยัง|$)/))) }
   // (v1.0.1090) "ลูกค้าที่ทดลองขับแล้วยังไม่จอง" → รายชื่อที่ควรตามต่อ (ไม่ใช่นัดวันนี้)
   if (has(s, /ทดลองขับ|ลองขับ|test\s*drive|เทสไดร(?:ฟ|ว)์?/i) && has(s, /ยังไม่(?:ได้)?(?:จอง|ซื้อ|ปิด)|ไม่จอง|ไม่ซื้อ|แล้วไม่/)) return { kind: 'tdnobook', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : /3 เดือน|90 วัน/.test(s) ? 90 : 30 }
   // (v1.0.1117) "เดือนนี้มีเทสไดรฟ์กี่ครั้ง" → สรุปทั้งเดือน · "สัปดาห์นี้" → นัด 7 วันข้างหน้า
@@ -156,7 +159,7 @@ export function parseOpsSpec(q) {
   if (has(s, /line|ไลน์|แชท|แชต|ทัก/i) && (has(s, /รอ|ยังไม่ตอบ|ค้าง|ตอบ/) || (has(s, /ลูกค้า|ใคร/) && has(s, /วันนี้|ทักมา|ทักเข้า|เข้ามา/)))) return { kind: 'line' }
   if (has(s, /ร้องเรียน|complain/i)) return { kind: 'complaint' }
   if (has(s, /วันเกิด|เกิดวันนี้|เกิดเดือนนี้|ครบรอบ|(?:รับรถ|ซื้อรถ|ออกรถ)\s*(?:มา)?\s*ครบ\s*\d*\s*ปี/)) return { kind: 'anniv', ...(/เดือนหน้า/.test(s) ? { nextMonth: true } : {}), range: /เดือน/.test(s) ? 30 : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : 0 }
-  if (has(s, /(ลูกค้า|ลีด|lead)\s*(?:ใหม่|เข้า|(?:ที่)?(?:มา)?จาก|(?:ที่)?เพิ่ง(?:เพิ่ม|เข้า|ลง))|ได้\s*(?:ลูกค้า|ลีด|lead)|(?:ลูกค้า|ลีด).{0,10}เพิ่ง\s*(?:ได้|เข้า|เพิ่ม)/i) && has(s, /เดือน|สัปดาห์|อาทิตย์|กี่คน|กี่ราย|วันนี้|เมื่อวาน|ไหม|มั้ย|บ้าง/) && !(has(s, /วันนี้/) && has(s, /มีใคร|ใครบ้าง|รายชื่อ/))) return { kind: 'newcust', ...(sourceOf(s) ? { source: sourceOf(s) } : {}), period: /เมื่อวาน/.test(s) ? 'yesterday' : /วันนี้/.test(s) ? 'today' : /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
+  if (has(s, /(ลูกค้า|ลีด|lead)\s*(?:ใหม่|เข้า|(?:ที่)?(?:มา)?จาก|(?:ที่)?เพิ่ง(?:เพิ่ม|เข้า|ลง)|ที่(?:ถูก)?เพิ่ม\s*(?:เข้า)?(?:มา)?)|ได้\s*(?:ลูกค้า|ลีด|lead)|(?:ลูกค้า|ลีด).{0,10}เพิ่ง\s*(?:ได้|เข้า|เพิ่ม)/i) && has(s, /เดือน|สัปดาห์|อาทิตย์|กี่คน|กี่ราย|วันนี้|เมื่อวาน|ไหม|มั้ย|บ้าง/) && !(has(s, /วันนี้/) && has(s, /มีใคร|ใครบ้าง|รายชื่อ/))) return { kind: 'newcust', ...(sourceOf(s) ? { source: sourceOf(s) } : {}), period: /เมื่อวาน/.test(s) ? 'yesterday' : /วันนี้/.test(s) ? 'today' : /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
   return null
 }
 
@@ -383,16 +386,18 @@ export function noPhoneAnswer(customers) {
 }
 
 // (v1.0.1095) ลูกค้าที่กำลังคุย (ยังไม่จอง ไม่เสียดีล) ที่ไม่มีนัดทดลองขับเลย · เทียบด้วยเบอร์หรือชื่อ · HOT ขึ้นก่อน
-export function noTestDriveAnswer(customers, drives) {
+export function noTestDriveAnswer(customers, drives, { model = '' } = {}) {
+  const mk = String(model || '').toLowerCase().replace(/[\s\-]+/g, '')
+  if (mk) customers = alive(customers).filter(c => String(c.interestedModel || '').toLowerCase().replace(/[\s\-]+/g, '').includes(mk))
   const tdPhone = new Set(), tdName = new Set()
   alive(drives).forEach(t => { if (['cancelled'].includes(t.status)) return; const p = phoneK(t.phone); if (p.length >= 9) tdPhone.add(p); const n = nameK(t.customerName); if (n) tdName.add(n) })
   const full = c => nameK([c.firstName, c.lastName].filter(Boolean).join(''))
   const list = alive(customers).filter(c => !c.isLost && !c.bookingId && ['lead', 'pp', undefined, ''].includes(c.stage)
     && !(phoneK(c.phone).length >= 9 && tdPhone.has(phoneK(c.phone))) && !(full(c) && tdName.has(full(c))))
-  if (!list.length) return { n: 0, text: '🚗 ลูกค้าที่กำลังคุยทุกคนทดลองขับแล้ว 👍' }
+  if (!list.length) return { n: 0, text: mk ? `🚗 ลูกค้าที่สนใจ ${model} ${alive(customers).length ? 'ทดลองขับแล้วทุกคน 👍' : 'ยังไม่มีในรายชื่อที่คุณดูแล'}` : '🚗 ลูกค้าที่กำลังคุยทุกคนทดลองขับแล้ว 👍' }
   const rank = c => c.temperature === 'hot' ? 0 : c.temperature === 'warm' ? 1 : 2
   list.sort((a, b) => rank(a) - rank(b) || String(b.updatedAt?.seconds ?? b.updatedAt ?? '').localeCompare(String(a.updatedAt?.seconds ?? a.updatedAt ?? '')))
-  return { n: list.length, text: [`🚗 ลูกค้าที่ยังไม่ได้ทดลองขับ ${list.length} คน (ยังไม่จอง · HOT ขึ้นก่อน)`,
+  return { n: list.length, text: [`🚗 ลูกค้า${mk ? 'ที่สนใจ ' + model + ' ' : 'ที่'}ยังไม่ได้ทดลองขับ ${list.length} คน (ยังไม่จอง · HOT ขึ้นก่อน)`,
     ...list.slice(0, MAX).map(c => `• ${nm(c)}${c.temperature ? ' · ' + c.temperature.toUpperCase() : ''}${c.interestedModel ? ' · 🚗 ' + c.interestedModel : ''}${c.assignedTo ? ' · 👤 ' + c.assignedTo : ''}${c.phone ? ' · 📞 ' + c.phone : ''}`),
     ...more(list.length), '💡 ชวนคนที่ HOT มาทดลองขับก่อน — ลูกค้าที่ได้ขับจริงปิดง่ายกว่ามาก'].join('\n') }
 }
@@ -782,6 +787,8 @@ export function deliveredAnswer(bookings, { today, period = 'month' }) {
   if (period === 'prevmonth') { from = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 2, 1)).toISOString().slice(0, 10); to = addDays(today.slice(0, 7) + '-01', -1); label = 'เดือนก่อน' }
   else if (period === 'year') { from = today.slice(0, 4) + '-01-01'; label = 'ปีนี้' }
   else if (period === 'week') { from = addDays(today, -6); label = 'ในรอบ 7 วัน' }
+  else if (period === 'yesterday') { from = to = addDays(today, -1); label = 'เมื่อวาน' }
+  else if (period === 'prevweek') { const dw = (new Date(today + 'T00:00:00Z').getUTCDay() + 6) % 7; from = addDays(today, -dw - 7); to = addDays(from, 6); label = 'สัปดาห์ที่แล้ว' }
   const dOf = b => String(b.actualDeliveryDate || b.deliveryDate || '').slice(0, 10)
   const list = alive(bookings).filter(b => (b.status === 'ส่งมอบแล้ว' || b.status === 'delivered') && dOf(b) >= from && dOf(b) <= to).sort((a, b) => dOf(b).localeCompare(dOf(a)))
   const span = `${dmy(from)}–${dmy(to)}`

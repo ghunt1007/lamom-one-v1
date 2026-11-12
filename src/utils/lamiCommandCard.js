@@ -417,7 +417,7 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.bookingsByModelAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, model: spec.model, period: spec.period })
   } else if (spec.kind === 'notd') {
     const [customers, drives] = await Promise.all([customersPromise || visibleCustomersForCommands(), listDocs('test_drives', f, 'date', 'desc', 2000).catch(() => [])])
-    res = oq.noTestDriveAnswer((customers || []).filter(c => mine(c.assignedTo, c)), drives)
+    res = oq.noTestDriveAnswer((customers || []).filter(c => mine(c.assignedTo, c)), drives, { model: spec.model })
   } else if (spec.kind === 'mycust' || spec.kind === 'nophone' || spec.kind === 'topscore') {
     const customers = ((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c))
     if (spec.kind === 'topscore') { const { heuristicScore } = await import('./leadScore.js'); res = oq.topScoreAnswer(customers, { scoreOf: c => heuristicScore(c) }) }
