@@ -306,3 +306,47 @@ describe('v1.0.1117 marketing spend', async () => {
     expect(r.text).toContain('ลูกค้าใหม่ทั้งเดือนนี้ 5 คน → เฉลี่ย ฿2,000/คน')
   })
 })
+
+describe('v1.0.1118 trade-ins this month', async () => {
+  const oq = await import('./opsQuestions.js')
+  it('counts every trade-in dated this month', () => {
+    expect(oq.parseOpsSpec('มีรถเทิร์นกี่คันเดือนนี้')).toEqual({ kind: 'tradein', month: true })
+    expect(oq.parseOpsSpec('รถเทิร์นคันไหนยังไม่ได้ประเมิน')).toEqual({ kind: 'tradein' })
+    const r = oq.tradeInAnswer([{ date: '2026-11-02', status: 'received' }, { date: '2026-11-05', status: 'declined' }, { date: '2026-10-05', status: 'appraisal' }], { today: '2026-11-12', month: true })
+    expect(r.n).toBe(2)
+    expect(r.text).toContain('ไม่ตกลง 1')
+  })
+})
+
+describe('v1.0.1118 calls made, next-week brief', async () => {
+  const oq = await import('./opsQuestions.js')
+  const ab = await import('./aheadBrief.js')
+  const cl = await import('./callList.js')
+  it('parses', () => {
+    expect(oq.parseOpsSpec('วันนี้ฉันโทรไปกี่คนแล้ว')).toEqual({ kind: 'calls', day: 'today', team: false })
+    expect(oq.parseOpsSpec('เมื่อวานฉันโทรไปกี่สาย').day).toBe('yesterday')
+    expect(oq.parseOpsSpec('ทีมโทรไปกี่สายวันนี้').team).toBe(true)
+    expect(oq.parseOpsSpec('วันนี้ควรโทรหาใคร')).toBe(null)
+    expect(ab.parseAheadSpec('นัดของฉันสัปดาห์หน้า')).toEqual({ mode: 'nextweek' })
+    expect(ab.parseAheadSpec('ช่วยสรุปลูกค้าที่ต้องตามสัปดาห์นี้')).toEqual({ mode: 'week' })
+    expect(ab.parseAheadSpec('ลูกค้าที่ต้องตามพรุ่งนี้')).toEqual({ mode: 'tomorrow' })
+    expect(cl.isCallListQuestion('ลูกค้าที่ต้องตามพรุ่งนี้')).toBe(false)
+    expect(cl.isCallListQuestion('ลูกค้าที่ฉันต้องตามวันนี้')).toBe(true)
+  })
+  it('next week = next Monday to Sunday', () => {
+    const s = ab.aheadStats({ today: '2026-11-12', mode: 'nextweek' })
+    expect([s.from, s.to]).toEqual(['2026-11-16', '2026-11-22'])
+    expect(ab.aheadBriefText(s)).toContain('งานสัปดาห์หน้า')
+  })
+  it('counts logged calls with outcomes', () => {
+    const logs = [{ type: 'call', createdAt: '2026-11-12T03:00', customerId: 'a', note: 'คุยแล้ว สนใจ', createdBy: 'ก' },
+      { type: 'call', createdAt: '2026-11-12T04:00', customerId: 'a', note: 'ไม่รับสาย', createdBy: 'ข' },
+      { type: 'call', createdAt: '2026-11-11T04:00', customerId: 'b', note: 'ไม่สนใจ', createdBy: 'ก' }, { type: 'line', createdAt: '2026-11-12' }]
+    const r = oq.callsAnswer(logs, { today: '2026-11-12', team: true })
+    expect(r.text).toContain('โทรไป 2 สาย · 1 คน')
+    expect(r.text).toContain('📵 ไม่รับสาย 1')
+    expect(r.text).toContain('1. ก — 1 สาย')
+    expect(oq.callsAnswer(logs, { today: '2026-11-12', day: 'yesterday' }).n).toBe(1)
+    expect(oq.callsAnswer([], { today: '2026-11-12' }).text).toContain('ยังไม่มีการโทร')
+  })
+})

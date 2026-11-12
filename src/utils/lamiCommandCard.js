@@ -344,6 +344,14 @@ export async function loadOpsAnswer(q, customersPromise) {
       const sales = spec.kind === 'profit' ? await getSalesData().catch(() => []) : []
       res = oq.moneyMonthAnswer({ sales, opex: opexEntries(claims, petty), today, prev: spec.prev, kind: spec.kind, saleCost, perUnit: !!spec.perUnit, low: !!spec.low, byModel: !!spec.byModel })
     }
+  } else if (spec.kind === 'calls') {
+    const whole = !!(vis.unrestricted || vis.companyOnly)
+    const { getState } = await import('../core/store.js')
+    const u = getState('user') || {}
+    const ids = new Set([u.displayName, u.email, u.uid].filter(Boolean).map(x => String(x).trim()))
+    const logs = await listDocs('comm_logs', f, 'createdAt', 'desc', 2000).catch(() => [])
+    const team = spec.team && (whole || vis.hasSubordinates)
+    res = oq.callsAnswer(logs.filter(l => team ? (whole || ids.has(String(l.createdBy || '').trim()) || mine(l.createdBy, l)) : ids.has(String(l.createdBy || '').trim())), { today, day: spec.day, team })
   } else if (spec.kind === 'mktspend') {
     if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 ค่าการตลาดของโชว์รูมดูได้เฉพาะผู้จัดการและเจ้าของ' }
     else {
@@ -393,7 +401,7 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'stale') {
     res = oq.staleProspectAnswer(((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c)), { today })
   } else if (spec.kind === 'tradein') {
-    res = oq.tradeInAnswer(await listDocs('trade_ins', f, 'date', 'desc', 300).catch(() => []), { today })
+    res = oq.tradeInAnswer(await listDocs('trade_ins', f, 'date', 'desc', 300).catch(() => []), { today, month: !!spec.month })
   } else if (spec.kind === 'closerate') {
     const [customers, bks] = await Promise.all([customersPromise || visibleCustomersForCommands(), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])])
     res = oq.closeRateAnswer((customers || []).filter(c => mine(c.assignedTo, c)), bks.filter(b => mine(b.salesName, b)), { today, prev: spec.prev })
