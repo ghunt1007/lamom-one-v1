@@ -289,6 +289,12 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'delivery' || spec.kind === 'income') {
     const bks = (await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b))
     res = spec.kind === 'delivery' ? oq.deliveryAnswer(bks, { today, day: spec.day }) : oq.incomeMissingAnswer(bks, { today })
+  } else if (spec.kind === 'service') {
+    const [ap, jobs] = await Promise.all([listDocs('service_appointments', f, 'date', 'desc', 300).catch(() => []), listDocs('job_cards', f, 'createdAt', 'desc', 500).catch(() => [])])
+    res = oq.serviceAnswer(ap.filter(a => mine(a.tech, a)), jobs.filter(j => mine(j.techName, j)), { today, day: spec.day })
+  } else if (spec.kind === 'unassigned') {
+    // ลูกค้าในขอบเขตที่มองเห็นอยู่แล้ว (ไม่กรองตามผู้ดูแล เพราะคำถามคือคนที่ยังไม่มีผู้ดูแล)
+    res = oq.unassignedAnswer(await (customersPromise || visibleCustomersForCommands()) || [])
   } else if (spec.kind === 'anniv') res = oq.annivAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, range: spec.range, asked: q })
   if (!res) return null
   return { text: res.text, next: oq.opsFollowUps(spec), go: oq.OPS_LINKS[spec.kind] }
