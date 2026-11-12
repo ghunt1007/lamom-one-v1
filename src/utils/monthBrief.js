@@ -22,7 +22,7 @@ export function isMonthQuestion(q) {
   const s = String(q || '').trim().replace(/[?？]+$/, '').trim()
   if (!s || s.length > 60 || /^ลูกค้า/.test(s)) return false
   if (/โทร|นัด|ดาวน์|ผ่อน|ราคา|ดอกเบี้ย|คงค้าง|วันนี้|พรุ่งนี้|ปีนี้|ไตรมาส|เดือน(?:ก่อน|ที่แล้ว|หน้า)|ทำไม|(?<!เป็น)ยังไง|อย่างไร|เพราะ|ค่าคอม|รายได้|กำไร|ค่าใช้จ่าย|สต็อก|สต๊อก|ถอน|ไฟแนนซ์|อัตรา|เฉลี่ย|conversion|เปอร์เซ็นต์|%/i.test(s)) return false
-  if (/ใครขายดี|ใครขายเก่ง|(?:คนไหน|ใคร)\s*ขาย(?:ดี|เก่ง|เยอะ|ได้มาก)|ขายดีสุด|ขายดีที่สุด|อันดับ\s*(?:เซลส์|ยอด|การขาย)|ยอดใคร(?:สูง|ดี|เยอะ)/.test(s)) return true
+  if (/ใครขายดี|ใครขายเก่ง|(?:คนไหน|ใคร)\s*ขาย(?:ดี|เก่ง|เยอะ|ได้มาก)|(?:คนไหน|ใคร)\s*ปิด(?:การขาย|ดีล|งาน|ยอด)?\s*(?:ได้)?\s*(?:มาก|เยอะ|เก่ง)|ขายดีสุด|ขายดีที่สุด|อันดับ\s*(?:เซลส์|ยอด|การขาย)|ยอดใคร(?:สูง|ดี|เยอะ)/.test(s)) return true
   if (/ใครบ้าง|มีใคร|คนไหน|รายชื่อ|^ใคร/.test(s)) return false
   if (/เดือนนี้/.test(s) && /ยอด|ขาย|ส่งมอบ|จอง|เป้า|สรุป/.test(s)) return true
   if (/(?:ถึง|ทะลุ|ขาด|เหลือ)[^\n]{0,12}เป้า|เป้า[^\n]{0,14}(?:เหลือ|ขาด|เท่าไ|กี่|หรือยัง|รึยัง|ยัง$)/.test(s)) return true
@@ -73,6 +73,8 @@ export function monthStats({ bookings = [], today, target = 0 }) {
     board: board.length > 1 ? board.slice(0, 3) : [],
     models: modelBoard(rows, [ym]),
     colors: modelBoard(rows, [ym], undefined, colorOf),
+    // (v1.0.1110) เดือนนี้ยังไม่มีสี → ใช้ 3 เดือนล่าสุดแทน
+    colors3: modelBoard(rows, [shiftYm(ym, -2), shiftYm(ym, -1), ym], undefined, colorOf),
   }
 }
 
@@ -80,6 +82,8 @@ const diff = (a, b) => a === b ? 'เท่าเดิม' : a > b ? `▲${a - 
 
 const colorLines = (s, word) => {
   const named = (s.colors || []).filter(r => r.name !== 'ไม่ระบุสี')
+  const named3 = (s.colors3 || []).filter(r => r.name !== 'ไม่ระบุสี')
+  if (!named.length && named3.length) return colorLinesRaw({ colors: named3 }, ' 3 เดือนล่าสุด')
   if (s.colors?.length && !named.length) return [`🎨 ใบจอง${word}ยังไม่ได้ระบุสีรถ — ใส่สีในใบจองแล้ว LAMI จะบอกสีขายดีได้`]
   return colorLinesRaw({ colors: named }, word)
 }

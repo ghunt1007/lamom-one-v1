@@ -20,6 +20,7 @@ import { getVehicles } from '../../data/vehicleDatabase.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { copyText } from '../../utils/copyText.js'
 
 export default async function InsuranceComparePage(container) {
   const myGen = container.__routerGen
@@ -142,7 +143,7 @@ export default async function InsuranceComparePage(container) {
             <select class="input" id="ins-channel"><option>LINE</option><option>อีเมล</option><option>พิมพ์เอกสาร</option></select>
           </div>
         </div>`,
-        confirmText: '📤 ส่งใบเสนอ',
+        confirmText: '💾 บันทึก + คัดลอกข้อความ',
         async onConfirm() {
           const custName = document.getElementById('ins-customer')?.value?.trim()
           const channel = document.getElementById('ins-channel')?.value || 'LINE'
@@ -152,7 +153,8 @@ export default async function InsuranceComparePage(container) {
               insurer: name, vehicleId: vehicle.id, vehicleLabel: vehicleLabel(vehicle),
               premium: est.premium, custName, channel, status: 'sent', sentAt: new Date().toISOString(),
             })
-            showToast(`📤 ส่งใบเสนอประกัน ${name} ให้ ${custName} แล้ว`, 'success')
+            await copyText(`เรียนคุณ${custName}\nใบเสนอประกันรถ ${vehicleLabel(vehicle)}\nบริษัท ${name} · เบี้ยประมาณการ ${formatCurrency(est.premium)}\n(ราคาจริงตามที่บริษัทประกันยืนยัน)`,
+              `💾 บันทึกใบเสนอแล้ว · คัดลอกข้อความให้แล้ว วางส่ง${channel === 'พิมพ์เอกสาร' ? '' : 'ทาง ' + channel} ให้คุณ${custName} ได้เลย`)
           } catch {
             showToast('❗ บันทึกใบเสนอไม่สำเร็จ', 'error')
             return false

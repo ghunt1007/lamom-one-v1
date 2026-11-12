@@ -7,6 +7,7 @@ import { showToast } from '../../core/store.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { sendSms, sendEmail } from '../../utils/comms.js'
+import { copyText } from '../../utils/copyText.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
@@ -231,7 +232,9 @@ export default async function ReceiptAutoPage(container) {
       }
       // channel === 'line' — ยังไม่มี API ส่งเฉพาะคนจริง (ดู comment ด้านบน) คงพฤติกรรมเดิม
       await updateDocData('auto_receipts', r.id, { status: 'sent', sent: true })
-      showToast('📤 ส่งใบเสร็จ ' + r.number + ' แล้ว', 'success')
+      if (r.channel === 'line' || !['sms', 'email'].includes(r.channel)) {
+        await copyText(`LAMOM ใบเสร็จ ${r.number} — ${r.customer} ยอด ${formatCurrency(r.amount)} ขอบคุณที่ใช้บริการ`, '📋 คัดลอกข้อความใบเสร็จแล้ว — วางส่งใน LINE ลูกค้าได้เลย')
+      } else showToast('📤 ส่งใบเสร็จ ' + r.number + ' แล้ว', 'success')
       await loadData()
     } catch (e) {
       await updateDocData('auto_receipts', r.id, { status: 'failed' }).catch(() => {})

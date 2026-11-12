@@ -7,6 +7,7 @@ import { showToast } from '../../core/store.js'
 import { getSalesData } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
 import { escHtml } from '../../utils/escape.js'
+import { copyText } from '../../utils/copyText.js'
 
 const SEGMENTS = {
   platinum: { label: '💎 Platinum', color: 'var(--success)',  minClv: 5000000 },
@@ -170,13 +171,11 @@ export default async function CustomerLifetimeValuePage(container) {
               </div>`).join('')}
           </div>
         </div>`,
-        confirmText: '📤 ส่งให้ทีมขาย',
+        confirmText: '📋 คัดลอกกลยุทธ์',
         onConfirm() {
           c.strategiesSent = true
           const text = `${c.name} (${seg_label})\n` + strategies[seg].map((s, i) => `${i+1}. ${s}`).join('\n')
-          navigator.clipboard?.writeText(text)
-            .then(() => showToast(`📤 Copy กลยุทธ์ + ส่งให้ทีมขาย ${c.name} แล้ว`, 'success'))
-            .catch(() => showToast(`📤 ส่งกลยุทธ์ ${seg_label} ของ ${c.name} ให้ทีมขายแล้ว`, 'success'))
+          copyText(text, `📋 คัดลอกกลยุทธ์ของ ${c.name} แล้ว — วางในกลุ่ม LINE ทีมขายได้เลย`)
           render()
         }
       })
