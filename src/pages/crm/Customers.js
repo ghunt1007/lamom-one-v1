@@ -1308,7 +1308,7 @@ export default async function CustomersPage(container) {
         } else {
           // เตือนก่อนถ้าเบอร์/LINE ซ้ำกับลูกค้าที่มีอยู่แล้ว (เหมือนฟอร์ม + Lead) — กันลูกค้าคนเดียวมีสองแฟ้ม/สองผู้ดูแล
           const dup = findDuplicate({ phone: fields.phone, lineId: fields.lineId }, customers)
-          if (dup && !window.confirm(`เบอร์/LINE นี้มีอยู่แล้ว: ${fullName(dup)}${dup.assignedTo ? ` (ผู้ดูแล ${dup.assignedTo})` : ''}\nยังต้องการเพิ่มเป็นลูกค้าใหม่อีกคนหรือไม่?`)) {
+          if (dup && !(await confirmDialog({ title: '⚠️ ลูกค้าซ้ำ', message: `เบอร์/LINE นี้มีอยู่แล้ว: <b>${fullName(dup)}</b>${dup.assignedTo ? ` (ผู้ดูแล ${dup.assignedTo})` : ''}<br>ยังต้องการเพิ่มเป็นลูกค้าใหม่อีกคนหรือไม่?`, confirmText: 'เพิ่มซ้ำ', cancelText: 'ไม่เพิ่ม' }))) {
             btn.disabled = false; btn.innerHTML = btnHtml; return
           }
           const stage = deriveInitialStage(fields)

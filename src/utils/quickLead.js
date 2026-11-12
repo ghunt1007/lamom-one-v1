@@ -2,7 +2,7 @@
 // เลยไม่ค่อยบันทึก ทำให้รายงานประจำวันขึ้น Lead 0 ตลอด — ตัวนี้เหลือ 4 ช่อง (ชื่อ, เบอร์หรือ LINE, รถที่สนใจ, ที่มา)
 // เปิดได้จากปุ่ม 🧲 บน Topbar ทุกหน้า บันทึกลง collection `customers` แบบเดียวกับฟอร์มเต็ม (stage ตามกติกาเดิม:
 // มีเบอร์/LINE = Prospect, ไม่มี = Lead) ผู้ดูแล = คนที่กรอก และเตือนก่อนถ้าเบอร์/LINE ซ้ำกับลูกค้าที่มีอยู่แล้ว
-import { openModal } from './modal.js'
+import { openModal, confirmDialog } from './modal.js'
 import { showToast, getState } from '../core/store.js'
 import { listDocs, createDoc } from '../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../core/companyScope.js'
@@ -256,7 +256,7 @@ export function openQuickLead({ onFull, pasteText = '', name = '', contact = '',
     if (!name) { $('ql-name-e').textContent = 'กรุณาใส่ชื่อ'; $('ql-name').focus(); return }
     const lead = buildQuickLead({ name, contact: $('ql-contact').value, model: $('ql-model').value, source, hot: $('ql-hot').checked, note: pastedNote }, { assignedTo: me.displayName || '' })
     const dup = existing && findDuplicate(lead, existing)
-    if (dup && !window.confirm(`ลูกค้าเบอร์/LINE นี้มีอยู่แล้ว (${[dup.firstName, dup.lastName].filter(Boolean).join(' ')}) ยังต้องการเพิ่มซ้ำอีกคนหรือไม่?`)) return
+    if (dup && !(await confirmDialog({ title: '⚠️ ลูกค้าซ้ำ', message: `เบอร์/LINE นี้มีอยู่แล้ว: <b>${[dup.firstName, dup.lastName].filter(Boolean).join(' ')}</b>${dup.assignedTo ? ` (ผู้ดูแล ${dup.assignedTo})` : ''}<br>ยังต้องการเพิ่มเป็นลูกค้าใหม่อีกคนหรือไม่?`, confirmText: 'เพิ่มซ้ำ', cancelText: 'ไม่เพิ่ม' }))) return
     const btns = [$('ql-save'), $('ql-more')]
     btns.forEach(b => { b.disabled = true })
     try {
