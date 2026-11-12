@@ -314,7 +314,7 @@ export default async function VehicleDatabasePage(container) {
             <div class="page-title">🚘 Vehicle Database</div>
             <div class="page-subtitle">ข้อมูลรถทุกยี่ห้อที่ขายในประเทศไทย · ราคา สเปค ครบถ้วน</div>
           </div>
-          <div class="page-actions">
+          <div class="page-actions" style="flex-wrap:wrap;justify-content:flex-end">
             <input type="text" id="search-input" placeholder="ค้นหา ยี่ห้อ รุ่น รุ่นย่อย..." value="${__escA(filter.query)}"
               style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text);font-size:0.78rem;width:220px">
             <button class="btn btn-primary" id="ai-lookup-btn">🤖 ค้นด้วย AI</button>
