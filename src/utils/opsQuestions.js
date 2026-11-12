@@ -64,13 +64,19 @@ export function parseOpsSpec(q) {
   // (v1.0.1086) "เตือนเข้าศูนย์เดือนนี้มีใครบ้าง" / "ใครครบระยะเช็ค" → รายการเตือนเข้าศูนย์ (ไม่ใช่นัดวันนี้)
   if (has(s, /เตือนเข้าศูนย์|ครบระยะ|ถึงระยะ|ครบกำหนดเข้าศูนย์|ถึงกำหนดเข้าศูนย์|ต้องเข้าศูนย์/)) return { kind: 'reminder', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : 30 }
   // (v1.0.1086) "งานที่เลยกำหนดมีอะไรบ้าง" → งานในปฏิทินที่เลยวันแล้วยังไม่ได้ทำ (เงื่อนไขเดียวกับปฏิทินงาน)
-  if (has(s, /เลยกำหนด|เกินกำหนด|เลยวันนัด|ตกค้าง|^(?:มี)?งานค้าง|งานที่ค้าง|ค้างทำ/) && !has(s, /ร้องเรียน|ซ่อม|ประกัน|ผ่อน|ชำระ|ไฟแนนซ์/)) return { kind: 'overdue' }
+  if (has(s, /เลยกำหนด|เกินกำหนด|เลยวันนัด|ตกค้าง|^(?:มี)?งานค้าง|งานที่ค้าง|ค้างทำ/) && !has(s, /ร้องเรียน|ซ่อม|ประกัน|ผ่อน|ชำระ|ไฟแนนซ์|ส่งมอบ|รับรถ|ส่งรถ/)) return { kind: 'overdue' }
   // (v1.0.1082) งานศูนย์บริการ: "รถเข้าศูนย์วันนี้กี่คัน" / "งานซ่อมค้างอยู่กี่งาน" / "รถรออะไหล่มีคันไหน"
   if (has(s, /เข้าศูนย์|นัดซ่อม|นัดเซอร์วิส|นัดเช็คระยะ|เช็คระยะ|งานซ่อม|ใบสั่งซ่อม|job\s*card|รถซ่อม|ซ่อมค้าง|รออะไหล่|ซ่อมเสร็จ/i) && !has(s, /ราคา|ค่าซ่อม|กี่บาท|เท่าไหร่/)) return { kind: 'service', day }
   // (v1.0.1082) "ลูกค้าที่ยังไม่มีผู้ดูแลมีใครบ้าง"
   if (has(s, /(?:ยังไม่มี|ไม่มี|ไร้)\s*(?:ผู้ดูแล|คนดูแล|เซลส์ดูแล|เซลส์)|ยังไม่(?:ได้)?(?:มอบ|แจก|แบ่ง)|ยังไม่มีเจ้าของ/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'unassigned' }
   // (v1.0.1087) "วันนี้มีลูกค้า walk in กี่คน" / "เมื่อวานมีคนเดินเข้าโชว์รูมกี่คน"
   if (has(s, /walk\s*-?\s*in|วอล์?คอิน|เดินเข้า/i)) return { kind: 'walkin', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : /เดือน/.test(s) ? 'month' : 'today' }
+  // (v1.0.1096) "ลูกค้าคนไหนคุยนานแล้วยังไม่ปิด" → ลูกค้าที่ยังไม่จอง เรียงจากคุยนานสุด
+  if (has(s, /คุยนาน|ตามนาน|ค้างนาน|นานแล้ว|ยืดเยื้อ|ลากยาว/) && has(s, /ยังไม่(?:ได้)?\s*(?:ปิด|จอง|ซื้อ|ตัดสินใจ)|ไม่ปิด|ไม่จอง/) && !has(s, /ใบจอง|ไฟแนนซ์|ส่งมอบ/)) return { kind: 'stale' }
+  // (v1.0.1096) "ใครมีรถเก่ามาเทิร์น" / "รถเทิร์นค้างประเมินกี่คัน"
+  if (has(s, /เทิร์น|trade\s*-?\s*in|รถเก่า(?:มา)?(?:แลก|เทิร์น|ขาย)/i) && !has(s, /ราคา|ประเมินราคา(?!.*(?:กี่|ใคร|ไหน))|เท่าไหร่|ได้กี่บาท/)) return { kind: 'tradein' }
+  // (v1.0.1096) "อัตราปิดการขายเดือนนี้" / "ปิดการขายเฉลี่ยกี่วัน"
+  if (has(s, /อัตรา(?:การ)?(?:ปิด|จอง|ขาย)|conversion|close\s*rate|ปิด(?:การขาย|ได้)?\s*(?:เฉลี่ย|กี่\s*%|กี่เปอร์เซ็นต์)|เฉลี่ย(?:กี่วัน|.*วันปิด)|กี่วัน(?:ถึง|กว่าจะ)(?:ปิด|จอง)/i)) return { kind: 'closerate', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
   // (v1.0.1095) "ลูกค้าคนไหนยังไม่ได้ทำใบเสนอราคา"
   if (has(s, /ใบเสนอ|quotation/i) && has(s, /ยังไม่(?:ได้|มี)?\s*(?:ทำ|ออก|มี|ให้)|ไม่มีใบเสนอ|ไม่เคย(?:ได้)?(?:ทำ|ออก)?\s*ใบเสนอ/) && has(s, /ลูกค้า|ใคร|คนไหน|รายชื่อ/)) return { kind: 'noquote' }
   // (v1.0.1095) "ใครจองรุ่น S05 บ้าง" / "เดือนนี้จอง AION V กี่ใบ"
@@ -334,6 +340,60 @@ export function bookingsByModelAnswer(bookings, { today, model, period = 'all' }
   return { n: list.length, text: [`📝 ใบจองรุ่น ${model}${word ? ' ' + word : ''} — ${list.length} ใบ (ยังไม่ส่งมอบ ${list.length - nDone} · ส่งมอบแล้ว ${nDone})`,
     ...list.slice(0, MAX).map(b => `• ${nm(b)} · ${carOf(b) || b.model}${b.color ? ' สี' + b.color : ''} · ${b.status || 'จอง'}${b.bookingDate ? ' · จอง ' + dmy(ymd(b.bookingDate)) : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''}`),
     ...more(list.length)].join('\n') }
+}
+
+const DAYMS = 86400e3
+const dnum = d => { const t = Date.parse(String(d || '').slice(0, 10) + 'T00:00:00Z'); return isNaN(t) ? null : Math.round(t / DAYMS) }
+const created = c => ymd(c.createdAt) || ymd(c.date) || ''
+// (v1.0.1096) ลูกค้าที่ยังไม่จอง (ไม่เสียดีล) ที่คุยมาเกิน 30 วัน · เรียงจากนานสุด HOT ขึ้นก่อนเมื่อเท่ากัน
+export function staleProspectAnswer(customers, { today, min = 30 }) {
+  const t = dnum(today)
+  const list = alive(customers).filter(c => !c.isLost && !c.bookingId && ['lead', 'pp', undefined, ''].includes(c.stage))
+    .map(c => ({ c, age: dnum(created(c)) == null ? null : t - dnum(created(c)) })).filter(x => x.age != null && x.age >= min)
+  if (!list.length) return { n: 0, text: `👍 ไม่มีลูกค้าที่คุยเกิน ${min} วันแล้วยังไม่จอง` }
+  const rank = c => c.temperature === 'hot' ? 0 : c.temperature === 'warm' ? 1 : 2
+  list.sort((a, b) => rank(a.c) - rank(b.c) || b.age - a.age)
+  return { n: list.length, text: [`⏳ ลูกค้าที่คุยเกิน ${min} วันแล้วยังไม่จอง ${list.length} คน (HOT ขึ้นก่อน)`,
+    ...list.slice(0, MAX).map(({ c, age }) => `• ${nm(c)}${c.temperature ? ' · ' + c.temperature.toUpperCase() : ''}${c.interestedModel ? ' · 🚗 ' + c.interestedModel : ''} · คุยมา ${age} วัน${c.assignedTo ? ' · 👤 ' + c.assignedTo : ''}`),
+    ...more(list.length), '💡 ถามตรงๆ ว่าติดอะไร (ราคา ไฟแนนซ์ รถเทิร์น) แล้วเสนอทางออก หรือชวนทดลองขับอีกครั้ง'].join('\n') }
+}
+
+// (v1.0.1096) รถเทิร์น: ที่ยังไม่จบ (ไม่นับขายต่อแล้ว/ปฏิเสธ) แยกตามสถานะ
+const TI = { appraisal: '🔍 รอประเมิน', offered: '💰 เสนอราคาแล้ว', accepted: '✅ ลูกค้าตกลง', received: '🚗 รับรถแล้ว' }
+export function tradeInAnswer(items, { today }) {
+  const list = alive(items).filter(t => TI[t.status]).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+  if (!list.length) return { n: 0, text: '🔄 ตอนนี้ไม่มีรถเทิร์นที่ค้างอยู่' }
+  const by = Object.keys(TI).map(k => [k, list.filter(t => t.status === k).length]).filter(([, n]) => n)
+  const fmt = n => '฿' + Math.round(Number(n) || 0).toLocaleString('th-TH')
+  const t0 = dnum(today)
+  return { n: list.length, text: [`🔄 รถเทิร์นที่ยังไม่จบ ${list.length} คัน · ${by.map(([k, n]) => `${TI[k]} ${n}`).join(' · ')}`,
+    ...list.slice(0, MAX).map(t => `• ${t.customer || t.customerName || 'ลูกค้า'} · ${t.oldCar || 'รถเก่า'}${t.newCar && t.newCar !== '—' ? ' → ' + t.newCar : ''} · ${TI[t.status]}${t.offerPrice ? ' · เสนอ ' + fmt(t.offerPrice) : ''}${dnum(t.date) != null ? ` · ${t0 - dnum(t.date)} วัน` : ''}`),
+    ...more(list.length), by.some(([k]) => k === 'appraisal') ? '💡 ประเมินคันที่รออยู่ก่อน — ลูกค้ารอราคารถเก่าเพื่อตัดสินใจจองคันใหม่' : ''].filter(Boolean).join('\n') }
+}
+
+// (v1.0.1096) อัตราปิดการขาย: ลูกค้าใหม่ในเดือน → จองแล้วกี่คน · เวลาเฉลี่ยจากเข้ามาถึงวันจอง (ใบจองที่ผูกลูกค้า)
+export function closeRateAnswer(customers, bookings, { today, prev = false }) {
+  let ym = today.slice(0, 7)
+  if (prev) { const [y, m] = ym.split('-').map(Number); ym = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}` }
+  const cs = alive(customers)
+  const byId = new Map(cs.map(c => [c.id, c]))
+  const fresh = cs.filter(c => created(c).startsWith(ym))
+  const bks = alive(bookings).filter(b => !/ถอน|ยกเลิก/.test(b.status || ''))
+  const bookedIds = new Set(bks.map(b => b.customerId).filter(Boolean))
+  cs.forEach(c => { if (c.bookingId) bookedIds.add(c.id) })
+  const won = fresh.filter(c => bookedIds.has(c.id) || ['booking', 'delivered'].includes(c.stage)).length
+  const lost = fresh.filter(c => c.isLost).length
+  const byBk = new Map(cs.filter(c => c.bookingId).map(c => [c.bookingId, c]))
+  const custOf = b => byBk.get(b.id) || (b.customerId && byId.get(b.customerId))
+  const gaps = bks.filter(b => ymd(b.bookingDate).startsWith(ym) && custOf(b))
+    .map(b => dnum(b.bookingDate) - dnum(created(custOf(b)))).filter(n => Number.isFinite(n) && n >= 0)
+  const avg = gaps.length ? Math.round(gaps.reduce((a, n) => a + n, 0) / gaps.length) : null
+  const word = prev ? 'เดือนก่อน' : 'เดือนนี้'
+  const lines = [`📈 อัตราปิดการขาย${word} (${ym.slice(5, 7)}/${+ym.slice(0, 4) + 543})`,
+    fresh.length ? `👥 ลูกค้าใหม่ ${fresh.length} คน → จองแล้ว ${won} คน (${Math.round(won / fresh.length * 100)}%)${lost ? ` · เสียดีล ${lost} คน` : ''}` : `👥 ${word}ยังไม่มีลูกค้าใหม่`,
+    avg != null ? `⏱ ใบจอง${word} ${gaps.length} ใบ ใช้เวลาเฉลี่ย ${avg} วัน จากวันที่ลูกค้าเข้ามาถึงวันจอง` : `⏱ ใบจอง${word}ยังไม่ได้ผูกกับลูกค้า จึงคำนวณเวลาเฉลี่ยไม่ได้`]
+  if (fresh.length && won / fresh.length < 0.2) lines.push('💡 ปิดได้ต่ำกว่า 20% — ชวนลูกค้าใหม่มาทดลองขับภายใน 7 วันแรก')
+  return { n: fresh.length, text: lines.join('\n') }
 }
 
 export function topScoreAnswer(customers, { scoreOf, max = MAX }) {
@@ -638,6 +698,9 @@ export const OPS_LINKS = {
   tdnobook: { path: '/crm/testdrive', label: '🚗 เปิดหน้าทดลองขับ' },
   notd: { path: '/crm/testdrive', label: '🚗 เปิดหน้าทดลองขับ' },
   noquote: { path: '/crm/quotation', label: '📄 เปิดหน้าใบเสนอราคา' },
+  stale: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
+  tradein: { path: '/dms/tradein', label: '🔄 เปิดหน้ารถเทิร์น' },
+  closerate: { path: '/analytics/sales-metrics', label: '📊 เปิดหน้าตัวชี้วัดการขาย' },
   bookmodel: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   showroom: { path: '/crm/showroom', label: '🏬 เปิดหน้านัดโชว์รูม' },
   line: { path: '/crm/my-day', label: '💬 ตอบในหน้างานวันนี้' },
@@ -650,7 +713,7 @@ export const OPS_LINKS = {
 }
 
 export function opsFollowUps(spec) {
-  const all = { noquote: 'ใบเสนอราคาค้างอยู่กี่ใบ', bookmodel: 'รถรุ่นไหนขายดีสุดเดือนนี้', notd: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', claim: 'งานซ่อมค้างอยู่กี่งาน', parts: 'รถรออะไหล่มีคันไหน', servicerev: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', yesterday: 'วันนี้มีอะไรบ้าง', referask: 'ใครครบรอบซื้อรถเดือนนี้', eventbest: 'ลีดจากบูธเดือนนี้กี่คน', campaignbest: 'โปรเดือนนี้มีอะไรบ้าง', delivered: 'ใครครบรอบซื้อรถเดือนนี้', mycust: 'ลูกค้า hot มีใครบ้าง', nophone: 'ลูกค้าที่ยังไม่มีผู้ดูแล', topscore: 'วันนี้ควรโทรหาใคร', withdrawn: 'ยอดเดือนนี้เป็นไง', finbank: 'ใครรอไฟแนนซ์', noshow: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', nobookseller: 'ทีมวันนี้เป็นไง', bookday: 'ยอดเดือนนี้เป็นไง', tdnobook: 'ลูกค้า hot มีใครบ้าง', testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', insurance: 'รับประกันรถคันไหนใกล้หมด', walkin: 'walk in สัปดาห์นี้กี่คน', warranty: 'ประกันภัยใครใกล้หมด', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
+  const all = { stale: 'ลูกค้าคนไหนยังไม่ได้ทดลองขับ', tradein: 'ใครรอไฟแนนซ์', closerate: 'ลูกค้าใหม่เดือนนี้กี่คน', noquote: 'ใบเสนอราคาค้างอยู่กี่ใบ', bookmodel: 'รถรุ่นไหนขายดีสุดเดือนนี้', notd: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', claim: 'งานซ่อมค้างอยู่กี่งาน', parts: 'รถรออะไหล่มีคันไหน', servicerev: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', yesterday: 'วันนี้มีอะไรบ้าง', referask: 'ใครครบรอบซื้อรถเดือนนี้', eventbest: 'ลีดจากบูธเดือนนี้กี่คน', campaignbest: 'โปรเดือนนี้มีอะไรบ้าง', delivered: 'ใครครบรอบซื้อรถเดือนนี้', mycust: 'ลูกค้า hot มีใครบ้าง', nophone: 'ลูกค้าที่ยังไม่มีผู้ดูแล', topscore: 'วันนี้ควรโทรหาใคร', withdrawn: 'ยอดเดือนนี้เป็นไง', finbank: 'ใครรอไฟแนนซ์', noshow: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', nobookseller: 'ทีมวันนี้เป็นไง', bookday: 'ยอดเดือนนี้เป็นไง', tdnobook: 'ลูกค้า hot มีใครบ้าง', testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', insurance: 'รับประกันรถคันไหนใกล้หมด', walkin: 'walk in สัปดาห์นี้กี่คน', warranty: 'ประกันภัยใครใกล้หมด', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
   const out = [all[spec.kind]]
   if (spec.kind === 'testdrive' && spec.day === 'tomorrow') out[0] = 'พรุ่งนี้มีใครนัดเข้าโชว์รูม'
   if (spec.kind === 'delivery' && spec.day === 'week') out[0] = 'มีนัดส่งมอบพรุ่งนี้ไหม'

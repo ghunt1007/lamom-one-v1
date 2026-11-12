@@ -320,6 +320,13 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.eventBestAnswer(events, e => eventMetrics(e, { customers, bookings: bks, testDrives: drives }), { today })
   } else if (spec.kind === 'campaignbest') {
     res = oq.campaignBestAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today })
+  } else if (spec.kind === 'stale') {
+    res = oq.staleProspectAnswer(((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c)), { today })
+  } else if (spec.kind === 'tradein') {
+    res = oq.tradeInAnswer(await listDocs('trade_ins', f, 'date', 'desc', 300).catch(() => []), { today })
+  } else if (spec.kind === 'closerate') {
+    const [customers, bks] = await Promise.all([customersPromise || visibleCustomersForCommands(), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])])
+    res = oq.closeRateAnswer((customers || []).filter(c => mine(c.assignedTo, c)), bks.filter(b => mine(b.salesName, b)), { today, prev: spec.prev })
   } else if (spec.kind === 'noquote') {
     const [customers, quotes] = await Promise.all([customersPromise || visibleCustomersForCommands(), listDocs('quotations', f, 'createdDate', 'desc', 3000).catch(() => [])])
     res = oq.noQuoteAnswer((customers || []).filter(c => mine(c.assignedTo, c)), quotes)
