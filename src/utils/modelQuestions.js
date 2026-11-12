@@ -86,7 +86,7 @@ export function modelAnswer(spec, vehicles = []) {
     v.warranty ? `รับประกัน ${v.warranty}` : '', 'สนใจนัดทดลองขับได้เลยค่ะ/ครับ'].filter(Boolean).join('\n')
   const short = v.model.replace(/\s*\(\d{4}\)\s*$/, '')
   const other = [...new Set(vehicles.filter(x => x && x.brand === v.brand && x.model !== v.model && Number(x.price) > 0 && x.type === v.type).map(x => String(x.model).replace(/\s*\(\d{4}\)\s*$/, '')))].filter(m => m !== short)[0]
-  return { text: lines.join('\n'), copy, query: short, next: [`ผ่อน ${short} เดือนละเท่าไหร่`, `${short} มีสีอะไรพร้อมขาย`, ...(other ? [`เทียบ ${short} กับ ${other}`] : [])] }
+  return { text: lines.join('\n'), copy, query: short, vehicleId: v.id, next: [`ผ่อน ${short} เดือนละเท่าไหร่`, `${short} มีสีอะไรพร้อมขาย`, ...(other ? [`เทียบ ${short} กับ ${other}`] : [])] }
 }
 
 function compareAnswer(spec, vehicles) {

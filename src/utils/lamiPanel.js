@@ -102,11 +102,11 @@ export function openLamiPanel({ navigate } = {}) {
           const tb = await card.loadTodayBrief(q, custPromise).catch(() => null) || await card.loadAheadBrief(q, custPromise).catch(() => null) || await card.loadMonthBrief(q).catch(() => null) || await card.loadIncomeBrief(q).catch(() => null) || await card.loadTeamBrief(q, custPromise).catch(() => null) || await card.loadCarPick(q).catch(() => null) || await card.loadStockAnswer(q).catch(() => null) || await card.loadPayAnswer(q).catch(() => null) || await card.loadPromoAnswer(q).catch(() => null) || await card.loadModelAnswer(q).catch(() => null) // (v1.0.1051) + ยอดเดือนนี้ (v1.0.1053) + สต็อก
           if (tb) {
             history.push({ role: 'user', text: q }, { role: 'lami', text: tb.text })
-            wait.outerHTML = `<div class="lp-a">${formatAiText(tb.text)}</div>${tb.next.length || tb.go || tb.copy ? `<div class="lp-asks lp-brief lp-today">${tb.copy ? '<button class="lp-ask lp-copy2" type="button">📋 คัดลอกส่งลูกค้า</button>' : ''}${tb.next.map(x => `<button class="lp-ask" type="button" data-q="${esc(x)}">${esc(x)}</button>`).join('')}${tb.go ? `<button class="lp-ask lp-go2" type="button" data-path="${esc(tb.go.path)}">${esc(tb.go.label)} →</button>` : ''}</div>` : ''}`
+            wait.outerHTML = `<div class="lp-a">${formatAiText(tb.text)}</div>${tb.next.length || tb.go || tb.copy ? `<div class="lp-asks lp-brief lp-today">${tb.copy ? '<button class="lp-ask lp-copy2" type="button">📋 คัดลอกส่งลูกค้า</button>' : ''}${tb.next.map(x => `<button class="lp-ask" type="button" data-q="${esc(x)}">${esc(x)}</button>`).join('')}${tb.go ? `<button class="lp-ask lp-go2" type="button" data-path="${esc(tb.go.path)}">${esc(tb.go.label)} →</button>` : ''}${tb.go2 ? `<button class="lp-ask lp-go2" type="button" data-path="${esc(tb.go2.path)}">${esc(tb.go2.label)} →</button>` : ''}</div>` : ''}`
             const wrap = [...body.querySelectorAll('.lp-today')].pop()
             wrap?.querySelector('.lp-copy2')?.addEventListener('click', () => import('./copyText.js').then(m => m.copyText(tb.copy, '📋 คัดลอกแล้ว — วางใน LINE ส่งลูกค้าได้เลย'))) // (v1.0.1057)
             wrap?.querySelectorAll('.lp-ask:not(.lp-go2):not(.lp-copy2)').forEach(b => b.addEventListener('click', () => setTimeout(() => ask(b.dataset.q), 0)))
-            wrap?.querySelector('.lp-go2')?.addEventListener('click', e => { const path = e.currentTarget.dataset.path; closeLamiPanel(); navigate ? navigate(path) : (location.href = path) })
+            wrap?.querySelectorAll('.lp-go2').forEach(g => g.addEventListener('click', e => { const path = e.currentTarget.dataset.path; closeLamiPanel(); navigate ? navigate(path) : (location.href = path) }))
             return
           }
         }
@@ -214,7 +214,7 @@ export function openLamiPanel({ navigate } = {}) {
   import('./managerRole.js').then(({ isManagerRole }) => isManagerRole()).catch(() => false).then(mgr => {
     const hint = body.querySelector('.lp-hint')
     if (!hint) return
-    const quick = ['วันนี้มีอะไรบ้าง', 'พรุ่งนี้มีอะไรบ้าง', 'ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนนี้เท่าไหร่', ...(mgr ? ['ทีมวันนี้เป็นไง'] : []), 'มีรถอะไรพร้อมขาย', 'ลูกค้า hot มีใครบ้าง']
+    const quick = ['วันนี้มีอะไรบ้าง', 'พรุ่งนี้มีอะไรบ้าง', 'ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนนี้เท่าไหร่', ...(mgr ? ['ทีมวันนี้เป็นไง'] : []), 'มีรถอะไรพร้อมขาย', 'โปรเดือนนี้มีอะไรบ้าง', 'รถไฟฟ้าไม่เกิน 1 ล้าน', 'ลูกค้า hot มีใครบ้าง']
     hint.insertAdjacentHTML('afterend', `<div class="lp-try lp-quick"><span>⚡ ถามได้ทันที แตะครั้งเดียว:</span>${quick.map(x => `<button type="button" class="lp-ask lp-now" data-q="${esc(x)}">${esc(x)}</button>`).join('')}</div>`)
     body.querySelectorAll('.lp-now').forEach(b => b.addEventListener('click', () => ask(b.dataset.q)))
   })

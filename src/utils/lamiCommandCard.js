@@ -278,7 +278,9 @@ export async function loadModelAnswer(q) {
   const go = spec.mode === 'compare'
     ? { path: '/dms/compare?ids=' + encodeURIComponent(res.ids.join(',')), label: '⚖️ เปิดหน้าเปรียบเทียบเต็ม' }
     : { path: '/dms/vehicle-db?q=' + encodeURIComponent(res.query), label: '🚗 เปิดข้อมูลรุ่นนี้' }
-  return { text: res.text, next: res.next, copy: res.copy || undefined, go }
+  // (v1.0.1071) ถามราคารุ่นเดียว → ทำใบเสนอราคารุ่นนี้ได้ในแตะเดียว
+  const go2 = spec.mode === 'info' && res.vehicleId ? { path: '/crm/quotation?vehicle=' + encodeURIComponent(res.vehicleId), label: '📄 ทำใบเสนอราคารุ่นนี้' } : undefined
+  return { text: res.text, next: res.next, copy: res.copy || undefined, go, go2 }
 }
 
 // (v1.0.1056) "ทีมวันนี้เป็นไง / ใครมีนัดค้างเยอะสุด" → null ถ้าไม่ใช่ · คืน { text, next, go }
