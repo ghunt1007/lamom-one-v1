@@ -338,6 +338,16 @@ export async function loadOpsAnswer(q, customersPromise) {
       const sales = spec.kind === 'profit' ? await getSalesData().catch(() => []) : []
       res = oq.moneyMonthAnswer({ sales, opex: opexEntries(claims, petty), today, prev: spec.prev, kind: spec.kind, saleCost })
     }
+  } else if (spec.kind === 'late') {
+    const whole = !!(vis.unrestricted || vis.companyOnly)
+    if (!whole && !vis.hasSubordinates) res = { n: 0, locked: true, text: '🕘 ข้อมูลลงเวลาของพนักงานดูได้เฉพาะหัวหน้าทีมและผู้จัดการ — ดูของตัวเองได้ที่หน้า "ลงเวลา"' }
+    else {
+      const [rows, staff, leaves] = await Promise.all([listDocs('attendance', [['date', '==', today]], 'date', 'desc', 500).catch(() => []), listDocs('staff', f, 'firstName', 'asc', 500).catch(() => []), listDocs('leave_requests', f, 'from', 'desc', 300).catch(() => [])])
+      const { scopeIncludesStaff } = await import('../core/hierarchy.js')
+      const team = whole ? staff : staff.filter(x => scopeIncludesStaff(vis, x))
+      const ids = new Set(team.map(x => x.id))
+      res = oq.lateAnswer(whole ? rows : rows.filter(r => ids.has(r.staffId)), team, leaves, { today })
+    }
   } else if (spec.kind === 'leave') {
     const whole = !!(vis.unrestricted || vis.companyOnly)
     if (!whole && !vis.hasSubordinates) res = { n: 0, locked: true, text: '👥 ข้อมูลการลาของพนักงานดูได้เฉพาะหัวหน้าทีมและผู้จัดการ — เปิดหน้าการลาเพื่อดูของตัวเอง' }

@@ -2,7 +2,8 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, listAllDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { isDelivered } from '../../utils/bookingStatus.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
@@ -26,9 +27,11 @@ const DOC_STATUS = {
 }
 
 function calcDoc(doc) {
-  const subtotal = doc.items.reduce((a, i) => a + i.qty * i.price, 0)
-  const vat = doc.items.reduce((a, i) => a + i.qty * i.price * (i.vat / 100), 0)
-  return { subtotal, vat, total: subtotal + vat }
+  const r2 = n => Math.round(n * 100) / 100
+  const subtotal = r2(doc.items.reduce((a, i) => a + i.qty * i.price, 0))
+  const vat = r2(doc.items.reduce((a, i) => a + i.qty * i.price * (i.vat / 100), 0))
+  // ราคาจากใบจองรวม VAT แล้ว → ยอดรวม = ราคาเดิมพอดี (ไม่ปัดเศษเพี้ยน)
+  return { subtotal, vat, total: doc.grossTotal != null ? doc.grossTotal : r2(subtotal + vat) }
 }
 
 const PAY_ROLES = ['finance', 'manager', 'owner', 'admin']
@@ -52,19 +55,23 @@ export default async function InvoicePage(container) {
     loading = true
     try {
       docs = await listDocs('invoices', companyScopeFilters(), 'date', 'desc', 500)
-      const bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 200)
-      const billable = bookings.filter(b => ['ยืนยัน', 'รอส่งมอบ', 'ส่งมอบแล้ว'].includes(b.status))
+      // (v1.0.1112) เดิมเอาใบจองที่ยังไม่ส่งมอบมาทำเป็น "ใบแจ้งหนี้" ครบกำหนด 15 วันหลังจอง → ขึ้น "เกินกำหนด" เป็นล้าน
+      // ทั้งที่ลูกค้ายังไม่ต้องจ่าย (จ่ายตอนรับรถ/ไฟแนนซ์โอน) และบวก VAT 7% ซ้ำบนราคารถที่รวม VAT แล้ว
+      // → แสดงเฉพาะรถที่ส่งมอบ/ตัดตัวเลขแล้ว (ขายจบแล้ว) เป็น "ชำระแล้ว" และถอด VAT ออกจากราคาก่อน
+      const bookings = await listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc')
+      const billable = bookings.filter(b => b && !b.deleted && isDelivered(b))
       bookingDocs = billable.map((b, i) => {
         const no = 'INV-' + (b.bookingNo || (new Date().getFullYear() + '-' + String(i + 1).padStart(3, '0')))
-        const price = b.salePrice || b.price || 0
-        const status = b.status === 'ส่งมอบแล้ว' ? 'paid' : 'sent'
+        const gross = Number(b.salePrice || b.price) || 0
+        const price = gross / 1.07
+        const status = 'paid'
         return {
           id: 'bk-' + b.id, type: 'invoice', no,
           custName: b.custName || 'ลูกค้า', custTax: b.custTax || '',
-          date: b.bookingDate || b.createdAt?.toDate?.().toISOString().slice(0, 10) || '',
-          dueDate: (() => { const d = new Date(b.bookingDate || new Date()); d.setDate(d.getDate() + 15); return d.toISOString().slice(0, 10) })(),
+          date: String(b.cutDate || b.actualDeliveryDate || b.bookingDate || '').slice(0, 10),
+          dueDate: String(b.cutDate || b.actualDeliveryDate || b.bookingDate || '').slice(0, 10),
           items: [{ desc: ((b.brand || '') + ' ' + (b.model || '') + (b.variant ? ' ' + b.variant : '')).trim() || 'รถยนต์', qty: 1, unit: 'คัน', price, vat: 7 }],
-          status, paidDate: b.actualDeliveryDate || '', note: b.note || '', _live: true,
+          status, grossTotal: gross, paidDate: String(b.actualDeliveryDate || b.cutDate || '').slice(0, 10), note: b.note || '', _live: true,
         }
       })
     } catch (e) { docs = []; bookingDocs = [] }
@@ -75,8 +82,8 @@ export default async function InvoicePage(container) {
   function allDocs() { return [...docs, ...bookingDocs] }
 
   function getFiltered() {
-    const docsSrc = allDocs()
-    let list = docs
+    // (v1.0.1112) เดิมใช้ docs (เฉพาะที่สร้างเอง) → ยอด "ชำระแล้ว" นับรายการจากใบจองแต่ตารางไม่แสดง
+    let list = allDocs()
     if (typeFilter !== 'all') list = list.filter(d => d.type === typeFilter)
     if (statusFilter !== 'all') list = list.filter(d => d.status === statusFilter)
     if (search) list = list.filter(d => (d.custName || '').includes(search) || (d.no || '').includes(search))
