@@ -186,10 +186,11 @@ export async function loadAheadBrief(q, customersPromise) {
 // นับเฉพาะใบจองของเซลส์ที่ผู้ใช้มองเห็น (ตัวเอง + ลูกทีม · แอดมิน/เจ้าของ = ทั้งโชว์รูม)
 export async function loadMonthBrief(q) {
   const mb = await import('./monthBrief.js')
-  if (!mb.isMonthQuestion(q)) return null
+  const past = mb.isPrevMonthQuestion(q)
+  if (!past && !mb.isMonthQuestion(q)) return null
   const [{ listAllDocs, readDoc }, { companyScopeFilters }, { getVisibilityScope, scopeIncludesRecord, normName }, { todayBangkok }, { SALES_TARGETS_COLLECTION }] = await Promise.all([
     import('../core/db.js'), import('../core/companyScope.js'), import('../core/hierarchy.js'), import('./format.js'), import('./salesTargets.js')])
-  const today = todayBangkok()
+  const today = past ? mb.prevMonthEnd(todayBangkok()) : todayBangkok()
   const [all, vis, tdoc] = await Promise.all([
     listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc').catch(() => []),
     getVisibilityScope().catch(() => null),
@@ -200,7 +201,9 @@ export async function loadMonthBrief(q) {
   const bookings = all.filter(b => !b.deleted && scopeIncludesRecord(vis, b.salesName, b))
   const target = Object.entries(tdoc?.targets || {}).reduce((s, [n, v]) => s + (whole || vis.names?.has(normName(n)) ? Number(v) || 0 : 0), 0)
   const st = mb.monthStats({ bookings, today, target })
-  return { text: mb.monthBriefText(st, { scope: whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ' }), next: mb.monthFollowUps(st) }
+  const scopeLabel = whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ'
+  if (past) return { text: mb.monthBriefText(st, { scope: scopeLabel, past: true }), next: ['ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนก่อนเท่าไหร่', 'ลูกค้าเสียดีลเดือนก่อนมีใครบ้าง'] }
+  return { text: mb.monthBriefText(st, { scope: scopeLabel }), next: mb.monthFollowUps(st) }
 }
 
 // (v1.0.1058) "ค่าคอมเดือนนี้เท่าไหร่ / รายได้เดือนก่อน" → null ถ้าไม่ใช่ · คืน { text, next, go } · ขอบเขตเดียวกับหน้ารายได้รายเซลส์
@@ -289,6 +292,16 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'delivery' || spec.kind === 'income') {
     const bks = (await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b))
     res = spec.kind === 'delivery' ? oq.deliveryAnswer(bks, { today, day: spec.day }) : oq.incomeMissingAnswer(bks, { today })
+  } else if (spec.kind === 'reminder') {
+    res = oq.reminderAnswer(await listDocs('service_reminders', [], 'dueDate', 'asc', 500).catch(() => []), { today, range: spec.range })
+  } else if (spec.kind === 'overdue') {
+    const [{ buildWorkItems, KINDS }, { followupWindowFilters }] = await Promise.all([import('./workCalendar.js'), import('./customerFollowups.js')])
+    const g = (col, filters, sort) => listDocs(col, filters, sort, 'desc', 1000).catch(() => [])
+    const [bookings, appointments, testDrives, followups, serviceAppts, tasks] = await Promise.all([
+      listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), g('appointments', f, 'date'), g('test_drives', f, 'date'),
+      listDocs('followups', [...f, ...followupWindowFilters(today)], 'dueDate', 'asc', 3000).catch(() => []), g('service_appointments', f, 'date'), g('tasks', f, 'dueDate')])
+    const items = buildWorkItems({ bookings, appointments, testDrives, followups, serviceAppts, tasks }, today).filter(it => it.shared || mine(it.owner, it.rec))
+    res = oq.overdueAnswer(items, { today, labels: KINDS })
   } else if (spec.kind === 'service') {
     const [ap, jobs] = await Promise.all([listDocs('service_appointments', f, 'date', 'desc', 300).catch(() => []), listDocs('job_cards', f, 'createdAt', 'desc', 500).catch(() => [])])
     res = oq.serviceAnswer(ap.filter(a => mine(a.tech, a)), jobs.filter(j => mine(j.techName, j)), { today, day: spec.day })

@@ -25,11 +25,14 @@ export function parseBookingListSpec(q) {
     : /รอ(?:ผล)?\s*ไฟแนนซ์|ไฟแนนซ์(?:ยัง)?ไม่ผ่าน|ติดไฟแนนซ์/.test(s) ? FIN
     : /รอรถ/.test(s) ? ['รอรถ']
     : !when && /รอส่งมอบ|ค้างส่งมอบ|พร้อมส่ง/.test(s) ? WAIT_DELIV : null
-  if (!statuses && !when && !stuck) return null
-  return { statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
+  // (v1.0.1086) "ใบจองไหนยังไม่มีเลขตัวถัง" (ไม่นับใบที่ยังรอรถ เพราะยังไม่ได้จัดรถ)
+  const noVin = /(?:ยังไม่|ไม่)(?:ได้)?\s*(?:กรอก|ใส่|มี|ลง)?\s*(?:เลข)?\s*(?:ตัวถัง|vin|คัสซี)/i.test(s)
+  if (!statuses && !when && !stuck && !noVin) return null
+  return { noVin, statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
 }
 
 export function bookingListLabel(spec) {
+  if (spec.noVin) return 'ใบจองที่ยังไม่มีเลขตัวถัง (ไม่นับใบที่รอรถ)'
   if (spec.noDate) return 'รถพร้อมส่งที่ยังไม่นัดวันส่งมอบ'
   if (spec.when) return `นัดส่งมอบ${{ today: 'วันนี้', tomorrow: 'พรุ่งนี้', week: 'ใน 7 วันนี้' }[spec.when]}`
   if (spec.stuck) return `ใบจองที่ค้างเกิน ${spec.stuckDays} วัน`
@@ -51,6 +54,7 @@ export function bookingTargets({ customers = [], bookings = [], today, spec, tom
     if (!open) return
     if (spec.statuses && !spec.statuses.includes(b.status)) return
     if (spec.noDate && isDate(b.deliveryDate)) return
+    if (spec.noVin && (String(b.vin || '').trim() || b.status === 'รอรถ')) return
     if (spec.when) {
       const d = String(b.deliveryDate || '').slice(0, 10)
       if (!isDate(d)) return

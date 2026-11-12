@@ -68,3 +68,13 @@ describe('parseBookingListSpec มี…ไหม form (v1.0.1082)', () => {
     expect(parseBookingListSpec('มีใครรอรถไหมคะ').statuses).toEqual(['รอรถ'])
   })
 })
+
+describe('no VIN (v1.0.1086)', () => {
+  it('lists open bookings without VIN, skipping รอรถ', () => {
+    const spec = parseBookingListSpec('มีใบจองที่ยังไม่ได้กรอกเลขตัวถังไหม')
+    expect(spec.noVin).toBe(true)
+    const r = bookingTargets({ customers: [{ id: 'c1' }], bookings: [
+      { id: 'b1', customerId: 'c1', status: 'รอส่งมอบ' }, { id: 'b2', customerId: 'c1', status: 'รอส่งมอบ', vin: 'X1' }, { id: 'b3', customerId: 'c1', status: 'รอรถ' }], today: '2026-11-12', spec })
+    expect(r.list.map(x => x.b.id)).toEqual(['b1'])
+  })
+})

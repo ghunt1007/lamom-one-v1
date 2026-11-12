@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseOpsSpec, testDriveAnswer, showroomAnswer, lineWaitingAnswer, complaintAnswer, newCustomerAnswer, annivAnswer, opsFollowUps, deliveryAnswer, incomeMissingAnswer, lostAnswer, serviceAnswer, unassignedAnswer } from './opsQuestions.js'
+import { parseOpsSpec, testDriveAnswer, showroomAnswer, lineWaitingAnswer, complaintAnswer, newCustomerAnswer, annivAnswer, opsFollowUps, deliveryAnswer, incomeMissingAnswer, lostAnswer, serviceAnswer, unassignedAnswer, reminderAnswer, overdueAnswer } from './opsQuestions.js'
 
 const T = '2026-11-12'
 
@@ -154,5 +154,25 @@ describe('service + unassigned (v1.0.1082)', () => {
     expect(r.n).toBe(1)
     expect(r.text).toContain('• A')
     expect(unassignedAnswer([{ assignedTo: 'x' }]).n).toBe(0)
+  })
+})
+
+describe('reminder + overdue (v1.0.1086)', () => {
+  it('parses', () => {
+    expect(parseOpsSpec('เตือนเข้าศูนย์เดือนนี้มีใครบ้าง')).toEqual({ kind: 'reminder', range: 30 })
+    expect(parseOpsSpec('งานที่เลยกำหนดมีอะไรบ้าง')).toEqual({ kind: 'overdue' })
+    expect(parseOpsSpec('ค่างวดเลยกำหนดผ่อน')).toBeNull()
+  })
+  it('reminderAnswer lists unbooked reminders due soon or recently late', () => {
+    const r = reminderAnswer([{ customer: 'ก', dueDate: '2026-11-20' }, { customer: 'ข', dueDate: '2026-11-01', contacted: true }, { customer: 'ค', dueDate: '2026-11-15', booked: true }, { customer: 'ง', dueDate: '2027-03-01' }], { today: T })
+    expect(r.n).toBe(2)
+    expect(r.text).toContain('เลยกำหนดแล้ว 1')
+    expect(r.text).toContain('✅ ติดต่อแล้ว')
+  })
+  it('overdueAnswer counts only overdue items', () => {
+    const r = overdueAnswer([{ kind: 'task', title: 'โทรหา A', date: '2026-11-10', overdue: true }, { kind: 'task', title: 'B', date: '2026-11-13' }], { today: T, labels: { task: { icon: '✅', label: 'งาน' } } })
+    expect(r.n).toBe(1)
+    expect(r.text).toContain('เลย 2 วัน')
+    expect(overdueAnswer([], { today: T }).text).toContain('ไม่มีงานที่เลยกำหนด')
   })
 })
