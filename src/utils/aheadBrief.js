@@ -1,6 +1,7 @@
 // (v1.0.1059) "พรุ่งนี้มีอะไรบ้าง" / "สัปดาห์นี้มีอะไรบ้าง" / "สรุปงาน 7 วันข้างหน้า" → LAMI สรุปนัดติดตามและนัดส่งมอบล่วงหน้ารายวันทันที
 // นับเฉพาะลูกค้า/ใบจองที่ผู้ใช้มองเห็น (เหมือน "วันนี้มีอะไรบ้าง") · ฟังก์ชันล้วน ทดสอบได้
 import { isOpenBooking } from './bookingStatus.js'
+import { dmy } from './format.js'
 
 const isDate = d => /^\d{4}-\d{2}-\d{2}/.test(d || '')
 const DOW = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
@@ -13,7 +14,8 @@ export function addDays(ymd, n) {
   return d.toISOString().slice(0, 10)
 }
 const dm = ymd => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`
-const dmyOf = ymd => `${dm(ymd)}/${ymd.slice(0, 4)}`
+// (v1.0.1090) ปีตามที่ตั้งไว้ (พ.ศ./ค.ศ.) เหมือนคำตอบอื่นของ LAMI
+const dmyOf = ymd => dmy(ymd)
 const dow = ymd => DOW[new Date(ymd + 'T00:00:00Z').getUTCDay()]
 
 // คืน null ถ้าไม่ใช่ · { mode: 'tomorrow' | 'week' }

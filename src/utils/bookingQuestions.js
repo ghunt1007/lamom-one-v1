@@ -29,11 +29,14 @@ export function parseBookingListSpec(q) {
   const noVin = /(?:ยังไม่|ไม่)(?:ได้)?\s*(?:กรอก|ใส่|มี|ลง)?\s*(?:เลข)?\s*(?:ตัวถัง|vin|คัสซี)/i.test(s)
   // (v1.0.1087) "จองแล้วแต่ยังไม่ได้วางมัดจำ"
   const noDeposit = /ยังไม่(?:ได้)?\s*(?:วาง|จ่าย|ชำระ|โอน)?\s*(?:เงิน)?\s*มัดจำ|ไม่มี(?:เงิน)?มัดจำ|ไม่ได้วางมัดจำ/.test(s)
-  if (!statuses && !when && !stuck && !noVin && !noDeposit) return null
-  return { noVin, noDeposit, statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
+  // (v1.0.1090) "ลูกค้าที่จองแต่ยังไม่ส่งมอบมีกี่คน" → ใบจองที่ยังเปิดอยู่ทั้งหมด
+  const allOpen = !statuses && !when && /ยังไม่(?:ได้)?\s*(?:ส่งมอบ|ส่งรถ|รับรถ)|ค้างจอง/.test(s)
+  if (!statuses && !when && !stuck && !noVin && !noDeposit && !allOpen) return null
+  return { allOpen, noVin, noDeposit, statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
 }
 
 export function bookingListLabel(spec) {
+  if (spec.allOpen && !spec.noVin && !spec.noDeposit && !spec.stuck) return 'ใบจองที่ยังไม่ส่งมอบ'
   if (spec.noVin) return 'ใบจองที่ยังไม่มีเลขตัวถัง (ไม่นับใบที่รอรถ)'
   if (spec.noDeposit) return 'ใบจองที่ยังไม่มียอดมัดจำ'
   if (spec.noDate) return 'รถพร้อมส่งที่ยังไม่นัดวันส่งมอบ'

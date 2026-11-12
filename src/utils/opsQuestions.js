@@ -10,33 +10,42 @@ const has = (s, re) => re.test(s)
 // คำสั่งให้ทำ (นัด/บันทึก/สร้าง) ไม่ใช่คำถาม → ปล่อยให้ตัวสั่งงานจัดการ
 const COMMAND = /^(นัด|บันทึก|สร้าง|เพิ่ม|ลบ|แก้|ย้าย|มอบ)(?!.*(มีใคร|กี่|ไหม|บ้าง|อะไร))/
 
+// (v1.0.1090) "ลูกค้าจากเฟสบุ๊คเดือนนี้กี่คน" → กรองตามช่องทาง (คีย์เดียวกับ quickLead QUICK_SOURCES)
+const SOURCE_WORDS = [['facebook', /เฟส|facebook|\bfb\b/i], ['line', /ไลน์|\bline\b/i], ['tiktok', /ติ๊?กต็?อก|tiktok/i], ['instagram', /ไอจี|instagram|\big\b/i],
+  ['phone', /โทรเข้า/], ['referral', /แนะนำ|บอกต่อ/], ['event', /บูธ|อีเวนต์|event/i]]
+export function sourceOf(s) { const hit = SOURCE_WORDS.find(([, re]) => re.test(s)); return hit ? hit[0] : '' }
+
 export function parseOpsSpec(q) {
   const s = String(q || '').trim().replace(/[?？]+$/, '')
   if (s.length < 4 || s.length > 80 || COMMAND.test(s)) return null
   const day = /พรุ่งนี้/.test(s) ? 'tomorrow' : 'today'
   if (has(s, /เสียดีล|เสียลูกค้า|lost|ปิดไม่ได้|หลุด/i) && !has(s, /บันทึก/)) return { kind: 'lost', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
+  // (v1.0.1090) "ยอดจองวันนี้" / "เมื่อวานปิดได้กี่คัน" / "สัปดาห์นี้มีใครจองบ้าง"
+  if (has(s, /ยอดจอง|จองใหม่|ใบจองใหม่|ปิดการขาย|ปิดได้|ปิดดีล|ใครจอง|มีคนจอง|จองกี่|จองไป|จองได้/) && has(s, /วันนี้|เมื่อวาน|สัปดาห์|อาทิตย์|7 วัน/) && !has(s, /ส่งมอบ|ทดลองขับ|ลองขับ/)) return { kind: 'bookday', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
   if (has(s, /รายได้|ค่าคอม/) && has(s, /ยังไม่กรอก|ไม่ได้กรอก|ค้างกรอก|ยังไม่ใส่|ขาด/)) return { kind: 'income' }
   if (has(s, /ส่งมอบ/) && !has(s, /ยอด|เป้า|เดือน/) && has(s, /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์|นัด|ใคร|กี่คัน|ไหม/)) return { kind: 'delivery', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
-  if (has(s, /ช่องทาง|ที่มา|มาจาก/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'newcust', period: /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
+  if (has(s, /ช่องทาง|ที่มา|มาจาก/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'newcust', ...(sourceOf(s) ? { source: sourceOf(s) } : {}), period: /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
   // (v1.0.1087) "ประกันภัยใครใกล้หมด / ลูกค้าที่ประกันจะหมดเดือนนี้" (ประกันรถยนต์/พ.ร.บ.) · "รับประกันรถคันไหนใกล้หมด" (warranty)
   if (has(s, /รับประกัน|วอร์แรนตี|warranty/i) && has(s, /หมด|ครบ|ใกล้/)) return { kind: 'warranty', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : /3 เดือน|90 วัน/.test(s) ? 90 : 30 }
   if (has(s, /ประกัน|พ\.?ร\.?บ|กรมธรรม์/) && has(s, /หมด|ต่อ|ครบ|ใกล้/) && !has(s, /เคลม|ซ่อม/)) return { kind: 'insurance', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : /3 เดือน|90 วัน/.test(s) ? 90 : 30 }
   // (v1.0.1086) "เตือนเข้าศูนย์เดือนนี้มีใครบ้าง" / "ใครครบระยะเช็ค" → รายการเตือนเข้าศูนย์ (ไม่ใช่นัดวันนี้)
   if (has(s, /เตือนเข้าศูนย์|ครบระยะ|ถึงระยะ|ครบกำหนดเข้าศูนย์|ถึงกำหนดเข้าศูนย์|ต้องเข้าศูนย์/)) return { kind: 'reminder', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : 30 }
   // (v1.0.1086) "งานที่เลยกำหนดมีอะไรบ้าง" → งานในปฏิทินที่เลยวันแล้วยังไม่ได้ทำ (เงื่อนไขเดียวกับปฏิทินงาน)
-  if (has(s, /เลยกำหนด|เกินกำหนด|เลยวันนัด|ตกค้าง/) && !has(s, /ร้องเรียน|ซ่อม|ประกัน|ผ่อน|ชำระ|ไฟแนนซ์/)) return { kind: 'overdue' }
+  if (has(s, /เลยกำหนด|เกินกำหนด|เลยวันนัด|ตกค้าง|^(?:มี)?งานค้าง|งานที่ค้าง|ค้างทำ/) && !has(s, /ร้องเรียน|ซ่อม|ประกัน|ผ่อน|ชำระ|ไฟแนนซ์/)) return { kind: 'overdue' }
   // (v1.0.1082) งานศูนย์บริการ: "รถเข้าศูนย์วันนี้กี่คัน" / "งานซ่อมค้างอยู่กี่งาน" / "รถรออะไหล่มีคันไหน"
   if (has(s, /เข้าศูนย์|นัดซ่อม|นัดเซอร์วิส|นัดเช็คระยะ|เช็คระยะ|งานซ่อม|ใบสั่งซ่อม|job\s*card|รถซ่อม|ซ่อมค้าง|รออะไหล่|ซ่อมเสร็จ/i) && !has(s, /ราคา|ค่าซ่อม|กี่บาท|เท่าไหร่/)) return { kind: 'service', day }
   // (v1.0.1082) "ลูกค้าที่ยังไม่มีผู้ดูแลมีใครบ้าง"
   if (has(s, /(?:ยังไม่มี|ไม่มี|ไร้)\s*(?:ผู้ดูแล|คนดูแล|เซลส์ดูแล|เซลส์)|ยังไม่(?:ได้)?(?:มอบ|แจก|แบ่ง)|ยังไม่มีเจ้าของ/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'unassigned' }
   // (v1.0.1087) "วันนี้มีลูกค้า walk in กี่คน" / "เมื่อวานมีคนเดินเข้าโชว์รูมกี่คน"
   if (has(s, /walk\s*-?\s*in|วอล์?คอิน|เดินเข้า/i)) return { kind: 'walkin', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : /เดือน/.test(s) ? 'month' : 'today' }
+  // (v1.0.1090) "ลูกค้าที่ทดลองขับแล้วยังไม่จอง" → รายชื่อที่ควรตามต่อ (ไม่ใช่นัดวันนี้)
+  if (has(s, /ทดลองขับ|ลองขับ|test\s*drive/i) && has(s, /ยังไม่(?:ได้)?(?:จอง|ซื้อ|ปิด)|ไม่จอง|ไม่ซื้อ|แล้วไม่/)) return { kind: 'tdnobook', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : /3 เดือน|90 วัน/.test(s) ? 90 : 30 }
   if (has(s, /ทดลองขับ|ลองขับ|test\s*drive/i)) return { kind: 'testdrive', day }
   if (has(s, /โชว์รูม|showroom/i) && has(s, /นัด|เข้า|มา/)) return { kind: 'showroom', day }
   if (has(s, /line|ไลน์|แชท|แชต|ทัก/i) && has(s, /รอ|ยังไม่ตอบ|ค้าง|ตอบ/)) return { kind: 'line' }
   if (has(s, /ร้องเรียน|complain/i)) return { kind: 'complaint' }
   if (has(s, /วันเกิด|เกิดวันนี้|เกิดเดือนนี้|ครบรอบ/)) return { kind: 'anniv', range: /เดือน/.test(s) ? 30 : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : 0 }
-  if (has(s, /(ลูกค้า|ลีด|lead)\s*(ใหม่|เข้า)/i) && has(s, /เดือน|สัปดาห์|อาทิตย์/)) return { kind: 'newcust', period: /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
+  if (has(s, /(ลูกค้า|ลีด|lead)\s*(?:ใหม่|เข้า|(?:ที่)?(?:มา)?จาก)/i) && has(s, /เดือน|สัปดาห์|อาทิตย์|กี่คน/)) return { kind: 'newcust', ...(sourceOf(s) ? { source: sourceOf(s) } : {}), period: /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
   return null
 }
 
@@ -93,12 +102,63 @@ export function complaintAnswer(rows, { today }) {
 }
 
 // ลูกค้าใหม่ในช่วงเวลา แยกตามที่มา · ไม่นับลูกค้าที่ลบแล้ว
-export function newCustomerAnswer(customers, { today, period = 'month', sourceLabel = {} }) {
+// (v1.0.1090) ทดลองขับแล้ว (ช่วง N วันล่าสุด) แต่ยังไม่มีใบจอง → รายชื่อที่ควรโทรตาม
+// เทียบใบจองด้วยเบอร์ (ตัวเลขล้วน) หรือชื่อ · ไม่นับนัดที่ยกเลิก/ไม่มา และผล "ไม่สนใจ" ไว้ท้ายสุด
+const TD_RES = { interested: '🔥 สนใจมาก', maybe: '🤔 อาจจะ', notinterested: '😐 ไม่สนใจ' }
+const phoneK = v => { const d = String(v || '').replace(/\D/g, ''); return d.startsWith('66') && d.length === 11 ? '0' + d.slice(2) : d }
+const nameK = v => String(v || '').replace(/\s+/g, '').toLowerCase()
+export function tdNoBookAnswer(drives, bookings, { today, range = 30 }) {
+  const from = addDays(today, -range)
+  const bkPhone = new Set(), bkName = new Set()
+  alive(bookings).forEach(b => { if (/ถอน|ยกเลิก/.test(b.status || '')) return; const p = phoneK(b.phone); if (p.length >= 9) bkPhone.add(p); const n = nameK(b.custName || b.customerName); if (n) bkName.add(n) })
+  const seen = new Map()
+  alive(drives).forEach(t => {
+    const d = String(t.date || '').slice(0, 10)
+    if (!d || d < from || d > today || ['cancelled', 'no_show', 'noshow'].includes(t.status) || t.result === 'booked') return
+    const p = phoneK(t.phone), n = nameK(t.customerName)
+    if ((p.length >= 9 && bkPhone.has(p)) || (n && bkName.has(n))) return
+    const key = p.length >= 9 ? p : n
+    if (!key || (seen.has(key) && seen.get(key).date >= d)) return
+    seen.set(key, { ...t, date: d })
+  })
+  const rank = t => t.result === 'interested' ? 0 : t.result === 'maybe' ? 1 : t.result === 'notinterested' ? 3 : 2
+  const list = [...seen.values()].sort((a, b) => rank(a) - rank(b) || b.date.localeCompare(a.date))
+  const span = `${range} วันล่าสุด (${dmy(from)}–${dmy(today)})`
+  if (!list.length) return { n: 0, text: `🚗 ลูกค้าที่ทดลองขับ${span} จองแล้วทุกคน หรือยังไม่มีนัดทดลองขับ` }
+  return { n: list.length, text: [`🚗 ทดลองขับแล้วยังไม่จอง — ${list.length} ราย · ${span}`,
+    ...list.slice(0, MAX).map(t => `• ${t.customerName || 'ลูกค้า'}${t.model ? ' · ' + t.model : ''} · ขับ ${dmy(t.date)}${TD_RES[t.result] ? ' · ' + TD_RES[t.result] : ''}${t.staff ? ' · 👤 ' + t.staff : ''}${t.phone ? ' · 📞 ' + t.phone : ''}`),
+    ...more(list.length), '💡 โทรตามคนที่ "สนใจมาก" ก่อน — ยิ่งตามเร็วยิ่งปิดง่าย'].join('\n') }
+}
+
+export function bookDayAnswer(bookings, { today, day = 'today' }) {
+  const from = day === 'yesterday' ? addDays(today, -1) : day === 'week' ? addDays(today, -6) : today
+  const to = day === 'yesterday' ? from : today
+  const word = day === 'yesterday' ? `เมื่อวาน (${dmy(from)})` : day === 'week' ? `7 วันล่าสุด (${dmy(from)}–${dmy(to)})` : `วันนี้ (${dmy(today)})`
+  const rows = alive(bookings).filter(b => { const d = String(b.bookingDate || '').slice(0, 10); return d >= from && d <= to })
+  const live = rows.filter(b => !/ถอน|ยกเลิก/.test(b.status || ''))
+  if (!rows.length) return { n: 0, text: `📝 ยอดจอง${word}: ยังไม่มีใบจองใหม่` }
+  const by = {}
+  live.forEach(b => { const k = b.salesName || 'ไม่ระบุเซลส์'; by[k] = (by[k] || 0) + 1 })
+  return { n: live.length, text: [`📝 ยอดจอง${word} ${live.length} ใบ${rows.length > live.length ? ` · ถอนแล้ว ${rows.length - live.length} ใบ` : ''}`,
+    ...live.slice(0, MAX).map(b => `• ${nm(b)}${b.model ? ' · ' + [b.brand, b.model].filter(Boolean).join(' ') : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''}${day !== 'today' ? ' · ' + dmy(String(b.bookingDate).slice(0, 10)) : ''}`), ...more(live.length),
+    ...(Object.keys(by).length > 1 ? ['', '🏆 ' + Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ')] : [])].join('\n') }
+}
+
+export function newCustomerAnswer(customers, { today, period = 'month', sourceLabel = {}, source = '' }) {
   let from, to = today, label
   if (period === 'week') { from = addDays(today, -6); label = '7 วันล่าสุด' }
   else if (period === 'prevmonth') { const d = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 2, 1)); from = d.toISOString().slice(0, 10); to = addDays(today.slice(0, 7) + '-01', -1); label = 'เดือนก่อน' }
   else { from = today.slice(0, 7) + '-01'; label = 'เดือนนี้' }
-  const list = alive(customers).filter(c => { const d = ymd(c.createdAt); return d && d >= from && d <= to })
+  const all = alive(customers).filter(c => { const d = ymd(c.createdAt); return d && d >= from && d <= to })
+  if (source) {
+    const lab = sourceLabel[source] || source
+    const hit = all.filter(c => String(c.source || '').trim() === source)
+    if (!hit.length) return { n: 0, text: `👥 ลูกค้าใหม่${label}จาก ${lab}: ยังไม่มี (${dmy(from)}–${dmy(to)}) · ลูกค้าใหม่ทุกช่องทาง ${all.length} คน` }
+    return { n: hit.length, text: [`👥 ลูกค้าใหม่${label}จาก ${lab} ${hit.length} คน (${dmy(from)}–${dmy(to)}) · จากทั้งหมด ${all.length} คน`,
+      `🔴 Hot ${hit.filter(c => c.temperature === 'hot').length} · 📝 จองแล้ว ${hit.filter(c => c.bookingId || ['booking', 'booked', 'delivered'].includes(c.stage)).length}`,
+      ...hit.slice(0, MAX).map(c => `• ${nm(c)}${c.interestedModel ? ' · ' + c.interestedModel : ''}${c.assignedTo ? ' · 👤 ' + c.assignedTo : ''}`), ...more(hit.length)].join('\n') }
+  }
+  const list = all
   if (!list.length) return { text: `👥 ลูกค้าใหม่${label}: ยังไม่มี`, n: 0 }
   const src = {}
   list.forEach(c => { const raw = String(c.source || '').trim(); const k = sourceLabel[raw] || raw || 'ไม่ระบุ'; src[k] = (src[k] || 0) + 1 })
@@ -255,6 +315,8 @@ export const OPS_LINKS = {
   service: { path: '/service/jobs', label: '🔧 เปิดหน้างานซ่อม' },
   unassigned: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
   testdrive: { path: '/crm/testdrive', label: '🚗 เปิดหน้าทดลองขับ' },
+  bookday: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
+  tdnobook: { path: '/crm/testdrive', label: '🚗 เปิดหน้าทดลองขับ' },
   showroom: { path: '/crm/showroom', label: '🏬 เปิดหน้านัดโชว์รูม' },
   line: { path: '/crm/my-day', label: '💬 ตอบในหน้างานวันนี้' },
   complaint: { path: '/crm/complaints', label: '⚠️ เปิดหน้าเรื่องร้องเรียน' },
@@ -266,7 +328,7 @@ export const OPS_LINKS = {
 }
 
 export function opsFollowUps(spec) {
-  const all = { testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', insurance: 'รับประกันรถคันไหนใกล้หมด', walkin: 'walk in สัปดาห์นี้กี่คน', warranty: 'ประกันภัยใครใกล้หมด', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
+  const all = { bookday: 'ยอดเดือนนี้เป็นไง', tdnobook: 'ลูกค้า hot มีใครบ้าง', testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', insurance: 'รับประกันรถคันไหนใกล้หมด', walkin: 'walk in สัปดาห์นี้กี่คน', warranty: 'ประกันภัยใครใกล้หมด', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
   const out = [all[spec.kind]]
   if (spec.kind === 'testdrive' && spec.day === 'tomorrow') out[0] = 'พรุ่งนี้มีใครนัดเข้าโชว์รูม'
   if (spec.kind === 'delivery' && spec.day === 'week') out[0] = 'มีนัดส่งมอบพรุ่งนี้ไหม'
