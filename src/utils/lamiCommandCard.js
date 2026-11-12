@@ -302,6 +302,24 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'lost') {
     const customers = await (customersPromise || visibleCustomersForCommands())
     res = oq.lostAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, prev: spec.prev })
+  } else if (spec.kind === 'claim') {
+    res = oq.claimAnswer(await listDocs('insurance_claims', [], 'reported', 'desc', 300).catch(() => []), { today })
+  } else if (spec.kind === 'parts') {
+    res = oq.partsLowAnswer(await listDocs('parts', f, 'name', 'asc', 1000).catch(() => []))
+  } else if (spec.kind === 'servicerev') {
+    res = oq.serviceRevAnswer(await listDocs('job_cards', f, 'createdAt', 'desc', 1000).catch(() => []), { today, prev: spec.prev })
+  } else if (spec.kind === 'yesterday') {
+    const [customers, bks, walkins, drives] = await Promise.all([customersPromise || visibleCustomersForCommands(), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('walk_ins', [], 'visitTime', 'desc', 300).catch(() => []), listDocs('test_drives', f, 'date', 'desc', 300).catch(() => [])])
+    res = oq.yesterdayAnswer({ customers: (customers || []).filter(c => mine(c.assignedTo, c)), bookings: bks.filter(b => mine(b.salesName, b)), walkins: walkins.filter(w => mine(w.staff, w)), drives: drives.filter(t => mine(t.staff, t)) }, { today })
+  } else if (spec.kind === 'referask') {
+    const [bks, comps] = await Promise.all([listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('complaints', f, 'createdAt', 'desc', 300).catch(() => [])])
+    const complainedNames = new Set(comps.map(c => String(c.customerName || c.customer || c.name || '').replace(/\s+/g, '')).filter(Boolean))
+    res = oq.referAskAnswer(bks.filter(b => mine(b.salesName, b)), { today, complainedNames })
+  } else if (spec.kind === 'eventbest') {
+    const [{ eventMetrics }, events, customers, bks, drives] = await Promise.all([import('./marketingEvents.js'), listDocs('marketing_events', [], 'startDate', 'desc', 300).catch(() => []), listDocs('customers', f, 'createdAt', 'desc', 3000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('test_drives', f, 'date', 'desc', 1000).catch(() => [])])
+    res = oq.eventBestAnswer(events, e => eventMetrics(e, { customers, bookings: bks, testDrives: drives }), { today })
+  } else if (spec.kind === 'campaignbest') {
+    res = oq.campaignBestAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today })
   } else if (spec.kind === 'mycust' || spec.kind === 'nophone' || spec.kind === 'topscore') {
     const customers = ((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c))
     if (spec.kind === 'topscore') { const { heuristicScore } = await import('./leadScore.js'); res = oq.topScoreAnswer(customers, { scoreOf: c => heuristicScore(c) }) }
@@ -347,7 +365,7 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'unassigned') {
     // ลูกค้าในขอบเขตที่มองเห็นอยู่แล้ว (ไม่กรองตามผู้ดูแล เพราะคำถามคือคนที่ยังไม่มีผู้ดูแล)
     res = oq.unassignedAnswer(await (customersPromise || visibleCustomersForCommands()) || [])
-  } else if (spec.kind === 'anniv') res = oq.annivAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, range: spec.range, asked: q })
+  } else if (spec.kind === 'anniv') res = oq.annivAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, range: spec.range, asked: q, nextMonth: !!spec.nextMonth })
   if (!res) return null
   return { text: res.text, next: oq.opsFollowUps(spec), go: oq.OPS_LINKS[spec.kind] }
 }

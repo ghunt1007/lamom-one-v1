@@ -8,7 +8,7 @@ export function mentionedCustomers(question, customers = [], max = 2) {
   const hits = []
   for (const c of customers) {
     if (!c || c.deleted) continue
-    const first = norm(c.firstName), nick = norm(c.nickname)
+    const first = /^(?:ลูกค้า|คุณ|นาย|นาง|นางสาว|พี่|น้อง|เซลส์|ทดสอบ)$/.test(norm(c.firstName)) ? '' : norm(c.firstName), nick = norm(c.nickname)
     const full = norm([c.firstName, c.lastName].filter(Boolean).join(''))
     const score = full.length >= 4 && q.includes(full) ? 3 : first.length >= 2 && q.includes(first) ? 2 : nick.length >= 2 && q.includes(nick) ? 1 : 0
     if (score) hits.push({ c, score })

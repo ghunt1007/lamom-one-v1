@@ -497,8 +497,10 @@ export default async function AiAssistantChatPage(container) {
         // (v1.0.923) AI ตอบไม่ได้ (เน็ตหลุด/โควต้าเต็ม) แต่คำถามเอ่ยถึงลูกค้า/ใบจอง → ยังเห็นข้อมูลจริงจากระบบทันที ไม่ใช่แค่ข้อความ error
         let facts = ''
         try { facts = Object.values(recordFacts(text, { customers: chatCustomers, bookings: chatBookings, followups: chatFollowups }, todayBangkok()))[0] || '' } catch {}
-        const fallback = '⚠️ ' + aiErrorText(err) + (facts ? '\n\nข้อมูลจากระบบตอนนี้:\n' + facts : '')
-        try { await createDoc('chat_ai_assistant', { role:'ai', text: fallback, time:now(), uid }) } catch (e) {}
+        const fallback = '⚠️ ' + aiErrorText(err) + (facts ? '\n\nข้อมูลจากระบบตอนนี้:\n' + facts : '\n\n💡 ระหว่างนี้ถามเรื่องงานได้ทันทีโดยไม่ต้องใช้ AI เช่น ยอด ลูกค้า ใบจอง นัด สต็อก (แตะปุ่มด้านล่าง หรือพิมพ์ "LAMI ทำอะไรได้บ้าง")')
+        // (v1.0.1093) AI ล่มและไม่มีข้อมูลที่ตรงคำถาม → เสนอคำถามที่ LAMI ตอบเองได้ แทนการจบแค่ข้อความ error
+        const next = facts ? [] : ['วันนี้มีอะไรบ้าง', 'วันนี้ควรโทรหาใคร', 'ยอดเดือนนี้เป็นไง']
+        try { await createDoc('chat_ai_assistant', { role:'ai', text: fallback, ...(next.length ? { next } : {}), time:now(), uid }) } catch (e) {}
       } finally {
         waiting = false
         await loadData()

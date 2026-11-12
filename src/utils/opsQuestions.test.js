@@ -181,7 +181,7 @@ describe('insurance + warranty (v1.0.1087)', () => {
   it('parses', () => {
     expect(parseOpsSpec('ลูกค้าที่ประกันจะหมดเดือนนี้')).toEqual({ kind: 'insurance', range: 30 })
     expect(parseOpsSpec('รับประกันรถคันไหนใกล้หมด').kind).toBe('warranty')
-    expect(parseOpsSpec('เคลมประกันค้างกี่เรื่อง')).toBeNull()
+    expect(parseOpsSpec('เคลมประกันค้างกี่เรื่อง')).toEqual({ kind: 'claim' })
   })
   it('insuranceAnswer: due soon + recently expired, skips renewed', () => {
     const r = insuranceAnswer([{ customerName: 'ก', expiryDate: '2026-11-20' }, { customerName: 'ข', expiryDate: '2026-11-02' }, { customerName: 'ค', expiryDate: '2026-11-25', status: 'renewed' }, { customerName: 'ง', expiryDate: '2027-05-01' }], { today: T })
