@@ -292,6 +292,13 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'delivery' || spec.kind === 'income') {
     const bks = (await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b))
     res = spec.kind === 'delivery' ? oq.deliveryAnswer(bks, { today, day: spec.day }) : oq.incomeMissingAnswer(bks, { today })
+  } else if (spec.kind === 'walkin') {
+    res = oq.walkinAnswer((await listDocs('walk_ins', [], 'visitTime', 'desc', 500).catch(() => [])).filter(w => mine(w.staff, w)), { today, day: spec.day })
+  } else if (spec.kind === 'insurance') {
+    res = oq.insuranceAnswer(await listDocs('insurance_renewals', [], 'expiryDate', 'asc', 500).catch(() => []), { today, range: spec.range })
+  } else if (spec.kind === 'warranty') {
+    const { loadWarranties } = await import('../pages/service/WarrantyManagement.js')
+    res = oq.warrantyAnswer(await loadWarranties().catch(() => []), { today, range: spec.range })
   } else if (spec.kind === 'reminder') {
     res = oq.reminderAnswer(await listDocs('service_reminders', [], 'dueDate', 'asc', 500).catch(() => []), { today, range: spec.range })
   } else if (spec.kind === 'overdue') {

@@ -78,3 +78,11 @@ describe('no VIN (v1.0.1086)', () => {
     expect(r.list.map(x => x.b.id)).toEqual(['b1'])
   })
 })
+
+describe('no deposit (v1.0.1087)', () => {
+  it('lists open bookings with zero deposit', () => {
+    const spec = parseBookingListSpec('ลูกค้าคนไหนจองแล้วแต่ยังไม่ได้วางมัดจำ')
+    const r = bookingTargets({ customers: [{ id: 'c1' }], bookings: [{ id: 'b1', customerId: 'c1', status: 'รอรถ' }, { id: 'b2', customerId: 'c1', status: 'รอรถ', bookingDeposit: 5000 }], today: '2026-11-12', spec })
+    expect(r.list.map(x => x.b.id)).toEqual(['b1'])
+  })
+})

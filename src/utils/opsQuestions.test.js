@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseOpsSpec, testDriveAnswer, showroomAnswer, lineWaitingAnswer, complaintAnswer, newCustomerAnswer, annivAnswer, opsFollowUps, deliveryAnswer, incomeMissingAnswer, lostAnswer, serviceAnswer, unassignedAnswer, reminderAnswer, overdueAnswer } from './opsQuestions.js'
+import { parseOpsSpec, testDriveAnswer, showroomAnswer, lineWaitingAnswer, complaintAnswer, newCustomerAnswer, annivAnswer, opsFollowUps, deliveryAnswer, incomeMissingAnswer, lostAnswer, serviceAnswer, unassignedAnswer, reminderAnswer, overdueAnswer, insuranceAnswer, warrantyAnswer, walkinAnswer } from './opsQuestions.js'
 
 const T = '2026-11-12'
 
@@ -174,5 +174,34 @@ describe('reminder + overdue (v1.0.1086)', () => {
     expect(r.n).toBe(1)
     expect(r.text).toContain('เลย 2 วัน')
     expect(overdueAnswer([], { today: T }).text).toContain('ไม่มีงานที่เลยกำหนด')
+  })
+})
+
+describe('insurance + warranty (v1.0.1087)', () => {
+  it('parses', () => {
+    expect(parseOpsSpec('ลูกค้าที่ประกันจะหมดเดือนนี้')).toEqual({ kind: 'insurance', range: 30 })
+    expect(parseOpsSpec('รับประกันรถคันไหนใกล้หมด').kind).toBe('warranty')
+    expect(parseOpsSpec('เคลมประกันค้างกี่เรื่อง')).toBeNull()
+  })
+  it('insuranceAnswer: due soon + recently expired, skips renewed', () => {
+    const r = insuranceAnswer([{ customerName: 'ก', expiryDate: '2026-11-20' }, { customerName: 'ข', expiryDate: '2026-11-02' }, { customerName: 'ค', expiryDate: '2026-11-25', status: 'renewed' }, { customerName: 'ง', expiryDate: '2027-05-01' }], { today: T })
+    expect(r.n).toBe(2)
+    expect(r.text).toContain('หมดไป 10 วัน')
+    expect(r.text).toContain('อีก 8 วัน')
+  })
+  it('warrantyAnswer only future within range', () => {
+    const r = warrantyAnswer([{ customerName: 'A', endDate: '2026-12-01' }, { customerName: 'B', endDate: '2026-10-01' }], { today: T })
+    expect(r.n).toBe(1)
+  })
+})
+
+describe('walk-in (v1.0.1087)', () => {
+  it('counts today and groups outcomes', () => {
+    expect(parseOpsSpec('วันนี้มีลูกค้า walk in กี่คน')).toEqual({ kind: 'walkin', day: 'today' })
+    const r = walkinAnswer([{ name: 'A', visitTime: '2026-11-12T03:00:00Z', outcome: 'book', interest: 'hot' }, { name: 'B', visitTime: '2026-11-12T05:00:00Z', outcome: 'leave' }, { name: 'C', visitTime: '2026-11-10T05:00:00Z' }], { today: T })
+    expect(r.n).toBe(2)
+    expect(r.text).toContain('Hot 1')
+    expect(r.text).toContain('📝 จอง 1')
+    expect(walkinAnswer([], { today: T, day: 'week' }).text).toContain('7 วันล่าสุด')
   })
 })

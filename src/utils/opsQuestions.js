@@ -18,6 +18,9 @@ export function parseOpsSpec(q) {
   if (has(s, /รายได้|ค่าคอม/) && has(s, /ยังไม่กรอก|ไม่ได้กรอก|ค้างกรอก|ยังไม่ใส่|ขาด/)) return { kind: 'income' }
   if (has(s, /ส่งมอบ/) && !has(s, /ยอด|เป้า|เดือน/) && has(s, /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์|นัด|ใคร|กี่คัน|ไหม/)) return { kind: 'delivery', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
   if (has(s, /ช่องทาง|ที่มา|มาจาก/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'newcust', period: /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
+  // (v1.0.1087) "ประกันภัยใครใกล้หมด / ลูกค้าที่ประกันจะหมดเดือนนี้" (ประกันรถยนต์/พ.ร.บ.) · "รับประกันรถคันไหนใกล้หมด" (warranty)
+  if (has(s, /รับประกัน|วอร์แรนตี|warranty/i) && has(s, /หมด|ครบ|ใกล้/)) return { kind: 'warranty', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : /3 เดือน|90 วัน/.test(s) ? 90 : 30 }
+  if (has(s, /ประกัน|พ\.?ร\.?บ|กรมธรรม์/) && has(s, /หมด|ต่อ|ครบ|ใกล้/) && !has(s, /เคลม|ซ่อม/)) return { kind: 'insurance', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : /3 เดือน|90 วัน/.test(s) ? 90 : 30 }
   // (v1.0.1086) "เตือนเข้าศูนย์เดือนนี้มีใครบ้าง" / "ใครครบระยะเช็ค" → รายการเตือนเข้าศูนย์ (ไม่ใช่นัดวันนี้)
   if (has(s, /เตือนเข้าศูนย์|ครบระยะ|ถึงระยะ|ครบกำหนดเข้าศูนย์|ถึงกำหนดเข้าศูนย์|ต้องเข้าศูนย์/)) return { kind: 'reminder', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : 30 }
   // (v1.0.1086) "งานที่เลยกำหนดมีอะไรบ้าง" → งานในปฏิทินที่เลยวันแล้วยังไม่ได้ทำ (เงื่อนไขเดียวกับปฏิทินงาน)
@@ -26,6 +29,8 @@ export function parseOpsSpec(q) {
   if (has(s, /เข้าศูนย์|นัดซ่อม|นัดเซอร์วิส|นัดเช็คระยะ|เช็คระยะ|งานซ่อม|ใบสั่งซ่อม|job\s*card|รถซ่อม|ซ่อมค้าง|รออะไหล่|ซ่อมเสร็จ/i) && !has(s, /ราคา|ค่าซ่อม|กี่บาท|เท่าไหร่/)) return { kind: 'service', day }
   // (v1.0.1082) "ลูกค้าที่ยังไม่มีผู้ดูแลมีใครบ้าง"
   if (has(s, /(?:ยังไม่มี|ไม่มี|ไร้)\s*(?:ผู้ดูแล|คนดูแล|เซลส์ดูแล|เซลส์)|ยังไม่(?:ได้)?(?:มอบ|แจก|แบ่ง)|ยังไม่มีเจ้าของ/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'unassigned' }
+  // (v1.0.1087) "วันนี้มีลูกค้า walk in กี่คน" / "เมื่อวานมีคนเดินเข้าโชว์รูมกี่คน"
+  if (has(s, /walk\s*-?\s*in|วอล์?คอิน|เดินเข้า/i)) return { kind: 'walkin', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : /เดือน/.test(s) ? 'month' : 'today' }
   if (has(s, /ทดลองขับ|ลองขับ|test\s*drive/i)) return { kind: 'testdrive', day }
   if (has(s, /โชว์รูม|showroom/i) && has(s, /นัด|เข้า|มา/)) return { kind: 'showroom', day }
   if (has(s, /line|ไลน์|แชท|แชต|ทัก/i) && has(s, /รอ|ยังไม่ตอบ|ค้าง|ตอบ/)) return { kind: 'line' }
@@ -205,7 +210,46 @@ export function overdueAnswer(items, { today, labels = {} }) {
     ...list.slice(0, MAX).map(it => `• ${labels[it.kind]?.icon || ''} ${it.title || ''} — เลย ${late(it)} วัน${it.owner ? ' · 👤 ' + it.owner : ''}`), ...more(list.length), '', 'กดในปฏิทินงานเพื่อ ✓ ทำแล้ว หรือนัดใหม่'].join('\n') }
 }
 
+const daysTo = (today, d) => Math.round((Date.parse(d) - Date.parse(today)) / 86400000)
+// ประกันภัยรถที่ยังไม่ต่อ: หมดภายใน range วัน + หมดไปแล้วไม่เกิน 30 วัน (ยังตามต่อได้)
+export function insuranceAnswer(rows, { today, range = 30 }) {
+  const list = alive(rows).filter(p => !['renewed', 'cancelled'].includes(p.status) && ymd(p.expiryDate))
+    .map(p => ({ p, d: daysTo(today, ymd(p.expiryDate)) })).filter(x => x.d <= range && x.d >= -30).sort((a, b) => a.d - b.d)
+  if (!list.length) return { text: `🛡 ไม่มีประกันภัยที่จะหมดใน ${range} วันนี้ 👍`, n: 0 }
+  const gone = list.filter(x => x.d < 0).length
+  return { n: list.length, text: [`🛡 ประกันภัยใกล้หมด/หมดแล้วยังไม่ต่อ ${list.length} ราย${gone ? ` (หมดไปแล้ว ${gone})` : ''}`,
+    ...list.slice(0, MAX).map(({ p, d }) => `• ${nm(p)}${p.vehiclePlate ? ' · ' + p.vehiclePlate : ''}${p.insurer ? ' · ' + p.insurer : ''} — ${d < 0 ? `หมดไป ${-d} วัน ❗` : d === 0 ? 'หมดวันนี้' : `อีก ${d} วัน`} (${dmy(ymd(p.expiryDate))})`), ...more(list.length), '', '💡 โทรเสนอต่อก่อนหมด 2–4 สัปดาห์ ปิดง่ายที่สุด'].join('\n') }
+}
+
+// การรับประกันรถ (warranty) ที่จะหมดภายใน range วัน — โอกาสขายขยายรับประกัน/แพ็กเกจบริการ
+export function warrantyAnswer(rows, { today, range = 30 }) {
+  const list = alive(rows).filter(w => ymd(w.endDate) && w.status !== 'void')
+    .map(w => ({ w, d: daysTo(today, ymd(w.endDate)) })).filter(x => x.d >= 0 && x.d <= range).sort((a, b) => a.d - b.d)
+  if (!list.length) return { text: `🛡 ไม่มีรถที่รับประกันจะหมดใน ${range} วันนี้`, n: 0 }
+  return { n: list.length, text: [`🛡 รับประกันรถจะหมดใน ${range} วัน — ${list.length} คัน`,
+    ...list.slice(0, MAX).map(({ w, d }) => `• ${w.customerName || nm(w)}${w.vehiclePlate ? ' · ' + w.vehiclePlate : ''}${w.model ? ' · ' + w.model : ''} — อีก ${d} วัน (${dmy(ymd(w.endDate))})`), ...more(list.length), '', '💡 เสนอขยายการรับประกันหรือแพ็กเกจเช็คระยะ'].join('\n') }
+}
+
+const WALKIN_OUT = { test_drive: '🚗 ทดลองขับ', quotation: '📄 รับใบเสนอราคา', book: '📝 จอง', follow_up: '📞 นัดติดตาม', leave: '🚶 กลับไปก่อน' }
+// ลูกค้าเดินเข้าโชว์รูม (walk_ins) ตามช่วงวัน · แยกผลการเข้าชม
+export function walkinAnswer(rows, { today, day = 'today' }) {
+  const from = day === 'yesterday' ? addDays(today, -1) : day === 'week' ? addDays(today, -6) : day === 'month' ? today.slice(0, 7) + '-01' : today
+  const to = day === 'yesterday' ? from : today
+  const label = { today: 'วันนี้', yesterday: 'เมื่อวาน', week: '7 วันล่าสุด', month: 'เดือนนี้' }[day]
+  const list = alive(rows).filter(w => { const d = ymd(w.visitTime); return d && d >= from && d <= to })
+  if (!list.length) return { text: `🚶 ${label}ยังไม่มีบันทึกลูกค้า walk-in`, n: 0 }
+  const by = {}
+  list.forEach(w => { const k = WALKIN_OUT[w.outcome] || 'ไม่ระบุผล'; by[k] = (by[k] || 0) + 1 })
+  const hot = list.filter(w => w.interest === 'hot').length
+  const lines = [`🚶 ลูกค้า walk-in ${label} ${list.length} คน${hot ? ` · 🔴 Hot ${hot}` : ''}`, Object.entries(by).map(([k, v]) => `${k} ${v}`).join(' · ')]
+  if (day === 'today' || day === 'yesterday') lines.push('', ...list.slice(0, MAX).map(w => `• ${nm(w)}${w.interestedIn ? ' · ' + w.interestedIn : ''}${WALKIN_OUT[w.outcome] ? ' · ' + WALKIN_OUT[w.outcome] : ''}${w.staff ? ' · 👤 ' + w.staff : ''}`), ...more(list.length))
+  return { n: list.length, text: lines.join('\n') }
+}
+
 export const OPS_LINKS = {
+  walkin: { path: '/crm/walkin', label: '🚶 เปิดหน้า walk-in' },
+  insurance: { path: '/insurance/renewal', label: '🛡 เปิดหน้าต่อประกัน' },
+  warranty: { path: '/service/warranty-expiry', label: '🛡 เปิดหน้ารับประกันใกล้หมด' },
   reminder: { path: '/service/reminders', label: '🔔 เปิดหน้าเตือนเข้าศูนย์' },
   overdue: { path: '/calendar', label: '🗓️ เปิดปฏิทินงาน' },
   service: { path: '/service/jobs', label: '🔧 เปิดหน้างานซ่อม' },
@@ -222,7 +266,7 @@ export const OPS_LINKS = {
 }
 
 export function opsFollowUps(spec) {
-  const all = { testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
+  const all = { testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', insurance: 'รับประกันรถคันไหนใกล้หมด', walkin: 'walk in สัปดาห์นี้กี่คน', warranty: 'ประกันภัยใครใกล้หมด', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
   const out = [all[spec.kind]]
   if (spec.kind === 'testdrive' && spec.day === 'tomorrow') out[0] = 'พรุ่งนี้มีใครนัดเข้าโชว์รูม'
   if (spec.kind === 'delivery' && spec.day === 'week') out[0] = 'มีนัดส่งมอบพรุ่งนี้ไหม'

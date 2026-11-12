@@ -19,7 +19,7 @@ export function parseListSpec(q) {
   if (!s || s.length > 120 || !ASK.test(s)) return null
   if (/(?:ควร|ต้อง)\s*(?:โทร|ตาม|ติดต่อ)|ทุกคน|ทั้งหมด|ยอด|เป้า|เซลส์|พนักงาน|ทีม|ที่สุด|ยังไง|อย่างไร|ทำไม|เพราะ/.test(s)) return null
   const temp = /hot|ร้อน|🔥/i.test(s) ? 'hot' : /warm|อุ่น/i.test(s) ? 'warm' : /\bcold\b|เย็น/i.test(s) ? 'cold' : null
-  const qm = s.match(/(?:เงียบ|ไม่ได้(?:ติดต่อ|คุย|โทร)|หาย)\s*(?:ไป)?\s*(?:เกิน|มา|นาน)?\s*(\d{1,3})?\s*(?:วัน)?/)
+  const qm = s.match(/(?:เงียบ|ไม่ได้(?:ติดต่อ|คุย|โทร|ติดตาม|ตาม)|หาย)\s*(?:ไป)?\s*(?:เกิน|มา|นาน)?\s*(\d{1,3})?\s*(?:วัน)?/)
   const quietDays = qm ? (+qm[1] || 7) : null
   const newToday = /(?:ลีด|lead|ลูกค้า)\s*ใหม่/i.test(s)
   const noFu = /(?:ยัง)?ไม่(?:มี|ได้)\s*นัด/.test(s)
