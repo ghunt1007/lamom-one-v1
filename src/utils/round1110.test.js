@@ -469,3 +469,16 @@ describe('v1.0.1120 list source, notd model, newcust yesterday', async () => {
     expect(lq.listLabel(spec)).toContain('จาก Facebook')
   })
 })
+
+describe('v1.0.1120 delivered yesterday / last week', async () => {
+  const oq = await import('./opsQuestions.js')
+  it('parses and ranges', () => {
+    expect(oq.parseOpsSpec('เมื่อวานส่งมอบกี่คัน')).toEqual({ kind: 'delivered', period: 'yesterday' })
+    expect(oq.parseOpsSpec('สัปดาห์ที่แล้วขายได้กี่คัน')).toEqual({ kind: 'delivered', period: 'prevweek' })
+    const bks = [{ status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-11-11' }, { status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-11-03' }, { status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-11-09' }]
+    expect(oq.deliveredAnswer(bks, { today: '2026-11-12', period: 'yesterday' }).n).toBe(1)
+    const w = oq.deliveredAnswer(bks, { today: '2026-11-12', period: 'prevweek' }) // พฤ. 12 → จ. 2 – อา. 8
+    expect(w.n).toBe(1)
+    expect(w.text).toContain('02/11/')
+  })
+})

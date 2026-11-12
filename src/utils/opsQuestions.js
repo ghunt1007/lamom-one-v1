@@ -25,6 +25,9 @@ export function parseOpsSpec(q) {
   const day = /พรุ่งนี้/.test(s) ? 'tomorrow' : 'today'
   // (v1.0.1103) "ใครยังไม่ได้ป้ายขาว" / "ลูกค้าคนไหนยังไม่ได้จดทะเบียน" / "ใครยังใช้ป้ายแดง"
   if (has(s, /ป้ายขาว|ป้ายแดง|ป้ายทะเบียน|จดทะเบียน|ทะเบียนรถ|เล่มทะเบียน|ได้ทะเบียน/) && has(s, /ยังไม่|ยังใช้|ค้าง|รอ|ใคร|คันไหน|กี่คัน|กี่คน|คนไหน|คืน|(?:หรือ|รึ)ยัง/) && !has(s, /ราคา|ค่าจด|กี่บาท|เท่าไหร่/)) return { kind: 'plate' }
+  // (v1.0.1120) "เมื่อวานส่งมอบกี่คัน" / "สัปดาห์ที่แล้วขายได้กี่คัน" → รายชื่อที่รับรถในช่วงนั้น (เดิมตอบนัดส่งมอบวันนี้)
+  if (has(s, /ส่งมอบ|ขาย(?:ได้|ไป)|ออกรถ|รับรถ/) && has(s, /เมื่อวาน|(?:สัปดาห์|อาทิตย์)\s*(?:ที่แล้ว|ก่อน)/) && !has(s, /นัด|ค่าคอม|รายได้|กำไร/))
+    return { kind: 'delivered', period: /เมื่อวาน/.test(s) ? 'yesterday' : 'prevweek' }
   // (v1.0.1092) "ลูกค้าที่ส่งมอบเดือนที่แล้ว" / "ลูกค้าที่ซื้อรถไปแล้วปีนี้" → รายชื่อลูกค้าที่รับรถแล้ว
   if (has(s, /ส่งมอบแล้ว|ซื้อ(?:รถ)?(?:ไป)?แล้ว|ที่ส่งมอบ|รับรถ(?:ไป)?แล้ว|ออกรถ(?:ไป)?แล้ว/) && has(s, /ลูกค้า|ใคร|รายชื่อ|กี่คน/) && !has(s, /นัด|พรุ่งนี้|ยอด|เป้า/))
     return { kind: 'delivered', period: /เดือน(?:ก่อน|ที่แล้ว)/.test(s) ? 'prevmonth' : /ปี/.test(s) ? 'year' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'month' }
@@ -784,6 +787,8 @@ export function deliveredAnswer(bookings, { today, period = 'month' }) {
   if (period === 'prevmonth') { from = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 2, 1)).toISOString().slice(0, 10); to = addDays(today.slice(0, 7) + '-01', -1); label = 'เดือนก่อน' }
   else if (period === 'year') { from = today.slice(0, 4) + '-01-01'; label = 'ปีนี้' }
   else if (period === 'week') { from = addDays(today, -6); label = 'ในรอบ 7 วัน' }
+  else if (period === 'yesterday') { from = to = addDays(today, -1); label = 'เมื่อวาน' }
+  else if (period === 'prevweek') { const dw = (new Date(today + 'T00:00:00Z').getUTCDay() + 6) % 7; from = addDays(today, -dw - 7); to = addDays(from, 6); label = 'สัปดาห์ที่แล้ว' }
   const dOf = b => String(b.actualDeliveryDate || b.deliveryDate || '').slice(0, 10)
   const list = alive(bookings).filter(b => (b.status === 'ส่งมอบแล้ว' || b.status === 'delivered') && dOf(b) >= from && dOf(b) <= to).sort((a, b) => dOf(b).localeCompare(dOf(a)))
   const span = `${dmy(from)}–${dmy(to)}`
