@@ -88,3 +88,11 @@ describe('v1.0.1108 LAMI wording', () => {
     expect(parseAheadSpec('ฉันมีนัดอะไรพรุ่งนี้')).toEqual({ mode: 'tomorrow' })
   })
 })
+import { isTeamQuestion } from './teamBrief.js'
+describe('v1.0.1109 manager wording', () => {
+  it('team questions', () => {
+    expect(parseOpsSpec('ทีมฉันใครยังไม่มียอด').kind).toBe('nobookseller')
+    expect(parseOpsSpec('ลูกค้า hot ของทีมมีกี่คน').kind).toBe('hotbyseller')
+    expect(isTeamQuestion('ใครมีนัดติดตามค้างเยอะสุด')).toBe(true)
+  })
+})
