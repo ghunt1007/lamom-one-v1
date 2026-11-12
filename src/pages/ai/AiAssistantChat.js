@@ -294,8 +294,8 @@ export default async function AiAssistantChatPage(container) {
       ['🔥', 'Hot Lead', welcomeStats.hot ? `ตอนนี้มี ${welcomeStats.hot} ราย ควรตามใครก่อน` : 'ลูกค้าที่สนใจมากตอนนี้', 'มี Hot Lead กี่ราย และควรตามใครก่อน?'],
     ]
     // margin:0 auto (ไม่ใช่ margin:auto) — ในกล่อง flex ที่เลื่อนได้ margin บนแบบ auto ทำให้หัวข้อต้อนรับโดนตัดหายเมื่อจอเตี้ย
-    return `<div style="margin:0 auto;max-width:640px;width:100%;text-align:center;padding:16px 0">
-      <div style="width:64px;height:64px;margin:0 auto 10px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--success));display:flex;align-items:center;justify-content:center;font-size:2rem;box-shadow:0 8px 30px color-mix(in srgb, var(--primary) 40%, transparent)">🤖</div>
+    return `<div class="chat-welcome" style="margin:0 auto;max-width:640px;width:100%;text-align:center;padding:16px 0">
+      <div class="chat-welcome-ava" style="width:64px;height:64px;margin:0 auto 10px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--success));display:flex;align-items:center;justify-content:center;font-size:2rem;box-shadow:0 8px 30px color-mix(in srgb, var(--primary) 40%, transparent)">🤖</div>
       <div style="font-size:1.25rem;font-weight:800">สวัสดีค่ะ${name ? ` คุณ${esc(name)}` : ''} วันนี้ให้ LAMI ช่วยอะไรดีคะ</div>
       <div style="font-size:0.8rem;color:var(--text-muted);margin:4px 0 16px">LAMI ตอบจากข้อมูลจริงในระบบ ทั้งยอดขาย ลูกค้า งานค้างของคุณ และอื่นๆ</div>
       <div class="chat-quick" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:0 0 14px">

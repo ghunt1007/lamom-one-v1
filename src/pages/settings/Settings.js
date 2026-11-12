@@ -41,7 +41,7 @@ export default function SettingsPage(container) {
       <!-- Appearance -->
       <div class="card mb-4" style="padding:20px">
         <div style="font-weight:600;margin-bottom:16px">🎨 หน้าตา</div>
-        <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px">ธีมสี 37 แบบ (ดูภาพตัวอย่างก่อนเลือก) · โหมด มืด/สว่าง/ตามเครื่อง · ขนาดตัวอักษร · มุมการ์ด · ระยะห่าง</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px">ชุดหน้าตาสำเร็จรูป 1 คลิก · สีธีม + เลือกสีเอง · โหมด มืด/สว่าง/ตามเครื่อง · สไตล์การ์ด · ตัวอักษร · ระยะห่าง</div>
         <button class="btn btn-primary btn-sm" id="open-theme-picker-btn">🎨 ปรับหน้าตาโปรแกรม</button>
       </div>
 
