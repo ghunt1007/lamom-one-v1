@@ -336,6 +336,8 @@ export async function loadOpsAnswer(q, customersPromise) {
     const whole = !!(vis.unrestricted || vis.companyOnly)
     if (!whole && !vis.hasSubordinates) res = { n: 0, locked: true, text: '👥 ข้อมูลการลาของพนักงานดูได้เฉพาะหัวหน้าทีมและผู้จัดการ — เปิดหน้าการลาเพื่อดูของตัวเอง' }
     else { const rows = await listDocs('leave_requests', f, 'from', 'desc', 500).catch(() => []); res = oq.leaveAnswer(whole ? rows : rows.filter(r => mine(r.staff, r)), { today, day: spec.day }) }
+  } else if (spec.kind === 'arrived') {
+    res = oq.arrivedAnswer(await listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), { today, days: spec.days })
   } else if (spec.kind === 'incoming') {
     const [vs, ords] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listDocs('vehicle_orders', f, 'createdAt', 'desc', 500).catch(() => [])])
     res = oq.incomingAnswer(vs, ords, { today })
