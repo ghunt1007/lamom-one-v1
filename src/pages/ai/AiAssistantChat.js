@@ -24,7 +24,7 @@ import { getVehicles } from '../../data/vehicleDatabase.js'
 import { formatAiText } from '../../utils/aiFormat.js'
 import { pageLinksFor } from '../../utils/aiPageLinks.js'
 import { customerActionsFor } from '../../utils/aiActions.js'
-import { parseLamiCommand, isCommandHelp, commandHelpText, exampleName } from '../../utils/lamiCommands.js'
+import { parseLamiCommand, isCommandHelp, commandHelpText, commandHelpBrief, isFullHelp, exampleName } from '../../utils/lamiCommands.js'
 import { commandIntro, mountCommandCard } from '../../utils/lamiCommandCard.js'
 import { isCallListQuestion } from '../../utils/callList.js'
 import { navigate } from '../../core/router.js'
@@ -455,7 +455,9 @@ export default async function AiAssistantChatPage(container) {
         return
       }
       if (isCommandHelp(text)) {
-        try { await createDoc('chat_ai_assistant', { role:'ai', text: commandHelpText(exampleName(chatCustomers)), time:now(), uid }) } catch (e) {}
+        const n = exampleName(chatCustomers)
+        const h = isFullHelp(text) ? { text: commandHelpText(n), next: ['วันนี้มีอะไรบ้าง', 'วันนี้ควรโทรหาใคร'] } : commandHelpBrief(n)
+        try { await createDoc('chat_ai_assistant', { role:'ai', text: h.text, next: h.next, time:now(), uid }) } catch (e) {}
         waiting = false
         await loadData()
         return
@@ -497,7 +499,7 @@ export default async function AiAssistantChatPage(container) {
         // (v1.0.923) AI ตอบไม่ได้ (เน็ตหลุด/โควต้าเต็ม) แต่คำถามเอ่ยถึงลูกค้า/ใบจอง → ยังเห็นข้อมูลจริงจากระบบทันที ไม่ใช่แค่ข้อความ error
         let facts = ''
         try { facts = Object.values(recordFacts(text, { customers: chatCustomers, bookings: chatBookings, followups: chatFollowups }, todayBangkok()))[0] || '' } catch {}
-        const fallback = '⚠️ ' + aiErrorText(err) + (facts ? '\n\nข้อมูลจากระบบตอนนี้:\n' + facts : '\n\n💡 ระหว่างนี้ถามเรื่องงานได้ทันทีโดยไม่ต้องใช้ AI เช่น ยอด ลูกค้า ใบจอง นัด สต็อก (แตะปุ่มด้านล่าง หรือพิมพ์ "LAMI ทำอะไรได้บ้าง")')
+        const fallback = '⚠️ ' + aiErrorText(err) + (facts ? '\n\nข้อมูลจากระบบตอนนี้:\n' + facts : '\n\n💡 ระหว่างนี้ถามเรื่องงานได้ทันทีโดยไม่ต้องใช้ AI เช่น ยอด ลูกค้า ใบจอง นัด สต็อก (แตะปุ่มด้านล่าง หรือพิมพ์ "LAMI ทำอะไรได้บ้าง" ซึ่งตอบได้ทันที)')
         // (v1.0.1093) AI ล่มและไม่มีข้อมูลที่ตรงคำถาม → เสนอคำถามที่ LAMI ตอบเองได้ แทนการจบแค่ข้อความ error
         const next = facts ? [] : ['วันนี้มีอะไรบ้าง', 'วันนี้ควรโทรหาใคร', 'ยอดเดือนนี้เป็นไง']
         try { await createDoc('chat_ai_assistant', { role:'ai', text: fallback, ...(next.length ? { next } : {}), time:now(), uid }) } catch (e) {}

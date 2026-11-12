@@ -76,7 +76,7 @@ export function openLamiPanel({ navigate } = {}) {
       if (lc.isCommandHelp(q)) {
         if (!custPromise) custPromise = import('./lamiCommandCard.js').then(m => m.visibleCustomersForCommands()).catch(() => [])
         const cs = await custPromise
-        const ans = lc.commandHelpText(lc.exampleName(cs))
+        const ans = lc.isFullHelp(q) ? lc.commandHelpText(lc.exampleName(cs)) : lc.commandHelpBrief(lc.exampleName(cs)).text
         history.push({ role: 'user', text: q }, { role: 'lami', text: ans })
         wait.outerHTML = `<div class="lp-a">${formatAiText(ans)}</div>`
         return

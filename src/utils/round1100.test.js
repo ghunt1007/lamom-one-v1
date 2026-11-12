@@ -18,3 +18,24 @@ describe('v1.0.1099 LAMI: customer satisfaction, service-check reminders', () =>
     expect(csatAnswer([], { today }).n).toBe(0)
   })
 })
+
+import { isCommandHelp } from './lamiCommands.js'
+describe('v1.0.1100 help question', () => {
+  it('matches', () => {
+    for (const q of ['LAMI ทำอะไรได้บ้าง', 'ทำอะไรได้บ้าง', 'ถามอะไรได้บ้าง', 'สั่งอะไรได้บ้าง', 'คุณช่วยอะไรได้']) expect(isCommandHelp(q)).toBe(true)
+    for (const q of ['ลูกค้า hot ทำอะไรได้บ้าง', 'วันนี้มีอะไรบ้าง']) expect(isCommandHelp(q)).toBe(false)
+  })
+})
+
+import { commandHelpBrief, isFullHelp } from './lamiCommands.js'
+describe('v1.0.1100 short help', () => {
+  it('brief + full', () => {
+    const b = commandHelpBrief('มานี')
+    expect(b.text.split('\n').length).toBeLessThanOrEqual(12)
+    expect(b.text).toContain('นัดมานีพรุ่งนี้ 10 โมง')
+    expect(b.next).toContain('ดูคำสั่งทั้งหมด')
+    expect(isCommandHelp('ดูคำสั่งทั้งหมด')).toBe(true)
+    expect(isFullHelp('ดูคำสั่งทั้งหมด')).toBe(true)
+    expect(isFullHelp('LAMI ทำอะไรได้บ้าง')).toBe(false)
+  })
+})
