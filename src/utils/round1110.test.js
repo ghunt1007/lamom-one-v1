@@ -534,3 +534,19 @@ describe('v1.0.1121 never serviced + Facebook chat', () => {
     expect(oq.metaChatAnswer().text).toContain('Facebook')
   })
 })
+
+describe('v1.0.1122 silent customers', () => {
+  it('reads span and counts from last contact', async () => {
+    const oq = await import('./opsQuestions.js')
+    expect(parseOpsSpec('ลูกค้าที่ไม่ได้คุยนานเกิน 2 สัปดาห์')).toMatchObject({ kind: 'stale', silent: true, min: 14 })
+    expect(parseOpsSpec('ใครไม่ได้โทรตามเกิน 10 วัน')).toMatchObject({ silent: true, min: 10 })
+    expect(parseOpsSpec('ลูกค้าที่คุยนานเกิน 60 วันแล้วยังไม่จอง')).toMatchObject({ kind: 'stale', min: 60 })
+    expect(parseBookingListSpec('ลูกค้าที่คุยนานเกิน 60 วันแล้วยังไม่จอง')).toBe(null)
+    const cs = [{ firstName: 'ก', createdAt: '2026-01-01', lastContactAt: '2026-11-10', stage: 'lead' }, { firstName: 'ข', createdAt: '2026-10-01', stage: 'lead' }]
+    const r = oq.staleProspectAnswer(cs, { today: T, min: 14, silent: true })
+    expect(r.n).toBe(1)
+    expect(r.text).toContain('ข')
+    expect(oq.staleProspectAnswer([], { today: T }).text).toContain('ยังไม่มีลูกค้า')
+    expect(oq.noTestDriveAnswer([], []).text).toContain('ยังไม่มีลูกค้า')
+  })
+})

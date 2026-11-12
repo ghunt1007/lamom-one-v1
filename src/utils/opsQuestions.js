@@ -137,8 +137,10 @@ export function parseOpsSpec(q) {
   if (has(s, /pdi|ตรวจ(?:สภาพ)?รถก่อนส่งมอบ|ตรวจรถใหม่/i) && !has(s, /^(?:สร้าง|เพิ่ม|บันทึก)/)) return { kind: 'pdi' }
   // (v1.0.1096) "ลูกค้าคนไหนคุยนานแล้วยังไม่ปิด" → ลูกค้าที่ยังไม่จอง เรียงจากคุยนานสุด
   // (v1.0.1108) "ลูกค้าหายไปนานที่สุด" / "ใครเงียบหายไปนาน"
-  if (has(s, /หายไป(?:นาน)?|หายเงียบ|เงียบหาย|เงียบนาน|ไม่ได้(?:คุย|ติดต่อ)(?:กัน)?นาน/) && has(s, /ลูกค้า|ใคร|คนไหน/) && !has(s, /^(?:นัด|บันทึก)/)) return { kind: 'stale' }
-  if (has(s, /คุยนาน|ตามนาน|ค้างนาน|นานแล้ว|ยืดเยื้อ|ลากยาว/) && has(s, /ยังไม่(?:ได้)?\s*(?:ปิด|จอง|ซื้อ|ตัดสินใจ)|ไม่ปิด|ไม่จอง/) && !has(s, /ใบจอง|ไฟแนนซ์|ส่งมอบ/)) return { kind: 'stale' }
+  // (v1.0.1122) "ไม่ได้คุยนานเกิน 2 สัปดาห์" = เงียบ (นับจากติดต่อล่าสุด) ไม่ใช่อายุลูกค้า · อ่านจำนวนวัน/สัปดาห์/เดือน
+  const spanDays = (m => m ? +m[1] * (/สัปดาห์|อาทิตย์/.test(m[2]) ? 7 : /เดือน/.test(m[2]) ? 30 : 1) : null)(s.match(/(\d{1,3})\s*(วัน|สัปดาห์|อาทิตย์|เดือน)/))
+  if (has(s, /หายไป(?:นาน)?|หายเงียบ|เงียบหาย|เงียบนาน|ไม่ได้\s*(?:คุย|ติดต่อ|โทร\s*(?:ตาม|หา)?|ตาม|ทัก)(?:กัน)?\s*(?:นาน|เกิน|มา\s*\d)/) && has(s, /ลูกค้า|ใคร|คนไหน/) && !has(s, /^(?:นัด|บันทึก)/)) return { kind: 'stale', silent: true, min: spanDays || 14 }
+  if (has(s, /คุยนาน|ตามนาน|ค้างนาน|นานแล้ว|ยืดเยื้อ|ลากยาว/) && has(s, /ยังไม่(?:ได้)?\s*(?:ปิด|จอง|ซื้อ|ตัดสินใจ)|ไม่ปิด|ไม่จอง/) && !has(s, /ใบจอง|ไฟแนนซ์|ส่งมอบ/)) return { kind: 'stale', ...(spanDays ? { min: spanDays } : {}) }
   // (v1.0.1096) "ใครมีรถเก่ามาเทิร์น" / "รถเทิร์นค้างประเมินกี่คัน"
   if (has(s, /เทิร์น|trade\s*-?\s*in|รถเก่า(?:มา)?(?:แลก|เทิร์น|ขาย)/i) && !has(s, /ราคา|ประเมินราคา(?!.*(?:กี่|ใคร|ไหน))|เท่าไหร่|ได้กี่บาท/)) return { kind: 'tradein', ...(/เดือนนี้/.test(s) ? { month: true } : {}) }
   // (v1.0.1096) "อัตราปิดการขายเดือนนี้" / "ปิดการขายเฉลี่ยกี่วัน"
@@ -397,6 +399,7 @@ export function noPhoneAnswer(customers) {
 export function noTestDriveAnswer(customers, drives, { model = '', temp = '' } = {}) {
   const mk = String(model || '').toLowerCase().replace(/[\s\-]+/g, '')
   if (mk) customers = alive(customers).filter(c => String(c.interestedModel || '').toLowerCase().replace(/[\s\-]+/g, '').includes(mk))
+  if (!mk && !alive(customers).some(c => !c.isLost && !c.bookingId && ['lead', 'pp', undefined, ''].includes(c.stage))) return { n: 0, text: '👥 ยังไม่มีลูกค้าที่กำลังคุย (ยังไม่จอง) ในรายชื่อที่คุณดูแล' }
   const tdPhone = new Set(), tdName = new Set()
   alive(drives).forEach(t => { if (['cancelled'].includes(t.status)) return; const p = phoneK(t.phone); if (p.length >= 9) tdPhone.add(p); const n = nameK(t.customerName); if (n) tdName.add(n) })
   const full = c => nameK([c.firstName, c.lastName].filter(Boolean).join(''))
@@ -450,10 +453,21 @@ const DAYMS = 86400e3
 const dnum = d => { const t = Date.parse(String(d || '').slice(0, 10) + 'T00:00:00Z'); return isNaN(t) ? null : Math.round(t / DAYMS) }
 const created = c => ymd(c.createdAt) || ymd(c.date) || ''
 // (v1.0.1096) ลูกค้าที่ยังไม่จอง (ไม่เสียดีล) ที่คุยมาเกิน 30 วัน · เรียงจากนานสุด HOT ขึ้นก่อนเมื่อเท่ากัน
-export function staleProspectAnswer(customers, { today, min = 30 }) {
+export function staleProspectAnswer(customers, { today, min = 30, silent = false }) {
   const t = dnum(today)
-  const list = alive(customers).filter(c => !c.isLost && !c.bookingId && ['lead', 'pp', undefined, ''].includes(c.stage))
-    .map(c => ({ c, age: dnum(created(c)) == null ? null : t - dnum(created(c)) })).filter(x => x.age != null && x.age >= min)
+  const pool = alive(customers).filter(c => !c.isLost && !c.bookingId && ['lead', 'pp', undefined, ''].includes(c.stage))
+  if (!pool.length) return { n: 0, text: '👥 ยังไม่มีลูกค้าที่กำลังคุย (ยังไม่จอง) ในรายชื่อที่คุณดูแล' }
+  if (silent) {
+    const last = c => ymd(c.lastContactAt) || created(c)
+    const sl = pool.map(c => ({ c, age: dnum(last(c)) == null ? null : t - dnum(last(c)) })).filter(x => x.age != null && x.age >= min)
+    if (!sl.length) return { n: 0, text: `👍 ลูกค้าที่กำลังคุยทุกคนได้ติดต่อภายใน ${min} วันล่าสุด` }
+    const rk = c => c.temperature === 'hot' ? 0 : c.temperature === 'warm' ? 1 : 2
+    sl.sort((a, b) => rk(a.c) - rk(b.c) || b.age - a.age)
+    return { n: sl.length, text: [`🔕 ลูกค้าที่ไม่ได้ติดต่อเกิน ${min} วัน ${sl.length} คน (ยังไม่จอง · HOT ขึ้นก่อน)`,
+      ...sl.slice(0, MAX).map(({ c, age }) => `• ${nm(c)}${c.temperature ? ' · ' + c.temperature.toUpperCase() : ''}${c.interestedModel ? ' · 🚗 ' + c.interestedModel : ''} · เงียบ ${age} วัน${c.assignedTo ? ' · 👤 ' + c.assignedTo : ''}${c.phone ? ' · 📞 ' + c.phone : ''}`),
+      ...more(sl.length), '💡 โทรทักสั้น ๆ พร้อมข่าวโปรล่าสุด — แล้วกดบันทึกการติดต่อ จะได้ไม่หลุดอีก'].join('\n') }
+  }
+  const list = pool.map(c => ({ c, age: dnum(created(c)) == null ? null : t - dnum(created(c)) })).filter(x => x.age != null && x.age >= min)
   if (!list.length) return { n: 0, text: `👍 ไม่มีลูกค้าที่คุยเกิน ${min} วันแล้วยังไม่จอง` }
   const rank = c => c.temperature === 'hot' ? 0 : c.temperature === 'warm' ? 1 : 2
   list.sort((a, b) => rank(a.c) - rank(b.c) || b.age - a.age)
