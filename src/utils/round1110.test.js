@@ -242,3 +242,22 @@ describe('v1.0.1117 rest-of-month deliveries, call list, ปิดได้ก�
     expect(r.text).toContain('30/11')
   })
 })
+
+describe('v1.0.1117 staff phrasings', async () => {
+  const oq = await import('./opsQuestions.js')
+  const tb = await import('./todayBrief.js')
+  it('parses', () => {
+    expect(oq.parseOpsSpec('พนักงานคนไหนลางานเดือนนี้')).toEqual({ kind: 'leave', day: 'month' })
+    expect(oq.parseOpsSpec('ใบสั่งซื้อรถค้างกี่ใบ').kind).toBe('incoming')
+    expect(oq.parseOpsSpec('ลูกค้าที่จองแล้วถอนเดือนนี้').kind).toBe('withdrawn')
+    expect(tb.isTodayQuestion('ใครขาดงานวันนี้')).toBe(false)
+    expect(oq.parseOpsSpec('ใครขาดงานวันนี้').kind).toBe('late')
+  })
+  it('leave month covers the whole month', () => {
+    const rows = [{ staff: 'ก', status: 'approved', from: '2026-11-03' }, { staff: 'ข', status: 'pending', from: '2026-11-28', to: '2026-12-01' }, { staff: 'ค', status: 'approved', from: '2026-10-20' }]
+    const r = oq.leaveAnswer(rows, { today: '2026-11-12', day: 'month' })
+    expect(r.n).toBe(2)
+    expect(r.text).toContain('30/11')
+    expect(oq.leaveAnswer(rows, { today: '2026-11-03' }).n).toBe(1)
+  })
+})
