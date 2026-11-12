@@ -80,7 +80,7 @@ export default {
       if (url.pathname === '/backup/latest' || url.pathname === '/backup/run') {
         const authHeader = request.headers.get('Authorization') || ''
         const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-        const verified = idToken ? await verifyFirebaseToken(idToken, env.FIREBASE_API_KEY) : null
+        const verified = idToken ? await withProgramOwnerFlag(await verifyFirebaseToken(idToken, env.FIREBASE_API_KEY), idToken, env) : null
         if (!verified) return json({ error: 'Unauthorized' }, 401, cors)
         if (url.pathname === '/backup/latest') return await handleLatestBackup(env, verified, cors)
         if (!isProgramOwnerUser(verified)) return json({ error: 'เฉพาะเจ้าของโปรแกรม' }, 403, cors)
@@ -91,7 +91,7 @@ export default {
       if (url.pathname === '/sheet/latest' || url.pathname === '/sheet/status') {
         const authHeader = request.headers.get('Authorization') || ''
         const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-        const verified = idToken ? await verifyFirebaseToken(idToken, env.FIREBASE_API_KEY) : null
+        const verified = idToken ? await withProgramOwnerFlag(await verifyFirebaseToken(idToken, env.FIREBASE_API_KEY), idToken, env) : null
         if (!verified) return json({ error: 'Unauthorized' }, 401, cors)
         if (!isProgramOwnerUser(verified)) return json({ error: 'เฉพาะเจ้าของโปรแกรม' }, 403, cors)
         return await handleSheetPull(env, { getToken: () => getGoogleAccessToken(env, DRIVE_SCOPE) }, cors, { metaOnly: url.pathname === '/sheet/status' })
@@ -1741,6 +1741,18 @@ async function verifyFirebaseToken(idToken, apiKey) {
     const data = await res.json()
     return data.users?.[0] || null
   } catch { return null }
+}
+// (v1.0.1074) อีเมลไม่ตรงกับเจ้าของโปรแกรม → ดู users/{uid}.programOwner (สิทธิ์ผูกกับรหัสบัญชี เปลี่ยนอีเมลแล้วไม่หาย)
+export async function withProgramOwnerFlag(verified, idToken, env, fetchFn = fetch) {
+  if (!verified) return null
+  if (isProgramOwnerUser(verified) || !env.FIREBASE_PROJECT_ID || !verified.localId) return verified
+  try {
+    const res = await fetchFn(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${verified.localId}`, { headers: { Authorization: `Bearer ${idToken}` } })
+    if (!res.ok) return verified
+    const f = (await res.json()).fields || {}
+    // ต้องเป็น role owner ด้วย — พนักงานแก้ role ตัวเองไม่ได้ จึงปลอดภัยแม้ rules ใหม่ยังไม่ได้ deploy
+    return (f.programOwner?.booleanValue === true && f.role?.stringValue === 'owner') ? { ...verified, programOwner: true } : verified
+  } catch { return verified }
 }
 // role + ชื่อพนักงาน (ใช้กับ /social/* — ต้องรู้ว่าเป็นผู้จัดการไหมและใครเป็นคนตอบแชต)
 async function staffInfo(idToken, uid, env) {

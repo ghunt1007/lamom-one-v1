@@ -28,11 +28,18 @@ function fullName(s) {
   return `${s.firstName || ''} ${s.lastName || ''}`.trim()
 }
 
-export const PROGRAM_OWNER_EMAIL = 'ghunt1007@gmail.com'
+import { PROGRAM_OWNER_EMAIL } from '../utils/identitySync.js'
+export { PROGRAM_OWNER_EMAIL }
+
+// (v1.0.1074) ผูกกับรหัสบัญชี (users/{uid}.programOwner) ได้ด้วย — เปลี่ยนอีเมล login แล้วสิทธิ์ไม่หาย
+export function isProgramOwnerProfile(me) {
+  if (!me) return false
+  if (me.programOwner === true && me.role === 'owner') return true
+  return !!me.email && String(me.email).toLowerCase() === PROGRAM_OWNER_EMAIL.toLowerCase()
+}
 
 export function isProgramOwner() {
-  const me = getState('user')
-  return !!me?.email && me.email.toLowerCase() === PROGRAM_OWNER_EMAIL.toLowerCase()
+  return isProgramOwnerProfile(getState('user'))
 }
 
 function staffCompanyIds(s) {
