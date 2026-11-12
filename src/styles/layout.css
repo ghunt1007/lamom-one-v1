@@ -911,3 +911,19 @@
   :root { --topbar-height: 48px; }
   .page-header { margin-bottom: 12px !important; }
 }
+/* (v1.0.1084) หน้าต่างเตี้ยบนคอม (≤ 600px สูง เช่น 4 จอ): หัวหน้า แท็บ และการ์ดตัวเลขเตี้ยลง → ข้อมูลจริงขึ้นมาอยู่ในจอแรก */
+@media (min-width: 769px) and (max-height: 600px) {
+  .page-title { font-size: 1.2rem !important; }
+  .page-subtitle { font-size: 0.76rem; }
+  .page-header { margin-bottom: 10px !important; }
+  .page-header .page-actions .btn, .page-header > div > .btn { padding-top: 6px; padding-bottom: 6px; }
+  .view-tabs { margin-bottom: 10px; padding: 3px; }
+  .view-tab { padding: 5px 12px; font-size: .82rem; }
+  .chat-welcome { padding-top: 4px !important; }
+  .chat-welcome-ava { display: none !important; }
+  .kpi-card { padding-top: 10px !important; padding-bottom: 10px !important; }
+  .modal { max-height: calc(100vh - 16px); }
+  .modal-header { padding: 12px 20px 10px; }
+  .modal-body { padding: 14px 20px; }
+  .modal-footer { padding: 10px 20px 12px; }
+}
