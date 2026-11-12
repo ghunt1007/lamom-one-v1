@@ -54,6 +54,7 @@ describe('v1.0.1110 LAMI', () => {
     expect(parseOpsSpec('ใบจองไหนไฟแนนซ์ยังไม่ผ่าน')).toBeNull()
     expect(parseOpsSpec('ไฟแนนซ์ไหนอนุมัติเยอะสุด')).toEqual({ kind: 'finbank' })
     expect(parseBookingListSpec('รถที่ลูกค้าฉันจองมาถึงหรือยัง').statuses).toEqual(['รอรถ'])
+    expect(bookingListLabel(parseBookingListSpec('รถที่ลูกค้าฉันจองมาถึงหรือยัง'))).toBe('ใบจองที่รถยังไม่มาถึง (รอรถ)')
     expect(parseOpsSpec('ลูกค้าที่เพิ่งจองเมื่อวาน')).toEqual({ kind: 'bookday', day: 'yesterday' })
     const customers = [{ id: 'c1', bookingId: 'b1' }, { id: 'c2', bookingId: 'b2' }]
     const bookings = [{ id: 'b1', status: 'รอผลไฟแนนซ์', finStatus: 'ไม่ผ่าน', bookingDate: '2026-11-01' }, { id: 'b2', status: 'รอผลไฟแนนซ์', finStatus: 'รอผล', bookingDate: '2026-11-01' }]

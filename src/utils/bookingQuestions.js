@@ -43,7 +43,7 @@ export function parseBookingListSpec(q) {
   const late = /ถึงวันนัด|เลย(?:วัน)?(?:นัด|กำหนด)\s*(?:ส่งมอบ|ส่งรถ|รับรถ)?|(?:ส่งมอบ|ส่งรถ)\s*(?:ช้า|ล่าช้า|เลยกำหนด|เกินกำหนด)|เกินวัน(?:นัด)?\s*ส่งมอบ/.test(s) && /ส่งมอบ|รับรถ|ส่งรถ|วันนัด/.test(s)
   const allOpen = !late && !statuses && !when && /ยังไม่(?:ได้)?\s*(?:ส่งมอบ|ส่งรถ|รับรถ)|ค้างจอง|^ใบจอง\s*(?:ของ)?\s*(?:ฉัน|ผม|หนู|เรา)\s*(?:มี|ค้าง)?\s*(?:กี่ใบ|อะไรบ้าง|มีใครบ้าง|ใครบ้าง)|^ใบจอง(?:ที่)?ค้างอยู่/.test(s)
   if (!statuses && !when && !stuck && !noVin && !noDeposit && !noDown && !noColor && !finFail && !allOpen && !late) return null
-  return { late, allOpen, noVin, noDeposit, noDown, ...(noColor ? { noColor } : {}), ...(finFail ? { finFail } : {}), statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
+  return { late, allOpen, noVin, noDeposit, noDown, ...(noColor ? { noColor } : {}), ...(finFail ? { finFail } : {}), ...(arrive && !noDate && !finFail ? { arrive: true } : {}), statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
 }
 
 export function bookingListLabel(spec) {
@@ -51,6 +51,7 @@ export function bookingListLabel(spec) {
   if (spec.allOpen && !spec.noVin && !spec.noDeposit && !spec.noDown && !spec.noColor && !spec.finFail && !spec.stuck) return 'ใบจองที่ยังไม่ส่งมอบ'
   if (spec.noColor) return 'ใบจองที่ยังไม่ได้ใส่สีรถ'
   if (spec.finFail) return 'ใบจองที่ไฟแนนซ์ไม่ผ่าน'
+  if (spec.arrive && !spec.stuck) return 'ใบจองที่รถยังไม่มาถึง (รอรถ)'
   if (spec.noVin) return 'ใบจองที่ยังไม่มีเลขตัวถัง (ไม่นับใบที่รอรถ)'
   if (spec.noDeposit) return 'ใบจองที่ยังไม่มียอดมัดจำ'
   if (spec.noDown) return 'ใบจองผ่อนที่ยังไม่ได้กรอกยอดดาวน์'
