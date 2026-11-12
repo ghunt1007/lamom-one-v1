@@ -140,7 +140,7 @@ async function loadUserProfile(firebaseUser) {
   try {
     const snap = await getDoc(doc(db, 'users', firebaseUser.uid))
     if (snap.exists()) {
-      // (v1.0.1072) อีเมลที่ใช้ login จริง (firebaseUser.email) ต้องชนะสำเนาเก่าในเอกสาร users เสมอ — เดิม
+      // (v1.0.1074) อีเมลที่ใช้ login จริง (firebaseUser.email) ต้องชนะสำเนาเก่าในเอกสาร users เสมอ — เดิม
       // ...snap.data() ทับอีเมลจริง ทำให้หลังเปลี่ยนอีเมล แอปยังแสดง/ส่งลิงก์รีเซ็ตรหัสไปที่อีเมลเก่า
       const stored = snap.data()
       const profile = { ...stored, uid: firebaseUser.uid, email: firebaseUser.email || stored.email || '' }
@@ -240,7 +240,7 @@ async function loadUserProfile(firebaseUser) {
   }
 }
 
-// (v1.0.1072) ซิงก์ข้อมูลประจำตัวลงเอกสาร users หลัง login (best-effort ห้ามทำให้ login พัง):
+// (v1.0.1074) ซิงก์ข้อมูลประจำตัวลงเอกสาร users หลัง login (best-effort ห้ามทำให้ login พัง):
 //  1. อีเมลในเอกสารไม่ตรงกับอีเมล login จริง (เพิ่งเปลี่ยนอีเมล) → อัปเดตให้ตรง
 //  2. เจ้าของโปรแกรมที่ยังล็อกอินด้วยอีเมลเดิม → ตั้ง programOwner: true ผูกสิทธิ์กับรหัสบัญชี
 //     หลังจากนั้นเปลี่ยนอีเมลได้โดยไม่เสียสิทธิ์เจ้าของโปรแกรม (rules ยอมรับทั้งสองทาง)
@@ -257,7 +257,7 @@ async function syncProfileIdentity(firebaseUser, stored, profile) {
   }
 }
 
-// (v1.0.1072) เปลี่ยนอีเมล login ของตัวเอง — ยืนยันรหัสผ่านก่อน แล้ว Firebase ส่งลิงก์ยืนยันไปที่อีเมลใหม่
+// (v1.0.1074) เปลี่ยนอีเมล login ของตัวเอง — ยืนยันรหัสผ่านก่อน แล้ว Firebase ส่งลิงก์ยืนยันไปที่อีเมลใหม่
 // อีเมลจะเปลี่ยนจริงหลังกดลิงก์เท่านั้น (Firebase ส่งอีเมลแจ้งไปที่อีเมลเดิมด้วย เผื่อไม่ได้เป็นคนเปลี่ยนเอง)
 // หลังกดลิงก์ ระบบจะให้ออกจากระบบ → ล็อกอินใหม่ด้วยอีเมลใหม่ แล้ว syncProfileIdentity() อัปเดตโปรไฟล์ให้เอง
 export async function changeOwnEmail(currentPassword, newEmail) {

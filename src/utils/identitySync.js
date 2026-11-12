@@ -1,4 +1,4 @@
-// (v1.0.1072) ซิงก์อีเมล login ลงเอกสาร users + ผูกสิทธิ์เจ้าของโปรแกรมกับรหัสบัญชี — ใช้ใน core/auth.js
+// (v1.0.1074) ซิงก์อีเมล login ลงเอกสาร users + ผูกสิทธิ์เจ้าของโปรแกรมกับรหัสบัญชี — ใช้ใน core/auth.js
 // แยกไฟล์ไว้เป็นฟังก์ชันล้วน (ไม่แตะ Firebase) จะได้ทดสอบได้ง่าย
 // ต้องตรงกับ firestore.rules isProgramOwner() และ workers/nightly-backup.js
 export const PROGRAM_OWNER_EMAIL = 'ghunt1007@gmail.com'

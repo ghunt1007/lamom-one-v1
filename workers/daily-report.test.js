@@ -1316,7 +1316,7 @@ describe('marketingSpendLine (v1.0.1000)', () => {
 })
 
 import { withProgramOwnerFlag } from './daily-report.js'
-describe('withProgramOwnerFlag (v1.0.1072)', () => {
+describe('withProgramOwnerFlag (v1.0.1074)', () => {
   const env = { FIREBASE_PROJECT_ID: 'p' }
   const doc = fields => async () => ({ ok: true, json: async () => ({ fields }) })
   it('keeps the old email path without reading Firestore', async () => {

@@ -2931,7 +2931,7 @@ describe('self-escalation via authorization fields (v1.0.911)', () => {
   })
 })
 
-describe('changing a login email (v1.0.1072)', () => {
+describe('changing a login email (v1.0.1074)', () => {
   it('a user can sync their profile email to their real login email, but not to someone else\'s', async () => {
     await seedUser('em1', { role: 'sales', active: true, email: 'old@lamom.one' })
     const db = testEnv.authenticatedContext('em1', { email: 'new@lamom.one' }).firestore()

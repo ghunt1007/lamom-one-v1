@@ -31,7 +31,7 @@ function fullName(s) {
 import { PROGRAM_OWNER_EMAIL } from '../utils/identitySync.js'
 export { PROGRAM_OWNER_EMAIL }
 
-// (v1.0.1072) ผูกกับรหัสบัญชี (users/{uid}.programOwner) ได้ด้วย — เปลี่ยนอีเมล login แล้วสิทธิ์ไม่หาย
+// (v1.0.1074) ผูกกับรหัสบัญชี (users/{uid}.programOwner) ได้ด้วย — เปลี่ยนอีเมล login แล้วสิทธิ์ไม่หาย
 export function isProgramOwnerProfile(me) {
   if (!me) return false
   if (me.programOwner === true && me.role === 'owner') return true

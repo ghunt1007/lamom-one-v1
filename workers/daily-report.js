@@ -1742,7 +1742,7 @@ async function verifyFirebaseToken(idToken, apiKey) {
     return data.users?.[0] || null
   } catch { return null }
 }
-// (v1.0.1072) อีเมลไม่ตรงกับเจ้าของโปรแกรม → ดู users/{uid}.programOwner (สิทธิ์ผูกกับรหัสบัญชี เปลี่ยนอีเมลแล้วไม่หาย)
+// (v1.0.1074) อีเมลไม่ตรงกับเจ้าของโปรแกรม → ดู users/{uid}.programOwner (สิทธิ์ผูกกับรหัสบัญชี เปลี่ยนอีเมลแล้วไม่หาย)
 export async function withProgramOwnerFlag(verified, idToken, env, fetchFn = fetch) {
   if (!verified) return null
   if (isProgramOwnerUser(verified) || !env.FIREBASE_PROJECT_ID || !verified.localId) return verified
