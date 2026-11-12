@@ -338,6 +338,11 @@ export async function loadOpsAnswer(q, customersPromise) {
       const sales = spec.kind === 'profit' ? await getSalesData().catch(() => []) : []
       res = oq.moneyMonthAnswer({ sales, opex: opexEntries(claims, petty), today, prev: spec.prev, kind: spec.kind, saleCost, perUnit: !!spec.perUnit, low: !!spec.low, byModel: !!spec.byModel })
     }
+  } else if (spec.kind === 'debt') {
+    if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 ข้อมูลลูกหนี้ดูได้เฉพาะผู้บริหาร/บัญชี' }
+    else res = oq.debtAnswer(await listDocs('debt_settlements', f, 'oldest', 'asc', 500).catch(() => []))
+  } else if (spec.kind === 'refund') {
+    res = oq.refundAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)))
   } else if (spec.kind === 'floorplan') {
     if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🏦 ข้อมูล floor plan ดูได้เฉพาะผู้บริหาร/บัญชี' }
     else res = oq.floorPlanAnswer(await listDocs('floor_plan', f, 'drawDate', 'desc', 300).catch(() => []), { today })

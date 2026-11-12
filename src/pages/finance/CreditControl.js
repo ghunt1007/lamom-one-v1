@@ -62,7 +62,7 @@ export default async function CreditControlPage(container) {
       return
     }
     const list = debtors.filter(d => statusFilter === 'all' || d.status === statusFilter)
-    const totalOutstanding = debtors.reduce((a, d) => a + d.used, 0)
+    const totalOutstanding = debtors.filter(d => d.status !== 'settled').reduce((a, d) => a + (Number(d.used) || 0), 0)
     const overdue = debtors.filter(d => d.status !== 'current' && d.status !== 'settled')
     const overdueAmount = overdue.reduce((a, d) => a + d.used, 0)
     const badDebtAmount = debtors.filter(d => d.status === 'bad_debt').reduce((a, d) => a + d.used, 0)
@@ -83,7 +83,7 @@ export default async function CreditControlPage(container) {
           ${kpi('💸 ยอดค้างชำระรวม', formatCurrency(totalOutstanding), 'primary')}
           ${kpi('⚠️ ค้างเกินกำหนด', formatCurrency(overdueAmount), 'warning')}
           ${kpi('❌ หนี้เสีย', formatCurrency(badDebtAmount), badDebtAmount > 0 ? 'danger' : 'secondary')}
-          ${kpi('📊 ลูกหนี้ทั้งหมด', debtors.length + ' ราย', 'primary')}
+          ${kpi('📊 ลูกหนี้ทั้งหมด', debtors.filter(d => d.status !== 'settled').length + ' ราย', 'primary')}
         </div>
 
         <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap">
