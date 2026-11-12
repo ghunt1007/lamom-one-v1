@@ -1014,24 +1014,27 @@ export default async function CustomersPage(container) {
     let quotes = []
     try { quotes = await listDocs('quotations', [['customerId', '==', c.id], ...companyScopeFilters()], 'createdAt', 'desc', 20) } catch { quotes = [] }
     if (!document.getElementById('wk-quote-panel')) return
+    quotes = quotes.filter(q => !q.deleted).sort((x, y) => String(y.createdDate || '').localeCompare(String(x.createdDate || '')))
     if (!quotes.length) {
       markPanelEmpty(el, '🧾 ใบเสนอราคา')
       return
     }
+    // (v1.0.1078) เดิมโชว์รหัสเอกสารและไม่มีราคา (อ่านฟิลด์ผิดชื่อ) → วันที่ · รุ่น · สถานะ · ราคาสุทธิ · แตะเปิดใบนั้น
+    const QS = { draft: ['ร่าง', 'secondary'], sent: ['ส่งแล้ว', 'primary'], accepted: ['ลูกค้ายอมรับ', 'success'], rejected: ['ลูกค้าปฏิเสธ', 'danger'], expired: ['หมดอายุ', 'secondary'] }
     el.innerHTML = `
       <div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">🧾 ใบเสนอราคาที่เกี่ยวข้อง</div>
       <div style="display:flex;flex-direction:column;gap:6px">
-        ${quotes.map(q => `
-          <div class="card" style="padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <div style="font-size:0.8rem;font-weight:600">${escHtml(q.quoteNo || q.id)}</div>
-              <div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(q.model || q.interestedModel || '-')}</div>
+        ${quotes.map(q => { const st = QS[q.status] || QS.draft; return `
+          <button type="button" class="card wk-quote-open" data-id="${escHtml(q.id)}" style="padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;cursor:pointer;width:100%">
+            <div style="min-width:0">
+              <div style="font-size:0.8rem;font-weight:600">${escHtml(q.vehicleLabel || q.model || '-')}</div>
+              <div style="font-size:0.7rem;color:var(--text-muted)">${q.createdDate ? formatDate(q.createdDate) + ' · ' : ''}<span class="badge badge-${st[1]}" style="font-size:0.62rem">${st[0]}</span>${q.bookingId ? ' · 📝 มีใบจองแล้ว' : ''}</div>
             </div>
-            <div style="font-size:0.78rem;font-weight:700;color:var(--accent)">${q.price ? formatCurrency(q.price) : ''}</div>
-          </div>
-        `).join('')}
+            <div style="font-size:0.78rem;font-weight:700;color:var(--accent);white-space:nowrap">${q.finalPrice ? formatCurrency(q.finalPrice) : ''}</div>
+          </button>`}).join('')}
       </div>
     `
+    el.querySelectorAll('.wk-quote-open').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); navigate('/crm/quotation?open=' + encodeURIComponent(b.dataset.id)) }))
   }
 
   // (v1.0.459) ประวัติ Job Card ของลูกค้าคนนี้ — job_cards ยังไม่มี field customerId มาก่อน (พึ่งเพิ่มใหม่)
