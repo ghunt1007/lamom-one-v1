@@ -18,6 +18,10 @@ export function parseOpsSpec(q) {
   if (has(s, /รายได้|ค่าคอม/) && has(s, /ยังไม่กรอก|ไม่ได้กรอก|ค้างกรอก|ยังไม่ใส่|ขาด/)) return { kind: 'income' }
   if (has(s, /ส่งมอบ/) && !has(s, /ยอด|เป้า|เดือน/) && has(s, /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์|นัด|ใคร|กี่คัน|ไหม/)) return { kind: 'delivery', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
   if (has(s, /ช่องทาง|ที่มา|มาจาก/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'newcust', period: /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
+  // (v1.0.1086) "เตือนเข้าศูนย์เดือนนี้มีใครบ้าง" / "ใครครบระยะเช็ค" → รายการเตือนเข้าศูนย์ (ไม่ใช่นัดวันนี้)
+  if (has(s, /เตือนเข้าศูนย์|ครบระยะ|ถึงระยะ|ครบกำหนดเข้าศูนย์|ถึงกำหนดเข้าศูนย์|ต้องเข้าศูนย์/)) return { kind: 'reminder', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : 30 }
+  // (v1.0.1086) "งานที่เลยกำหนดมีอะไรบ้าง" → งานในปฏิทินที่เลยวันแล้วยังไม่ได้ทำ (เงื่อนไขเดียวกับปฏิทินงาน)
+  if (has(s, /เลยกำหนด|เกินกำหนด|เลยวันนัด|ตกค้าง/) && !has(s, /ร้องเรียน|ซ่อม|ประกัน|ผ่อน|ชำระ|ไฟแนนซ์/)) return { kind: 'overdue' }
   // (v1.0.1082) งานศูนย์บริการ: "รถเข้าศูนย์วันนี้กี่คัน" / "งานซ่อมค้างอยู่กี่งาน" / "รถรออะไหล่มีคันไหน"
   if (has(s, /เข้าศูนย์|นัดซ่อม|นัดเซอร์วิส|นัดเช็คระยะ|เช็คระยะ|งานซ่อม|ใบสั่งซ่อม|job\s*card|รถซ่อม|ซ่อมค้าง|รออะไหล่|ซ่อมเสร็จ/i) && !has(s, /ราคา|ค่าซ่อม|กี่บาท|เท่าไหร่/)) return { kind: 'service', day }
   // (v1.0.1082) "ลูกค้าที่ยังไม่มีผู้ดูแลมีใครบ้าง"
@@ -178,7 +182,32 @@ export function unassignedAnswer(customers) {
   return { n: list.length, text: [`👤 ลูกค้าที่ยังไม่มีผู้ดูแล ${list.length} คน`, ...list.slice(0, MAX).map(c => `• ${nm(c)}${c.temperature === 'hot' ? ' 🔴' : ''}${c.interestedModel ? ' · ' + c.interestedModel : ''}${ymd(c.createdAt) ? ' · เข้ามา ' + dmy(ymd(c.createdAt)) : ''}`), ...more(list.length), '', 'มอบผู้ดูแลได้ที่หน้าลูกค้า (เลือกหลายคน → มอบหมาย)'].join('\n') }
 }
 
+// เตือนเข้าศูนย์ที่ยังไม่นัด: ครบกำหนดภายใน range วัน + ที่เลยกำหนดแล้ว (ไม่เกิน 60 วัน)
+export function reminderAnswer(rows, { today, range = 30 }) {
+  const end = addDays(today, range), from = addDays(today, -60)
+  const list = alive(rows).filter(r => !r.booked && ymd(r.dueDate) && ymd(r.dueDate) >= from && ymd(r.dueDate) <= end)
+    .sort((a, b) => ymd(a.dueDate).localeCompare(ymd(b.dueDate)))
+  if (!list.length) return { text: `🔔 ไม่มีรถที่ต้องเตือนเข้าศูนย์ (ถึง ${dmy(end)})`, n: 0 }
+  const late = list.filter(r => ymd(r.dueDate) < today).length
+  const notCalled = list.filter(r => !r.contacted).length
+  return { n: list.length, text: [`🔔 ต้องเตือนเข้าศูนย์ ${list.length} คัน (ถึง ${dmy(end)})${late ? ` · เลยกำหนดแล้ว ${late}` : ''}${notCalled ? ` · ยังไม่ได้ติดต่อ ${notCalled}` : ''}`,
+    ...list.slice(0, MAX).map(r => `• ${dmy(ymd(r.dueDate))} ${r.customer || nm(r)}${r.plate ? ' · ' + r.plate : ''}${r.model ? ' · ' + r.model : ''}${ymd(r.dueDate) < today ? ' ❗' : ''}${r.contacted ? ' · ✅ ติดต่อแล้ว' : ''}`), ...more(list.length)].join('\n') }
+}
+
+// งานในปฏิทินที่เลยกำหนด (items = ผลจาก buildWorkItems ที่กรองขอบเขตแล้ว) · labels = KINDS
+export function overdueAnswer(items, { today, labels = {} }) {
+  const list = (items || []).filter(it => it && it.overdue).sort((a, b) => String(a.date).localeCompare(String(b.date)))
+  if (!list.length) return { text: '✅ ไม่มีงานที่เลยกำหนด 👍', n: 0 }
+  const by = {}
+  list.forEach(it => { by[it.kind] = (by[it.kind] || 0) + 1 })
+  const late = it => Math.round((Date.parse(today) - Date.parse(it.date)) / 86400000)
+  return { n: list.length, text: [`⚠️ งานเลยกำหนด ${list.length} รายการ`, Object.entries(by).map(([k, v]) => `${labels[k]?.icon || '•'} ${labels[k]?.label || k} ${v}`).join(' · '), '',
+    ...list.slice(0, MAX).map(it => `• ${labels[it.kind]?.icon || ''} ${it.title || ''} — เลย ${late(it)} วัน${it.owner ? ' · 👤 ' + it.owner : ''}`), ...more(list.length), '', 'กดในปฏิทินงานเพื่อ ✓ ทำแล้ว หรือนัดใหม่'].join('\n') }
+}
+
 export const OPS_LINKS = {
+  reminder: { path: '/service/reminders', label: '🔔 เปิดหน้าเตือนเข้าศูนย์' },
+  overdue: { path: '/calendar', label: '🗓️ เปิดปฏิทินงาน' },
   service: { path: '/service/jobs', label: '🔧 เปิดหน้างานซ่อม' },
   unassigned: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
   testdrive: { path: '/crm/testdrive', label: '🚗 เปิดหน้าทดลองขับ' },
@@ -193,7 +222,7 @@ export const OPS_LINKS = {
 }
 
 export function opsFollowUps(spec) {
-  const all = { testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
+  const all = { testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
   const out = [all[spec.kind]]
   if (spec.kind === 'testdrive' && spec.day === 'tomorrow') out[0] = 'พรุ่งนี้มีใครนัดเข้าโชว์รูม'
   if (spec.kind === 'delivery' && spec.day === 'week') out[0] = 'มีนัดส่งมอบพรุ่งนี้ไหม'

@@ -15,6 +15,17 @@ export function isMonthQuestion(q) {
   return /^(?:สรุป|ดู|ขอดู|ขอ)?\s*ยอด\s*(?:ขาย|ส่งมอบ|จอง)?\s*(?:ของ)?(?:ฉัน|ผม|หนู|เรา)?\s*(?:ตอนนี้|ล่าสุด)?\s*(?:เป็นไง|เป็นยังไง|เท่าไหร่|เท่าไร|ถึงไหนแล้ว)?\s*(?:บ้าง|แล้ว)?$/.test(s)
 }
 
+// (v1.0.1086) "ยอดเดือนก่อนเป็นไง" / "เดือนที่แล้วขายได้กี่คัน" → สรุปเดือนก่อนทั้งเดือน (เทียบกับเดือนก่อนหน้านั้น)
+const PREV = /เดือน(?:ก่อน|ที่แล้ว)/
+export function isPrevMonthQuestion(q) {
+  const s = String(q || '')
+  return PREV.test(s) && !/เดือนนี้/.test(s) && isMonthQuestion(s.replace(new RegExp(PREV.source, 'g'), 'เดือนนี้'))
+}
+// วันสุดท้ายของเดือนก่อน (ใช้เป็น "วันนี้" ของการสรุปเดือนก่อน → นับครบทั้งเดือน)
+export function prevMonthEnd(today) {
+  return new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1, 0)).toISOString().slice(0, 10)
+}
+
 // bookings = ใบจองในขอบเขตที่ผู้ใช้มองเห็น · target = เป้าส่งมอบ (คัน) ของขอบเขตนั้น (0 = ยังไม่ตั้ง)
 export function monthStats({ bookings = [], today, target = 0 }) {
   const rows = bookings.filter(b => b && !b.deleted)
@@ -38,7 +49,15 @@ export function monthStats({ bookings = [], today, target = 0 }) {
 
 const diff = (a, b) => a === b ? 'เท่าเดิม' : a > b ? `▲${a - b}` : `▼${b - a}`
 
-export function monthBriefText(s, { scope = '' } = {}) {
+export function monthBriefText(s, { scope = '', past = false } = {}) {
+  if (past) {
+    const out = [`📊 ยอดเดือนก่อน ${s.label}${scope ? ` — ${scope}` : ''} (ทั้งเดือน)`,
+      `🚗 ส่งมอบ ${s.delivered} คัน · เดือนก่อนหน้านั้น ${s.prevDelivered} คัน (${diff(s.delivered, s.prevDelivered)})`,
+      `📝 จองใหม่ ${s.booked} ใบ${s.withdrawn ? ` · ถอน ${s.withdrawn} ใบ` : ''} · เดือนก่อนหน้านั้น ${s.prevBooked} ใบ (${diff(s.booked, s.prevBooked)})`]
+    if (s.target) out.push(`🎯 เป้าส่งมอบ ${s.target} คัน · ทำได้ ${Math.round(s.delivered / s.target * 100)}%${s.left ? ` · ขาด ${s.left} คัน` : ' · ✅ ถึงเป้า'}`)
+    if (s.board.length) out.push('🏆 อันดับเดือนนั้น', ...s.board.map((r, i) => `${i + 1}. ${r.name} — ส่งมอบ ${r.delivered} · จอง ${r.booked}`))
+    return out.join('\n')
+  }
   const lines = [`📊 ยอดเดือนนี้ ${s.label}${scope ? ` — ${scope}` : ''}`]
   lines.push(`🚗 ส่งมอบแล้ว ${s.delivered} คัน · เดือนก่อนช่วงเดียวกัน ${s.prevDelivered} คัน (${diff(s.delivered, s.prevDelivered)})`)
   lines.push(`📝 จองใหม่ ${s.booked} ใบ${s.withdrawn ? ` · ถอน ${s.withdrawn} ใบ` : ''} · เดือนก่อนช่วงเดียวกัน ${s.prevBooked} ใบ (${diff(s.booked, s.prevBooked)})`)

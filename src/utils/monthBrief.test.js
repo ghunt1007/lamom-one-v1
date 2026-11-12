@@ -82,3 +82,16 @@ describe('isMonthQuestion top seller (v1.0.1082)', () => {
     expect(isMonthQuestion('ใครขายได้มากสุด')).toBe(true)
   })
 })
+
+describe('previous month (v1.0.1086)', () => {
+  it('detects and summarises last month', async () => {
+    const { isPrevMonthQuestion, prevMonthEnd } = await import('./monthBrief.js')
+    expect(isPrevMonthQuestion('ยอดเดือนก่อนเป็นไง')).toBe(true)
+    expect(isPrevMonthQuestion('ยอดเดือนนี้เป็นไง')).toBe(false)
+    expect(prevMonthEnd('2026-01-12')).toBe('2025-12-31')
+    const st = monthStats({ bookings: [{ status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-10-05', bookingDate: '2026-10-01', salesName: 'A' }], today: '2026-10-31', target: 2 })
+    const t = monthBriefText(st, { past: true })
+    expect(t).toContain('ยอดเดือนก่อน')
+    expect(t).toContain('ทำได้')
+  })
+})
