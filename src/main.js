@@ -114,6 +114,16 @@ async function bootstrapShell() {
   on('sidebarCollapsed', (v) => {
     main.className = `main-wrap ${v ? 'sidebar-collapsed' : ''}`
   })
+  // (v1.0.1083) หน้าต่างแคบบนคอม (769–1099px เช่น แบ่งครึ่งจอ/4 จอ) → ย่อเมนูข้างเหลือไอคอนอัตโนมัติ ให้เนื้อหากว้างขึ้น
+  // กลับเป็นค่าที่ผู้ใช้ตั้งไว้เมื่อขยายหน้าต่าง (ไม่บันทึกทับค่าเดิม) · กด ▶ ขยายเองได้ตลอด
+  const splitMq = window.matchMedia?.('(min-width: 769px) and (max-width: 1099px)')
+  const applySplit = () => {
+    if (splitMq.matches) { if (!getState('sidebarCollapsed')) setState('sidebarCollapsed', true); return }
+    let pref = false
+    try { pref = localStorage.getItem('lamom_sidebar') === 'true' } catch {}
+    if (getState('sidebarCollapsed') !== pref) setState('sidebarCollapsed', pref)
+  }
+  if (splitMq) { if (splitMq.matches) applySplit(); splitMq.addEventListener?.('change', applySplit) }
 
   BottomNav(app)
   initRouter(main)

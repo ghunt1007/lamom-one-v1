@@ -881,3 +881,33 @@
   .bk-brand-row::-webkit-scrollbar { display: none; }
   .bk-brand-row > .bk-brand-card { flex: 0 0 auto !important; min-width: 104px !important; max-width: none !important; padding: 6px 10px !important; }
 }
+
+/* (v1.0.1083) เปิดหลายหน้าต่างพร้อมกัน (แบ่งครึ่งจอ / 4 จอ) บนคอม — หน้าต่างแคบและเตี้ย
+   เดิม: ชื่อหน้าบนแถบบนตัดเป็น 2 บรรทัด ("ภาพ / รวม") · การ์ด LAMI + ชื่อผู้ใช้ท้ายเมนูกินที่ 1 ใน 3 ของเมนู · ขอบเนื้อหากว้างเกิน */
+.topbar-breadcrumb, .topbar-breadcrumb span { white-space: nowrap; }
+.topbar-breadcrumb { overflow: hidden; }
+.topbar-breadcrumb .current { overflow: hidden; text-overflow: ellipsis; }
+@media (min-width: 769px) and (max-width: 1365px) {
+  /* เหลือแค่ชื่อหน้าปัจจุบัน (ทางเดินเต็มยังอยู่ในชื่อแท็บ/หน้าต่าง) */
+  .topbar-breadcrumb > span:not(.current) { display: none; }
+  .topbar { padding: 0 12px; gap: 8px; }
+}
+@media (min-width: 769px) and (max-width: 1099px) {
+  .topbar-search-kbd { display: none; }
+  .topbar-search { min-width: 0; }
+  .page-content { padding: 16px; }
+}
+/* หน้าต่างเตี้ย (≤ 600px สูง) บนคอม: LAMI เปิดจากปุ่ม 🤖 บนแถบบนได้อยู่แล้ว → ซ่อนการ์ด LAMI ท้ายเมนู · ชื่อผู้ใช้เหลือบรรทัดเดียว */
+@media (min-width: 769px) and (max-height: 600px) {
+  .sidebar-footer .lami-widget { display: none; }
+  .sidebar-footer { padding: 6px 8px; gap: 2px; }
+  .sidebar-footer .user-role-mini { display: none; }
+  .sidebar-footer .user-mini { padding-top: 4px; padding-bottom: 4px; }
+  .sidebar-logo { padding-top: 10px; padding-bottom: 10px; }
+  .sidebar-find { padding-top: 4px; padding-bottom: 4px; }
+  .page-content { padding-top: 14px; }
+}
+@media (min-width: 769px) and (max-height: 520px) {
+  :root { --topbar-height: 48px; }
+  .page-header { margin-bottom: 12px !important; }
+}
