@@ -205,8 +205,8 @@ export async function loadMonthBrief(q) {
   const target = Object.entries(tdoc?.targets || {}).reduce((s, [n, v]) => s + ((seller ? normName(n) === normName(seller) : whole || vis.names?.has(normName(n))) ? Number(v) || 0 : 0), 0)
   const st = mb.monthStats({ bookings, today, target })
   const scopeLabel = seller ? `👤 ${seller}` : whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ'
-  if (past) return { text: mb.monthBriefText(st, { scope: scopeLabel, past: true }), next: ['ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนก่อนเท่าไหร่', 'ลูกค้าเสียดีลเดือนก่อนมีใครบ้าง'] }
-  return { text: mb.monthBriefText(st, { scope: scopeLabel }), next: mb.monthFollowUps(st) }
+  if (past) return { text: mb.monthBriefText(st, { scope: scopeLabel, past: true, models: mb.isModelRankQuestion(q) }), next: ['ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนก่อนเท่าไหร่', 'ลูกค้าเสียดีลเดือนก่อนมีใครบ้าง'] }
+  return { text: mb.monthBriefText(st, { scope: scopeLabel, models: mb.isModelRankQuestion(q) }), next: mb.monthFollowUps(st) }
 }
 
 // (v1.0.1058) "ค่าคอมเดือนนี้เท่าไหร่ / รายได้เดือนก่อน" → null ถ้าไม่ใช่ · คืน { text, next, go } · ขอบเขตเดียวกับหน้ารายได้รายเซลส์
@@ -278,7 +278,10 @@ export async function loadOpsAnswer(q, customersPromise) {
   if (!vis) return null
   const mine = (name, rec) => scopeIncludesRecord(vis, name, rec)
   let res
-  if (spec.kind === 'testdrive') res = oq.testDriveAnswer((await listDocs('test_drives', f, 'date', 'desc', 300).catch(() => [])).filter(t => mine(t.staff, t)), { today, day: spec.day })
+  if (spec.kind === 'tdnobook') {
+    const [drives, bks] = await Promise.all([listDocs('test_drives', f, 'date', 'desc', 500).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])])
+    res = oq.tdNoBookAnswer(drives.filter(t => mine(t.staff, t)), bks, { today, range: spec.range })
+  } else if (spec.kind === 'testdrive') res = oq.testDriveAnswer((await listDocs('test_drives', f, 'date', 'desc', 300).catch(() => [])).filter(t => mine(t.staff, t)), { today, day: spec.day })
   else if (spec.kind === 'showroom') res = oq.showroomAnswer((await listDocs('appointments', f, 'date', 'desc', 300).catch(() => [])).filter(a => mine(a.salesperson, a)), { today, day: spec.day })
   else if (spec.kind === 'complaint') res = oq.complaintAnswer(await listDocs('complaints', f, 'createdAt', 'desc', 300).catch(() => []), { today })
   else if (spec.kind === 'line') {
@@ -288,10 +291,12 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.lineWaitingAnswer(threads.filter(t => whole || mineIds.has(t.userId)), customers || [])
   } else if (spec.kind === 'newcust') {
     const [{ QUICK_SOURCES }, customers] = await Promise.all([import('./quickLead.js'), customersPromise || visibleCustomersForCommands()])
-    res = oq.newCustomerAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, period: spec.period, sourceLabel: { event: '🎪 ออกบูธ/อีเวนต์', ...Object.fromEntries(QUICK_SOURCES) } })
+    res = oq.newCustomerAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, period: spec.period, source: spec.source, sourceLabel: { event: '🎪 ออกบูธ/อีเวนต์', ...Object.fromEntries(QUICK_SOURCES) } })
   } else if (spec.kind === 'lost') {
     const customers = await (customersPromise || visibleCustomersForCommands())
     res = oq.lostAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, prev: spec.prev })
+  } else if (spec.kind === 'bookday') {
+    res = oq.bookDayAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, day: spec.day })
   } else if (spec.kind === 'delivery' || spec.kind === 'income') {
     const bks = (await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b))
     res = spec.kind === 'delivery' ? oq.deliveryAnswer(bks, { today, day: spec.day }) : oq.incomeMissingAnswer(bks, { today })
