@@ -7,14 +7,8 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml as esc } from '../../utils/escape.js'
-
-const BATTERIES = [
-  { vin:'LVVDBCAE1PD123456', model:'BYD Atto 3', customer:'คุณวรพจน์', health:97, cycles:42, lastCheck:'2026-06-01', status:'excellent' },
-  { vin:'LVVDBCAE1PD234567', model:'BYD Seal AWD', customer:'รถโชว์รูม', health:99, cycles:12, lastCheck:'2026-06-10', status:'excellent' },
-  { vin:'LVVDBCAE1PD345678', model:'BYD Dolphin', customer:'คุณนภา', health:91, cycles:88, lastCheck:'2026-05-15', status:'good' },
-  { vin:'LVVDBCAE1PD456789', model:'MG ZS EV', customer:'คุณพรทิพย์', health:85, cycles:152, lastCheck:'2026-04-20', status:'fair' },
-  { vin:'LVVDBCAE1PD567890', model:'BYD Atto 3', customer:'บริษัท ทรัพย์สมบูรณ์', health:78, cycles:210, lastCheck:'2026-03-10', status:'warning' },
-]
+import { latestBatteries } from '../../utils/evBattery.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 
 const STATION_TYPES = ['DC Fast','AC Level 2','AC Level 1']
 const POWER_OPTIONS = ['7.4 kW','11 kW','22 kW','50 kW','60 kW','120 kW','150 kW']
@@ -27,12 +21,14 @@ export default async function EvStationPage(container) {
   seedDemoData()
 
   let STATIONS = []
+  let BATTERIES = []
   let tab = 'stations'
   let loading = true
 
   async function loadData() {
     loading = true
     try { STATIONS = await listDocs('ev_charging_stations', [], 'name', 'asc', 200) } catch (e) { STATIONS = [] }
+    try { BATTERIES = latestBatteries(await listDocs('ev_battery_checks', [], 'checkDate', 'desc', 1000)) } catch (e) { BATTERIES = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -143,6 +139,34 @@ export default async function EvStationPage(container) {
     }
   }
 
+  // (v1.0.1105) บันทึกผลตรวจแบตจริงลง ev_battery_checks (เดิมปุ่มนี้แค่โชว์ข้อความว่าบันทึกแล้ว แต่ไม่ได้บันทึกอะไร)
+  function openBatteryForm(pre = {}) {
+    const f = (id, label, v = '', type = 'text', ph = '') => `<div class="input-group"><label class="input-label">${label}</label><input class="input" id="${id}" type="${type}" value="${esc(v ?? '')}" placeholder="${ph}" autocomplete="off"></div>`
+    openModal({
+      title: '🔋 บันทึกผลตรวจแบต',
+      size: 'sm',
+      body: `<div style="display:grid;gap:10px">
+        ${f('bt-vin', 'เลขตัวถัง (VIN) หรือทะเบียน *', pre.vin || pre.plate)}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">${f('bt-model', 'รุ่นรถ', pre.model)}${f('bt-cust', 'เจ้าของ', pre.customer)}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">${f('bt-health', 'สุขภาพแบต (%) *', '', 'number', 'เช่น 92')}${f('bt-cycles', 'รอบชาร์จ', pre.cycles || '', 'number')}</div>
+        ${f('bt-date', 'วันที่ตรวจ', todayBangkok(), 'date')}
+        ${f('bt-note', 'หมายเหตุ', '')}
+      </div>`,
+      async onConfirm() {
+        const g = id => document.getElementById(id)?.value?.trim() || ''
+        const vin = g('bt-vin'), health = Number(g('bt-health'))
+        if (!vin) { showToast('❗ กรอกเลขตัวถังหรือทะเบียน', 'error'); return false }
+        if (!(health > 0 && health <= 100)) { showToast('❗ กรอกสุขภาพแบต 1–100%', 'error'); return false }
+        try {
+          await createDoc('ev_battery_checks', { vin, model: g('bt-model'), customer: g('bt-cust'), health, cycles: Number(g('bt-cycles')) || 0, checkDate: g('bt-date') || todayBangkok(), note: g('bt-note') })
+          showToast(`🔋 บันทึกผลตรวจแล้ว (${health}%)`, 'success')
+          tab = 'batteries'
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+      }
+    })
+  }
+
   function openBatteryCheckModal(b) {
     const healthColors = { excellent:'var(--success)', good:'var(--success)', fair:'var(--warning)', warning:'var(--danger)' }
     const hc = healthColors[b.status] || 'var(--text-muted)'
@@ -181,10 +205,11 @@ export default async function EvStationPage(container) {
 
           <table style="width:100%;font-size:0.76rem;border-collapse:collapse">
             ${[
-              ['🚗 รุ่น', b.model],
-              ['👤 เจ้าของ', b.customer],
-              ['🔢 VIN', b.vin],
-              ['📅 ตรวจล่าสุด', b.lastCheck],
+              ['🚗 รุ่น', esc(b.model || '-')],
+              ['👤 เจ้าของ', esc(b.customer || '-')],
+              ['🔢 VIN / ทะเบียน', esc(b.vin || b.plate || '-')],
+              ['📅 ตรวจล่าสุด', formatDate(b.checkDate)],
+              ...(b.note ? [['📝 หมายเหตุ', b.note]] : []),
             ].map(([k,v])=>`<tr style="border-bottom:1px solid var(--border-subtle)">
               <td style="padding:7px 0;color:var(--text-muted)">${k}</td>
               <td style="padding:7px 0;font-weight:600;text-align:right">${v}</td>
@@ -193,7 +218,7 @@ export default async function EvStationPage(container) {
 
           ${b.status === 'warning' ? `
           <div style="padding:10px 12px;background:rgba(var(--danger-rgb,220,38,38),0.1);border:1px solid var(--danger);border-radius:var(--radius-sm);font-size:0.76rem;color:var(--danger)">
-            ⚠️ <strong>Battery Health ต่ำ</strong> — แนะนำแจ้งเจ้าของรถเข้าตรวจสอบที่ศูนย์บริการ BYD/MG โดยด่วน
+            ⚠️ <strong>Battery Health ต่ำ</strong> — แนะนำแจ้งเจ้าของรถเข้าตรวจสอบที่ศูนย์บริการโดยด่วน
           </div>` : ''}
         </div>
       `,
@@ -201,14 +226,14 @@ export default async function EvStationPage(container) {
         <span></span>
         <div style="display:flex;gap:8px">
           <button class="btn btn-secondary btn-sm" onclick="this.closest('.modal-overlay').remove()">ปิด</button>
-          <button class="btn btn-primary btn-sm" id="bat-report">📋 บันทึกผลตรวจ</button>
+          <button class="btn btn-primary btn-sm" id="bat-report">📋 บันทึกผลตรวจใหม่</button>
         </div>
       `
     })
 
     document.getElementById('bat-report')?.addEventListener('click', () => {
       document.querySelector('.modal-overlay')?.remove()
-      showToast(`📋 บันทึกผลตรวจ ${b.model} (${b.health}%) แล้ว`, 'success')
+      openBatteryForm(b)
     })
   }
 
@@ -226,7 +251,7 @@ export default async function EvStationPage(container) {
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-        ${st.connectors.map(c=>`<span style="font-size:0.62rem;background:var(--surface-2);padding:2px 7px;border-radius:6px">${c}</span>`).join('')}
+        ${(st.connectors || []).map(c=>`<span style="font-size:0.62rem;background:var(--surface-2);padding:2px 7px;border-radius:6px">${c}</span>`).join('')}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:0.7rem">
         <div><div style="color:var(--text-muted);font-size:0.6rem">Session วันนี้</div><div style="font-weight:700">${st.todaySessions}</div></div>
@@ -242,9 +267,9 @@ export default async function EvStationPage(container) {
     return `<tr style="border-bottom:1px solid var(--border-subtle)">
       <td style="padding:8px 10px">
         <div style="font-size:0.76rem;font-weight:600">${esc(b.model)}</div>
-        <div style="font-size:0.64rem;color:var(--text-muted)">${esc(b.vin.slice(-8))}</div>
+        <div style="font-size:0.64rem;color:var(--text-muted)">${esc(String(b.vin || b.plate || '').slice(-8))}</div>
       </td>
-      <td style="padding:8px 10px;font-size:0.74rem">${esc(b.customer)}</td>
+      <td style="padding:8px 10px;font-size:0.74rem">${esc(b.customer || '-')}</td>
       <td style="padding:8px 10px">
         <div style="font-weight:700;font-size:0.8rem;color:${hc}">${b.health}%</div>
         <div style="height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-top:3px;width:80px">
@@ -252,9 +277,9 @@ export default async function EvStationPage(container) {
         </div>
       </td>
       <td style="padding:8px 10px;text-align:center;font-size:0.74rem">${b.cycles}</td>
-      <td style="padding:8px 10px;font-size:0.72rem;color:var(--text-muted)">${b.lastCheck}</td>
+      <td style="padding:8px 10px;font-size:0.72rem;color:var(--text-muted)">${formatDate(b.checkDate)}</td>
       <td style="padding:8px 10px">
-        <button class="btn btn-sm btn-${b.status==='warning'?'danger':'secondary'} check-btn" data-vin="${b.vin}">${b.status==='warning'?'⚠️ ตรวจด่วน':'🔋 ตรวจสอบ'}</button>
+        <button class="btn btn-sm btn-${b.status==='warning'?'danger':'secondary'} check-btn" data-vin="${esc(b.vin)}">${b.status==='warning'?'⚠️ ตรวจด่วน':'🔋 ตรวจสอบ'}</button>
       </td>
     </tr>`
   }
@@ -283,11 +308,11 @@ export default async function EvStationPage(container) {
             <div class="page-subtitle">สถานีชาร์จ + Battery Health Monitor${warnBat ? ` · <span style="color:var(--danger);font-weight:700">⚠️ ${warnBat} คัน Battery ต่ำ</span>` : ''}</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-primary" id="add-station-btn">+ เพิ่มสถานี</button>
+            ${tab === 'batteries' ? '<button class="btn btn-primary" id="add-bat-btn">+ บันทึกผลตรวจแบต</button>' : '<button class="btn btn-primary" id="add-station-btn">+ เพิ่มสถานี</button>'}
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px">
           ${sc('✅ ว่าง', available+' สถานี', 'var(--success)')}
           ${sc('⚡ กำลังชาร์จ', charging+' สถานี', 'var(--primary)')}
           ${sc('📊 kWh วันนี้', totalKwh+' kWh', 'var(--warning)')}
@@ -298,6 +323,7 @@ export default async function EvStationPage(container) {
 
         ${tab === 'stations'
           ? `<div>${STATIONS.map(st => stationCard(st)).join('')}</div>`
+          : !BATTERIES.length ? `<div class="empty-state" style="padding:40px"><div class="empty-icon">🔋</div><div class="empty-title">ยังไม่มีผลตรวจแบต</div><div class="empty-desc">กด "+ บันทึกผลตรวจแบต" หลังตรวจรถลูกค้า ระบบจะเก็บผลล่าสุดของแต่ละคันและเตือนคันที่แบตต่ำกว่า 80%</div></div>`
           : `<div class="card" style="padding:0;overflow-x:auto">
               <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
                 <thead><tr style="border-bottom:2px solid var(--border);background:var(--surface-2)">
@@ -316,6 +342,7 @@ export default async function EvStationPage(container) {
 
     container.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => { tab = b.dataset.t; render() }))
     document.getElementById('add-station-btn')?.addEventListener('click', () => openStationModal(null))
+    document.getElementById('add-bat-btn')?.addEventListener('click', () => openBatteryForm())
 
     container.querySelectorAll('.ev-edit-btn').forEach(b => b.addEventListener('click', e => {
       e.stopPropagation()
