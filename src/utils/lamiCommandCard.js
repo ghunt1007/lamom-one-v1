@@ -204,6 +204,9 @@ export async function loadMonthBrief(q) {
   let bookings = all.filter(b => !b.deleted && scopeIncludesRecord(vis, b.salesName, b))
   // (v1.0.1088) ถามยอดของเซลส์รายคน (เฉพาะคนที่ผู้ถามมองเห็นอยู่แล้ว)
   const seller = mb.findSeller(q, bookings.map(b => b.salesName))
+  // (v1.0.1109) ถามยอดของเซลส์ที่อยู่นอกทีม → บอกตรงๆ แทนการตอบยอดของทีมตัวเอง (ซึ่งดูเหมือนเป็นยอดของคนนั้น)
+  const outside = !seller && !whole && mb.findSeller(q, all.map(b => b.salesName))
+  if (outside) return { text: `🔒 ดูยอดของ ${outside} ไม่ได้ — คุณดูได้เฉพาะยอดของตัวเอง${vis.hasSubordinates ? 'และลูกทีม' : ''}`, next: ['ยอดเดือนนี้เป็นไง', 'ทีมวันนี้เป็นไง'] }
   if (seller) bookings = bookings.filter(b => normName(b.salesName) === normName(seller))
   const target = Object.entries(tdoc?.targets || {}).reduce((s, [n, v]) => s + ((seller ? normName(n) === normName(seller) : whole || vis.names?.has(normName(n))) ? Number(v) || 0 : 0), 0)
   const scopeLabel = seller ? `👤 ${seller}` : whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ'
@@ -229,6 +232,8 @@ export async function loadIncomeBrief(q) {
   // (v1.0.1091) "ค่าคอมของสมชายเดือนนี้" → เฉพาะเซลส์คนนั้น (ต้องอยู่ในขอบเขตที่มองเห็น)
   const { findSeller } = await import('./monthBrief.js')
   const seller = findSeller(q, rows.map(b => b.salesName))
+  const outside = !seller && !whole && findSeller(q, all.map(b => b.salesName))
+  if (outside) return { text: `🔒 ดูรายได้ของ ${outside} ไม่ได้ — คุณดูได้เฉพาะของตัวเอง${vis.hasSubordinates ? 'และลูกทีม' : ''}`, next: ['ค่าคอมเดือนนี้เท่าไหร่', 'ยอดเดือนนี้เป็นไง'] }
   if (seller) rows = rows.filter(b => String(b.salesName || '').trim() === seller)
   const st = ib.incomeStats({ bookings: rows, today: todayBangkok(), prev: ib.wantsPrevMonth(q) })
   return { seller, text: ib.incomeBriefText(st, { scope: seller ? '👤 ' + seller : whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ' }), next: ib.incomeFollowUps(st), go: { path: '/crm/sales-income', label: '💰 เปิดหน้ารายได้รายเซลส์' } }
