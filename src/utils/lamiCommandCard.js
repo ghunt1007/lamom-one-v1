@@ -205,10 +205,10 @@ export async function loadMonthBrief(q) {
   if (seller) bookings = bookings.filter(b => normName(b.salesName) === normName(seller))
   const target = Object.entries(tdoc?.targets || {}).reduce((s, [n, v]) => s + ((seller ? normName(n) === normName(seller) : whole || vis.names?.has(normName(n))) ? Number(v) || 0 : 0), 0)
   const scopeLabel = seller ? `👤 ${seller}` : whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ'
-  if (per) return { text: mb.periodBriefText(mb.periodStats({ bookings, today, period: per.period, prev: per.prev }), { scope: scopeLabel }), next: ['ยอดเดือนนี้เป็นไง', per.period === 'year' ? 'ยอดไตรมาสนี้' : 'ปีนี้ขายได้กี่คัน', 'รถรุ่นไหนขายดีสุดเดือนนี้'] }
+  if (per) return { text: mb.periodBriefText(mb.periodStats({ bookings, today, period: per.period, prev: per.prev }), { scope: scopeLabel, colors: mb.isColorRankQuestion(q) }), next: ['ยอดเดือนนี้เป็นไง', per.period === 'year' ? 'ยอดไตรมาสนี้' : 'ปีนี้ขายได้กี่คัน', 'รถรุ่นไหนขายดีสุดเดือนนี้'] }
   const st = mb.monthStats({ bookings, today, target })
-  if (past) return { text: mb.monthBriefText(st, { scope: scopeLabel, past: true, models: mb.isModelRankQuestion(q) }), next: ['ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนก่อนเท่าไหร่', 'ลูกค้าเสียดีลเดือนก่อนมีใครบ้าง'] }
-  return { text: mb.monthBriefText(st, { scope: scopeLabel, models: mb.isModelRankQuestion(q) }), next: mb.monthFollowUps(st) }
+  if (past) return { text: mb.monthBriefText(st, { scope: scopeLabel, past: true, models: mb.isModelRankQuestion(q), colors: mb.isColorRankQuestion(q) }), next: ['ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนก่อนเท่าไหร่', 'ลูกค้าเสียดีลเดือนก่อนมีใครบ้าง'] }
+  return { text: mb.monthBriefText(st, { scope: scopeLabel, models: mb.isModelRankQuestion(q), colors: mb.isColorRankQuestion(q) }), next: mb.monthFollowUps(st) }
 }
 
 // (v1.0.1058) "ค่าคอมเดือนนี้เท่าไหร่ / รายได้เดือนก่อน" → null ถ้าไม่ใช่ · คืน { text, next, go } · ขอบเขตเดียวกับหน้ารายได้รายเซลส์
@@ -320,6 +320,14 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.eventBestAnswer(events, e => eventMetrics(e, { customers, bookings: bks, testDrives: drives }), { today })
   } else if (spec.kind === 'campaignbest') {
     res = oq.campaignBestAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today })
+  } else if (spec.kind === 'noquote') {
+    const [customers, quotes] = await Promise.all([customersPromise || visibleCustomersForCommands(), listDocs('quotations', f, 'createdDate', 'desc', 3000).catch(() => [])])
+    res = oq.noQuoteAnswer((customers || []).filter(c => mine(c.assignedTo, c)), quotes)
+  } else if (spec.kind === 'bookmodel') {
+    res = oq.bookingsByModelAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, model: spec.model, period: spec.period })
+  } else if (spec.kind === 'notd') {
+    const [customers, drives] = await Promise.all([customersPromise || visibleCustomersForCommands(), listDocs('test_drives', f, 'date', 'desc', 2000).catch(() => [])])
+    res = oq.noTestDriveAnswer((customers || []).filter(c => mine(c.assignedTo, c)), drives)
   } else if (spec.kind === 'mycust' || spec.kind === 'nophone' || spec.kind === 'topscore') {
     const customers = ((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c))
     if (spec.kind === 'topscore') { const { heuristicScore } = await import('./leadScore.js'); res = oq.topScoreAnswer(customers, { scoreOf: c => heuristicScore(c) }) }
