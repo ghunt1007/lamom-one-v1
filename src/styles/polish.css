@@ -467,3 +467,17 @@ input.dt-input.dt-bad { border-color: var(--danger) !important; box-shadow: 0 0 
 .call-pill { display: inline-flex; align-items: center; min-height: 28px; padding: 2px 9px; margin: -2px 0; border-radius: 999px; text-decoration: none; white-space: nowrap; color: var(--success); font-weight: 600; background: color-mix(in srgb, var(--success) 12%, transparent); border: 1px solid color-mix(in srgb, var(--success) 32%, transparent); }
 .call-pill:hover { background: color-mix(in srgb, var(--success) 22%, transparent); }
 @media (pointer: coarse) { .call-pill { min-height: 32px; padding: 3px 11px; } }
+
+/* v1.0.1076 — เปิดหลายหน้าต่าง (utils/multiWindow.js) */
+@media (max-width: 899px), (pointer: coarse) and (max-width: 1180px) { .topbar-win-btn { display: none !important; } }
+.win-menu { position: fixed; top: 60px; right: 12px; z-index: 1200; width: min(340px, calc(100vw - 24px)); max-height: min(560px, calc(100vh - 80px)); display: flex; flex-direction: column; gap: 8px; padding: 12px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 12px 36px rgba(0,0,0,.28); }
+.win-menu-main { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 8px 12px; border: none; border-radius: 10px; background: var(--primary); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.win-menu-main:hover { filter: brightness(1.08); }
+.win-menu-label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-top: 2px; }
+.win-menu-find { width: 100%; min-height: 36px; }
+.win-menu-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; overflow-y: auto; min-height: 0; }
+.win-menu-item { display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 38px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--text); font: inherit; font-size: 0.8rem; text-align: left; cursor: pointer; }
+.win-menu-item:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, var(--surface-2)); }
+.win-menu-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.win-menu-empty { grid-column: 1 / -1; padding: 10px; text-align: center; color: var(--text-muted); font-size: 0.8rem; }
+.win-menu-tip { font-size: 0.72rem; line-height: 1.45; color: var(--text-muted); }

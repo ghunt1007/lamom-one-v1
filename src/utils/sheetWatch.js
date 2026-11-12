@@ -60,4 +60,8 @@ export function initSheetWatch() {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && Date.now() - lastCheck > 10 * 60 * 1000) check()
   })
+  // (v1.0.1076) เปิดหลายหน้าต่าง: กดปิดแถบ/ซิงก์แล้วที่หน้าต่างหนึ่ง → แถบในหน้าต่างอื่นหายตาม
+  window.addEventListener('storage', (e) => {
+    if (e.key === SYNCED_KEY || e.key === DISMISS_KEY) document.getElementById('sheet-watch-bar')?.remove()
+  })
 }
