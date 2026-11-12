@@ -320,6 +320,13 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.eventBestAnswer(events, e => eventMetrics(e, { customers, bookings: bks, testDrives: drives }), { today })
   } else if (spec.kind === 'campaignbest') {
     res = oq.campaignBestAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today })
+  } else if (spec.kind === 'noanswer') {
+    const [customers, logs, fus] = await Promise.all([customersPromise || visibleCustomersForCommands(), listDocs('comm_logs', f, 'createdAt', 'desc', 1000).catch(() => []), listDocs('followups', f, 'dueDate', 'desc', 2000).catch(() => [])])
+    res = oq.noAnswerAnswer((customers || []).filter(c => mine(c.assignedTo, c)), logs, fus, { today })
+  } else if (spec.kind === 'hotbyseller') {
+    res = oq.hotBySellerAnswer(((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c)))
+  } else if (spec.kind === 'pdi') {
+    res = oq.pdiAnswer(await listDocs('pdi', f, 'startDate', 'desc', 300).catch(() => []), { today })
   } else if (spec.kind === 'stale') {
     res = oq.staleProspectAnswer(((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c)), { today })
   } else if (spec.kind === 'tradein') {
