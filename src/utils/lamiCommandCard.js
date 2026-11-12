@@ -467,6 +467,15 @@ export async function loadOpsAnswer(q, customersPromise) {
       listDocs('followups', [...f, ...followupWindowFilters(today)], 'dueDate', 'asc', 3000).catch(() => []), g('service_appointments', f, 'date'), g('tasks', f, 'dueDate')])
     const items = buildWorkItems({ bookings, appointments, testDrives, followups, serviceAppts, tasks }, today).filter(it => it.shared || mine(it.owner, it.rec))
     res = oq.overdueAnswer(items, { today, labels: KINDS })
+  } else if (spec.kind === 'approvals' || spec.kind === 'staffcount') {
+    const whole = !!(vis.unrestricted || vis.companyOnly)
+    if (!whole && !vis.hasSubordinates) res = { n: 0, locked: true, text: spec.kind === 'approvals' ? '📥 คิวอนุมัติดูได้เฉพาะหัวหน้าทีมและผู้จัดการ — ดูใบลา/ใบเบิกของตัวเองได้ที่หน้าการลาและหน้าเบิกค่าใช้จ่าย' : '👥 ข้อมูลพนักงานดูได้เฉพาะหัวหน้าทีมและผู้จัดการ' }
+    else if (spec.kind === 'staffcount') res = oq.staffCountAnswer((await listDocs('staff', f, 'startDate', 'asc', 500).catch(() => [])).filter(x => whole || mine([x.firstName, x.lastName].filter(Boolean).join(' '), x)), { today })
+    else {
+      const [leaves, claims, expenses, petty] = await Promise.all([listDocs('leave_requests', f, 'from', 'desc', 300).catch(() => []), listDocs('expense_claims', f, 'date', 'desc', 300).catch(() => []),
+        whole ? listDocs('expense_approvals', f, 'submitDate', 'desc', 200).catch(() => []) : [], whole ? listDocs('petty_cash', f, 'time', 'desc', 300).catch(() => []) : []])
+      res = oq.approvalsAnswer({ leaves: leaves.filter(l => whole || mine(l.staff, l)), claims: claims.filter(c => whole || mine(c.staffName, c)), expenses, petty, only: spec.only })
+    }
   } else if (spec.kind === 'recall') {
     const [camps, vs] = await Promise.all([listDocs('recall_campaigns', f, 'issueDate', 'desc', 200).catch(() => []), listDocs('recall_campaign_vehicles', f, 'plate', 'asc', 500).catch(() => [])])
     res = oq.recallAnswer(camps, vs)

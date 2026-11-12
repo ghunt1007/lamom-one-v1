@@ -78,6 +78,13 @@ export function parseOpsSpec(q) {
   // (v1.0.1086) "งานที่เลยกำหนดมีอะไรบ้าง" → งานในปฏิทินที่เลยวันแล้วยังไม่ได้ทำ (เงื่อนไขเดียวกับปฏิทินงาน)
   if (has(s, /เลยกำหนด|เกินกำหนด|เลยวันนัด|ตกค้าง|^(?:มี)?งานค้าง|งานที่ค้าง|ค้างทำ|งาน.{0,10}ค้าง(?:จาก)?(?:เมื่อวาน|อยู่)|ค้างจากเมื่อวาน/) && !has(s, /ร้องเรียน|ซ่อม|ประกัน|ผ่อน|ชำระ|ไฟแนนซ์|ส่งมอบ|รับรถ|ส่งรถ/)) return { kind: 'overdue' }
   // (v1.0.1082) งานศูนย์บริการ: "รถเข้าศูนย์วันนี้กี่คัน" / "งานซ่อมค้างอยู่กี่งาน" / "รถรออะไหล่มีคันไหน"
+  // (v1.0.1119) "ใบเบิกที่รออนุมัติ" / "ใครยังไม่ได้อนุมัติการลา" / "มีอะไรรออนุมัติ" → คิวอนุมัติ (ลา + เบิก + เงินสดย่อย)
+  if (has(s, /รอ(?:การ)?อนุมัติ|ยังไม่(?:ได้)?(?:ถูก)?อนุมัติ|ต้องอนุมัติ|คิวอนุมัติ|(?:ใบ)?เบิก.{0,8}(?:ค้าง|รอ)/) && !has(s, /ไฟแนนซ์|สินเชื่อ|ธนาคาร|ลูกค้า|ใบจอง|ส่วนลด/))
+    return { kind: 'approvals', only: has(s, /ลา/) && !has(s, /เบิก|เงิน/) ? 'leave' : has(s, /เบิก|ค่าใช้จ่าย|เงินสดย่อย/) && !has(s, /ลา(?!ย)/) ? 'money' : '' }
+  // (v1.0.1119) "พนักงานทั้งหมดกี่คน" / "ใครเพิ่งเข้าทำงานใหม่"
+  if ((has(s, /พนักงาน|ทีมงาน|สตาฟ|staff/i) && has(s, /กี่คน|ทั้งหมด|จำนวน/)) || has(s, /เพิ่ง(?:เข้า|เริ่ม)\s*(?:ทำ)?งาน|พนักงานใหม่|เข้าทำงานใหม่/)) {
+    if (!has(s, /ลูกค้า|ลา(?:งาน|ป่วย|กิจ)?(?:วันนี้|เดือน)|ใครลา|มาสาย|ขาดงาน|ลงเวลา|ยอด|เงินเดือน/)) return { kind: 'staffcount' }
+  }
   // (v1.0.1118) "รีคอลมีคันไหนยังไม่ได้ทำ" → รถในแคมเปญเรียกคืนที่ยังไม่แก้ไข
   if (has(s, /รีคอล|recall|เรียกคืน/i) && !has(s, /^(?:เพิ่ม|สร้าง|บันทึก)/)) return { kind: 'recall' }
   // (v1.0.1118) "ลูกค้าคนไหนเข้าศูนย์บ่อยสุด" / "ช่างคนไหนงานเยอะสุด" → จัดอันดับจากใบสั่งซ่อม
@@ -1143,6 +1150,36 @@ export function serviceTopAnswer(jobs, { today, by = 'customer' }) {
     '💡 ลูกค้าประจำ — ชวนต่อประกัน/แพ็กเกจเช็กระยะ หรือขอให้แนะนำเพื่อน'].join('\n') }
 }
 
+// (v1.0.1119) คิวรออนุมัติ: ลา (leave_requests) + เบิกค่าใช้จ่าย (expense_claims, expense_approvals) + เงินสดย่อย (petty_cash ออก)
+export function approvalsAnswer({ leaves = [], claims = [], expenses = [], petty = [], only = '' }) {
+  const fmt = n => '฿' + Math.round(Number(n) || 0).toLocaleString('en-US')
+  const lv = only === 'money' ? [] : alive(leaves).filter(l => l.status === 'pending')
+  const money = only === 'leave' ? [] : [
+    ...alive(claims).filter(c => c.status === 'pending').map(c => ({ who: c.staffName, what: c.desc || c.cat || 'เบิกค่าใช้จ่าย', amount: c.amount, d: ymd(c.date) })),
+    ...alive(expenses).filter(e => e.status === 'pending').map(e => ({ who: e.submittedBy, what: e.title || 'ขออนุมัติค่าใช้จ่าย', amount: e.amount, d: ymd(e.submitDate) })),
+    ...alive(petty).filter(p => p.status === 'pending' && p.type === 'out').map(p => ({ who: p.by, what: '💵 เงินสดย่อย' + (p.desc ? ' · ' + p.desc : ''), amount: p.amount, d: ymd(p.time) }))]
+  if (!lv.length && !money.length) return { n: 0, text: `✅ ไม่มี${only === 'leave' ? 'ใบลา' : only === 'money' ? 'ใบเบิก' : 'รายการ'}รออนุมัติ` }
+  const lines = [`📥 รออนุมัติ ${lv.length + money.length} รายการ${lv.length && money.length ? ` (ลา ${lv.length} · เบิก ${money.length})` : ''}`]
+  if (lv.length) lines.push('🏖 ใบลา', ...lv.slice(0, 6).map(l => `• ${l.staff || 'พนักงาน'} · ${LEAVE_TH[l.type] || l.type || 'ลา'} · ${dmy(ymd(l.from))}${ymd(l.to) > ymd(l.from) ? '–' + dmy(ymd(l.to)) : ''}`), ...(lv.length > 6 ? [`…และอีก ${lv.length - 6} ใบ`] : []))
+  if (money.length) {
+    const total = money.reduce((a, m) => a + (Number(m.amount) || 0), 0)
+    lines.push(`💸 ใบเบิก ${money.length} รายการ รวม ${fmt(total)}`, ...money.sort((a, b) => String(a.d).localeCompare(String(b.d))).slice(0, 6).map(m => `• ${m.who || 'ไม่ระบุ'} · ${m.what} · ${fmt(m.amount)}${m.d ? ' · ' + dmy(m.d) : ''}`), ...(money.length > 6 ? [`…และอีก ${money.length - 6} รายการ`] : []))
+  }
+  return { n: lv.length + money.length, text: lines.join('\n') }
+}
+
+// (v1.0.1119) จำนวนพนักงานที่ยังทำงาน แยกตำแหน่ง + คนที่เพิ่งเริ่มงาน 60 วัน
+export function staffCountAnswer(staff, { today }) {
+  const act = alive(staff).filter(x => x.status !== 'inactive' && x.active !== false && !/ลาออก|resign/i.test(x.status || ''))
+  if (!act.length) return { n: 0, text: '👥 ยังไม่มีรายชื่อพนักงานในระบบ — เพิ่มได้ที่หน้าพนักงาน' }
+  const by = {}; act.forEach(x => { const k = String(x.position || x.role || 'ไม่ระบุตำแหน่ง').trim(); by[k] = (by[k] || 0) + 1 })
+  const from = addDays(today, -60)
+  const fresh = act.filter(x => ymd(x.startDate) >= from && ymd(x.startDate) <= today).sort((a, b) => ymd(b.startDate).localeCompare(ymd(a.startDate)))
+  const name = x => [x.firstName, x.lastName].filter(Boolean).join(' ') || x.name || 'พนักงาน'
+  return { n: act.length, text: [`👥 พนักงานที่ทำงานอยู่ ${act.length} คน`, Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `${k} ${n}`).join(' · '),
+    fresh.length ? `🆕 เริ่มงานใน 60 วัน ${fresh.length} คน: ${fresh.slice(0, 6).map(x => `${name(x)} (${dmy(ymd(x.startDate))})`).join(', ')}` : '🆕 ไม่มีพนักงานใหม่ใน 60 วัน'].join('\n') }
+}
+
 export const OPS_LINKS = {
   arrived: { path: '/dms/stock', label: '🚙 เปิดหน้าสต็อก' },
   plate: { path: '/dms/plates', label: '🟥 เปิดหน้าติดตามทะเบียน' },
@@ -1182,6 +1219,8 @@ export const OPS_LINKS = {
   noanswer: { path: '/crm/followup', label: '📞 เปิดหน้านัดติดตาม' },
   leave: { path: '/hr/leave', label: '👥 เปิดหน้าการลา' },
   expense: { path: '/finance/pl', label: '📈 เปิดหน้ากำไร-ขาดทุน' },
+  approvals: { path: '/hr/leave', label: '📥 เปิดหน้าการลา' },
+  staffcount: { path: '/hr/staff', label: '👥 เปิดหน้าพนักงาน' },
   recall: { path: '/service/recall', label: '🔧 เปิดหน้าเรียกคืนรถ' },
   servicetop: { path: '/service/jobs', label: '🔧 เปิดหน้างานซ่อม' },
   calls: { path: '/crm/my-day', label: '☀️ เปิดหน้างานวันนี้' },
@@ -1206,7 +1245,7 @@ export const OPS_LINKS = {
 }
 
 export function opsFollowUps(spec) {
-  const all = { recall: 'งานซ่อมค้างอยู่กี่งาน', servicetop: 'งานซ่อมค้างอยู่กี่งาน', calls: 'วันนี้ควรโทรหาใคร', mktspend: 'ลีดจากบูธเดือนนี้กี่คน', dup: 'ลูกค้าคนไหนยังไม่ได้ใส่เบอร์', debt: 'ใบแจ้งหนี้ที่ยังไม่ได้เก็บเงิน', refund: 'มีใครถอนจองบ้าง', floorplan: 'รถค้างสต็อกนานมีคันไหน', late: 'ใครลาวันนี้', arrived: 'รถรุ่นไหนเหลือน้อย', plate: 'ลูกค้าที่ส่งมอบเดือนนี้', csat: 'เรื่องร้องเรียนค้างอยู่ไหม', expense: 'กำไรเดือนนี้เท่าไหร่', profit: 'ค่าใช้จ่ายเดือนนี้เท่าไหร่', leave: 'วันนี้มีอะไรบ้าง', incoming: 'รถรุ่นไหนเหลือน้อย', lowstock: 'รถที่กำลังจะมาถึงมีกี่คัน', noanswer: 'ลูกค้า hot ที่ยังไม่มีนัด', hotbyseller: 'ลูกค้า hot มีใครบ้าง', pdi: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', stale: 'ลูกค้าคนไหนยังไม่ได้ทดลองขับ', tradein: 'ใครรอไฟแนนซ์', closerate: 'ลูกค้าใหม่เดือนนี้กี่คน', noquote: 'ใบเสนอราคาค้างอยู่กี่ใบ', bookmodel: 'รถรุ่นไหนขายดีสุดเดือนนี้', notd: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', claim: 'งานซ่อมค้างอยู่กี่งาน', parts: 'รถรออะไหล่มีคันไหน', servicerev: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', yesterday: 'วันนี้มีอะไรบ้าง', referask: 'ใครครบรอบซื้อรถเดือนนี้', eventbest: 'ลีดจากบูธเดือนนี้กี่คน', campaignbest: 'โปรเดือนนี้มีอะไรบ้าง', delivered: 'ใครครบรอบซื้อรถเดือนนี้', mycust: 'ลูกค้า hot มีใครบ้าง', nophone: 'ลูกค้าที่ยังไม่มีผู้ดูแล', topscore: 'วันนี้ควรโทรหาใคร', withdrawn: 'ยอดเดือนนี้เป็นไง', finbank: 'ใครรอไฟแนนซ์', noshow: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', nobookseller: 'ทีมวันนี้เป็นไง', bookday: 'ยอดเดือนนี้เป็นไง', tdnobook: 'ลูกค้า hot มีใครบ้าง', testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', insurance: 'รับประกันรถคันไหนใกล้หมด', walkin: 'walk in สัปดาห์นี้กี่คน', warranty: 'ประกันภัยใครใกล้หมด', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
+  const all = { approvals: 'ใครลาวันนี้', staffcount: 'ใครมาสายวันนี้', recall: 'งานซ่อมค้างอยู่กี่งาน', servicetop: 'งานซ่อมค้างอยู่กี่งาน', calls: 'วันนี้ควรโทรหาใคร', mktspend: 'ลีดจากบูธเดือนนี้กี่คน', dup: 'ลูกค้าคนไหนยังไม่ได้ใส่เบอร์', debt: 'ใบแจ้งหนี้ที่ยังไม่ได้เก็บเงิน', refund: 'มีใครถอนจองบ้าง', floorplan: 'รถค้างสต็อกนานมีคันไหน', late: 'ใครลาวันนี้', arrived: 'รถรุ่นไหนเหลือน้อย', plate: 'ลูกค้าที่ส่งมอบเดือนนี้', csat: 'เรื่องร้องเรียนค้างอยู่ไหม', expense: 'กำไรเดือนนี้เท่าไหร่', profit: 'ค่าใช้จ่ายเดือนนี้เท่าไหร่', leave: 'วันนี้มีอะไรบ้าง', incoming: 'รถรุ่นไหนเหลือน้อย', lowstock: 'รถที่กำลังจะมาถึงมีกี่คัน', noanswer: 'ลูกค้า hot ที่ยังไม่มีนัด', hotbyseller: 'ลูกค้า hot มีใครบ้าง', pdi: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', stale: 'ลูกค้าคนไหนยังไม่ได้ทดลองขับ', tradein: 'ใครรอไฟแนนซ์', closerate: 'ลูกค้าใหม่เดือนนี้กี่คน', noquote: 'ใบเสนอราคาค้างอยู่กี่ใบ', bookmodel: 'รถรุ่นไหนขายดีสุดเดือนนี้', notd: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', claim: 'งานซ่อมค้างอยู่กี่งาน', parts: 'รถรออะไหล่มีคันไหน', servicerev: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', yesterday: 'วันนี้มีอะไรบ้าง', referask: 'ใครครบรอบซื้อรถเดือนนี้', eventbest: 'ลีดจากบูธเดือนนี้กี่คน', campaignbest: 'โปรเดือนนี้มีอะไรบ้าง', delivered: 'ใครครบรอบซื้อรถเดือนนี้', mycust: 'ลูกค้า hot มีใครบ้าง', nophone: 'ลูกค้าที่ยังไม่มีผู้ดูแล', topscore: 'วันนี้ควรโทรหาใคร', withdrawn: 'ยอดเดือนนี้เป็นไง', finbank: 'ใครรอไฟแนนซ์', noshow: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', nobookseller: 'ทีมวันนี้เป็นไง', bookday: 'ยอดเดือนนี้เป็นไง', tdnobook: 'ลูกค้า hot มีใครบ้าง', testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', insurance: 'รับประกันรถคันไหนใกล้หมด', walkin: 'walk in สัปดาห์นี้กี่คน', warranty: 'ประกันภัยใครใกล้หมด', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
   const out = [all[spec.kind]]
   if (spec.kind === 'testdrive' && spec.day === 'tomorrow') out[0] = 'พรุ่งนี้มีใครนัดเข้าโชว์รูม'
   if (spec.kind === 'delivery' && spec.day === 'week') out[0] = 'มีนัดส่งมอบพรุ่งนี้ไหม'
