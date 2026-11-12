@@ -1,175 +1,136 @@
 /**
- * Plate & Registration Tracking — ติดตามป้ายแดง/จดทะเบียน
+ * Plate & Registration Tracking — ติดตามป้ายแดง/ป้ายขาว
  * Route: /dms/plates
+ *
+ * (v1.0.1104) ใช้ข้อมูลจริงจาก "ใบจอง" (ส่งมอบแล้ว) แทนรายการป้ายแดงสมมติ (ก-0041…) และคอลเลกชันแยกที่ต้องกรอกซ้ำ
+ * กรอกเลขป้ายแดง/ป้ายขาวที่นี่ → บันทึกลงใบจองนั้นทันที (ช่องเดียวกับฟอร์มใบจองและ Sheet)
  */
 import { formatDate, todayBangkok } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listAllDocs, listDocs, updateDocData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
-import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { carOf } from '../../utils/carLabel.js'
+import { navigate } from '../../core/router.js'
+import { plateRows, plateSummary, filterPlateRows, PLATE_LATE_DAYS } from '../../utils/plateList.js'
 
-const REG_STATUS = {
-  red_plate:  { label: 'ใช้ป้ายแดง', color: 'danger', icon: '🟥' },
-  submitted:  { label: 'ยื่นขนส่งแล้ว', color: 'warning', icon: '📋' },
-  approved:   { label: 'ได้เลขทะเบียน', color: 'primary', icon: '🔢' },
-  plated:     { label: 'ติดป้ายขาวแล้ว', color: 'success', icon: '✅' },
-}
-
-const RED_PLATE_POOL = [
-  { plate: 'ก-0041', inUse: true }, { plate: 'ก-0042', inUse: true }, { plate: 'ก-0043', inUse: false },
-  { plate: 'ก-0044', inUse: true }, { plate: 'ก-0045', inUse: true }, { plate: 'ก-0046', inUse: false },
-]
-
-const NEXT = { red_plate: 'submitted', submitted: 'approved', approved: 'plated' }
-
-// รายการป้ายแดงที่ "ว่าง" จริง — ยังไม่ถูกใช้อยู่ในรายการที่ยังไม่ปิดสถานะ (status !== 'plated')
-function getFreeRedPlates(regs) {
-  return RED_PLATE_POOL.filter(p => !regs.some(r => r.redPlate === p.plate && r.status !== 'plated'))
-}
+const VIEWS = [['pending', '🟥 ยังไม่ได้ป้ายขาว'], ['late', `⚠️ เกิน ${PLATE_LATE_DAYS} วัน`], ['done', '✅ ได้ป้ายขาวแล้ว'], ['all', 'ทั้งหมด']]
 
 export default async function PlateTrackingPage(container) {
   const myGen = container.__routerGen
-  seedDemoData()
+  let rows = [], legacy = [], loading = true, failed = false
+  let view = 'pending', q = ''
+  const today = todayBangkok()
 
-  let regs = []
-  let loading = true
-
-  // (v1.0.477) เปลี่ยนจาก listDocs เป็น watchDocs (real-time) — pool ป้ายแดงมีจำกัด เดิมเจ้าหน้าที่สองคนเปิด
-  // พร้อมกันอาจเห็น pool ว่างเหมือนกันแล้วจ่ายป้ายเดียวกันให้รถสองคันซ้อนกันโดยไม่รู้ตัว
-  let unsubRegs = () => {}
-  function startWatch() {
-    unsubRegs()
-    unsubRegs = watchDocs('plate_tracking', [], 'deliveredDate', 'desc', 200, docs => {
-      if (container.__routerGen !== myGen) { unsubRegs(); return }
-      regs = docs
-      loading = false
-      renderPage()
-    })
+  async function load() {
+    try {
+      const bookings = await listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc')
+      rows = plateRows(bookings, { today })
+      failed = false
+    } catch { failed = true }
+    // รายการเก่าที่เคยบันทึกไว้ในหน้านี้ (ก่อน v1.0.1104) — แสดงให้เห็นไว้ ไม่ลบ
+    legacy = (await listDocs('plate_tracking', [], 'deliveredDate', 'desc', 200).catch(() => [])).filter(r => r && !r.deleted && r.status !== 'plated')
+    loading = false
+    if (container.__routerGen === myGen) render()
   }
-  async function loadData() {} // เหลือไว้เพราะโค้ดเดิมเรียกหลังบันทึกทุกจุด — listener ด้านบนอัปเดตให้อัตโนมัติแล้ว
 
-  function renderPage() {
+  function card(r) {
+    const b = r.b
+    const name = b.custName || b.customerName || 'ลูกค้า'
+    const tone = r.white ? 'success' : r.late || r.dupRed ? 'danger' : 'warning'
+    return `<div class="card" style="padding:12px 14px;border-left:3px solid var(--${tone})" data-row="${escHtml(b.id)}">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap">
+        <div style="min-width:0;flex:1 1 200px">
+          <div style="font-weight:700;font-size:0.9rem;overflow-wrap:anywhere">${escHtml(name)}${carOf(b) ? ` <span style="font-weight:500;color:var(--text-muted);font-size:0.8rem">· ${escHtml(carOf(b))}</span>` : ''}</div>
+          <div style="font-size:0.74rem;color:var(--text-muted);overflow-wrap:anywhere">ส่งมอบ ${formatDate(r.b.actualDeliveryDate || r.b.deliveryDate)} (${r.age} วัน)${b.salesName ? ' · 👤 ' + escHtml(b.salesName) : ''}${b.vin ? ' · VIN …' + escHtml(String(b.vin).slice(-6)) : ''}</div>
+        </div>
+        <span class="badge badge-${tone}" style="font-size:0.66rem;white-space:nowrap">${r.white ? '✅ ได้ป้ายขาวแล้ว' : r.dupRed ? '⚠️ ป้ายแดงซ้ำกับคันอื่น' : r.late ? `⚠️ เกิน ${PLATE_LATE_DAYS} วัน` : r.red ? '🟥 ใช้ป้ายแดง' : '❔ ยังไม่กรอกป้ายแดง'}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:8px;align-items:end">
+        <label class="input-group" style="margin:0"><span class="input-label" style="font-size:0.7rem">🟥 ป้ายแดง</span><input class="input pl-red" value="${escHtml(r.red)}" placeholder="ยังไม่กรอก" autocomplete="off"></label>
+        <label class="input-group" style="margin:0"><span class="input-label" style="font-size:0.7rem">⬜ ป้ายขาว (ทะเบียนจริง)</span><input class="input pl-white" value="${escHtml(r.white)}" placeholder="ยังไม่กรอก" autocomplete="off"></label>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-primary pl-save" style="flex:1">💾 บันทึก</button>
+          <button class="btn btn-sm btn-secondary pl-open" title="เปิดใบจอง">📝</button>
+        </div>
+      </div>
+    </div>`
+  }
+
+  function render() {
     if (loading) {
       container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
       return
     }
-    const pending = regs.filter(r => r.status !== 'plated')
-    const overdue = regs.filter(r => r.status === 'red_plate' && r.deliveredDate <= addDays(-45))
-    const freePlates = getFreeRedPlates(regs).length
-
+    const st = plateSummary(rows)
+    const list = filterPlateRows(rows, { view, q })
+    const count = { pending: st.pending, late: st.late, done: st.done, all: rows.length }
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">🚙 Plate Tracking</div>
-            <div class="page-subtitle">ติดตามป้ายแดง → จดทะเบียน → ป้ายขาว</div>
-          </div>
-          <div class="page-actions">
-            <button class="btn btn-primary" id="add-reg-btn">+ รถส่งมอบใหม่</button>
+            <div class="page-title">🪪 ติดตามป้ายทะเบียน</div>
+            <div class="page-subtitle">รถที่ส่งมอบแล้วใน 180 วัน · ข้อมูลจากใบจอง กรอกที่นี่แล้วใบจองอัปเดตให้เอง</div>
           </div>
         </div>
-
-        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('🔄 กำลังดำเนินการ', pending.length + ' คัน', 'primary')}
-          ${kpi('⚠️ ป้ายแดงเกิน 45 วัน', overdue.length, overdue.length > 0 ? 'danger' : 'success')}
-          ${kpi('🟥 ป้ายแดงว่าง', freePlates + '/' + RED_PLATE_POOL.length, freePlates === 0 ? 'danger' : 'secondary')}
-          ${kpi('✅ เสร็จเดือนนี้', regs.filter(r=>r.status==='plated').length, 'success')}
+        ${failed ? `<div class="card" style="padding:12px 14px;margin-bottom:12px;color:var(--danger)">โหลดใบจองไม่สำเร็จ ลองรีเฟรชอีกครั้ง</div>` : ''}
+        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:14px">
+          ${kpi('🟥 ยังไม่ได้ป้ายขาว', st.pending + ' คัน', st.pending ? 'warning' : 'success')}
+          ${kpi(`⚠️ เกิน ${PLATE_LATE_DAYS} วัน`, st.late + ' คัน', st.late ? 'danger' : 'success')}
+          ${kpi('🟥 ป้ายแดงที่ใช้อยู่', st.redInUse + ' แผ่น', 'secondary')}
+          ${kpi('✅ ได้ป้ายขาวแล้ว', st.done + ' คัน', 'success')}
         </div>
-
-        ${overdue.length > 0 ? `
-          <div style="padding:10px 14px;background:var(--danger)11;border:1px solid var(--danger)33;border-radius:var(--radius);margin-bottom:12px;font-size:0.78rem">
-            ⚠️ <strong>ป้ายแดงใช้นานเกินกำหนด:</strong> ${overdue.map(r => `${escHtml(r.customer)} (${Math.abs(Math.round((new Date(r.deliveredDate) - new Date())/86400000))} วัน)`).join(' · ')} — เสี่ยงโดนปรับ
-          </div>
-        ` : ''}
-
-        <div style="display:flex;flex-direction:column;gap:10px">
-          ${regs.map(r => {
-            const rs = REG_STATUS[r.status]
-            const next = NEXT[r.status]
-            const days = Math.abs(Math.round((new Date(r.deliveredDate) - new Date()) / 86400000))
-            return `<div class="card" style="padding:13px 14px;border-left:3px solid var(--${rs?.color})">
-              <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
-                <div>
-                  <div style="font-weight:700;font-size:0.87rem">${escHtml(r.customer)} — ${escHtml(r.model)} <span style="font-size:0.7rem;color:var(--text-muted)">VIN ${escHtml(r.vin)}</span></div>
-                  <div style="font-size:0.72rem;color:var(--text-muted)">🟥 ป้ายแดง ${escHtml(r.redPlate)} · ส่งมอบ ${formatDate(r.deliveredDate)} (${days} วันแล้ว)</div>
-                  ${r.newPlate ? `<div style="font-size:0.78rem;font-weight:700;color:var(--success)">🔢 ทะเบียนใหม่: ${escHtml(r.newPlate)}</div>` : ''}
-                  ${r.note ? `<div style="font-size:0.72rem;color:var(--warning);font-style:italic">📌 ${escHtml(r.note)}</div>` : ''}
-                </div>
-                <span class="badge badge-${rs?.color}" style="font-size:0.63rem">${rs?.icon} ${rs?.label}</span>
-              </div>
-              ${next ? `
-                <div style="display:flex;gap:6px">
-                  <button class="btn btn-xs btn-${REG_STATUS[next]?.color} next-btn" data-id="${r.id}">${REG_STATUS[next]?.icon} → ${REG_STATUS[next]?.label}</button>
-                </div>
-              ` : `<div style="font-size:0.72rem;color:var(--success)">✅ คืนป้ายแดง ${escHtml(r.redPlate)} เข้า pool แล้ว</div>`}
-            </div>`
-          }).join('')}
+        ${st.dup ? `<div class="card" style="padding:10px 14px;margin-bottom:12px;border-left:3px solid var(--danger);font-size:0.8rem">⚠️ มีป้ายแดงแผ่นเดียวกันอยู่กับรถ ${st.dup} คัน — ตรวจเลขป้ายให้ถูกก่อนออกรถคันถัดไป</div>` : ''}
+        ${st.late ? `<div class="card" style="padding:10px 14px;margin-bottom:12px;border-left:3px solid var(--danger);font-size:0.8rem">⚠️ ป้ายแดงใช้ได้ไม่เกิน ${PLATE_LATE_DAYS} วันหลังรับรถ — ตามงานทะเบียน ${st.late} คันนี้ก่อน</div>` : ''}
+        <div class="chip-scroll" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          ${VIEWS.map(([k, l]) => `<button class="btn btn-sm ${view === k ? 'btn-primary' : 'btn-secondary'} pl-view" data-v="${k}">${l} ${count[k]}</button>`).join('')}
         </div>
-      </div>
-    `
+        <input class="input" id="pl-q" placeholder="🔍 ค้นหาชื่อ รุ่น เลขตัวถัง หรือเลขป้าย" value="${escHtml(q)}" style="margin-bottom:12px" autocomplete="off">
+        <div id="pl-list" style="display:flex;flex-direction:column;gap:10px">
+          ${list.length ? list.slice(0, 200).map(card).join('') : `<div class="empty-state" style="padding:36px"><div class="empty-icon">${rows.length ? '🔍' : '🚗'}</div><div class="empty-title">${rows.length ? (view === 'pending' && !q ? 'รถทุกคันได้ป้ายขาวครบแล้ว 👍' : 'ไม่พบรายการ') : 'ยังไม่มีรถที่ส่งมอบใน 180 วัน'}</div><div class="empty-desc">${rows.length ? 'ลองเปลี่ยนตัวกรองหรือคำค้นหา' : 'เมื่อใบจองเปลี่ยนเป็น "ส่งมอบแล้ว" รถจะขึ้นที่นี่ให้ตามทะเบียนเอง'}</div></div>`}
+        </div>
+        ${legacy.length ? `<div class="card" style="padding:12px 14px;margin-top:16px">
+          <div style="font-weight:700;font-size:0.85rem;margin-bottom:6px">📁 รายการที่บันทึกไว้แบบเดิม (${legacy.length})</div>
+          <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:6px">บันทึกไว้ก่อนหน้านี้ ยังไม่ได้ผูกกับใบจอง — กรอกป้ายในใบจองของลูกค้าคนนั้นด้านบนแทนได้เลย</div>
+          ${legacy.map(r => `<div style="font-size:0.78rem;padding:4px 0;border-top:1px solid var(--border);overflow-wrap:anywhere">${escHtml(r.customer || '-')} · ${escHtml(r.model || '-')} · ป้ายแดง ${escHtml(r.redPlate || '-')}${r.newPlate ? ' · ทะเบียน ' + escHtml(r.newPlate) : ''} · ส่งมอบ ${formatDate(r.deliveredDate)}</div>`).join('')}
+        </div>` : ''}
+      </div>`
 
-    container.querySelectorAll('.next-btn').forEach(b => b.addEventListener('click', () => {
-      const r = regs.find(x => x.id === b.dataset.id)
+    container.querySelectorAll('.pl-view').forEach(b => b.addEventListener('click', () => { view = b.dataset.v; render() }))
+    const qi = container.querySelector('#pl-q')
+    qi?.addEventListener('input', () => {
+      q = qi.value
+      const l = filterPlateRows(rows, { view, q })
+      const box = container.querySelector('#pl-list')
+      if (box) { box.innerHTML = l.length ? l.slice(0, 200).map(card).join('') : `<div class="empty-state" style="padding:36px"><div class="empty-icon">🔍</div><div class="empty-title">ไม่พบรายการ</div></div>`; bindRows() }
+    })
+    bindRows()
+  }
+
+  function bindRows() {
+    container.querySelectorAll('[data-row]').forEach(el => {
+      const id = el.dataset.row
+      const r = rows.find(x => x.b.id === id)
       if (!r) return
-      const next = NEXT[r.status]
-      if (next === 'approved') {
-        openModal({
-          title: '🔢 บันทึกเลขทะเบียน',
-          size: 'sm',
-          body: `<div class="input-group"><label class="input-label">เลขทะเบียนใหม่ *</label><input class="input" id="rg-plate" placeholder="9กข 1234"></div>`,
-          async onConfirm() {
-            const p = document.getElementById('rg-plate')?.value?.trim()
-            if (!p) { showToast('❗ กรอกเลขทะเบียน', 'error'); return false }
-            try {
-              await updateDocData('plate_tracking', r.id, { newPlate: p, status: 'approved', note: 'รอนัดติดป้าย' })
-              showToast('🔢 บันทึกเลขทะเบียน + แจ้งลูกค้าแล้ว', 'success')
-              await loadData()
-            } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
-          }
-        })
-      } else {
-        (async () => {
-          try {
-            await updateDocData('plate_tracking', r.id, { status: next, note: next === 'plated' ? '' : r.note })
-            if (next === 'plated') showToast('✅ ติดป้ายขาวแล้ว — คืนป้ายแดงเข้า pool', 'success')
-            else showToast(`${REG_STATUS[next]?.icon} ${REG_STATUS[next]?.label}`, 'primary')
-            await loadData()
-          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
-        })()
+      const save = el.querySelector('.pl-save')
+      el.querySelector('.pl-open')?.addEventListener('click', () => navigate('/crm/bookings?id=' + encodeURIComponent(id)))
+      const doSave = async () => {
+        const red = el.querySelector('.pl-red').value.trim(), white = el.querySelector('.pl-white').value.trim()
+        if (red === r.red && white === r.white) { showToast('ไม่มีอะไรเปลี่ยน', 'info'); return }
+        save.disabled = true
+        try {
+          await updateDocData('bookings', id, { redPlate: red, whitePlate: white })
+          r.b.redPlate = red; r.b.whitePlate = white
+          showToast(white && !r.white ? '✅ บันทึกป้ายขาวแล้ว — ปิดงานทะเบียนคันนี้' : '💾 บันทึกแล้ว', 'success')
+          await load()
+        } catch { showToast('บันทึกไม่สำเร็จ (อาจไม่มีสิทธิ์แก้ใบจองนี้)', 'error'); save.disabled = false }
       }
-    }))
-    document.getElementById('add-reg-btn')?.addEventListener('click', () => {
-      // เดิม dropdown ป้ายแดงไม่กรองป้ายที่ "กำลังใช้อยู่" ออกเลย ทำให้เผลอจ่ายป้ายแดงเดียวกันซ้ำให้รถ 2 คัน
-      // พร้อมกันได้ (ป้ายจริงมีอยู่แผ่นเดียว) แก้ให้เหลือแค่ป้ายที่ว่างจริง
-      const free = getFreeRedPlates(regs)
-      openModal({
-        title: '+ รถส่งมอบใหม่ (เริ่มติดตามทะเบียน)',
-        size: 'sm',
-        body: `<div style="display:grid;gap:10px">
-          <div class="input-group"><label class="input-label">ลูกค้า *</label><input class="input" id="rg-name"></div>
-          <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="rg-model"></div>
-          <div class="input-group"><label class="input-label">ป้ายแดง${free.length ? '' : ' (ไม่มีป้ายว่าง!)'}</label>
-            <select class="input" id="rg-red">${free.length ? free.map(p=>`<option>${p.plate}</option>`).join('') : '<option value="">— ไม่มีป้ายแดงว่าง —</option>'}</select>
-          </div>
-        </div>`,
-        async onConfirm() {
-          const name = document.getElementById('rg-name')?.value?.trim()
-          if (!name) { showToast('❗ กรอกชื่อ', 'error'); return false }
-          const redPlate = document.getElementById('rg-red')?.value
-          if (!redPlate) { showToast('❗ ไม่มีป้ายแดงว่างให้จ่าย — คืนป้ายที่ใช้อยู่ก่อน', 'error'); return false }
-          try {
-            await createDoc('plate_tracking', { customer: name, model: document.getElementById('rg-model')?.value || '—', vin: '...ใหม่', redPlate, deliveredDate: addDays(0), status: 'red_plate', newPlate: null, note: '' })
-            showToast('✅ เริ่มติดตามแล้ว', 'success')
-            await loadData()
-          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
-        }
-      })
+      save?.addEventListener('click', doSave)
+      el.querySelectorAll('input').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSave() } }))
     })
   }
 
-  startWatch()
-  return function cleanupPlateTracking() { unsubRegs() }
+  render()
+  await load()
 }
-

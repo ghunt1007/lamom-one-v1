@@ -807,6 +807,7 @@ export const PAGE_COLLECTIONS = {
   "job_cards"
  ],
  "/dms/plates": [
+  "bookings",
   "plate_tracking"
  ],
  "/crm/vip": [

@@ -3,6 +3,7 @@
 //   "เรื่องร้องเรียนค้างอยู่ไหม" · "ลูกค้าใหม่เดือนนี้กี่คน" · "ใครเกิดวันนี้ / ครบรอบซื้อรถสัปดาห์นี้"
 // ฟังก์ชันล้วน ทดสอบได้ · ตัวโหลดข้อมูลอยู่ใน lamiCommandCard.js (loadOpsAnswer)
 import { dmy } from './format.js'
+import { plateRows, deliveredOn, PLATE_LATE_DAYS } from './plateList.js'
 import { carOf } from './carLabel.js'
 import { nextAnniversary } from './anniversary.js'
 import { lostBySeller, classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
@@ -459,15 +460,12 @@ export function pdiAnswer(pdis, { today }) {
 
 // (v1.0.1103) ลูกค้ารับรถแล้วแต่ยังไม่ได้ป้ายขาว (จากใบจอง: ส่งมอบแล้ว ไม่มี whitePlate) · รับรถเกิน 45 วันขึ้นก่อน
 export function plateAnswer(bookings, { today, days = 180 }) {
-  const t0 = dnum(today)
-  const dOf = b => String(b.actualDeliveryDate || b.deliveryDate || '').slice(0, 10)
-  const list = alive(bookings).filter(b => (b.status === 'ส่งมอบแล้ว' || b.status === 'delivered') && !String(b.whitePlate || '').trim() && dnum(dOf(b)) != null && t0 - dnum(dOf(b)) <= days && t0 - dnum(dOf(b)) >= 0)
-    .map(b => ({ b, age: t0 - dnum(dOf(b)) })).sort((x, y) => y.age - x.age)
+  const list = plateRows(bookings, { today, days }).filter(r => !r.white)
   if (!list.length) return { n: 0, text: `✅ ลูกค้าที่รับรถใน ${days} วันนี้ได้ป้ายขาวครบแล้ว (หรือยังไม่มีใครรับรถ)` }
-  const late = list.filter(x => x.age > 45).length
-  return { n: list.length, text: [`🟥 รับรถแล้วยังไม่ได้ป้ายขาว ${list.length} คัน${late ? ` · เกิน 45 วัน ${late} คัน` : ''}`,
-    ...list.slice(0, MAX).map(({ b, age }) => `• ${nm(b)}${carOf(b) ? ' · ' + carOf(b) : ''} · รับรถ ${dmy(dOf(b))} (${age} วัน)${b.redPlate ? ' · ป้ายแดง ' + b.redPlate : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''}`),
-    ...more(list.length), late ? '💡 ตามงานทะเบียนคันที่เกิน 45 วันก่อน แล้วกรอกเลขป้ายขาวในใบจอง' : '💡 ได้เลขทะเบียนแล้วกรอก "ป้ายขาว" ในใบจอง รายการนี้จะหายไปเอง'].join('\n') }
+  const late = list.filter(x => x.late).length
+  return { n: list.length, text: [`🟥 รับรถแล้วยังไม่ได้ป้ายขาว ${list.length} คัน${late ? ` · เกิน ${PLATE_LATE_DAYS} วัน ${late} คัน` : ''}`,
+    ...list.slice(0, MAX).map(({ b, age, red }) => `• ${nm(b)}${carOf(b) ? ' · ' + carOf(b) : ''} · รับรถ ${dmy(deliveredOn(b))} (${age} วัน)${red ? ' · ป้ายแดง ' + red : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''}`),
+    ...more(list.length), late ? `💡 ตามงานทะเบียนคันที่เกิน ${PLATE_LATE_DAYS} วันก่อน แล้วกรอกเลขป้ายขาวในหน้าติดตามทะเบียน` : '💡 ได้เลขทะเบียนแล้วกรอก "ป้ายขาว" ในหน้าติดตามทะเบียน รายการนี้จะหายไปเอง'].join('\n') }
 }
 
 // (v1.0.1097) การลาของพนักงาน (อนุมัติแล้ว + รออนุมัติ) ที่ครอบวันนั้น
