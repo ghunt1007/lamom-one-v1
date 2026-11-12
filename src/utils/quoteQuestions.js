@@ -95,7 +95,7 @@ export function quotePageQuery(st, spec = { focus: 'all' }) {
   return ''
 }
 
-// (v1.0.1074) งานวันนี้: ลูกค้ายอมรับแล้วแต่ยังไม่ทำใบจอง + ใบที่เปิดอยู่และหมดอายุภายใน 3 วัน (ไม่ซ้ำกัน)
+// (v1.0.1075) งานวันนี้: ลูกค้ายอมรับแล้วแต่ยังไม่ทำใบจอง + ใบที่เปิดอยู่และหมดอายุภายใน 3 วัน (ไม่ซ้ำกัน)
 export function quoteDueToday(quotes = [], today, days = 3) {
   const st = quoteStats({ quotes, today })
   const book = st.toBook.map(q => ({ ...q, _why: 'book' }))

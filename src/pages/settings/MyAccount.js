@@ -1,5 +1,5 @@
 import { showToast, getState } from '../../core/store.js'
-import { changeOwnPassword } from '../../core/auth.js'
+import { changeOwnPassword, changeOwnEmail } from '../../core/auth.js'
 import { listDocs } from '../../core/db.js'
 import { timeAgo } from '../../utils/format.js'
 import { escHtml } from '../../utils/escape.js'
@@ -96,7 +96,7 @@ export default function MyAccountPage(container) {
           <div class="card" style="padding:16px">
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📋 ข้อมูลบัญชี</div>
             ${row('👤 ชื่อ', escHtml(me.displayName) || '—')}
-            ${row('📧 อีเมล (login)', escHtml(me.email) || '—')}
+            ${row('📧 อีเมล (login)', `${escHtml(me.email) || '—'} <button class="btn btn-xs btn-secondary" id="ma-go-email" style="margin-left:6px">✏️ เปลี่ยน</button>`)}
             ${row('🏷 บทบาท', `${role.icon} ${role.label}`)}
             ${row('🔐 ประเภทบัญชี', '🔥 Firebase Auth')}
           </div>
@@ -127,6 +127,11 @@ export default function MyAccountPage(container) {
         </div>
       </div>
     `
+
+    el.querySelector('#ma-go-email')?.addEventListener('click', () => {
+      activeTab = 'security'; renderPage()
+      document.getElementById('ce-new')?.focus()
+    })
 
     el.querySelectorAll('.av-color').forEach(b => b.addEventListener('click', () => {
       avatarColor = b.dataset.color
@@ -165,6 +170,18 @@ export default function MyAccountPage(container) {
             <button class="btn btn-primary" id="cp-btn">🔑 เปลี่ยนรหัสผ่าน</button>
           </div>
           <p style="font-size:0.68rem;color:var(--text-muted);margin-top:10px">💡 ลืมรหัสปัจจุบัน? ออกจากระบบแล้วกด "ลืมรหัสผ่าน?" หน้า Login เพื่อรับอีเมลตั้งรหัสใหม่</p>
+        </div>
+        <div class="card" style="padding:18px">
+          <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:14px">📧 เปลี่ยนอีเมล login</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="font-size:0.74rem;color:var(--text-muted);overflow-wrap:anywhere">อีเมลตอนนี้: <strong style="color:var(--text)">${escHtml(me.email) || '—'}</strong></div>
+            <div class="input-group"><label class="input-label">อีเมลใหม่ *</label><input class="input" type="email" id="ce-new" autocomplete="email" placeholder="name@example.com"></div>
+            <div class="input-group"><label class="input-label">รหัสผ่านปัจจุบัน *</label><input class="input" type="password" id="ce-pw" autocomplete="current-password"></div>
+            <span class="input-error" id="ce-error"></span>
+            <button class="btn btn-primary" id="ce-btn">📧 ส่งลิงก์ยืนยันไปที่อีเมลใหม่</button>
+            <div id="ce-done" style="display:none;font-size:0.76rem;line-height:1.7;padding:10px 12px;border-radius:8px;background:var(--success-bg, rgba(34,197,94,0.12));overflow-wrap:anywhere"></div>
+          </div>
+          <p style="font-size:0.68rem;color:var(--text-muted);margin-top:10px;line-height:1.7">💡 อีเมลจะเปลี่ยนหลังกดลิงก์ในอีเมลใหม่ จากนั้นล็อกอินด้วยอีเมลใหม่ได้เลย สิทธิ์ ข้อมูลลูกค้า และงานทั้งหมดอยู่ครบเหมือนเดิม</p>
         </div>
         <div class="card" style="padding:18px">
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">🛡 ความปลอดภัยบัญชี</div>
@@ -210,6 +227,31 @@ export default function MyAccountPage(container) {
       if (!r.ok) { if (err) err.textContent = r.error; return }
       showToast('🔑 เปลี่ยนรหัสผ่านสำเร็จ', 'success')
       ;['cp-old','cp-new1','cp-new2'].forEach(id => { const el = document.getElementById(id); if (el) el.value = '' })
+    })
+
+    wireEmailChange()
+  }
+
+  function wireEmailChange() {
+    document.getElementById('ce-btn')?.addEventListener('click', async () => {
+      const newEmail = (document.getElementById('ce-new')?.value || '').trim()
+      const pw = document.getElementById('ce-pw')?.value || ''
+      const err = document.getElementById('ce-error')
+      const btn = document.getElementById('ce-btn')
+      if (err) err.textContent = ''
+      if (!newEmail) { if (err) err.textContent = 'กรอกอีเมลใหม่'; return }
+      if (!pw) { if (err) err.textContent = 'กรอกรหัสผ่านปัจจุบัน'; return }
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังส่ง...' }
+      const r = await changeOwnEmail(pw, newEmail)
+      if (btn) { btn.disabled = false; btn.textContent = '📧 ส่งลิงก์ยืนยันไปที่อีเมลใหม่' }
+      if (!r.ok) { if (err) err.textContent = r.error; return }
+      const pwEl = document.getElementById('ce-pw'); if (pwEl) pwEl.value = ''
+      const done = document.getElementById('ce-done')
+      if (done) {
+        done.style.display = 'block'
+        done.innerHTML = `✅ ส่งลิงก์ยืนยันไปที่ <strong>${escHtml(r.email)}</strong> แล้ว<br>1. เปิดอีเมลนั้น แล้วกดลิงก์ยืนยัน (ถ้าไม่เห็น ดูในโฟลเดอร์ Spam)<br>2. ระบบจะให้ล็อกอินใหม่ → ใช้อีเมลใหม่กับรหัสผ่านเดิม`
+      }
+      showToast('📧 ส่งลิงก์ยืนยันไปที่อีเมลใหม่แล้ว', 'success', 6000)
     })
   }
 

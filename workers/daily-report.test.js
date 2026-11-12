@@ -1314,3 +1314,26 @@ describe('marketingSpendLine (v1.0.1000)', () => {
     expect(txt).toContain('💸 ค่าการตลาดเดือนนี้: ฿80,000')
   })
 })
+
+import { withProgramOwnerFlag } from './daily-report.js'
+describe('withProgramOwnerFlag (v1.0.1074)', () => {
+  const env = { FIREBASE_PROJECT_ID: 'p' }
+  const doc = fields => async () => ({ ok: true, json: async () => ({ fields }) })
+  it('keeps the old email path without reading Firestore', async () => {
+    const fetchFn = vi.fn()
+    const v = { localId: 'u1', email: 'ghunt1007@gmail.com' }
+    expect(await withProgramOwnerFlag(v, 't', env, fetchFn)).toBe(v)
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+  it('recognises the program owner by account after an email change', async () => {
+    const r = await withProgramOwnerFlag({ localId: 'u1', email: 'new@x.com' }, 't', env, doc({ programOwner: { booleanValue: true }, role: { stringValue: 'owner' } }))
+    expect(r.programOwner).toBe(true)
+    const staff = await withProgramOwnerFlag({ localId: 'u3', email: 's@x.com' }, 't', env, doc({ programOwner: { booleanValue: true }, role: { stringValue: 'sales' } }))
+    expect(staff.programOwner).toBeUndefined()
+  })
+  it('leaves everyone else unflagged, and fails closed on errors', async () => {
+    expect((await withProgramOwnerFlag({ localId: 'u2', email: 'a@x.com' }, 't', env, doc({}))).programOwner).toBeUndefined()
+    expect((await withProgramOwnerFlag({ localId: 'u2', email: 'a@x.com' }, 't', env, async () => { throw new Error('x') })).programOwner).toBeUndefined()
+    expect(await withProgramOwnerFlag(null, 't', env)).toBe(null)
+  })
+})

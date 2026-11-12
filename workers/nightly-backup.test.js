@@ -78,5 +78,7 @@ describe('nightly backup', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Disposition')).toContain('lamom-backup-auto-2026-11-02.json')
     expect(await res.text()).toBe('{"data":{}}')
+    // (v1.0.1074) เปลี่ยนอีเมลแล้ว แต่บัญชีถูกผูกเป็นเจ้าของโปรแกรมไว้
+    expect((await handleLatestBackup(env, { email: 'new@x.com', programOwner: true }, {})).status).toBe(200)
   })
 })

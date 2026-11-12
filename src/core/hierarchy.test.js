@@ -46,6 +46,12 @@ describe('isProgramOwner', () => {
     mockState.user = null
     expect(isProgramOwner()).toBe(false)
   })
+  it('stays true after the program owner changes their login email (bound to the account)', () => {
+    mockState.user = { email: 'new-owner-email@example.com', programOwner: true, role: 'owner' }
+    expect(isProgramOwner()).toBe(true)
+    mockState.user = { email: 'staff@example.com', programOwner: true, role: 'sales' }
+    expect(isProgramOwner()).toBe(false)
+  })
 })
 
 describe('getVisibilityScope', () => {

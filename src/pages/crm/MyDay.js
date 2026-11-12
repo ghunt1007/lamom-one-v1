@@ -77,7 +77,7 @@ export default async function MyDayPage(container) {
     try { programs = (await listDocs('sales_programs', [], 'dateFrom', 'desc', 1000)).filter(r => !r.deleted).map(r => ({ ...normalizeProgram(r), id: r.id })) } catch { programs = [] }
     // (v1.0.987) งานออกบูธ/อีเวนต์ที่กำลังจัด → ใครมีเวรวันนี้ ขึ้นเตือนบนหน้านี้
     try { events = (await listDocs('marketing_events', [], 'startDate', 'desc', 100)).filter(e => !e.deleted && e.status !== 'cancelled') } catch { events = [] }
-    // (v1.0.1074) ใบเสนอราคาที่ลูกค้ายอมรับแล้วแต่ยังไม่จอง / ใกล้หมดอายุ → ขึ้นเป็นงานวันนี้
+    // (v1.0.1075) ใบเสนอราคาที่ลูกค้ายอมรับแล้วแต่ยังไม่จอง / ใกล้หมดอายุ → ขึ้นเป็นงานวันนี้
     try { quotes = (await listDocs('quotations', f, 'createdDate', 'desc', 500)).filter(q => !q.deleted) } catch { quotes = [] }
     try { staff = staffChoices(await listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 1000)) } catch { staff = [] }
     // ลงทะเบียนรับงานทาง LINE แล้วหรือยัง (ทัก LINE OA พิมพ์ "ลงทะเบียน ชื่อ") — โหลดไม่ได้ = ไม่แสดงคำแนะนำ

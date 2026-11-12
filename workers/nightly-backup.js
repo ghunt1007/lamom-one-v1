@@ -19,8 +19,10 @@ export const BACKUP_SKIP = ['audit_log', 'error_log', 'system_backups', 'securit
 // เจ้าของโปรแกรม (ตรงกับ isProgramOwner() ใน firestore.rules)
 export const PROGRAM_OWNER_EMAIL = 'ghunt1007@gmail.com'
 
+// (v1.0.1074) u.programOwner = users/{uid}.programOwner && role 'owner' (ผูกกับรหัสบัญชี — ตั้งโดย withProgramOwnerFlag
+// ใน daily-report.js) เปลี่ยนอีเมลแล้วยังเป็นเจ้าของโปรแกรม
 export function isProgramOwnerUser(u) {
-  return String(u?.email || '').toLowerCase() === PROGRAM_OWNER_EMAIL
+  return u?.programOwner === true || String(u?.email || '').toLowerCase() === PROGRAM_OWNER_EMAIL
 }
 
 const fsBase = env => `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`
