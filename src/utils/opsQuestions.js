@@ -18,6 +18,10 @@ export function parseOpsSpec(q) {
   if (has(s, /รายได้|ค่าคอม/) && has(s, /ยังไม่กรอก|ไม่ได้กรอก|ค้างกรอก|ยังไม่ใส่|ขาด/)) return { kind: 'income' }
   if (has(s, /ส่งมอบ/) && !has(s, /ยอด|เป้า|เดือน/) && has(s, /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์|นัด|ใคร|กี่คัน|ไหม/)) return { kind: 'delivery', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
   if (has(s, /ช่องทาง|ที่มา|มาจาก/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'newcust', period: /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
+  // (v1.0.1082) งานศูนย์บริการ: "รถเข้าศูนย์วันนี้กี่คัน" / "งานซ่อมค้างอยู่กี่งาน" / "รถรออะไหล่มีคันไหน"
+  if (has(s, /เข้าศูนย์|นัดซ่อม|นัดเซอร์วิส|นัดเช็คระยะ|เช็คระยะ|งานซ่อม|ใบสั่งซ่อม|job\s*card|รถซ่อม|ซ่อมค้าง|รออะไหล่|ซ่อมเสร็จ/i) && !has(s, /ราคา|ค่าซ่อม|กี่บาท|เท่าไหร่/)) return { kind: 'service', day }
+  // (v1.0.1082) "ลูกค้าที่ยังไม่มีผู้ดูแลมีใครบ้าง"
+  if (has(s, /(?:ยังไม่มี|ไม่มี|ไร้)\s*(?:ผู้ดูแล|คนดูแล|เซลส์ดูแล|เซลส์)|ยังไม่(?:ได้)?(?:มอบ|แจก|แบ่ง)|ยังไม่มีเจ้าของ/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'unassigned' }
   if (has(s, /ทดลองขับ|ลองขับ|test\s*drive/i)) return { kind: 'testdrive', day }
   if (has(s, /โชว์รูม|showroom/i) && has(s, /นัด|เข้า|มา/)) return { kind: 'showroom', day }
   if (has(s, /line|ไลน์|แชท|แชต|ทัก/i) && has(s, /รอ|ยังไม่ตอบ|ค้าง|ตอบ/)) return { kind: 'line' }
@@ -142,7 +146,41 @@ export function lostAnswer(customers, { today, prev = false }) {
   return { n: total, text: [`📉 ${label}เสียดีล ${total} ราย`, '', '❓ เหตุผล', ...Object.entries(reasons).sort((a, b) => b[1] - a[1]).map(([k, v]) => `• ${LOST_REASON_LABELS[k] || k} ${v} ราย`), ...(rows.length > 1 ? ['', '👤 รายเซลส์', ...rows.slice(0, MAX).map(r => `• ${r.name} ${r.total} ราย${r.top[0] ? ' (ส่วนใหญ่: ' + r.top[0].label + ')' : ''}`)] : [])].join('\n') }
 }
 
+const APPT_DONE = ['cancelled', 'noshow']
+const JOB_OPEN = { waiting: '⏳ รอรับรถ', checkin: '🔑 รับรถแล้ว', diagnosing: '🔍 วินิจฉัย', inprogress: '🔧 กำลังซ่อม', waiting_parts: '📦 รออะไหล่', qc: '✅ QC', done: '🏁 เสร็จ รอส่งคืน' }
+// นัดเข้าศูนย์ของวัน + งานซ่อม (Job Card) ที่ยังไม่ส่งคืนลูกค้า แยกตามสถานะ
+export function serviceAnswer(appts, jobs, { today, day = 'today' }) {
+  const date = day === 'tomorrow' ? addDays(today, 1) : today
+  const ap = alive(appts).filter(a => ymd(a.date) === date && !APPT_DONE.includes(a.status || ''))
+    .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
+  const open = alive(jobs).filter(j => JOB_OPEN[j.status || 'waiting'])
+  const lines = []
+  if (ap.length) lines.push(`🛠 นัดเข้าศูนย์${dayWord(day)} ${dmy(date)} — ${ap.length} คัน`, ...ap.slice(0, MAX).map(a => `• ${a.time ? String(a.time).slice(0, 5) + ' ' : ''}${nm(a)}${a.model ? ' · ' + a.model : ''}${a.plate ? ' · ' + a.plate : ''}${a.tech ? ' · 🔧 ' + a.tech : ''}`), ...more(ap.length))
+  else lines.push(`🛠 ${dayWord(day)} (${dmy(date)}) ไม่มีนัดเข้าศูนย์`)
+  lines.push('')
+  if (!open.length) lines.push('🔧 ไม่มีงานซ่อมค้าง 👍')
+  else {
+    const by = {}
+    open.forEach(j => { const k = j.status || 'waiting'; by[k] = (by[k] || 0) + 1 })
+    lines.push(`🔧 งานซ่อมที่ยังไม่ส่งคืน ${open.length} งาน`, ...Object.keys(JOB_OPEN).filter(k => by[k]).map(k => `• ${JOB_OPEN[k]} ${by[k]} งาน`))
+    const age = j => { const d = ymd(j.createdAt); return d ? Math.round((Date.parse(today) - Date.parse(d)) / 86400000) : 0 }
+    const old = open.map(j => ({ j, n: age(j) })).filter(x => x.n >= 3 && x.j.status !== 'done').sort((a, b) => b.n - a.n)
+    if (old.length) lines.push('', `⏰ ค้างนานเกิน 3 วัน ${old.length} งาน`, ...old.slice(0, 5).map(({ j, n }) => `• ${nm(j)}${j.plate ? ' · ' + j.plate : ''} — ${JOB_OPEN[j.status || 'waiting']} · ${n} วัน${j.techName ? ' · 🔧 ' + j.techName : ''}`))
+  }
+  return { n: ap.length + open.length, text: lines.join('\n') }
+}
+
+// ลูกค้า (ไม่นับเสียดีล/ลบ) ที่ยังไม่มีผู้ดูแล · ใหม่สุดก่อน
+export function unassignedAnswer(customers) {
+  const list = alive(customers).filter(c => !c.isLost && !String(c.assignedTo || '').trim())
+    .sort((a, b) => ymd(b.createdAt).localeCompare(ymd(a.createdAt)))
+  if (!list.length) return { text: '👤 ลูกค้าทุกคนมีผู้ดูแลแล้ว 👍', n: 0 }
+  return { n: list.length, text: [`👤 ลูกค้าที่ยังไม่มีผู้ดูแล ${list.length} คน`, ...list.slice(0, MAX).map(c => `• ${nm(c)}${c.temperature === 'hot' ? ' 🔴' : ''}${c.interestedModel ? ' · ' + c.interestedModel : ''}${ymd(c.createdAt) ? ' · เข้ามา ' + dmy(ymd(c.createdAt)) : ''}`), ...more(list.length), '', 'มอบผู้ดูแลได้ที่หน้าลูกค้า (เลือกหลายคน → มอบหมาย)'].join('\n') }
+}
+
 export const OPS_LINKS = {
+  service: { path: '/service/jobs', label: '🔧 เปิดหน้างานซ่อม' },
+  unassigned: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
   testdrive: { path: '/crm/testdrive', label: '🚗 เปิดหน้าทดลองขับ' },
   showroom: { path: '/crm/showroom', label: '🏬 เปิดหน้านัดโชว์รูม' },
   line: { path: '/crm/my-day', label: '💬 ตอบในหน้างานวันนี้' },
@@ -155,10 +193,11 @@ export const OPS_LINKS = {
 }
 
 export function opsFollowUps(spec) {
-  const all = { testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่' }
+  const all = { testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
   const out = [all[spec.kind]]
   if (spec.kind === 'testdrive' && spec.day === 'tomorrow') out[0] = 'พรุ่งนี้มีใครนัดเข้าโชว์รูม'
   if (spec.kind === 'delivery' && spec.day === 'week') out[0] = 'มีนัดส่งมอบพรุ่งนี้ไหม'
+  if (spec.kind === 'service' && spec.day === 'tomorrow') out[0] = 'เรื่องร้องเรียนค้างอยู่ไหม'
   if (spec.kind === 'showroom' && spec.day === 'tomorrow') out[0] = 'นัดทดลองขับพรุ่งนี้มีใครบ้าง'
   out.push(spec.kind === 'newcust' ? 'ยอดเดือนนี้เป็นไง' : 'วันนี้ควรโทรหาใคร')
   return out

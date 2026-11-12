@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseOpsSpec, testDriveAnswer, showroomAnswer, lineWaitingAnswer, complaintAnswer, newCustomerAnswer, annivAnswer, opsFollowUps, deliveryAnswer, incomeMissingAnswer, lostAnswer } from './opsQuestions.js'
+import { parseOpsSpec, testDriveAnswer, showroomAnswer, lineWaitingAnswer, complaintAnswer, newCustomerAnswer, annivAnswer, opsFollowUps, deliveryAnswer, incomeMissingAnswer, lostAnswer, serviceAnswer, unassignedAnswer } from './opsQuestions.js'
 
 const T = '2026-11-12'
 
@@ -129,5 +129,30 @@ describe('lost deals', () => {
     expect(r.text).toContain('• ราคา 1 ราย')
     expect(r.text).toContain('👤 รายเซลส์')
     expect(lostAnswer([], { today: T }).text).toContain('ยังไม่มี')
+  })
+})
+
+describe('service + unassigned (v1.0.1082)', () => {
+  it('parses service and unassigned questions', () => {
+    expect(parseOpsSpec('รถเข้าศูนย์วันนี้กี่คัน')).toEqual({ kind: 'service', day: 'today' })
+    expect(parseOpsSpec('งานซ่อมค้างอยู่กี่งาน').kind).toBe('service')
+    expect(parseOpsSpec('ค่าซ่อมเท่าไหร่')).toBeNull()
+    expect(parseOpsSpec('ลูกค้าที่ยังไม่มีผู้ดูแลมีใครบ้าง')).toEqual({ kind: 'unassigned' })
+  })
+  it('serviceAnswer lists today appointments and open jobs by status', () => {
+    const r = serviceAnswer([{ date: T, time: '09:00', custName: 'ก', status: 'scheduled' }, { date: T, custName: 'ข', status: 'cancelled' }],
+      [{ status: 'waiting_parts', custName: 'ค', createdAt: '2026-11-01' }, { status: 'delivered', custName: 'ง' }, { status: 'inprogress', custName: 'จ', createdAt: T }], { today: T })
+    expect(r.text).toContain('นัดเข้าศูนย์วันนี้')
+    expect(r.text).toContain('— 1 คัน')
+    expect(r.text).toContain('งานซ่อมที่ยังไม่ส่งคืน 2 งาน')
+    expect(r.text).toContain('📦 รออะไหล่ 1 งาน')
+    expect(r.text).toContain('ค้างนานเกิน 3 วัน 1 งาน')
+    expect(serviceAnswer([], [], { today: T }).text).toContain('ไม่มีงานซ่อมค้าง')
+  })
+  it('unassignedAnswer skips lost and assigned customers', () => {
+    const r = unassignedAnswer([{ firstName: 'A', createdAt: T }, { firstName: 'B', assignedTo: 'x' }, { firstName: 'C', isLost: true }])
+    expect(r.n).toBe(1)
+    expect(r.text).toContain('• A')
+    expect(unassignedAnswer([{ assignedTo: 'x' }]).n).toBe(0)
   })
 })

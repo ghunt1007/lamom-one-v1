@@ -75,3 +75,10 @@ describe('monthBriefText / monthFollowUps', () => {
     expect(monthFollowUps(monthStats({ bookings: [], today }))).toEqual(['ลูกค้า hot มีใครบ้าง'])
   })
 })
+
+describe('isMonthQuestion top seller (v1.0.1082)', () => {
+  it('catches "which sales sold best"', () => {
+    expect(isMonthQuestion('เซลส์คนไหนขายดีสุดเดือนนี้')).toBe(true)
+    expect(isMonthQuestion('ใครขายได้มากสุด')).toBe(true)
+  })
+})
