@@ -24,6 +24,9 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { quoteText } from '../../utils/quoteText.js'
+import { copyText } from '../../utils/copyText.js'
+import { callLink } from '../../utils/callLink.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
 import { programsForCar, carSummary, bestRates, CUSTOMER_TYPES, PROGRAM_TYPES, rangeLabel, normalizeProgram } from '../../utils/salesPrograms.js'
 
@@ -173,7 +176,7 @@ export default async function QuotationBuilderPage(container) {
                   <td>
                     <div style="display:flex;gap:4px">
                       <button class="btn btn-xs btn-secondary open-qt-btn" data-id="${q.id}">ดู</button>
-                      ${q.status === 'draft' ? `<button class="btn btn-xs btn-primary send-qt-btn" data-id="${q.id}">📤 ส่ง</button>` : ''}
+                      ${q.status === 'draft' ? `<button class="btn btn-xs btn-primary send-qt-btn" data-id="${q.id}" title="คัดลอกข้อความใบเสนอราคาไปวางใน LINE แล้วบันทึกว่าส่งแล้ว">📤 ส่ง LINE</button>` : ''}
                       ${q.status === 'sent' ? `<button class="btn btn-xs btn-success accept-qt-btn" data-id="${q.id}">✓ ยอมรับ</button>` : ''}
                       ${q.bookingId ? `<button class="btn btn-xs btn-secondary book-qt-btn" data-id="${q.id}" title="เปิดใบจองของใบเสนอราคานี้">📝 ใบจอง</button>` : q.status !== 'rejected' ? `<button class="btn btn-xs btn-success book-qt-btn" data-id="${q.id}" title="จองจากใบเสนอราคานี้ ไม่ต้องกรอกซ้ำ">📝 จองเลย</button>` : ''}
                       <button class="btn btn-xs btn-danger del-qt-btn" data-id="${q.id}" title="ลบใบเสนอราคา">🗑</button>
@@ -206,12 +209,7 @@ export default async function QuotationBuilderPage(container) {
     container.querySelectorAll('.send-qt-btn').forEach(b => b.addEventListener('click', async () => {
       const q = quotes.find(x => x.id === b.dataset.id)
       if (!q) return
-      try {
-        await updateDocData('quotations', q.id, { status: 'sent' })
-        const fu = await scheduleQuoteFollowup(q)
-        showToast(`📤 ส่งใบเสนอราคา ${q.id} แล้ว!${fu ? ' · นัดโทรถามผลอีก 2 วัน' : ''}`, 'success'); await loadData()
-      }
-      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      await markSent(q)
     }))
     container.querySelectorAll('.accept-qt-btn').forEach(b => b.addEventListener('click', async () => {
       const q = quotes.find(x => x.id === b.dataset.id)
@@ -237,6 +235,18 @@ export default async function QuotationBuilderPage(container) {
     }))
   }
 
+  // (v1.0.1072) "ส่ง" = คัดลอกข้อความใบเสนอราคา (วางใน LINE ได้ทันที) + บันทึกว่าส่งแล้ว + นัดโทรถามผล — แตะครั้งเดียว
+  // คัดลอกก่อน await อื่น เพื่อให้เบราว์เซอร์มือถือยังนับว่าเป็นการกดของผู้ใช้
+  async function markSent(q) {
+    const copied = await copyText(quoteText(q, normalizeAccessories(q.accessories)), '', '')
+    try {
+      if (q.status === 'draft') await updateDocData('quotations', q.id, { status: 'sent' })
+      const fu = q.status === 'draft' ? await scheduleQuoteFollowup(q) : null
+      showToast(`${copied ? '📋 คัดลอกใบเสนอราคาแล้ว วางใน LINE ส่งลูกค้าได้เลย' : '📤 บันทึกว่าส่งแล้ว (คัดลอกไม่สำเร็จ กดเปิดใบเสนอราคาเพื่อคัดลอกเอง)'}${fu ? ' · นัดโทรถามผลอีก 2 วัน' : ''}`, copied ? 'success' : 'warning')
+      await loadData()
+    } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+  }
+
   function openQuoteDetail(q) {
     const st = QT_STATUS[q.status]
     const accItems = normalizeAccessories(q.accessories)
@@ -248,13 +258,14 @@ export default async function QuotationBuilderPage(container) {
     const related = q.customerId ? quotes.filter(x => x.id !== q.id && x.customerId === q.customerId) : []
 
     const { el } = openModal({
-      title: '📄 ' + escHtml(q.id) + ' — ' + escHtml(q.customerName),
+      title: '📄 ใบเสนอราคา — ' + escHtml(q.customerName || 'ลูกค้า'), // (v1.0.1072) เดิมโชว์ไอดีระบบยาวๆ อ่านไม่ออก
       size: 'lg',
+      footer: `<button class="btn btn-secondary" id="qt-copy">📋 คัดลอกส่งลูกค้า</button>${q.status === 'draft' ? '<button class="btn btn-primary" id="qt-send">📤 ส่ง LINE + บันทึกว่าส่งแล้ว</button>' : ''}${q.status === 'sent' ? '<button class="btn btn-success" id="qt-accept">✓ ลูกค้ายอมรับ</button>' : ''}${q.status !== 'rejected' ? `<button class="btn btn-success" id="qt-book">${q.bookingId ? '📝 เปิดใบจอง' : '📝 ทำใบจอง'}</button>` : ''}`,
       body: `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:14px;margin-bottom:14px">
           <div>
             <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:6px">ลูกค้า</div>
-            ${row('ชื่อ', escHtml(q.customerName))}${row('โทร', escHtml(q.phone))}${row('เซลส์', escHtml(q.salesperson))}${row('สถานะ', `<span class="badge badge-${st?.color}">${st?.label}</span>`)}
+            ${row('ชื่อ', escHtml(q.customerName))}${row('โทร', callLink(q.phone, q.customerName) || '-')}${row('เซลส์', escHtml(q.salesperson))}${row('สถานะ', `<span class="badge badge-${st?.color}">${st?.label}</span>`)}
             ${q.customerId ? `<button class="btn btn-xs btn-secondary" id="qt-view-customer" style="margin-top:6px">👤 ดูข้อมูลลูกค้า</button>` : ''}
           </div>
           <div>
@@ -275,7 +286,7 @@ export default async function QuotationBuilderPage(container) {
           ${freeItems.map(a => `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:0.8rem;color:var(--text-muted)"><span>🎁 ${escHtml(a.name)}</span><span><span style="text-decoration:line-through">${formatCurrency(a.price)}</span> <span class="badge badge-success" style="font-size:0.65rem">แถมฟรี</span></span></div>`).join('')}
           <div style="display:flex;justify-content:space-between;font-size:0.8rem;font-weight:700;margin-top:4px"><span>รวมอุปกรณ์ (เฉพาะรายการซื้อเพิ่ม)</span><span>${formatCurrency(accTotal)}</span></div>
         </div>` : ''}
-        <div style="background:var(--primary-dim);border-radius:var(--radius-sm);padding:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <div style="background:var(--primary-dim);border-radius:var(--radius-sm);padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:12px">
           ${kpi('💰 ราคาสุทธิ', formatCurrency(q.finalPrice), 'success')}
           ${kpi('💳 เงินดาวน์', formatCurrency(q.downPayment), 'primary')}
           ${kpi('📅 ผ่อน/เดือน', formatCurrency(q.monthlyPayment), 'warning')}
@@ -294,6 +305,13 @@ export default async function QuotationBuilderPage(container) {
       `
     })
 
+    el.querySelector('#qt-copy')?.addEventListener('click', () => copyText(quoteText(q, accItems), '📋 คัดลอกแล้ว วางใน LINE ส่งลูกค้าได้เลย'))
+    el.querySelector('#qt-send')?.addEventListener('click', async () => { el.remove(); await markSent(q) })
+    el.querySelector('#qt-accept')?.addEventListener('click', async () => {
+      try { await updateDocData('quotations', q.id, { status: 'accepted' }); el.remove(); showToast(`✅ ${q.customerName} ยอมรับใบเสนอราคาแล้ว!`, 'success'); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
+    el.querySelector('#qt-book')?.addEventListener('click', () => { el.remove(); navigate(q.bookingId ? '/crm/bookings?id=' + encodeURIComponent(q.bookingId) : '/crm/bookings?fromQuote=' + encodeURIComponent(q.id)) })
     el.querySelector('#qt-view-customer')?.addEventListener('click', () => {
       el.remove()
       navigate('/crm/customers?id=' + encodeURIComponent(q.customerId))
