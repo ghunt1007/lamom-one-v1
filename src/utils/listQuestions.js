@@ -18,6 +18,8 @@ const ASK = /ใครบ้าง|มีใคร|คนไหน|กี่ค�
 export function parseListSpec(q) {
   const s = thaiNumerals(String(q || '').trim()).replace(/[?？]+$/, '').trim()
   if (!s || s.length > 120 || !ASK.test(s)) return null
+  // (v1.0.1115) "ลูกค้าที่ยังไม่ได้โทรหาวันนี้" = รายการโทรวันนี้ ไม่ใช่ลูกค้าเงียบ 7 วัน
+  if (/ยังไม่(?:ได้)?\s*โทร/.test(s) && /วันนี้/.test(s)) return null
   if (/(?:ควร|ต้อง)\s*(?:โทร|ตาม|ติดต่อ)|ทุกคน|ทั้งหมด|ยอด|เป้า|เซลส์|พนักงาน|ทีม|ที่สุด|ยังไง|อย่างไร|ทำไม|เพราะ/.test(s)) return null
   const temp = /hot|ร้อน|🔥/i.test(s) ? 'hot' : /warm|อุ่น/i.test(s) ? 'warm' : /\bcold\b|เย็น/i.test(s) ? 'cold' : null
   const qm = s.match(/(?:เงียบ|ไม่ได้(?:ติดต่อ|คุย|โทร|ติดตาม|ตาม)|หาย)\s*(?:ไป)?\s*(?:เกิน|มา|นาน)?\s*(\d{1,3})?\s*(?:วัน)?/)
@@ -25,18 +27,24 @@ export function parseListSpec(q) {
   const newToday = /(?:ลีด|lead|ลูกค้า)\s*ใหม่/i.test(s)
   const noFu = /(?:ยัง)?ไม่(?:มี|ได้)\s*นัด/.test(s)
   const mm = s.match(/สนใจ\s*(?:รุ่น)?\s*([A-Za-z0-9ก-๙][A-Za-z0-9ก-๙ .\-]{1,24}?)\s*(?=มีใคร|ใครบ้าง|คนไหน|กี่คน|กี่ราย|มี|บ้าง|$)/)
-  const model = mm ? mm[1].trim().toLowerCase() : null
+  let model = mm ? mm[1].trim().toLowerCase() : null
+  // (v1.0.1115) "สนใจรถไฟฟ้า / EV / ไฮบริด" = ประเภทรถ ไม่ใช่ชื่อรุ่น → เทียบกับรุ่นในฐานข้อมูลรถตามชนิดเชื้อเพลิง
+  const fuel = model && /^(?:รถ)?\s*(?:ไฟฟ้า|ev|bev)(?:\s*100\s*%)?$/i.test(model) ? 'ev' : model && /^(?:รถ)?\s*(?:ไฮบริด|hybrid|hev|phev|ปลั๊กอิน)/i.test(model) ? 'hybrid' : null
+  if (fuel) model = null
   const leadsOnly = /ลีด|lead/i.test(s) && !/prospect/i.test(s)
-  if (!temp && !quietDays && !newToday && !noFu && !model) return null
-  return { temp, quietDays, newToday, noFu, model, leadsOnly, countOnly: /กี่คน|กี่ราย/.test(s) }
+  if (!temp && !quietDays && !newToday && !noFu && !model && !fuel) return null
+  return { temp, quietDays, newToday, noFu, model, ...(fuel ? { fuel } : {}), leadsOnly, countOnly: /กี่คน|กี่ราย/.test(s) }
 }
 
 export function listLabel(spec) {
   return [spec.newToday ? 'ลีดใหม่วันนี้' : spec.leadsOnly ? 'ลีด' : 'ลูกค้า', spec.temp ? spec.temp.toUpperCase() : '',
-    spec.model ? `สนใจ ${spec.model.toUpperCase()}` : '', spec.quietDays ? `เงียบ ≥ ${spec.quietDays} วัน` : '', spec.noFu ? 'ยังไม่มีนัด' : ''].filter(Boolean).join(' ')
+    spec.model ? `สนใจ ${spec.model.toUpperCase()}` : '', spec.fuel ? `สนใจ${spec.fuel === 'ev' ? 'รถไฟฟ้า' : 'รถไฮบริด'}` : '', spec.quietDays ? `เงียบ ≥ ${spec.quietDays} วัน` : '', spec.noFu ? 'ยังไม่มีนัด' : ''].filter(Boolean).join(' ')
 }
 
-export function listTargets({ customers = [], followups = [], today, spec }) {
+// catalog = รุ่นรถจากฐานข้อมูล [{ model, fuel }] ใช้เมื่อถามตามประเภทรถ (spec.fuel)
+export function listTargets({ customers = [], followups = [], today, spec, catalog = [] }) {
+  const FUELS = { ev: ['BEV'], hybrid: ['Hybrid', 'PHEV'] }
+  const fuelModels = spec?.fuel ? [...new Set(catalog.filter(v => (FUELS[spec.fuel] || []).includes(v.fuel)).map(v => String(v.model || '').toLowerCase().replace(/[\s\-]+/g, '')).filter(m => m.length >= 2))] : []
   if (!spec) return { list: [], total: 0 }
   const pending = new Set(followups.filter(f => f && !f.deleted && f.status === 'pending').map(f => f.customerId))
   const t = dayNum(today)
@@ -46,6 +54,7 @@ export function listTargets({ customers = [], followups = [], today, spec }) {
     if (spec.leadsOnly ? c.stage !== 'lead' : !['lead', 'pp'].includes(c.stage)) return false
     if (spec.temp && c.temperature !== spec.temp) return false
     if (spec.newToday && bkkDate(c.createdAt) !== today) return false
+    if (spec.fuel && !fuelModels.some(m => String(c.interestedModel || '').toLowerCase().replace(/[\s\-]+/g, '').includes(m))) return false
     if (spec.model && !String(c.interestedModel || '').toLowerCase().replace(/[\s\-]+/g, '').includes(String(spec.model).replace(/[\s\-]+/g, ''))) return false
     if (spec.quietDays && quiet(c) < spec.quietDays) return false
     if (spec.noFu && pending.has(c.id)) return false
