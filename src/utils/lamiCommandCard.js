@@ -114,6 +114,11 @@ export async function loadListCommands(q, customersPromise) {
     customersPromise || visibleCustomersForCommands(),
     listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000).catch(() => []),
   ])
+  if (spec.seller) {
+    const { findSeller } = await import('./monthBrief.js')
+    spec.sellerName = findSeller(q, (customers || []).map(c => c && c.assignedTo))
+    if (!spec.sellerName) return null
+  }
   const catalog = spec.fuel ? await import('../data/vehicleDatabase.js').then(m => m.getVehicles().map(v => ({ model: v.model, fuel: v.fuel }))).catch(() => []) : []
   const res = lq.listTargets({ customers, followups, today, spec, catalog })
   return { cmds: lq.listCommands(res.list), intro: lq.listIntro(spec, res), next: lq.listFollowUp(spec, res) }
@@ -338,6 +343,13 @@ export async function loadOpsAnswer(q, customersPromise) {
         listDocs('expense_claims', f, 'date', 'desc', 2000).catch(() => []), listDocs('petty_cash', f, 'time', 'desc', 2000).catch(() => [])])
       const sales = spec.kind === 'profit' ? await getSalesData().catch(() => []) : []
       res = oq.moneyMonthAnswer({ sales, opex: opexEntries(claims, petty), today, prev: spec.prev, kind: spec.kind, saleCost, perUnit: !!spec.perUnit, low: !!spec.low, byModel: !!spec.byModel })
+    }
+  } else if (spec.kind === 'mktspend') {
+    if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 ค่าการตลาดของโชว์รูมดูได้เฉพาะผู้จัดการและเจ้าของ' }
+    else {
+      const [sa, accounts, events, customers] = await Promise.all([import('./socialAccounts.js'), listDocs('social_channels', [], 'createdAt', 'desc', 500).catch(() => []),
+        listDocs('marketing_events', [], 'startDate', 'desc', 300).catch(() => []), listDocs('customers', f, 'createdAt', 'desc', 3000).catch(() => [])])
+      res = oq.mktSpendAnswer({ accounts, events, customers, today, prev: spec.prev, spendSummary: sa.spendSummary, accountResults: sa.accountResults })
     }
   } else if (spec.kind === 'dup') {
     res = oq.dupAnswer(((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c)))

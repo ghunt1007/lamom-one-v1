@@ -195,3 +195,114 @@ describe('v1.0.1116 team phrasings', () => {
     expect(parseBookingListSpec('ทีมฉันมีใบจองค้างกี่ใบ').allOpen).toBe(true)
   })
 })
+
+describe('v1.0.1117 test drive month/week, plate phrasings, month compare', async () => {
+  const oq = await import('./opsQuestions.js')
+  const mb = await import('./monthBrief.js')
+  it('parses', () => {
+    expect(oq.parseOpsSpec('เดือนนี้มีเทสไดรฟ์กี่ครั้ง')).toEqual({ kind: 'testdrive', day: 'month' })
+    expect(oq.parseOpsSpec('นัดทดลองขับสัปดาห์นี้มีใครบ้าง')).toEqual({ kind: 'testdrive', day: 'week' })
+    expect(oq.parseOpsSpec('ป้ายแดงคืนแล้วหรือยัง')).toEqual({ kind: 'plate' })
+    expect(oq.parseOpsSpec('ลูกค้าคนไหนยังไม่ได้ป้ายทะเบียน')).toEqual({ kind: 'plate' })
+    expect(mb.isMonthQuestion('เทียบยอดเดือนนี้กับเดือนที่แล้ว')).toBe(true)
+    expect(mb.isMonthQuestion('เทียบกำไรเดือนนี้กับเดือนที่แล้ว')).toBe(false)
+  })
+  it('month summary counts done / no-show / models', () => {
+    const rows = [
+      { date: '2026-11-02', status: 'completed', model: 'S05' }, { date: '2026-11-05', status: 'no_show', model: 'S05' },
+      { date: '2026-11-10', status: 'scheduled', model: 'AION V' }, { date: '2026-11-20', status: 'scheduled' },
+      { date: '2026-10-30', status: 'completed' }, { date: '2026-11-03', status: 'cancelled' }]
+    const r = oq.testDriveAnswer(rows, { today: '2026-11-12', day: 'month' })
+    expect(r.n).toBe(3)
+    expect(r.text).toContain('ขับแล้ว 1')
+    expect(r.text).toContain('ไม่มา 1')
+    expect(r.text).toContain('S05 2')
+    expect(oq.testDriveAnswer(rows, { today: '2026-11-12', day: 'week' }).n).toBe(0)
+    expect(oq.testDriveAnswer(rows, { today: '2026-11-15', day: 'week' }).n).toBe(1)
+  })
+})
+
+describe('v1.0.1117 rest-of-month deliveries, call list, ปิดได้กี่คัน', async () => {
+  const oq = await import('./opsQuestions.js')
+  const cl = await import('./callList.js')
+  const mb = await import('./monthBrief.js')
+  it('parses', () => {
+    expect(oq.parseOpsSpec('ใครจะส่งมอบเดือนนี้')).toEqual({ kind: 'delivery', day: 'restmonth' })
+    expect(oq.parseOpsSpec('ลูกค้าที่จะออกรถเดือนนี้')).toEqual({ kind: 'delivery', day: 'restmonth' })
+    expect(oq.parseOpsSpec('ลูกค้าที่ส่งมอบเดือนนี้').kind).toBe('delivered')
+    expect(cl.isCallListQuestion('ลูกค้าที่ฉันต้องตามวันนี้')).toBe(true)
+    expect(cl.isCallListQuestion('ลูกค้าที่ต้องตามเอกสาร')).toBe(false)
+    expect(mb.isMonthQuestion('ฉันปิดได้กี่คันเดือนนี้')).toBe(true)
+  })
+  it('lists open bookings due from today to month end', () => {
+    const bks = [{ custName: 'ก', deliveryDate: '2026-11-20', status: 'รอส่งมอบ' }, { custName: 'ข', deliveryDate: '2026-12-02', status: 'รอส่งมอบ' },
+      { custName: 'ค', deliveryDate: '2026-11-25', status: 'ส่งมอบแล้ว' }, { custName: 'ง', deliveryDate: '2026-11-10', status: 'รอส่งมอบ' }]
+    const r = oq.deliveryAnswer(bks, { today: '2026-11-12', day: 'restmonth' })
+    expect(r.n).toBe(1)
+    expect(r.text).toContain('30/11')
+  })
+})
+
+describe('v1.0.1117 staff phrasings', async () => {
+  const oq = await import('./opsQuestions.js')
+  const tb = await import('./todayBrief.js')
+  it('parses', () => {
+    expect(oq.parseOpsSpec('พนักงานคนไหนลางานเดือนนี้')).toEqual({ kind: 'leave', day: 'month' })
+    expect(oq.parseOpsSpec('ใบสั่งซื้อรถค้างกี่ใบ').kind).toBe('incoming')
+    expect(oq.parseOpsSpec('ลูกค้าที่จองแล้วถอนเดือนนี้').kind).toBe('withdrawn')
+    expect(tb.isTodayQuestion('ใครขาดงานวันนี้')).toBe(false)
+    expect(oq.parseOpsSpec('ใครขาดงานวันนี้').kind).toBe('late')
+  })
+  it('leave month covers the whole month', () => {
+    const rows = [{ staff: 'ก', status: 'approved', from: '2026-11-03' }, { staff: 'ข', status: 'pending', from: '2026-11-28', to: '2026-12-01' }, { staff: 'ค', status: 'approved', from: '2026-10-20' }]
+    const r = oq.leaveAnswer(rows, { today: '2026-11-12', day: 'month' })
+    expect(r.n).toBe(2)
+    expect(r.text).toContain('30/11')
+    expect(oq.leaveAnswer(rows, { today: '2026-11-03' }).n).toBe(1)
+  })
+})
+
+describe('v1.0.1117 list by seller + manager phrasings', async () => {
+  const lq = await import('./listQuestions.js')
+  const oq = await import('./opsQuestions.js')
+  const tb = await import('./teamBrief.js')
+  it('filters list by named seller', () => {
+    const spec = lq.parseListSpec('ลูกค้า hot ของเซลส์หนึ่ง')
+    expect(spec).toMatchObject({ temp: 'hot', seller: true })
+    expect(lq.parseListSpec('ลูกค้า hot ของทีม')).toBe(null)
+    spec.sellerName = 'เซลส์ หนึ่ง'
+    const cs = [{ id: 1, stage: 'lead', temperature: 'hot', assignedTo: 'เซลส์ หนึ่ง' }, { id: 2, stage: 'lead', temperature: 'hot', assignedTo: 'เซลส์ สอง' }]
+    expect(lq.listTargets({ customers: cs, today: '2026-11-12', spec }).total).toBe(1)
+    expect(lq.listLabel(spec)).toContain('ของ เซลส์ หนึ่ง')
+    expect(lq.listFollowUp(spec, { total: 1 })).toBe('')
+  })
+  it('manager phrasings', () => {
+    expect(oq.parseOpsSpec('ลูกทีมคนไหนยังไม่มียอดจองเดือนนี้').kind).toBe('nobookseller')
+    expect(tb.isTeamQuestion('เซลส์คนไหนมีลูกค้าค้างโทรเยอะสุด')).toBe(true)
+    expect(tb.isTeamQuestion('ใครในทีมยังไม่ได้อัปเดตลูกค้า')).toBe(true)
+  })
+})
+
+describe('v1.0.1117 marketing spend', async () => {
+  const oq = await import('./opsQuestions.js')
+  const sa = await import('./socialAccounts.js')
+  const run = (o) => oq.mktSpendAnswer({ today: '2026-11-12', spendSummary: sa.spendSummary, accountResults: sa.accountResults, ...o })
+  it('parses', () => {
+    expect(oq.parseOpsSpec('ค่าใช้จ่ายการตลาดเดือนนี้')).toEqual({ kind: 'mktspend', prev: false })
+    expect(oq.parseOpsSpec('ต้นทุนต่อลีดเท่าไหร่').kind).toBe('mktspend')
+    expect(oq.parseOpsSpec('ค่าใช้จ่ายเดือนนี้เท่าไหร่').kind).toBe('expense')
+  })
+  it('honest when nothing entered; budget-only events not counted', () => {
+    const r = run({ events: [{ startDate: '2026-11-05', budget: 20000 }], customers: [{ createdAt: '2026-11-03' }] })
+    expect(r.n).toBe(0)
+    expect(r.text).toContain('ยังไม่ได้ใส่')
+    expect(r.text).toContain('ลูกค้าใหม่เดือนนี้ 1 คน')
+  })
+  it('sums ad spend and actual event spend, cost per new customer', () => {
+    const r = run({ accounts: [{ id: 'p1', spend: { '2026-11': 6000 } }], events: [{ startDate: '2026-11-05', spent: 4000, budget: 9000 }],
+      customers: [{ createdAt: '2026-11-03', sourceAccountId: 'p1' }, { createdAt: '2026-11-04', sourceAccountId: 'p1' }, { createdAt: '2026-10-04' }, { createdAt: '2026-11-08' }, { createdAt: '2026-11-09' }, { createdAt: '2026-11-10' }] })
+    expect(r.text).toContain('฿10,000')
+    expect(r.text).toContain('฿3,000/Lead')
+    expect(r.text).toContain('ลูกค้าใหม่ทั้งเดือนนี้ 5 คน → เฉลี่ย ฿2,000/คน')
+  })
+})
