@@ -350,3 +350,26 @@ describe('v1.0.1118 calls made, next-week brief', async () => {
     expect(oq.callsAnswer([], { today: '2026-11-12' }).text).toContain('ยังไม่มีการโทร')
   })
 })
+
+describe('v1.0.1118 car ranking', async () => {
+  const cp = await import('./carPick.js')
+  const V = [
+    { id: 'a1', brand: 'DEEPAL', model: 'S05 (2026)', year: 2026, variant: 'LITE', price: 799000, range: 450, power: 218, fuel: 'BEV' },
+    { id: 'a2', brand: 'DEEPAL', model: 'S05 (2026)', year: 2026, variant: 'LR', price: 999000, range: 550, power: 238, fuel: 'BEV' },
+    { id: 'b1', brand: 'DEEPAL', model: 'S07 (2026)', year: 2026, price: 1099000, range: 485, power: 258, fuel: 'BEV' },
+    { id: 'c1', brand: 'OTHER', model: 'X9', year: 2026, price: 500000, range: 700, power: 100, fuel: 'BEV' }]
+  const opt = { dealerRank: b => b === 'DEEPAL' ? 0 : 9, dealerCount: 6 }
+  it('parses and ignores customer/sales questions', () => {
+    expect(cp.parseRankPick('รถรุ่นไหนวิ่งไกลสุด')).toMatchObject({ by: 'range', all: false })
+    expect(cp.parseRankPick('รุ่นไหนขายดีสุด')).toBe(null)
+    expect(cp.parseRankPick('ลูกค้าคนไหนวิ่งไกลสุด')).toBe(null)
+  })
+  it('ranks our brands by best variant; cheapest by min price', () => {
+    const r = cp.rankPick({ by: 'range' }, V, opt)
+    expect(r.text.split('\n')[1]).toContain('S05')
+    expect(r.text.split('\n')[1]).toContain('550 กม.')
+    expect(r.text).not.toContain('X9')
+    expect(cp.rankPick({ by: 'cheap' }, V, opt).text.split('\n')[1]).toContain('฿799,000')
+    expect(cp.rankPick({ by: 'range', all: true }, V, opt).text.split('\n')[1]).toContain('X9')
+  })
+})

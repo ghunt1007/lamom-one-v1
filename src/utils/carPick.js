@@ -113,3 +113,47 @@ export function carPick(spec, vehicles = [], { dealerRank = () => 99, dealerCoun
   const next = [...top.slice(0, 2).map(g => `ราคา ${g.model} เท่าไหร่`), ...(top.length >= 2 ? [`เทียบ ${top[0].model} กับ ${top[1].model}`] : [])]
   return { text: lines.join('\n'), next, copy, top }
 }
+
+// (v1.0.1118) "รุ่นไหนวิ่งไกลสุด / ถูกสุด / แรงสุด / ท้ายใหญ่สุด / ชาร์จเร็วสุด" → จัดอันดับจากฐานข้อมูลรถ
+// เฉพาะยี่ห้อที่โชว์รูมขาย (ถ้าไม่ได้ถาม "ทุกยี่ห้อ/ในตลาด") · ค่าของรุ่น = ดีที่สุดในรุ่นย่อย (ราคาใช้ถูกสุด)
+const RANKS = [
+  ['range', /วิ่ง(?:ได้)?ไกล|ระยะทาง(?:ไกล|มาก|เยอะ)/, 'วิ่งได้ไกลสุด', v => Number(v.range) || 0, n => `${n} กม./ชาร์จ`, 'desc'],
+  ['cheap', /ถูก|ราคาต่ำ|ราคาน้อย|ประหยัดงบ/, 'ราคาเริ่มต้นถูกสุด', v => Number(v.price) || 0, n => baht(n), 'asc'],
+  ['dear', /แพง|ราคาสูง/, 'ราคาสูงสุด', v => Number(v.price) || 0, n => baht(n), 'desc'],
+  ['power', /แรง(?!งาน)|แรงม้า|อัตราเร่ง/, 'แรงสุด', v => Number(v.power) || 0, n => `${n} แรงม้า`, 'desc'],
+  ['boot', /ท้าย|ที่เก็บของ|เก็บของ/, 'ท้ายรถจุสุด', v => Number(v.bootSpace) || 0, n => `${n} ลิตร`, 'desc'],
+  ['charge', /ชาร์จ(?:ไฟ)?เร็ว/, 'ชาร์จ DC เร็วสุด', v => Number(v.chargeDC) || 0, n => `DC ${n} kW`, 'desc'],
+  ['seats', /นั่งได้(?:เยอะ|มาก)|ที่นั่ง(?:เยอะ|มาก)/, 'ที่นั่งเยอะสุด', v => Number(v.seats) || 0, n => `${n} ที่นั่ง`, 'desc'],
+  ['size', /ใหญ่|ยาว/, 'ตัวรถยาวสุด', v => Number(v.length) || 0, n => `ยาว ${Number(n).toLocaleString('en-US')} มม.`, 'desc'],
+]
+export function parseRankPick(q) {
+  const s = String(q || '').trim().replace(/[?？]+$/, '')
+  if (s.length < 6 || s.length > 70 || /ลูกค้า|ลีด|ใบจอง|ส่งมอบ|ขายดี|ยอด|สต็อก|สต๊อก|โปร|ผ่อน|ดาวน์|กำไร/.test(s)) return null
+  if (!/(?:รุ่น|คัน|ตัว|รถ|ยี่ห้อ)\s*(?:ไหน|อะไร)|อันดับ/.test(s) || !/สุด|ที่สุด|มากสุด|อันดับ/.test(s)) return null
+  const r = RANKS.find(([, re]) => re.test(s))
+  if (!r) return null
+  return { by: r[0], all: /ทุกยี่ห้อ|ในตลาด|ยี่ห้ออื่น|ทั้งตลาด/.test(s), fuel: FUEL.find(([re]) => re.test(s))?.[1] || null }
+}
+export function rankPick(spec, vehicles = [], { dealerRank = () => 99, dealerCount = 6 } = {}) {
+  const [, , label, val, fmt, dir] = RANKS.find(r => r[0] === spec.by)
+  const by = new Map()
+  vehicles.filter(v => v && v.model && val(v) > 0 && (!spec.fuel || spec.fuel.includes(v.fuel)) && (spec.all || dealerRank(v.brand) < dealerCount)).forEach(v => {
+    const k = v.brand + '|' + short(v.model), y = Number(v.year) || 0
+    const cur = by.get(k)
+    if (!cur || y > cur.year) by.set(k, { brand: v.brand, model: short(v.model), year: y, vs: [v] })
+    else if (y === cur.year) cur.vs.push(v)
+  })
+  const rows = [...by.values()].map(g => {
+    const best = g.vs.reduce((a, v) => (dir === 'asc' ? val(v) < val(a) : val(v) > val(a)) ? v : a)
+    return { ...g, best, n: val(best) }
+  }).sort((a, b) => dir === 'asc' ? a.n - b.n : b.n - a.n)
+  const scope = spec.all ? 'ทุกยี่ห้อในฐานข้อมูล' : 'รุ่นที่โชว์รูมขาย'
+  if (!rows.length) return { text: `🔎 ยังไม่มีข้อมูลพอจัดอันดับ "${label}" (${scope})`, next: [], top: [] }
+  const top = rows.slice(0, 5)
+  const lines = [`🏁 ${label} — ${scope}${spec.fuel ? ' · ' + (FUEL_WORD[spec.fuel[0]] || spec.fuel.join('/')) : ''}`,
+    ...top.map((g, i) => `${i + 1}. ${carLabel(g.brand, g.model)}${g.best.variant ? ' ' + g.best.variant : ''} — ${fmt(g.n)}${spec.by !== 'cheap' && spec.by !== 'dear' && g.best.price ? ` · ${baht(g.best.price)}` : ''}`),
+    'ℹ️ จากฐานข้อมูลรถในระบบ ตรวจกับใบราคา/สเปกล่าสุดก่อนยืนยันกับลูกค้า']
+  const nm = g => carLabel(g.brand, g.model)
+  const next = top.length >= 2 ? [`เทียบ ${nm(top[0])} กับ ${nm(top[1])}`, `ราคา ${nm(top[0])} เท่าไหร่`] : [`ราคา ${nm(top[0])} เท่าไหร่`]
+  return { text: lines.join('\n'), next, top: top.map(g => ({ ...g, vs: [g.best] })) }
+}

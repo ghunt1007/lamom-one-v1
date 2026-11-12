@@ -480,6 +480,13 @@ export async function loadOpsAnswer(q, customersPromise) {
 // (v1.0.1070) "รถไฟฟ้าไม่เกิน 1 ล้าน / SUV 7 ที่นั่ง งบ 1.2 ล้าน" → null ถ้าไม่ใช่ · คืน { text, next, go, copy }
 export async function loadCarPick(q) {
   const cp = await import('./carPick.js')
+  const rk = cp.parseRankPick(q)
+  if (rk) {
+    const { getVehicles, dealerRank, DEALER_BRANDS } = await import('../data/vehicleDatabase.js')
+    const res = cp.rankPick(rk, getVehicles(), { dealerRank, dealerCount: DEALER_BRANDS.length })
+    const ids = res.top.slice(0, 3).map(g => g.vs[0].id).filter(Boolean)
+    return { text: res.text, next: res.next, go: ids.length >= 2 ? { path: '/dms/compare?ids=' + encodeURIComponent(ids.join(',')), label: '⚖️ เทียบรุ่นที่ติดอันดับ' } : { path: '/dms/vehicle-db', label: '🚗 เปิดฐานข้อมูลรถ' } }
+  }
   if (!cp.maybeCarPick(q)) return null
   const spec = cp.parseCarPick(q)
   if (!spec) return null
