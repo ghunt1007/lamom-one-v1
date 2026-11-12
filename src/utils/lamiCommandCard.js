@@ -467,6 +467,12 @@ export async function loadOpsAnswer(q, customersPromise) {
       listDocs('followups', [...f, ...followupWindowFilters(today)], 'dueDate', 'asc', 3000).catch(() => []), g('service_appointments', f, 'date'), g('tasks', f, 'dueDate')])
     const items = buildWorkItems({ bookings, appointments, testDrives, followups, serviceAppts, tasks }, today).filter(it => it.shared || mine(it.owner, it.rec))
     res = oq.overdueAnswer(items, { today, labels: KINDS })
+  } else if (spec.kind === 'recall') {
+    const [camps, vs] = await Promise.all([listDocs('recall_campaigns', f, 'issueDate', 'desc', 200).catch(() => []), listDocs('recall_campaign_vehicles', f, 'plate', 'asc', 500).catch(() => [])])
+    res = oq.recallAnswer(camps, vs)
+  } else if (spec.kind === 'servicetop') {
+    const jobs = await listDocs('job_cards', f, 'createdAt', 'desc', 2000).catch(() => [])
+    res = oq.serviceTopAnswer(spec.by === 'tech' ? jobs.filter(j => mine(j.techName, j)) : jobs, { today, by: spec.by })
   } else if (spec.kind === 'service') {
     const [ap, jobs] = await Promise.all([listDocs('service_appointments', f, 'date', 'desc', 300).catch(() => []), listDocs('job_cards', f, 'createdAt', 'desc', 500).catch(() => [])])
     res = oq.serviceAnswer(ap.filter(a => mine(a.tech, a)), jobs.filter(j => mine(j.techName, j)), { today, day: spec.day })

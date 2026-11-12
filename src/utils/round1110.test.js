@@ -392,3 +392,22 @@ describe('v1.0.1118 booking statuses + seller', async () => {
     expect(bq.bookingListLabel({ ...bq.parseBookingListSpec('ใบจองของเซลส์สอง'), sellerName: 'เซลส์ สอง' })).toContain('ของ เซลส์ สอง')
   })
 })
+
+describe('v1.0.1118 recall + service ranking', async () => {
+  const oq = await import('./opsQuestions.js')
+  it('recall pending vehicles', () => {
+    const r = oq.recallAnswer([{ id: 'r1', title: 'ถุงลม', status: 'open' }, { id: 'r2', title: 'เก่า', status: 'closed' }],
+      [{ recallId: 'r1', plate: 'กข 1', vStatus: 'scheduled' }, { recallId: 'r1', plate: 'กข 2' }, { recallId: 'r1', plate: 'กข 3', vStatus: 'fixed' }, { recallId: 'r2', plate: 'กข 4' }])
+    expect(r.n).toBe(2)
+    expect(r.text.split('\n')[1]).toContain('กข 2')
+    expect(oq.recallAnswer([], []).text).toContain('ยังไม่มีแคมเปญ')
+  })
+  it('ranks customers and techs from job cards', () => {
+    const jobs = [{ customerId: 'a', customerName: 'ก', createdAt: '2026-11-01', techName: 'ช่าง1', status: 'inprogress' },
+      { customerId: 'a', customerName: 'ก', createdAt: '2026-06-01', techName: 'ช่าง2', status: 'delivered' },
+      { customerId: 'b', customerName: 'ข', createdAt: '2026-10-01', techName: 'ช่าง1', status: 'delivered' }]
+    expect(oq.serviceTopAnswer(jobs, { today: '2026-11-12' }).text.split('\n')[1]).toContain('ก — 2 ครั้ง')
+    expect(oq.serviceTopAnswer(jobs.slice(1), { today: '2026-11-12' }).text).toContain('ยังไม่มีลูกค้าที่เข้าศูนย์ซ้ำ')
+    expect(oq.serviceTopAnswer(jobs, { today: '2026-11-12', by: 'tech' }).text).toContain('1. ช่าง1 — ค้างอยู่ 1 งาน · เปิดเดือนนี้ 1 งาน')
+  })
+})
