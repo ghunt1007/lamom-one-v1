@@ -320,6 +320,16 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.eventBestAnswer(events, e => eventMetrics(e, { customers, bookings: bks, testDrives: drives }), { today })
   } else if (spec.kind === 'campaignbest') {
     res = oq.campaignBestAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today })
+  } else if (spec.kind === 'leave') {
+    const whole = !!(vis.unrestricted || vis.companyOnly)
+    if (!whole && !vis.hasSubordinates) res = { n: 0, text: '👥 ข้อมูลการลาของพนักงานดูได้เฉพาะหัวหน้าทีมและผู้จัดการ — เปิดหน้าการลาเพื่อดูของตัวเอง' }
+    else { const rows = await listDocs('leave_requests', f, 'from', 'desc', 500).catch(() => []); res = oq.leaveAnswer(whole ? rows : rows.filter(r => mine(r.staff, r)), { today, day: spec.day }) }
+  } else if (spec.kind === 'incoming') {
+    const [vs, ords] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listDocs('vehicle_orders', f, 'createdAt', 'desc', 500).catch(() => [])])
+    res = oq.incomingAnswer(vs, ords, { today })
+  } else if (spec.kind === 'lowstock') {
+    const [vs, bks] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])])
+    res = oq.lowStockAnswer(vs, bks)
   } else if (spec.kind === 'noanswer') {
     const [customers, logs, fus] = await Promise.all([customersPromise || visibleCustomersForCommands(), listDocs('comm_logs', f, 'createdAt', 'desc', 1000).catch(() => []), listDocs('followups', f, 'dueDate', 'desc', 2000).catch(() => [])])
     res = oq.noAnswerAnswer((customers || []).filter(c => mine(c.assignedTo, c)), logs, fus, { today })
