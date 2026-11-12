@@ -3,6 +3,7 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { formatCurrency } from '../../utils/format.js'
 import { saleCost, costEstimateNote } from '../../utils/saleCost.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { opexEntries } from '../../utils/opex.js'
 
 const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
@@ -12,12 +13,6 @@ function emptyYear(year) {
   return MONTHS.map((label, i) => ({ month: `${year}-${String(i + 1).padStart(2, '0')}`, label, revenue: 0, cogs: 0, opex: 0 }))
 }
 
-// หมวดค่าใช้จ่ายจากใบเบิกพนักงาน (expense_claims.cat) และเงินสดย่อย (petty_cash.cat)
-const OPEX_LABELS = {
-  fuel: '⛽ น้ำมัน', meals: '🍽 ค่าอาหาร', transport: '🚌 ค่าเดินทาง', phone: '📱 ค่าโทรศัพท์', accom: '🏨 ที่พัก',
-  marketing: '📣 ค่าการตลาด', office: '🖊 เครื่องเขียน', supplies: '📎 ของใช้สำนักงาน', refresh: '☕ รับรองลูกค้า',
-  postage: '📮 ไปรษณีย์/เอกสาร', repair: '🔨 ซ่อมเล็กน้อย', other: '📋 อื่นๆ',
-}
 
 export default async function PLPage(container) {
   const myGen = container.__routerGen
@@ -242,14 +237,10 @@ export default async function PLPage(container) {
     if (container.__routerGen !== myGen) return
     const opexByMonth = {}
     const byCat = {}
-    const add = (m, cat, amt) => {
-      if (!m || !m.startsWith(selectedYear + '-')) return
-      opexByMonth[m] = (opexByMonth[m] || 0) + amt
-      const k = OPEX_LABELS[cat] || OPEX_LABELS.other
-      byCat[k] = (byCat[k] || 0) + amt
-    }
-    claims.filter(c => !c.deleted && (c.status === 'approved' || c.status === 'paid')).forEach(c => add((c.date || '').slice(0, 7), c.cat, Number(c.amount) || 0))
-    petty.filter(p => !p.deleted && p.type === 'out' && p.status === 'approved').forEach(p => add((p.time || '').slice(0, 7), p.cat, Number(p.amount) || 0))
+    opexEntries(claims, petty).filter(e => e.month.startsWith(selectedYear + '-')).forEach(e => {
+      opexByMonth[e.month] = (opexByMonth[e.month] || 0) + e.amt
+      byCat[e.label] = (byCat[e.label] || 0) + e.amt
+    })
     const catTotal = Object.values(byCat).reduce((a, v) => a + v, 0)
     opexCats = Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([label, amt]) => ({ label, amt, pct: catTotal ? Math.round(amt / catTotal * 100) : 0 }))
     let opexChanged = false
