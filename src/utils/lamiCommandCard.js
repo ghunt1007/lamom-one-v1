@@ -336,8 +336,11 @@ export async function loadOpsAnswer(q, customersPromise) {
       const [{ opexEntries }, { saleCost }, { getSalesData }, claims, petty] = await Promise.all([import('./opex.js'), import('./saleCost.js'), import('../core/db.js'),
         listDocs('expense_claims', f, 'date', 'desc', 2000).catch(() => []), listDocs('petty_cash', f, 'time', 'desc', 2000).catch(() => [])])
       const sales = spec.kind === 'profit' ? await getSalesData().catch(() => []) : []
-      res = oq.moneyMonthAnswer({ sales, opex: opexEntries(claims, petty), today, prev: spec.prev, kind: spec.kind, saleCost })
+      res = oq.moneyMonthAnswer({ sales, opex: opexEntries(claims, petty), today, prev: spec.prev, kind: spec.kind, saleCost, perUnit: !!spec.perUnit, low: !!spec.low, byModel: !!spec.byModel })
     }
+  } else if (spec.kind === 'floorplan') {
+    if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🏦 ข้อมูล floor plan ดูได้เฉพาะผู้บริหาร/บัญชี' }
+    else res = oq.floorPlanAnswer(await listDocs('floor_plan', f, 'drawDate', 'desc', 300).catch(() => []), { today })
   } else if (spec.kind === 'late') {
     const whole = !!(vis.unrestricted || vis.companyOnly)
     if (!whole && !vis.hasSubordinates) res = { n: 0, locked: true, text: '🕘 ข้อมูลลงเวลาของพนักงานดูได้เฉพาะหัวหน้าทีมและผู้จัดการ — ดูของตัวเองได้ที่หน้า "ลงเวลา"' }

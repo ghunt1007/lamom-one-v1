@@ -102,3 +102,31 @@ describe('v1.0.1112', () => {
     expect(r.text).not.toContain('ค สาม')
   })
 })
+
+import { floorPlanAnswer } from './opsQuestions.js'
+describe('v1.0.1113 floor plan', () => {
+  it('ดอกเบี้ย floor plan เดือนนี้', () => {
+    expect(parseOpsSpec('ดอกเบี้ย floor plan เดือนนี้')).toEqual({ kind: 'floorplan' })
+    const docs = [{ kind: 'settings', rate: 3.65 }, { status: 'active', principal: 1000000, drawDate: '2026-07-01', model: 'AION V' }, { status: 'paid', principal: 500000, drawDate: '2026-10-01' }]
+    const r = floorPlanAnswer(docs, { today: T })
+    expect(r.text).toContain('1 คัน · ยอดเงินกู้ ฿1,000,000 (ดอกเบี้ย 3.65% ต่อปี)')
+    expect(r.text).toContain('วันละ ฿100')
+    expect(r.text).toContain('ดอกเบี้ยเดือนนี้ถึงวันนี้ ฿1,100')
+    expect(r.text).toContain('ติดเกิน 120 วัน 1 คัน')
+  })
+})
+
+import { moneyMonthAnswer } from './opsQuestions.js'
+describe('v1.0.1113 per-unit profit', () => {
+  it('รถคันไหนขายได้กำไรน้อยสุด', () => {
+    expect(parseOpsSpec('รถคันไหนขายได้กำไรน้อยสุด')).toEqual({ kind: 'profit', perUnit: true, low: true, prev: false })
+    expect(parseOpsSpec('กำไรเดือนนี้เท่าไหร่').perUnit).toBeUndefined()
+    const sales = [{ date: '2026-11-01', salePrice: 1000000, cost: 950000, model: 'A', custName: 'x' }, { date: '2026-11-02', salePrice: 1000000, cost: 800000, model: 'B', custName: 'y' }, { date: '2026-11-03', salePrice: 900000, model: 'C' }]
+    const r = moneyMonthAnswer({ sales, today: T, kind: 'profit', perUnit: true, low: true, saleCost: () => 0 })
+    expect(r.text).toContain('2 คันที่มีต้นทุนจริง จาก 3 คัน')
+    expect(r.text.split('\n')[1]).toContain('A · x — ฿50,000 (5%)')
+    expect(parseOpsSpec('รุ่นไหนกำไรดีสุด').byModel).toBe(true)
+    const m = moneyMonthAnswer({ sales, today: T, kind: 'profit', perUnit: true, byModel: true, saleCost: () => 0 })
+    expect(m.text).toContain('1. B — เฉลี่ย ฿200,000/คัน (20%) · 1 คัน')
+  })
+})
