@@ -11,7 +11,8 @@ const AGED = /ค้างสต็อก|ค้างสต๊อก|(?:สต�
 // เช็คเร็วก่อนโหลดสต็อก — ไม่ใช่คำถามสต็อกแน่ๆ ก็ไม่ต้องอ่านข้อมูล
 export const maybeStockQuestion = q => { const s = String(q || ''); return s.length <= 80 && (INTENT.test(s) || AGED.test(s)) }
 
-export function parseStockSpec(q, vehicles = []) {
+// catalog = ชื่อรุ่นจากฐานข้อมูลรถ (v1.0.1110) — ถามรุ่นที่ไม่มีในสต็อก เช่น "ATTO 3 สีขาวมีไหม" ตอบว่าไม่มี แทนการโชว์รุ่นอื่นเฉยๆ
+export function parseStockSpec(q, vehicles = [], catalog = []) {
   const s = String(q || '').trim().replace(/[?？]+$/, '').trim()
   if (!s || s.length > 80) return null
   if (/นัด|โทร|ยอด|เป้า|ราคา|ดาวน์|ผ่อน|ดอกเบี้ย|ลูกค้า|ลีด|ใบจอง|ส่งมอบ|ไฟแนนซ์|ทำไม|ยังไง|อย่างไร|อะไหล่|มูลค่า|ต้นทุน|กำไร|ขายได้|ขายไป|ขายแล้ว|ปิดได้|จองแล้วแต่|ยังไม่มี(?:ใน)?(?:สต็อก|สต๊อก)|เหลือน้อย|ใกล้หมด|สั่งเพิ่ม|กำลัง(?:จะ)?มา/.test(s)) return null
@@ -28,8 +29,15 @@ export function parseStockSpec(q, vehicles = []) {
   const brand = model ? '' : brands.find(b => norm(b).length >= 2 && n.includes(norm(b))) || ''
   const colors = [...new Set(live.map(v => String(v.color || '').trim()).filter(Boolean))].sort((a, b) => b.length - a.length)
   const color = colors.find(c => s.includes(c) || s.includes('สี' + c)) || ''
-  if (!model && !brand && !color && !aged && !GENERIC.test(s)) return null
-  return { model, brand, color, aged }
+  let missing = ''
+  if (!model) {
+    const have = new Set(models.map(norm))
+    missing = [...new Set(catalog.map(m => String(m || '').trim()).filter(Boolean))]
+      .filter(m => { const k = norm(m); return !have.has(k) && (k.length >= 4 || (k.length >= 3 && /\d/.test(k))) && n.includes(k) })
+      .sort((a, b) => b.length - a.length)[0] || ''
+  }
+  if (!model && !brand && !color && !aged && !missing && !GENERIC.test(s)) return null
+  return { model, brand, color, aged, ...(missing ? { missing } : {}) }
 }
 
 const title = spec => [spec.model || spec.brand, spec.color ? `สี${spec.color}` : ''].filter(Boolean).join(' ')
@@ -63,6 +71,18 @@ export function stockAnswer({ vehicles = [], spec, today }) {
   const transit = inColor.filter(v => v.status === 'transit').length
   const reserved = inColor.filter(v => v.status === 'reserved').length
   const extra = [transit ? `🚢 กำลังขนส่งมา ${transit} คัน` : '', reserved ? `📝 จองแล้ว ${reserved} คัน` : ''].filter(Boolean).join(' · ')
+
+  if (spec.missing && !spec.model && !spec.brand) {
+    const alt = spec.color ? live.filter(v => v.status === 'available' && String(v.color || '').trim() === spec.color) : []
+    const by = new Map(); alt.forEach(v => { const m = carOf(v) || 'ไม่ระบุรุ่น'; by.set(m, (by.get(m) || 0) + 1) })
+    const rows = [...by.entries()].sort((a, b) => b[1] - a[1])
+    return {
+      text: [`📭 ไม่มี ${spec.missing}${spec.color ? ` สี${spec.color}` : ''} ในสต็อกตอนนี้`,
+        rows.length ? `🚗 รถสี${spec.color}รุ่นอื่นที่พร้อมขาย: ${rows.slice(0, 6).map(([m, k]) => `${m} ${k} คัน`).join(' · ')}` : '',
+        `💡 ลูกค้าอยากได้ ${spec.missing} — บันทึกความสนใจไว้ หรือสั่งรถเพิ่ม`].filter(Boolean).join('\n'),
+      next: ['มีรถอะไรพร้อมขาย'], query: spec.color || '',
+    }
+  }
 
   if (!spec.model && !spec.brand) {
     // ภาพรวม (หรือถามเฉพาะสี): แยกตามรุ่น

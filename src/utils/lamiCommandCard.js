@@ -245,7 +245,8 @@ export async function loadStockAnswer(q) {
   if (!sq.maybeStockQuestion(q)) return null
   const [{ listDocs }, { companyScopeFilters }, { todayBangkok }] = await Promise.all([import('../core/db.js'), import('../core/companyScope.js'), import('./format.js')])
   const vehicles = await listDocs('vehicles', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => [])
-  const spec = sq.parseStockSpec(q, vehicles)
+  const catalog = await import('../data/vehicleDatabase.js').then(m => m.getVehicles().map(v => v.model)).catch(() => [])
+  const spec = sq.parseStockSpec(q, vehicles, catalog)
   if (!spec) return null
   const res = sq.stockAnswer({ vehicles, spec, today: todayBangkok() })
   return { text: res.text, next: res.next, copy: res.copy, go: { path: '/dms/stock' + (res.query ? '?q=' + encodeURIComponent(res.query) : ''), label: '🚙 เปิดหน้าสต็อก' } }

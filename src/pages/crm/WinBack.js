@@ -154,13 +154,13 @@ export default async function WinBackPage(container) {
             <select class="input" id="wb-channel"><option>โทรศัพท์ (ผู้จัดการ)</option><option>LINE</option><option>SMS</option></select>
           </div>
         </div>`,
-        confirmText: '📤 ส่งข้อเสนอ',
+        confirmText: '💾 บันทึกว่าเสนอแล้ว',
         async onConfirm() {
           const offer = document.getElementById('wb-offer')?.value || ''
           const channel = document.getElementById('wb-channel')?.value || ''
           try {
             await persistTarget(t, { offer, channel, status: 'contacted', attempts: 1 })
-            showToast('📤 ส่งข้อเสนอแล้ว', 'success')
+            showToast('💾 บันทึกแล้ว — สถานะเป็น "ติดต่อแล้ว"', 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
