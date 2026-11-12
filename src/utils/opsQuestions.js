@@ -47,7 +47,7 @@ export function parseOpsSpec(q) {
   if (has(s, /ไฟแนนซ์|แบงก์|ธนาคาร|ลีสซิ่ง/) && has(s, /ไหน|อันดับ|เยอะ|มากสุด|บ่อย|สรุป|ผ่านกี่|อนุมัติกี่|เปอร์เซ็นต์|%/) && !has(s, /ดอกเบี้ย|ผ่อน|ดาวน์|งวด|รอ(?:ผล)?\s*ไฟแนนซ์|ใคร/)) return { kind: 'finbank' }
   if (has(s, /รายได้|ค่าคอม/) && has(s, /ยังไม่กรอก|ไม่ได้กรอก|ค้างกรอก|ยังไม่ใส่|ขาด/)) return { kind: 'income' }
   if (has(s, /ส่งมอบ/) && has(s, /เดือนหน้า/) && !has(s, /ยอด|เป้า/)) return { kind: 'delivery', day: 'nextmonth' }
-  if (has(s, /ส่งมอบ/) && !has(s, /ยอด|เป้า|เดือน/) && has(s, /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์|นัด|ใคร|กี่คัน|ไหม/)) return { kind: 'delivery', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /สัปดาห์หน้า|อาทิตย์หน้า/.test(s) ? 'nextweek' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
+  if (has(s, /ส่งมอบ/) && !has(s, /ยอด|เป้า|เดือน|ปีนี้|ทั้งปี|ปีก่อน|ปีที่แล้ว/) && has(s, /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์|นัด|ใคร|กี่คัน|ไหม/)) return { kind: 'delivery', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /สัปดาห์หน้า|อาทิตย์หน้า/.test(s) ? 'nextweek' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
   if (has(s, /ช่องทาง|ที่มา|มาจาก/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'newcust', ...(sourceOf(s) ? { source: sourceOf(s) } : {}), period: /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
   // (v1.0.1094) "เคลมประกันค้างกี่เรื่อง" (เคลมประกันภัยรถยนต์ ไม่ใช่เคลมรับประกันศูนย์)
   if (has(s, /เคลม/) && !has(s, /รับประกัน|วอร์แรนตี|warranty/i)) return { kind: 'claim' }
@@ -84,6 +84,8 @@ export function parseOpsSpec(q) {
   // (v1.0.1097) "ใครลางานวันนี้" / "พรุ่งนี้มีใครลาบ้าง"
   if (has(s, /ลา(?:งาน|ป่วย|กิจ|พักร้อน|หยุด)|ใครลา|มีคนลา|ลากี่คน|ขอลา|หยุดงาน/) && !has(s, /^(?:ขอ)?ลา(?:งาน|ป่วย|กิจ)?\s*(?:พรุ่งนี้|วันที่|\d)/)) return { kind: 'leave', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
   // (v1.0.1097) "รถที่กำลังจะมาถึงมีกี่คัน" / "รถสั่งไว้มาเมื่อไหร่"
+  // (v1.0.1107) "รถเข้าใหม่สัปดาห์นี้" / "เดือนนี้รับรถเข้าสต็อกกี่คัน"
+  if (has(s, /รถ(?:เข้า|มา)(?:ใหม่|แล้ว)|รถ(?:ที่)?เพิ่ง(?:เข้า|มา)|รับรถเข้า(?:สต็อก|สต๊อก)?|เข้าสต็อก|เข้าสต๊อก|รถล็อตใหม่/) && !has(s, /ลูกค้า|ศูนย์|ซ่อม|เมื่อไหร่|กำลัง/)) return { kind: 'arrived', days: /เดือน/.test(s) ? 'month' : /วันนี้/.test(s) ? 1 : 7 }
   if (has(s, /กำลัง(?:จะ)?มา(?:ถึง)?|กำลังขนส่ง|ระหว่างขนส่ง|รถ(?:ที่)?สั่ง(?:ไว้)?|รถจะเข้า|รถเข้าเมื่อไหร่|รถมาเมื่อไหร่|ใบสั่งรถ|สั่งรถ(?:ไป)?กี่คัน/) && !has(s, /ลูกค้า|ใคร(?:รอ|จอง)|อะไหล่/)) return { kind: 'incoming' }
   // (v1.0.1097) "รถรุ่นไหนเหลือน้อย" / "รุ่นไหนควรสั่งเพิ่ม"
   if (has(s, /รุ่นไหน|รุ่นอะไร|คันไหน|ควรสั่ง|ต้องสั่ง/) && has(s, /เหลือน้อย|ใกล้หมด|หมดสต็อก|หมดสต๊อก|ขาดสต็อก|ขาดสต๊อก|สั่งเพิ่ม|ควรสั่ง|ต้องสั่ง|ไม่พอ/) && !has(s, /อะไหล่/)) return { kind: 'lowstock' }
@@ -456,6 +458,20 @@ export function pdiAnswer(pdis, { today }) {
   return { n: list.length, text: [`🔧 รถที่ยังไม่ผ่าน PDI ${list.length} คัน · ${cnt.map(([k, n]) => `${PDI_TH[k]} ${n}`).join(' · ')}`,
     ...list.slice(0, MAX).map(p => `• ${carOf(p) || 'รถ'}${p.color ? ' สี' + p.color : ''}${p.vin ? ' · VIN …' + String(p.vin).slice(-6) : ''} · ${PDI_TH[p.status]}${dnum(p.startDate) != null ? ` · ${t0 - dnum(p.startDate)} วัน` : ''}${p.inspector ? ' · 👤 ' + p.inspector : ''}`),
     ...more(list.length), list.some(p => p.status === 'failed') ? '💡 แก้คันที่ไม่ผ่านก่อน — ถ้ามีนัดส่งมอบจะได้ไม่เลื่อน' : ''].filter(Boolean).join('\n') }
+}
+
+// (v1.0.1107) รถที่รับเข้าสต็อกล่าสุด (vehicles.arrivedAt)
+export function arrivedAnswer(vehicles, { today, days = 7 }) {
+  const from = days === 'month' ? today.slice(0, 7) + '-01' : addDays(today, -(days - 1))
+  const label = days === 'month' ? 'เดือนนี้' : days === 1 ? 'วันนี้' : 'ในรอบ 7 วัน'
+  const list = alive(vehicles).filter(v => { const d = ymd(v.arrivedAt); return d && d >= from && d <= today }).sort((a, b) => ymd(b.arrivedAt).localeCompare(ymd(a.arrivedAt)))
+  if (!list.length) return { n: 0, text: `🚙 ${label}ยังไม่มีรถรับเข้าสต็อก (${dmy(from)}–${dmy(today)})` }
+  const by = {}
+  list.forEach(v => { const k = carOf(v) || 'ไม่ระบุรุ่น'; by[k] = (by[k] || 0) + 1 })
+  const sold = list.filter(v => v.status && v.status !== 'available' && v.status !== 'transit').length
+  return { n: list.length, text: [`🚙 รถเข้าสต็อก${label} ${list.length} คัน (${dmy(from)}–${dmy(today)})${sold ? ` · จอง/ขายไปแล้ว ${sold} คัน` : ''}`,
+    Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · '),
+    ...list.slice(0, MAX).map(v => `• ${dmy(ymd(v.arrivedAt))} ${carOf(v) || 'รถ'}${v.color ? ' ' + v.color : ''}${v.status === 'available' ? ' · พร้อมขาย' : ''}`), ...more(list.length)].join('\n') }
 }
 
 // (v1.0.1103) ลูกค้ารับรถแล้วแต่ยังไม่ได้ป้ายขาว (จากใบจอง: ส่งมอบแล้ว ไม่มี whitePlate) · รับรถเกิน 45 วันขึ้นก่อน
@@ -845,6 +861,7 @@ export function walkinAnswer(rows, { today, day = 'today' }) {
 }
 
 export const OPS_LINKS = {
+  arrived: { path: '/dms/stock', label: '🚙 เปิดหน้าสต็อก' },
   plate: { path: '/dms/plates', label: '🟥 เปิดหน้าติดตามทะเบียน' },
   walkin: { path: '/crm/walkin', label: '🚶 เปิดหน้า walk-in' },
   insurance: { path: '/insurance/renewal', label: '🛡 เปิดหน้าต่อประกัน' },
@@ -897,7 +914,7 @@ export const OPS_LINKS = {
 }
 
 export function opsFollowUps(spec) {
-  const all = { plate: 'ลูกค้าที่ส่งมอบเดือนนี้', csat: 'เรื่องร้องเรียนค้างอยู่ไหม', expense: 'กำไรเดือนนี้เท่าไหร่', profit: 'ค่าใช้จ่ายเดือนนี้เท่าไหร่', leave: 'วันนี้มีอะไรบ้าง', incoming: 'รถรุ่นไหนเหลือน้อย', lowstock: 'รถที่กำลังจะมาถึงมีกี่คัน', noanswer: 'ลูกค้า hot ที่ยังไม่มีนัด', hotbyseller: 'ลูกค้า hot มีใครบ้าง', pdi: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', stale: 'ลูกค้าคนไหนยังไม่ได้ทดลองขับ', tradein: 'ใครรอไฟแนนซ์', closerate: 'ลูกค้าใหม่เดือนนี้กี่คน', noquote: 'ใบเสนอราคาค้างอยู่กี่ใบ', bookmodel: 'รถรุ่นไหนขายดีสุดเดือนนี้', notd: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', claim: 'งานซ่อมค้างอยู่กี่งาน', parts: 'รถรออะไหล่มีคันไหน', servicerev: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', yesterday: 'วันนี้มีอะไรบ้าง', referask: 'ใครครบรอบซื้อรถเดือนนี้', eventbest: 'ลีดจากบูธเดือนนี้กี่คน', campaignbest: 'โปรเดือนนี้มีอะไรบ้าง', delivered: 'ใครครบรอบซื้อรถเดือนนี้', mycust: 'ลูกค้า hot มีใครบ้าง', nophone: 'ลูกค้าที่ยังไม่มีผู้ดูแล', topscore: 'วันนี้ควรโทรหาใคร', withdrawn: 'ยอดเดือนนี้เป็นไง', finbank: 'ใครรอไฟแนนซ์', noshow: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', nobookseller: 'ทีมวันนี้เป็นไง', bookday: 'ยอดเดือนนี้เป็นไง', tdnobook: 'ลูกค้า hot มีใครบ้าง', testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', insurance: 'รับประกันรถคันไหนใกล้หมด', walkin: 'walk in สัปดาห์นี้กี่คน', warranty: 'ประกันภัยใครใกล้หมด', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
+  const all = { arrived: 'รถรุ่นไหนเหลือน้อย', plate: 'ลูกค้าที่ส่งมอบเดือนนี้', csat: 'เรื่องร้องเรียนค้างอยู่ไหม', expense: 'กำไรเดือนนี้เท่าไหร่', profit: 'ค่าใช้จ่ายเดือนนี้เท่าไหร่', leave: 'วันนี้มีอะไรบ้าง', incoming: 'รถรุ่นไหนเหลือน้อย', lowstock: 'รถที่กำลังจะมาถึงมีกี่คัน', noanswer: 'ลูกค้า hot ที่ยังไม่มีนัด', hotbyseller: 'ลูกค้า hot มีใครบ้าง', pdi: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', stale: 'ลูกค้าคนไหนยังไม่ได้ทดลองขับ', tradein: 'ใครรอไฟแนนซ์', closerate: 'ลูกค้าใหม่เดือนนี้กี่คน', noquote: 'ใบเสนอราคาค้างอยู่กี่ใบ', bookmodel: 'รถรุ่นไหนขายดีสุดเดือนนี้', notd: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', claim: 'งานซ่อมค้างอยู่กี่งาน', parts: 'รถรออะไหล่มีคันไหน', servicerev: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', yesterday: 'วันนี้มีอะไรบ้าง', referask: 'ใครครบรอบซื้อรถเดือนนี้', eventbest: 'ลีดจากบูธเดือนนี้กี่คน', campaignbest: 'โปรเดือนนี้มีอะไรบ้าง', delivered: 'ใครครบรอบซื้อรถเดือนนี้', mycust: 'ลูกค้า hot มีใครบ้าง', nophone: 'ลูกค้าที่ยังไม่มีผู้ดูแล', topscore: 'วันนี้ควรโทรหาใคร', withdrawn: 'ยอดเดือนนี้เป็นไง', finbank: 'ใครรอไฟแนนซ์', noshow: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', nobookseller: 'ทีมวันนี้เป็นไง', bookday: 'ยอดเดือนนี้เป็นไง', tdnobook: 'ลูกค้า hot มีใครบ้าง', testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', insurance: 'รับประกันรถคันไหนใกล้หมด', walkin: 'walk in สัปดาห์นี้กี่คน', warranty: 'ประกันภัยใครใกล้หมด', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
   const out = [all[spec.kind]]
   if (spec.kind === 'testdrive' && spec.day === 'tomorrow') out[0] = 'พรุ่งนี้มีใครนัดเข้าโชว์รูม'
   if (spec.kind === 'delivery' && spec.day === 'week') out[0] = 'มีนัดส่งมอบพรุ่งนี้ไหม'

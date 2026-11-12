@@ -59,3 +59,15 @@ describe('v1.0.1103 plate + call list', () => {
     expect(isCallListQuestion('ใครควรได้โทรตามวันนี้')).toBe(true)
   })
 })
+import { arrivedAnswer } from './opsQuestions.js'
+describe('v1.0.1107 arrived', () => {
+  it('parse', () => {
+    expect(parseOpsSpec('รถเข้าใหม่สัปดาห์นี้')).toEqual({ kind: 'arrived', days: 7 })
+    expect(parseOpsSpec('เดือนนี้รับรถเข้าสต็อกกี่คัน')).toEqual({ kind: 'arrived', days: 'month' })
+    expect(parseOpsSpec('รถเข้าศูนย์วันนี้').kind).toBe('service')
+  })
+  it('arrivedAnswer', () => {
+    const r = arrivedAnswer([{ arrivedAt: '2026-11-10', brand: 'AION', model: 'V', status: 'available' }, { arrivedAt: '2026-10-01' }], { today: '2026-11-12', days: 7 })
+    expect(r.n).toBe(1)
+  })
+})
