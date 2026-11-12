@@ -307,7 +307,7 @@ export default async function QuotationBuilderPage(container) {
 
   function openCreateForm(prefill = null) {
     const customerId = prefill?.customerId || null
-    const matchedVehicle = matchVehicle(prefill?.interestedModel)
+    const matchedVehicle = (prefill?.vehicleId && getVehicles().find(v => v.id === prefill.vehicleId)) || matchVehicle(prefill?.interestedModel)
     let customAccessories = [] // {name, price} — อุปกรณ์พิมพ์เองนอกแคตตาล็อก
     // (v1.0.976) แคมเปญที่ใช้ได้วันนี้ (จากหน้า "แคมเปญ & เงื่อนไขขาย") — กดใช้ได้ทันที ไม่ต้องพิมพ์ส่วนลด/ดอกเบี้ยเอง
     let programs = []
@@ -559,6 +559,11 @@ export default async function QuotationBuilderPage(container) {
 
   await loadData()
   if (prefillData) openCreateForm(prefillData)
+  else {
+    // (v1.0.1071) เปิดจาก LAMI "ราคา S07 เท่าไหร่" → ปุ่มทำใบเสนอราคา: /crm/quotation?vehicle=<id> เปิดฟอร์มพร้อมรุ่นนั้น
+    const vid = new URLSearchParams(location.search).get('vehicle')
+    if (vid && getVehicles().some(v => v.id === vid)) openCreateForm({ vehicleId: vid })
+  }
 }
 
 function row(l, v) { return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.82rem"><span style="color:var(--text-muted)">${l}</span><span>${v}</span></div>` }
