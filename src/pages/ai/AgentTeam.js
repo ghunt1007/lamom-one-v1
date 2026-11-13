@@ -48,7 +48,7 @@ export default async function AgentTeamPage(container) {
     <div id="at-body"><div class="at-sum">⏳ ทีม AI กำลังตรวจงานทุกแผนก…</div></div>
     </div>`
 
-  // ข้อมูลที่ตรวจ (โหลดใน aiAgentsLoad.js — ระบุไว้ให้หน้า "หน้าไหนมีข้อมูลจริง" อ่านเจอ): 'customers' 'bookings' 'test_drives' 'quotations' 'appointments' 'social_threads' 'pdi' 'complaints' 'leave_requests'
+  // ข้อมูลที่ตรวจ (โหลดใน aiAgentsLoad.js — ระบุไว้ให้หน้า "หน้าไหนมีข้อมูลจริง" อ่านเจอ): 'customers' 'bookings' 'test_drives' 'quotations' 'appointments' 'social_threads' 'pdi' 'complaints' 'leave_requests' 'job_cards' 'expense_claims' 'expense_approvals' 'petty_cash'
   const load = () => loadAgentBoard()
 
   function render(board, at) {

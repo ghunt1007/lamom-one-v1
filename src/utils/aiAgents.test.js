@@ -84,3 +84,26 @@ describe('v1.0.1137 agent hand-off commands are real LAMI bulk commands', () => 
     expect(parseBulkSpec(cmds[0], '2026-11-14').quietDays).toBe(7)
   })
 })
+
+describe('v1.0.1138 more back-office agent tasks', () => {
+  const base = { today: '2026-11-14', customers: [], bookings: [], drives: [], quotes: [], appts: [], threads: [], pdis: [], complaints: [], leaves: [] }
+  const res = (board, key) => board.flatMap(a => a.results).find(r => r.key === key)
+  it('skips approval and job tasks when the data was not loaded (sales staff)', () => {
+    const b = runAgents({ ...base, jobs: null, approvals: null })
+    expect(res(b, 'moneyOk')).toBeUndefined()
+    expect(res(b, 'leaveOk')).toBeUndefined()
+    expect(res(b, 'jobReady')).toBeUndefined()
+    expect(res(b, 'refund').n).toBe(0)
+  })
+  it('counts refunds, pending approvals and finished repairs for managers', () => {
+    const b = runAgents({ ...base,
+      bookings: [{ status: 'ถอนจอง', bookingDeposit: 5000, custName: 'เอ' }],
+      leaves: [{ status: 'pending', staff: 'บี', from: '2026-11-20' }],
+      jobs: [{ status: 'done', doneAt: '2026-11-12', custName: 'ซี' }],
+      approvals: { claims: [{ status: 'pending', staffName: 'ดี', amount: 300, date: '2026-11-13' }], expenses: [], petty: [] } })
+    expect(res(b, 'refund').n).toBe(1)
+    expect(res(b, 'moneyOk').n).toBe(1)
+    expect(res(b, 'leaveOk').n).toBe(1)
+    expect(res(b, 'jobReady').n).toBe(1)
+  })
+})

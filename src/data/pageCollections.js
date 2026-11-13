@@ -184,8 +184,12 @@ export const PAGE_COLLECTIONS = {
   "bookings",
   "complaints",
   "customers",
+  "expense_approvals",
+  "expense_claims",
+  "job_cards",
   "leave_requests",
   "pdi",
+  "petty_cash",
   "quotations",
   "social_threads",
   "test_drives"

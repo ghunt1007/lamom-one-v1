@@ -4,6 +4,7 @@
 import {
   staleProspectAnswer, noQuoteAnswer, noTestDriveAnswer, lineWaitingAnswer, noPhoneAnswer, dupAnswer,
   pdiAnswer, plateAnswer, deliveryAnswer, incomeMissingAnswer, complaintAnswer, leaveAnswer, apptDayAnswer,
+  refundAnswer, approvalsAnswer, jobReadyAnswer,
 } from './opsQuestions.js'
 
 // แต่ละงาน: run(data) → { n, text } (n = จำนวนที่ต้องทำ, 0 = เรียบร้อย) · go = หน้าที่กดไปทำ · level: urgent | todo
@@ -39,18 +40,23 @@ export const AGENTS = [
     id: 'finn', emoji: '💰', name: 'FINN', dept: 'การเงิน', role: 'รายได้ ค่าคอม ไฟแนนซ์',
     tasks: [
       { key: 'income', label: 'ส่งมอบแล้วแต่ยังไม่กรอกรายได้', level: 'urgent', go: '/crm/bookings', run: d => incomeMissingAnswer(d.bookings, { today: d.today }) },
+      { key: 'refund', label: 'ถอนจองแล้วรอคืนเงินมัดจำ', level: 'urgent', go: '/finance/refund', run: d => refundAnswer(d.bookings) },
+      // คิวอนุมัติเงิน — ข้อมูลโหลดเฉพาะหัวหน้า/ผู้จัดการ (ไม่มีข้อมูล = ข้ามงานนี้)
+      { key: 'moneyOk', label: 'ใบเบิก/ค่าใช้จ่ายรออนุมัติ', level: 'todo', go: '/finance/expenses', run: d => d.approvals ? approvalsAnswer({ ...d.approvals, only: 'money' }) : null },
     ],
   },
   {
     id: 'serv', emoji: '🔧', name: 'SERV', dept: 'บริการหลังการขาย', role: 'ร้องเรียน และดูแลหลังส่งมอบ',
     tasks: [
       { key: 'complaint', label: 'เรื่องร้องเรียนที่ยังไม่ปิด', level: 'urgent', go: '/crm/complaints', run: d => complaintAnswer(d.complaints, { today: d.today }) },
+      { key: 'jobReady', label: 'รถซ่อมเสร็จ รอลูกค้ามารับ', level: 'todo', go: '/service/jobs', run: d => d.jobs ? jobReadyAnswer(d.jobs, { today: d.today }) : null },
     ],
   },
   {
     id: 'hera', emoji: '👤', name: 'HERA', dept: 'บุคคล', role: 'การลา และกำลังคน',
     tasks: [
       { key: 'leave', label: 'คนลาวันนี้', level: 'todo', go: '/hr/leave', run: d => leaveAnswer(d.leaves, { today: d.today, day: 'today' }) },
+      { key: 'leaveOk', label: 'ใบลารออนุมัติ', level: 'todo', go: '/hr/leave', run: d => d.approvals ? approvalsAnswer({ leaves: d.leaves, only: 'leave' }) : null },
     ],
   },
 ]
