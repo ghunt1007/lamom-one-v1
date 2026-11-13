@@ -30,6 +30,8 @@ export function parseListSpec(q) {
   const noFu = /(?:ยัง)?ไม่(?:มี|ได้)\s*นัด/.test(s)
   const mm = s.match(/สนใจ\s*(?:รุ่น)?\s*([A-Za-z0-9ก-๙][A-Za-z0-9ก-๙ .\-]{1,24}?)\s*(?=มีใคร|ใครบ้าง|คนไหน|กี่คน|กี่ราย|มี|บ้าง|$)/)
   let model = mm ? mm[1].trim().toLowerCase() : null
+  // (v1.0.1126) "สนใจแต่ติดเรื่องราคา" ไม่ใช่ชื่อรุ่น
+  if (model && /^(?:แต่|ที่|และ|ยัง|อยู่|มาก|จะ|แล้ว|ติด)/.test(model)) model = null
   // (v1.0.1115) "สนใจรถไฟฟ้า / EV / ไฮบริด" = ประเภทรถ ไม่ใช่ชื่อรุ่น → เทียบกับรุ่นในฐานข้อมูลรถตามชนิดเชื้อเพลิง
   const fuel = model && /^(?:รถ)?\s*(?:ไฟฟ้า|ev|bev)(?:\s*100\s*%)?$/i.test(model) ? 'ev' : model && /^(?:รถ)?\s*(?:ไฮบริด|hybrid|hev|phev|ปลั๊กอิน)/i.test(model) ? 'hybrid' : null
   if (fuel) model = null

@@ -322,7 +322,7 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.lineWaitingAnswer(threads.filter(t => whole || mineIds.has(t.userId)), customers || [])
   } else if (spec.kind === 'newcust') {
     const [{ QUICK_SOURCES }, customers] = await Promise.all([import('./quickLead.js'), customersPromise || visibleCustomersForCommands()])
-    res = oq.newCustomerAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, period: spec.period, source: spec.source, sourceLabel: { event: '🎪 ออกบูธ/อีเวนต์', ...Object.fromEntries(QUICK_SOURCES) } })
+    res = oq.newCustomerAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, period: spec.period, source: spec.source, nofollow: !!spec.nofollow, sourceLabel: { event: '🎪 ออกบูธ/อีเวนต์', ...Object.fromEntries(QUICK_SOURCES) } })
   } else if (spec.kind === 'lost') {
     const customers = await (customersPromise || visibleCustomersForCommands())
     res = oq.lostAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, prev: spec.prev })
@@ -374,6 +374,16 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'debt') {
     if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 ข้อมูลลูกหนี้ดูได้เฉพาะผู้บริหาร/บัญชี' }
     else res = oq.debtAnswer(await listDocs('debt_settlements', f, 'oldest', 'asc', 500).catch(() => []))
+  } else if (spec.kind === 'nomodel') {
+    res = oq.noModelAnswer(((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c)))
+  } else if (spec.kind === 'apptday') {
+    const { followupWindowFilters } = await import('./customerFollowups.js')
+    const [appts, drives, fus, customers] = await Promise.all([listDocs('appointments', f, 'date', 'desc', 300).catch(() => []), listDocs('test_drives', f, 'date', 'desc', 300).catch(() => []),
+      listDocs('followups', [...f, ...followupWindowFilters(today)], 'dueDate', 'asc', 2000).catch(() => []), customersPromise || visibleCustomersForCommands()])
+    const ids = new Set((customers || []).filter(c => c && !c.deleted && mine(c.assignedTo, c)).map(c => c.id))
+    const date = spec.day === 'tomorrow' ? oq.addDaysIso(today, 1) : today
+    const fuDue = fus.filter(x => x && !x.deleted && x.status === 'pending' && ids.has(x.customerId) && String(x.dueDate || '').slice(0, 10) === date).length
+    res = oq.apptDayAnswer(appts.filter(a => mine(a.salesperson, a)), drives.filter(t => mine(t.staff, t)), { today, day: spec.day, fuDue })
   } else if (spec.kind === 'petty') {
     if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 ยอดเงินสดย่อยดูได้เฉพาะผู้บริหาร/บัญชี' }
     else res = oq.pettyAnswer(await listDocs('petty_cash', f, 'time', 'desc', 500).catch(() => []), { today })
