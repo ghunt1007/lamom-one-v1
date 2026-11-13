@@ -486,7 +486,9 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.recallAnswer(camps, vs)
   } else if (spec.kind === 'servicetop') {
     const jobs = await listDocs('job_cards', f, 'createdAt', 'desc', 2000).catch(() => [])
-    res = oq.serviceTopAnswer(spec.by === 'tech' ? jobs.filter(j => mine(j.techName, j)) : jobs, { today, by: spec.by })
+    res = oq.serviceTopAnswer(spec.by === 'tech' && !spec.free ? jobs.filter(j => mine(j.techName, j)) : jobs, { today, by: spec.by, free: !!spec.free })
+  } else if (spec.kind === 'jobready') {
+    res = oq.jobReadyAnswer(await listDocs('job_cards', f, 'createdAt', 'desc', 2000).catch(() => []), { today })
   } else if (spec.kind === 'service') {
     const [ap, jobs] = await Promise.all([listDocs('service_appointments', f, 'date', 'desc', 300).catch(() => []), listDocs('job_cards', f, 'createdAt', 'desc', 500).catch(() => [])])
     res = oq.serviceAnswer(ap.filter(a => mine(a.tech, a)), jobs.filter(j => mine(j.techName, j)), { today, day: spec.day })

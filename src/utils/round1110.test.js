@@ -561,3 +561,17 @@ describe('v1.0.1122 team phrasings', () => {
     expect(parseOpsSpec('เซลส์คนไหนโทรเยอะสุดสัปดาห์นี้')).toMatchObject({ kind: 'calls', day: 'week', team: true })
   })
 })
+
+describe('v1.0.1124 service + aged stock', () => {
+  it('jobs ready for pickup, free techs, aged days', async () => {
+    const oq = await import('./opsQuestions.js')
+    expect(parseOpsSpec('งานซ่อมคันไหนเสร็จแล้วแต่ลูกค้ายังไม่มารับ')).toMatchObject({ kind: 'jobready' })
+    const r = oq.jobReadyAnswer([{ status: 'done', custName: 'ก', plate: '1กก 1', updatedAt: '2026-11-10' }, { status: 'delivered', custName: 'ข' }], { today: T })
+    expect(r.n).toBe(1)
+    expect(r.text).toContain('เสร็จมา 2 วัน')
+    expect(parseOpsSpec('ช่างคนไหนว่างวันนี้')).toMatchObject({ kind: 'servicetop', free: true })
+    const f = oq.serviceTopAnswer([{ techName: 'A', status: 'inprogress', createdAt: T }, { techName: 'B', status: 'delivered', createdAt: T }], { today: T, by: 'tech', free: true })
+    expect(f.text.indexOf('B')).toBeLessThan(f.text.indexOf('A'))
+    expect(parseStockSpec('รถคันไหนอยู่ในสต็อกนานเกิน 90 วัน')).toMatchObject({ aged: true, agedDays: 90 })
+  })
+})
