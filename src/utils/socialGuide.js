@@ -26,7 +26,7 @@ export const PLATFORM_GUIDE = [
   },
   {
     key: 'facebook', icon: '📘', name: 'Facebook เพจ (Messenger)', statusKey: 'meta',
-    can: ['อ่านและตอบแชต Messenger ของทุกเพจ (ทีม/โชว์รูม/เพจของเซลส์) ในกล่องเดียว', 'โพสต์ข้อความหรือรูปลงหลายเพจพร้อมกัน', 'ดูจำนวนผู้ติดตามเพจ', 'กดเปลี่ยนแชตเป็น Lead ได้ทันที'],
+    can: ['อ่านและตอบแชต Messenger ของทุกเพจ (ทีม/โชว์รูม/เพจของเซลส์) ในกล่องเดียว', 'ลูกค้าทักเพจ → สร้างลีด + AI ตอบอัตโนมัติ (เปิด/ปิดได้) · ลีดจากฟอร์มโฆษณา (Lead Ads) เข้าแอปทันทีพร้อมเบอร์โทร', 'โพสต์ข้อความหรือรูปลงหลายเพจพร้อมกัน', 'ดูจำนวนผู้ติดตามเพจ', 'กดเปลี่ยนแชตเป็น Lead ได้ทันที'],
     setup: [
       'business.facebook.com → ตั้งค่าธุรกิจ → บัญชี → เพจ → เพิ่มทุกเพจเข้าธุรกิจ (เพจของเซลส์: ให้เซลส์กดยอมรับคำขอ "พาร์ทเนอร์")',
       'developers.facebook.com → สร้างแอป → ประเภท "ธุรกิจ" → ผูกกับธุรกิจเดียวกัน → เพิ่มผลิตภัณฑ์ Messenger, Instagram, Marketing API',
@@ -34,6 +34,10 @@ export const PLATFORM_GUIDE = [
       'กด "สร้างโทเค็น" → เลือกแอปที่สร้าง → วันหมดอายุ "ไม่มี" → ติ๊ก pages_show_list, pages_read_engagement, pages_manage_posts, pages_messaging, pages_manage_metadata, instagram_basic, instagram_content_publish, instagram_manage_messages, business_management, ads_read, ads_management',
       'คัดลอกโทเค็น → ตั้งเป็น Secret ชื่อ META_SYSTEM_USER_TOKEN (ดูขั้นตอนด้านล่าง) — ห้ามส่งโทเค็นในแชตหรือ LINE',
       'ถ้า Meta ขอ "ยืนยันธุรกิจ" ให้ใช้หนังสือรับรองบริษัท (ทำครั้งเดียว)',
+      '(ให้แชตและลีดจากฟอร์มโฆษณาเข้าแอปเอง + AI ตอบ) ในแอปที่สร้าง → App settings → Basic → คัดลอก App secret → ตั้ง Secret ชื่อ META_APP_SECRET',
+      'ตั้ง Secret ชื่อ META_VERIFY_TOKEN เป็นคำลับอะไรก็ได้ที่ตั้งเอง (เช่น lamom-2569-xyz)',
+      'ในแอป → Webhooks → เลือก Page → Callback URL: https://lamom-daily-report.ghunt1007.workers.dev/meta/webhook · Verify token: คำลับข้อก่อน → Verify and save → Subscribe ช่อง messages, messaging_postbacks, message_echoes, leadgen · เลือก Instagram → Subscribe ช่อง messages',
+      'แต่ละเพจต้องกด "Subscribe" แอปนี้ด้วย: Messenger → Settings → Webhooks → Add subscriptions (หรือให้ Claude ทำผ่าน API เมื่อมีโทเค็นแล้ว)',
     ],
     cannot: ['Facebook โปรไฟล์ส่วนตัว: Meta ไม่เปิดให้โปรแกรมใดอ่าน/ตอบ Messenger ส่วนตัว หรือโพสต์ลงโปรไฟล์ส่วนตัว — ใช้ปุ่ม "แชร์ไป Facebook" ให้เซลส์กดแชร์เองแทน (แนะนำให้เซลส์เปิดเพจของตัวเอง)', 'ตอบแชตได้ภายใน 24 ชม. หลังลูกค้าทักล่าสุดเท่านั้น (กฎ Meta) เกินนั้นให้โทรหรือรอลูกค้าทักใหม่', 'อ่านกลุ่ม Facebook / Marketplace ไม่ได้'],
   },
@@ -50,8 +54,14 @@ export const PLATFORM_GUIDE = [
     cannot: ['สร้างโฆษณาใหม่ทั้งชิ้นยังต้องทำใน Ads Manager', 'ปรับงบรายวันจากแอปได้เฉพาะแคมเปญที่ตั้งงบระดับแคมเปญ (Advantage campaign budget)', 'เซลส์ดูได้อย่างเดียว เปลี่ยนไม่ได้'],
   },
   {
+    key: 'leadhook', icon: '📮', name: 'ช่องรับลีดกลาง (TikTok · เว็บ · Google Form · อีเมล · ช่องทางอื่น)', statusKey: 'leadHook',
+    can: ['ลีดจากฟอร์ม TikTok, ฟอร์มหน้าเว็บ, Google Form, อีเมล หรือเครื่องมืออย่าง Zapier/Make เข้าแอปเป็นลูกค้าใหม่ทันที (ชื่อ เบอร์ อีเมล ไลน์ รุ่นที่สนใจ ข้อความ)', 'เบอร์/อีเมลซ้ำกับลูกค้าเดิม → ไม่สร้างซ้ำ แต่จดโน้ตให้ลูกค้าเดิมว่าทักมาอีกครั้ง', 'ใส่ &account=<รหัสบัญชีจากแท็บ 👥 บัญชี> เพื่อนับว่าลีดมาจากเพจ/TikTok ของทีมหรือของเซลส์คนไหน'],
+    setup: ['ตั้ง Secret ชื่อ LEAD_WEBHOOK_KEY เป็นรหัสยาวๆ ที่ตั้งเอง (เช่น ตัวอักษร+ตัวเลขสุ่ม 24 ตัว) — ห้ามบอกคนนอก', 'ปลายทางให้ส่งข้อมูลแบบ POST มาที่ https://lamom-daily-report.ghunt1007.workers.dev/lead/webhook?key=<รหัส>&source=tiktok (เปลี่ยน source เป็น website / email / google / facebook / line / other ตามช่องทาง)', 'TikTok: TikTok Ads Manager → Tools → Leads Center → CRM integration เลือก Zapier หรือ Make แล้วตั้ง Webhook (POST, JSON) ไปที่ลิงก์ข้างบน', 'Google Form: เปิด Apps Script ของฟอร์ม ใช้ UrlFetchApp.fetch(ลิงก์ข้างบน, {method:"post", contentType:"application/json", payload: JSON.stringify({name, phone, model})}) ตอนส่งฟอร์ม', 'อีเมล: ใช้ Zapier/Make "New email in Gmail" → Webhook POST {name, email, subject, body} มาที่ลิงก์ข้างบน (source=email)'],
+    cannot: ['แชต DM TikTok และ LINE ส่วนตัว ไม่มี API ให้ดึง — ให้เซลส์ใช้ปุ่ม ➕ Lead → วางข้อความแชต ระบบแยกชื่อ/เบอร์ให้เอง', 'ตอบลูกค้ากลับผ่านช่องนี้ไม่ได้ (รับลีดอย่างเดียว) — โทรหรือทักกลับตามเบอร์/ไลน์ที่ได้'],
+  },
+  {
     key: 'tiktok', icon: '🎵', name: 'TikTok', statusKey: 'tiktok',
-    can: ['ตอนนี้: บันทึกบัญชี TikTok ของทีม/เซลส์ และนับ Lead ที่มาจาก TikTok ในรายงานแหล่งที่มา', 'แชร์ข้อความ/คัดลอกแคปชันไปโพสต์เอง'],
+    can: ['ลีดจากฟอร์มโฆษณา TikTok เข้าแอปเองผ่าน 📮 ช่องรับลีดกลาง (ด้านบน)', 'บันทึกบัญชี TikTok ของทีม/เซลส์ และนับ Lead ที่มาจาก TikTok ในรายงานแหล่งที่มา', 'แชร์ข้อความ/คัดลอกแคปชันไปโพสต์เอง'],
     setup: ['ใช้บัญชี TikTok Business', 'ถ้าต้องการโพสต์จากแอป: สมัคร developers.tiktok.com → สร้างแอป → ขอ Content Posting API และส่งให้ TikTok ตรวจ (ใช้เวลา 1–2 สัปดาห์) แล้วบอก Claude ให้ต่อระบบ', 'ถ้าต้องการดูโฆษณา TikTok: สมัคร TikTok Marketing API (business-api.tiktok.com) แล้วบอก Claude'],
     cannot: ['อ่าน/ตอบ DM TikTok ผ่าน API ไม่ได้ (TikTok เปิดเฉพาะพาร์ทเนอร์บางราย)', 'ก่อนแอปผ่านการตรวจ โพสต์ผ่าน API จะเห็นได้แค่ตัวเอง (Private)', 'บัญชีส่วนตัวของเซลส์เชื่อมไม่ได้'],
   },

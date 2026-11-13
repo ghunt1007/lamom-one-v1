@@ -35,6 +35,7 @@ import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser, 
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
 import { handleSocial, recordLineInbound, handleExtraLineWebhook, lineThreadId } from './social.js'
 import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
+import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge } from './leadIntake.js'
 import { handleNotify } from './notify.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
@@ -70,6 +71,12 @@ export default {
 
     try {
       if (request.method === 'POST' && url.pathname === '/line/webhook') return await handleLineWebhook(request, env, cors)
+      // (v1.0.1129) ช่องรับลีดกลาง (TikTok/เว็บ/ฟอร์ม/อีเมลผ่าน Zapier) + Facebook/IG webhook — ดู workers/leadIntake.js
+      if (request.method === 'POST' && url.pathname === '/lead/webhook') { const r = await handleLeadWebhook(request, env, () => getFirestoreAccessToken(env)); return json(r.body, r.status, cors) }
+      if (url.pathname === '/meta/webhook') {
+        if (request.method === 'GET') { const c = metaVerifyChallenge(url, env); return c === null ? new Response('Forbidden', { status: 403 }) : new Response(c, { status: 200, headers: { 'Content-Type': 'text/plain' } }) }
+        if (request.method === 'POST') { const r = await handleMetaWebhook(request, env, () => getFirestoreAccessToken(env)); return json(r.body, r.status, cors) }
+      }
       // (v1.0.977) LINE OA เพิ่มเติม (ทีม/โชว์รูม/เซลส์) — เก็บแชตลูกค้าเข้ากล่องรวม
       if (request.method === 'POST' && url.pathname.startsWith('/line/webhook/')) {
         const r = await handleExtraLineWebhook(env, url.pathname.slice('/line/webhook/'.length), await request.text(), request.headers.get('X-Line-Signature') || '', () => getFirestoreAccessToken(env), (ev, chan, token) => afterCustomerLine(env, token, ev, chan))

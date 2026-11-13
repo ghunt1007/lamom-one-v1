@@ -40,6 +40,7 @@ export default async function SocialChannelsPage(container) {
   const urlTab = new URLSearchParams(location.search || '').get('tab')
   let tab = TABS[urlTab] ? urlTab : TABS[lsGet('ch-tab', '')] ? lsGet('ch-tab', 'inbox') : 'inbox'
   let status = null, statusErr = '', statusLoading = true
+  let metaStored = []
   // (v1.0.1128) แท็บ 🤖 ตอบอัตโนมัติ — วาดใหม่เฉพาะตอนอยู่แท็บนี้
   const autoTab = createAutoTab({ getStatus: () => status, rerender: () => { if (alive() && tab === 'auto') render() } })
   let lineThreads = [], metaConvs = [], metaLoaded = false, metaLoading = false, metaErr = ''
@@ -101,7 +102,9 @@ export default async function SocialChannelsPage(container) {
   }
   watchDocs('social_threads', [], 'lastAt', 'desc', 300, rows => {
     if (!alive()) return
-    lineThreads = rows.filter(r => !r.deleted)
+    // (v1.0.1129) แชต Facebook/IG ที่ webhook เก็บไว้ (ให้ AI มีประวัติ) แสดงผ่านรายการสดจาก Meta อยู่แล้ว — ไม่โชว์ซ้ำเป็น LINE
+    lineThreads = rows.filter(r => !r.deleted && (!r.platform || r.platform === 'line'))
+    metaStored = rows.filter(r => !r.deleted && (r.platform === 'messenger' || r.platform === 'instagram'))
     if (pendingOpen && lineThreads.some(r => r.id === pendingOpen)) { const k = `line:${pendingOpen}`; pendingOpen = ''; tab = 'inbox'; openThread(k); return }
     if (tab === 'inbox') render()
   })
@@ -277,6 +280,9 @@ export default async function SocialChannelsPage(container) {
       else {
         await metaReply(i.conv.pageId, i.conv.withId, text)
         i.conv.messages.push({ text, mine: true, at: new Date().toISOString() })
+        // พนักงานตอบเอง → AI หยุดตอบแชตนี้ 30 นาที
+        const sid = `${i.kind === 'instagram' ? 'ig' : 'fb'}_${String(i.conv.pageId).replace(/\D/g, '')}__${String(i.conv.withId).replace(/\D/g, '')}`
+        if (metaStored.some(r => r.id === sid)) updateDocData('social_threads', sid, { lastHumanAt: new Date(), lastByAi: false, needsHuman: false, lastDirection: 'out' }).catch(() => {})
       }
       ta.value = ''; replyDraft = ''
       showToast('📤 ส่งแล้ว', 'success')
