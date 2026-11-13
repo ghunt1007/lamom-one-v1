@@ -155,3 +155,9 @@ button.ch-acc-res { cursor: pointer; color: var(--primary); } button.ch-acc-res:
 .ch-auto-row .input.ch-time { width: 80px !important; flex: 0 0 80px; display: inline-block; margin-left: 4px; font-size: 16px; text-align: center; }
 .ch-ai-tag { font-size: 0.7rem; opacity: .8; }
 .ch-human { font-size: 0.72rem; color: var(--warning, #d97706); border: 1px solid currentColor; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+
+/* (v1.0.1135) ลองถาม AI */
+.ch-aitest { border-top:1px dashed var(--border); padding-top:10px; display:flex; flex-direction:column; gap:6px; }
+.ch-aitest-row { display:flex; gap:6px; flex-wrap:wrap; }
+.ch-aitest-row .input { flex:1 1 180px; min-width:0; }
+.ch-aitest-out { background:var(--surface-2); border-radius:10px; padding:8px 10px; font-size:0.86rem; line-height:1.55; white-space:pre-line; overflow-wrap:anywhere; }

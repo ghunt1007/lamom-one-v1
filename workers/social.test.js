@@ -180,3 +180,11 @@ describe('LINE broadcast via social worker (v1.0.1025)', () => {
     expect(global.fetch.mock.calls[0][0]).toContain('/broadcast')
   })
 })
+
+describe('v1.0.1135 /social/ai/test role gate', () => {
+  it('blocks sales staff and lets managers see the no-key answer', async () => {
+    const { handleSocial: hs } = await import('./social.js')
+    await expect(hs('/social/ai/test', { text: 'สวัสดี' }, {}, { uid: 'g1', role: 'sales' })).rejects.toThrow('เฉพาะ')
+    expect(await hs('/social/ai/test', { text: 'สวัสดี' }, {}, { uid: 'g2', role: 'manager' })).toEqual({ ok: false, reason: 'nokey' })
+  })
+})

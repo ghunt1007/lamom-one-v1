@@ -19,6 +19,7 @@
  *                           id = a-z 0-9 - (≤20 ตัว) · Webhook URL ของแต่ละ OA = …/line/webhook/<id>
  *   GOOGLE_MAPS_API_KEY     (ไม่บังคับ, v1.0.977) คีย์ Places API (New) — ดึงคะแนน/จำนวนรีวิว/รีวิวล่าสุดบน Google Maps
  */
+import { aiReplyTest } from './inboxAuto.js'
 
 export const GRAPH = 'https://graph.facebook.com/v21.0'
 export const MANAGER_ROLES = ['owner', 'admin', 'manager']
@@ -436,7 +437,7 @@ function allowWrite(uid) {
 
 export async function handleSocial(path, body, env, ctx) {
   const { uid = '', role = '', name = '', getAccessToken } = ctx || {}
-  const writes = ['/social/meta/reply', '/social/meta/post', '/social/meta/ads/update', '/social/line/reply', '/social/line/multicast', '/social/line/broadcast']
+  const writes = ['/social/ai/test', '/social/meta/reply', '/social/meta/post', '/social/meta/ads/update', '/social/line/reply', '/social/line/multicast', '/social/line/broadcast']
   if (writes.includes(path) && !allowWrite(uid)) throw Object.assign(new Error('ส่งถี่เกินไป รอสักครู่แล้วลองใหม่'), { status: 429 })
   switch (path) {
     case '/social/status': return socialStatus(env)
@@ -449,6 +450,10 @@ export async function handleSocial(path, body, env, ctx) {
     case '/social/line/broadcast': return lineBroadcast(env, body, role)
     case '/social/line/reply': return lineReply(env, getAccessToken ? await getAccessToken() : null, body, name)
     case '/social/google/places': return googlePlaces(env, body)
+    case '/social/ai/test': {
+      if (!MANAGER_ROLES.includes(role) && role !== 'marketing') throw Object.assign(new Error('เฉพาะผู้จัดการ/การตลาด/เจ้าของ'), { status: 403 })
+      return aiReplyTest(env, getAccessToken ? await getAccessToken() : null, body)
+    }
     default: return null
   }
 }

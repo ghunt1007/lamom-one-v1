@@ -1,9 +1,11 @@
 // (v1.0.1128) แท็บ "🤖 ตอบอัตโนมัติ" ในหน้าเชื่อมช่องทาง — เปิด/ปิด AI ตอบลูกค้า + สร้างลีดเองจากแชต
 // ค่าเก็บที่ system_integrations/inbox_auto (เจ้าของโปรแกรมแก้ได้คนเดียว) worker อ่านค่านี้ทุก 1 นาที (workers/inboxAuto.js)
 import { readDoc, setDocData } from '../../core/db.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { aiReplyTest } from '../../utils/socialApi.js'
+import { isManagerRole } from '../../utils/managerRole.js'
 
 export const AUTO_DEFAULTS = { autoLead: false, autoAssign: false, aiReply: false, aiMode: 'always', aiStart: '08:30', aiEnd: '18:00', aiChannels: 'all', aiName: 'น้องลามิ', aiInfo: '' }
 
@@ -25,6 +27,8 @@ export function createAutoTab({ getStatus, rerender }) {
   let loading = false
   let saving = false
   const owner = isProgramOwner()
+  let testing = false
+  let testOut = null // { q, text, handoff } | { q, error }
 
   async function load() {
     if (loading || cfg) return
@@ -67,6 +71,12 @@ export function createAutoTab({ getStatus, rerender }) {
           <label class="input-label" for="au-info">ข้อมูลโชว์รูมที่ให้ AI ใช้ตอบ</label>
           <textarea class="input" id="au-info" rows="6" maxlength="3000" placeholder="เช่น ที่อยู่โชว์รูม เวลาเปิด 08:30–18:00 ทุกวัน เบอร์ 0x-xxx-xxxx รุ่นที่ขาย จุดเด่น ทดลองขับได้ทุกวัน" ${owner ? '' : 'disabled'}>${esc(cfg.aiInfo)}</textarea>
           <small class="ch-muted">AI ใช้โปรจากหน้า "แคมเปญ & ดอกเบี้ยเดือนนี้" ให้อัตโนมัติ (เฉพาะโปรที่ลูกค้าเห็นได้) และไม่เคยแต่งราคาเอง</small>
+          ${canTest() ? `<div class="ch-aitest">
+            <label class="input-label" for="au-q">🧪 ลองถาม AI ก่อนเปิดจริง (ไม่ส่งถึงลูกค้า)</label>
+            <div class="ch-aitest-row"><input class="input" id="au-q" maxlength="500" placeholder="เช่น รุ่นนี้ผ่อนเดือนละเท่าไหร่ครับ" value="${esc(testOut?.q || '')}">
+            <button type="button" class="btn btn-secondary" id="au-test" ${testing ? 'disabled' : ''}>${testing ? '⏳ กำลังถาม…' : '💬 ลองถาม'}</button></div>
+            ${testOut ? (testOut.error ? `<div class="ch-note bad">${esc(testOut.error)}</div>` : `<div class="ch-aitest-out"><b>${esc(cfg.aiName)}:</b> ${esc(testOut.text)}${testOut.handoff ? '<div class="ch-muted">🙋 ข้อความนี้ AI จะส่งต่อให้พนักงานด้วย</div>' : ''}</div>`) : ''}
+          </div>` : ''}
         </div>
         <div class="ch-card">
           <div class="ch-card-h">📥 รับลีดจากแชตอัตโนมัติ</div>
@@ -106,5 +116,23 @@ export function createAutoTab({ getStatus, rerender }) {
     saving = false; rerender()
   }
 
-  return { html, save, read }
+  function canTest() {
+    return owner || isManagerRole() || (getState('role') || getState('user')?.role) === 'marketing'
+  }
+
+  async function test(root) {
+    const q = (root.querySelector('#au-q')?.value || '').trim()
+    if (!q) { showToast('พิมพ์คำถามที่อยากลองก่อน', 'error'); return }
+    const draft = owner ? read(root) : undefined
+    if (draft) { cfg = { ...cfg, ...Object.fromEntries(Object.entries(draft).filter(([, v]) => v != null)) } }
+    testing = true; testOut = { q, text: '' }; rerender()
+    try {
+      const r = await aiReplyTest(q, draft)
+      testOut = r.ok ? { q, text: r.text, handoff: r.handoff }
+        : { q, error: r.reason === 'nokey' ? '⚠️ ยังไม่ได้ใส่กุญแจ AI (GEMINI_API_KEY) ให้ตัวรับแชต — ดูแท็บ 🧭 วิธีเชื่อม' : 'AI ไม่ได้ตอบ ลองถามใหม่อีกครั้ง' }
+    } catch (e) { testOut = { q, error: e.message || 'ถามไม่สำเร็จ' } }
+    testing = false; rerender()
+  }
+
+  return { html, save, read, test }
 }

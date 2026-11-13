@@ -97,3 +97,27 @@ describe('aiAutoReply end to end (fake Firestore + Gemini)', () => {
     expect(r.why).toBe('no-key')
   })
 })
+
+import { aiReplyTest } from './inboxAuto.js'
+describe('v1.0.1135 aiReplyTest (preview, never sends)', () => {
+  beforeEach(() => __resetInboxCache())
+  const env = { GEMINI_API_KEY: 'k', FIREBASE_PROJECT_ID: 'p' }
+  it('asks Gemini with the draft settings and returns the cleaned reply', async () => {
+    const calls = []
+    const fetchImpl = async (url, init) => {
+      calls.push({ url, body: init?.body })
+      if (url.includes('generativelanguage')) return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: `ได้เลยค่ะ ${HANDOFF_TAG}` }] } }] }) }
+      return { ok: true, json: async () => ({}) }
+    }
+    const r = await aiReplyTest(env, 'tok', { text: 'ขอคุยกับเซลส์', draft: { aiName: 'น้องทดสอบ', aiInfo: 'เปิด 08:30–18:00' } }, { fetch: fetchImpl })
+    expect(r).toEqual({ ok: true, text: 'ได้เลยค่ะ', handoff: true })
+    const g = JSON.parse(calls.find(c => c.url.includes('generativelanguage')).body)
+    expect(g.systemInstruction.parts[0].text).toContain('น้องทดสอบ')
+    expect(g.contents[0].parts[0].text).toBe('ขอคุยกับเซลส์')
+    expect(calls.some(c => /messages|reply|push/.test(c.url) && !c.url.includes('generativelanguage'))).toBe(false)
+  })
+  it('reports a missing key and rejects empty questions', async () => {
+    expect(await aiReplyTest({}, null, { text: 'สวัสดี' })).toEqual({ ok: false, reason: 'nokey' })
+    await expect(aiReplyTest(env, null, { text: '  ' })).rejects.toThrow('พิมพ์คำถาม')
+  })
+})

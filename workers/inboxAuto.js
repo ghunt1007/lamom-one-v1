@@ -257,3 +257,19 @@ export function lineReplySender(token, replyToken, fetchImpl = fetch) {
     return !!r?.ok
   }
 }
+
+// (v1.0.1135) ลองถาม AI จากหน้าตั้งค่า — ใช้ข้อมูลโชว์รูม/โปรจริง แต่ไม่ส่งถึงลูกค้าและไม่บันทึกแชต
+export async function aiReplyTest(env, token, body = {}, deps = {}) {
+  const fetchImpl = deps.fetch || fetch
+  const question = String(body.text || '').trim().slice(0, 500)
+  if (!question) throw Object.assign(new Error('พิมพ์คำถามที่อยากลองก่อน'), { status: 400 })
+  if (!env.GEMINI_API_KEY) return { ok: false, reason: 'nokey' }
+  const raw = token ? await readInboxAuto(env, token, fetchImpl) : null
+  // ใช้ค่าที่ยังไม่ได้กดบันทึกจากหน้าจอ (ถ้าส่งมา) ทับค่าที่บันทึกไว้
+  const settings = normalizeInboxAuto({ ...(raw || {}), ...(body.draft && typeof body.draft === 'object' ? body.draft : {}) }, env)
+  const programs = token ? await activePrograms(env, token, fetchImpl).catch(() => []) : []
+  const prompt = buildAiReplyPrompt({ settings, history: [{ direction: 'in', text: question }], promos: promoLines(programs, todayBkk()), customerName: 'ลูกค้าทดสอบ', platform: 'LINE' })
+  const out = cleanAiReply(await geminiReply(env, prompt, fetchImpl))
+  if (!out.text) return { ok: false, reason: 'empty' }
+  return { ok: true, text: out.text, handoff: out.handoff }
+}

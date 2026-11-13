@@ -637,6 +637,7 @@ export default async function SocialChannelsPage(container) {
     if (t.closest('#ch-send')) { sendReply(); return }
     const ap = t.closest('#ch-aipause'); if (ap) { toggleAiPause(ap.dataset.id); return }
     if (t.closest('#au-save')) { autoTab.save(container); return }
+    if (t.closest('#au-test')) { autoTab.test(container); return }
     if (t.closest('#ch-ai')) { aiDraft(); return }
     if (t.closest('#ch-lead')) { toLead(); return }
     if (t.closest('#ch-cust')) { const c = linked.get(findItem(openKey)?.id); if (c) navigate(`/crm/customers?id=${encodeURIComponent(c.id)}`); return }
@@ -675,6 +676,7 @@ export default async function SocialChannelsPage(container) {
   })
   container.addEventListener('keydown', e => {
     if (e.target.id === 'ch-text' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendReply() }
+    if (e.target.id === 'au-q' && e.key === 'Enter') { e.preventDefault(); autoTab.test(container) }
     if (e.target.id === 'mp-q' && e.key === 'Enter') { e.preventDefault(); searchMaps(e.target.value) }
   })
 
