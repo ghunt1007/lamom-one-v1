@@ -293,8 +293,44 @@ export async function handleMetaWebhook(request, env, getToken, deps = {}) {
           if (r.created) leads++
         }
       }
+      if (ev.isText) await fillPhoneFromChat(env, token, { field: ev.platform === 'instagram' ? 'igUserId' : 'fbPsid', value: ev.userId, text: ev.text, channelLabel: `แชต ${chanName}` }, fetchImpl).catch(() => null)
       if (page) await aiAutoReply(env, token, { threadId, channel: ev.platform === 'instagram' ? 'ig' : 'fb', platform: ev.platform, isText: ev.isText, customerName: name, send: metaSender(page, ev.userId, fetchImpl) }, { fetch: fetchImpl })
     } catch { /* เหตุการณ์เดียวพลาด ไม่ให้ทั้งชุดล้ม (Meta จะส่งซ้ำถ้าไม่ได้ 200) */ }
   }
   return { status: 200, body: { ok: true, saved, leads } }
+}
+
+// ── (v1.0.1139) ลูกค้าพิมพ์เบอร์มือถือในแชต → ใส่เบอร์ให้ลูกค้าที่ผูกแชตนี้ไว้ (เฉพาะคนที่ยังไม่มีเบอร์) ──
+// มือถือไทย 10 หลัก 06/08/09 (รับ +66/66 นำหน้า เว้นวรรคหรือขีดได้)
+export function phoneFromText(text) {
+  for (const run of String(text || '').match(/\+?\d[\d\s-]{8,16}\d/g) || []) {
+    const p = normPhone(run.trim())
+    if (/^0[689]\d{8}$/.test(p)) return p
+  }
+  // หลายเบอร์ติดกัน เช่น "0812345678 0898765432" → เอาเบอร์แรก
+  const one = String(text || '').split(/[^\d+-]+/).map(t => normPhone(t)).find(p => /^0[689]\d{8}$/.test(p))
+  return one || ''
+}
+
+export async function fillPhoneFromChat(env, token, { field, value, text, channelLabel = 'แชต' }, fetchImpl = fetch) {
+  const phone = phoneFromText(text)
+  if (!phone || !token || !field || !value) return null
+  const r = await call(fetchImpl, `${fsBase(env)}:runQuery`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'customers' }], where: { fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value: { stringValue: value } } }, limit: 1 } }),
+  })
+  if (!r?.ok) return null
+  const rows = await r.json().catch(() => [])
+  const d = (Array.isArray(rows) ? rows : []).find(x => x.document)?.document
+  if (!d || d.fields?.deleted?.booleanValue) return null
+  if (normPhone(d.fields?.phone?.stringValue || '')) return { id: String(d.name).split('/').pop(), skipped: 'hasPhone' }
+  const id = String(d.name).split('/').pop()
+  const now = new Date().toISOString()
+  const p = await call(fetchImpl, `${fsBase(env)}/customers/${encodeURIComponent(id)}?updateMask.fieldPaths=phone&updateMask.fieldPaths=updatedAt&currentDocument.exists=true`, {
+    method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: { phone: { stringValue: phone }, updatedAt: { timestampValue: now } } }),
+  })
+  if (!p?.ok) return null
+  await addNote(env, token, id, `📞 ได้เบอร์ ${phone} จากที่ลูกค้าพิมพ์ใน${channelLabel} — ระบบใส่ให้อัตโนมัติ`, fetchImpl)
+  return { id, phone, filled: true }
 }

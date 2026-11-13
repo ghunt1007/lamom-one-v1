@@ -110,3 +110,42 @@ describe('meta webhook', () => {
     expect((await handleMetaWebhook(req, { META_APP_SECRET: 'sec' }, async () => 't')).status).toBe(401)
   })
 })
+
+import { phoneFromText, fillPhoneFromChat } from './leadIntake.js'
+describe('v1.0.1139 phone from chat', () => {
+  it('finds Thai mobile numbers in free text', () => {
+    expect(phoneFromText('สนใจครับ เบอร์ 081-234-5678 สมชาย')).toBe('0812345678')
+    expect(phoneFromText('โทร 0912345678 ได้เลย')).toBe('0912345678')
+    expect(phoneFromText('+66 81 234 5678')).toBe('0812345678')
+    expect(phoneFromText('06 1234 5678')).toBe('0612345678')
+    expect(phoneFromText('เบอร์ 0812345678 0898765432')).toBe('0812345678')
+    for (const t of ['ราคา 1,234,567 บาท', 'ดาวน์ 0 บาท ผ่อน 84 งวด', 'เลขบัญชี 12081234567890', '02-123-4567', '']) expect(phoneFromText(t), t).toBe('')
+  })
+  const env = { FIREBASE_PROJECT_ID: 'p' }
+  const fake = (doc) => {
+    const calls = []
+    const f = async (url, init = {}) => {
+      calls.push({ url, method: init.method || 'GET', body: init.body })
+      if (url.endsWith(':runQuery')) return { ok: true, json: async () => (doc ? [{ document: doc }] : [{}]) }
+      return { ok: true, json: async () => ({}) }
+    }
+    return { f, calls }
+  }
+  it('fills the phone of the linked customer and leaves a note', async () => {
+    const { f, calls } = fake({ name: 'projects/p/databases/(default)/documents/customers/c1', fields: { phone: { stringValue: '' } } })
+    const r = await fillPhoneFromChat(env, 't', { field: 'lineUserId', value: 'U1', text: 'เบอร์ 0812345678 ค่ะ', channelLabel: 'LINE OA' }, f)
+    expect(r).toEqual({ id: 'c1', phone: '0812345678', filled: true })
+    const patch = calls.find(c => c.method === 'PATCH')
+    expect(patch.url).toContain('customers/c1?updateMask.fieldPaths=phone')
+    expect(JSON.parse(patch.body).fields.phone.stringValue).toBe('0812345678')
+    expect(calls.some(c => c.url.endsWith('/customer_notes') && c.method === 'POST')).toBe(true)
+  })
+  it('never overwrites an existing phone and ignores unlinked chats', async () => {
+    const a = fake({ name: 'x/customers/c2', fields: { phone: { stringValue: '0899999999' } } })
+    expect((await fillPhoneFromChat(env, 't', { field: 'lineUserId', value: 'U2', text: '0812345678' }, a.f)).skipped).toBe('hasPhone')
+    expect(a.calls.some(c => c.method === 'PATCH')).toBe(false)
+    const b = fake(null)
+    expect(await fillPhoneFromChat(env, 't', { field: 'lineUserId', value: 'U3', text: '0812345678' }, b.f)).toBe(null)
+    expect(await fillPhoneFromChat(env, 't', { field: 'lineUserId', value: 'U3', text: 'สวัสดี' }, b.f)).toBe(null)
+  })
+})

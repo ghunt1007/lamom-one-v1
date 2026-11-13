@@ -82,6 +82,7 @@ export function createAutoTab({ getStatus, rerender }) {
           <div class="ch-card-h">📥 รับลีดจากแชตอัตโนมัติ</div>
           ${sw('au-lead', cfg.autoLead, 'ลูกค้าใหม่ที่ทักมา → สร้างเป็นลูกค้าให้เลย', 'ใช้กับ LINE OA ทุกบัญชี (และ Facebook/IG เมื่อเชื่อมแล้ว) ไม่ต้องกด "เป็น Lead" เอง (ลูกค้าเดิมที่ผูก LINE แล้วไม่สร้างซ้ำ)')}
           ${sw('au-assign', cfg.autoAssign, 'แจกลีดใหม่ให้เซลส์แบบวนคิว', 'เซลส์ที่ลงทะเบียน LINE กับ OA หลักจะได้ลีดคนละราย พร้อมนัดติดตาม 3 ครั้ง และแจ้งเตือนทาง LINE')}
+          <div class="ch-note">📞 ลูกค้าพิมพ์เบอร์มือถือมาในแชต ระบบใส่เบอร์ให้ลูกค้าคนนั้นเอง (เฉพาะคนที่ยังไม่มีเบอร์ และจดโน้ตไว้ให้)</div>
           <div class="ch-note">💡 แชตที่ต้องการพนักงานจะขึ้นป้าย 🙋 ในแชตรวม · ในแต่ละแชตกด "⏸ หยุด AI" ได้ถ้าอยากคุยเอง</div>
           ${owner ? `<button type="button" class="btn btn-primary" id="au-save" ${saving ? 'disabled' : ''}>${saving ? '⏳ กำลังบันทึก…' : '💾 บันทึก'}</button>` : ''}
         </div>

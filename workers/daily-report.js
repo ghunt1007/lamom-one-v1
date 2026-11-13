@@ -35,7 +35,7 @@ import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser, 
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
 import { handleSocial, recordLineInbound, handleExtraLineWebhook, lineThreadId } from './social.js'
 import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
-import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge } from './leadIntake.js'
+import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFromChat } from './leadIntake.js'
 import { handleNotify } from './notify.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
@@ -1504,6 +1504,8 @@ async function afterCustomerLine(env, accessToken, ev, chan) {
     const inbox = await readInboxAuto(env, accessToken)
     const text = ev.message?.type === 'text' ? ev.message.text : ''
     if (inbox.autoLead) await captureLineLead(env, accessToken, userId, text, { autoAssign: inbox.autoAssign, chan }).catch(() => {})
+    // (v1.0.1139) ลูกค้าพิมพ์เบอร์มา → ใส่เบอร์ให้ลูกค้าที่ผูก LINE นี้ (ถ้ายังไม่มีเบอร์)
+    if (text) await fillPhoneFromChat(env, accessToken, { field: 'lineUserId', value: userId, text, channelLabel: chan?.name ? `LINE ${chan.name}` : 'LINE OA' }).catch(() => null)
     const token = chan?.token || env.LINE_CHANNEL_ACCESS_TOKEN
     await aiAutoReply(env, accessToken, {
       threadId: lineThreadId(userId, chan?.id || ''), channel: chan?.id || 'main', platform: 'line', isText: ev.message?.type === 'text',
