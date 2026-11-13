@@ -7,11 +7,12 @@ import {
 } from './opsQuestions.js'
 
 // แต่ละงาน: run(data) → { n, text } (n = จำนวนที่ต้องทำ, 0 = เรียบร้อย) · go = หน้าที่กดไปทำ · level: urgent | todo
+// ai = (v1.0.1137) คำสั่ง LAMI ที่ให้ AI ทำให้ทั้งชุด (เปิดแผง LAMI พร้อมปุ่ม ✅ ทำทั้งหมด ให้กดยืนยันก่อนเสมอ)
 export const AGENTS = [
   {
     id: 'sam', emoji: '🚗', name: 'SAM', dept: 'ฝ่ายขาย', role: 'ตามลูกค้า ปิดการขาย',
     tasks: [
-      { key: 'silent', label: 'ลูกค้าเงียบเกิน 7 วัน', level: 'urgent', go: '/crm/customers?fu=quiet', run: d => staleProspectAnswer(d.customers, { today: d.today, min: 7, silent: true }) },
+      { key: 'silent', label: 'ลูกค้าเงียบเกิน 7 วัน', level: 'urgent', go: '/crm/customers?fu=quiet', ai: 'นัดโทรลูกค้าที่เงียบเกิน 7 วันทุกคนพรุ่งนี้ 10 โมง', run: d => staleProspectAnswer(d.customers, { today: d.today, min: 7, silent: true }) },
       { key: 'hotNoTd', label: 'ลูกค้า HOT ที่ยังไม่ได้ทดลองขับ', level: 'todo', go: '/crm/testdrive', run: d => noTestDriveAnswer(d.customers, d.drives, { temp: 'hot' }) },
       { key: 'noQuote', label: 'ลูกค้าที่ยังไม่มีใบเสนอราคา', level: 'todo', go: '/crm/quotation', run: d => noQuoteAnswer(d.customers, d.quotes) },
       { key: 'appts', label: 'นัดลูกค้าวันนี้', level: 'todo', go: '/calendar', run: d => apptDayAnswer(d.appts, d.drives, { today: d.today, day: 'today' }) },
@@ -77,7 +78,7 @@ export function runAgents(data) {
       let r
       try { r = t.run(data) } catch { r = null }
       if (!r) continue
-      results.push({ key: t.key, label: t.label, level: t.level, go: t.go, n: Number(r.n) || 0, lines: bodyLines(r.text), text: r.text })
+      results.push({ key: t.key, label: t.label, level: t.level, go: t.go, ai: t.ai || '', n: Number(r.n) || 0, lines: bodyLines(r.text), text: r.text })
     }
     const open = results.filter(r => r.n > 0)
     return { id: a.id, emoji: a.emoji, name: a.name, dept: a.dept, role: a.role, results, open: open.length, urgent: open.filter(r => r.level === 'urgent').reduce((s, r) => s + r.n, 0) }

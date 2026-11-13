@@ -23,12 +23,13 @@ const CSS = `
 .at-badge.hot { background:var(--danger, #dc2626); color:#fff; }
 .at-badge.ok { color:var(--success); }
 .at-task { border:1px solid var(--border); border-radius:10px; padding:8px 10px; background:var(--surface-2); }
-.at-task-h { display:flex; gap:8px; align-items:center; justify-content:space-between; }
+.at-task-h { display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
 .at-task-h span { font-size:0.84rem; font-weight:600; min-width:0; overflow-wrap:anywhere; }
 .at-task ul { margin:6px 0 0; padding-left:0; list-style:none; font-size:0.78rem; color:var(--text-2); display:flex; flex-direction:column; gap:2px; }
 .at-task li { overflow-wrap:anywhere; }
 .at-done { font-size:0.78rem; color:var(--text-3); }
 .at-go { flex:0 0 auto; }
+.at-acts { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; flex:0 0 auto; }
 @media (max-width: 640px) { .at-grid { grid-template-columns:minmax(0,1fr); } }
 `
 
@@ -62,7 +63,7 @@ export default async function AgentTeamPage(container) {
             ${a.urgent ? `<span class="at-badge hot">ด่วน ${a.urgent}</span>` : open.length ? `<span class="at-badge">${open.length} เรื่อง</span>` : '<span class="at-badge ok">✓ เรียบร้อย</span>'}</div>
           ${open.length ? open.map(r => `
             <div class="at-task">
-              <div class="at-task-h"><span>${r.level === 'urgent' ? '🔴' : '🟡'} ${esc(r.label)} · ${r.n}</span><button type="button" class="btn btn-primary btn-xs at-go" data-go="${esc(r.go)}">ไปทำ →</button></div>
+              <div class="at-task-h"><span>${r.level === 'urgent' ? '🔴' : '🟡'} ${esc(r.label)} · ${r.n}</span><span class="at-acts">${r.ai ? `<button type="button" class="btn btn-secondary btn-xs at-go" data-ai="${esc(r.ai)}" title="${esc(r.ai)}">🪄 ให้ AI จัดการ</button>` : ''}<button type="button" class="btn btn-primary btn-xs at-go" data-go="${esc(r.go)}">ไปทำ →</button></span></div>
               ${r.lines.length ? `<ul>${r.lines.slice(0, 5).map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}
             </div>`).join('') : `<div class="at-done">${a.results.map(r => esc(r.label)).join(' · ') || 'ยังไม่มีข้อมูลให้ตรวจ'} — ไม่มีงานค้าง 👍</div>`}
         </div>`
@@ -79,6 +80,8 @@ export default async function AgentTeamPage(container) {
 
   container.addEventListener('click', e => {
     const g = e.target.closest('[data-go]'); if (g) { navigate(g.dataset.go); return }
+    // ให้ LAMI เตรียมคำสั่งทั้งชุด — ยังไม่บันทึกอะไรจนกว่าจะกด ✅ ทำทั้งหมด ในแผง LAMI
+    const ai = e.target.closest('[data-ai]'); if (ai) { import('../../utils/lamiPanel.js').then(m => { m.closeLamiPanel(); m.openLamiPanel({ navigate })?.ask(ai.dataset.ai) }); return }
     if (e.target.closest('#at-reload')) { container.querySelector('#at-body').innerHTML = '<div class="at-sum">⏳ กำลังตรวจใหม่…</div>'; run() }
   })
   run()

@@ -74,3 +74,13 @@ describe('v1.0.1136 LAMI asks the AI team', () => {
     for (const q of ['ใครลาวันนี้', 'เรื่องร้องเรียนค้างอยู่ไหม', 'มีลูกค้าทัก LINE รอตอบไหม']) expect(parseOpsSpec(q)?.kind).not.toBe('aiteam')
   })
 })
+
+import { parseBulkSpec } from './bulkCommands.js'
+describe('v1.0.1137 agent hand-off commands are real LAMI bulk commands', () => {
+  it('every ai command parses as a bulk command', () => {
+    const cmds = AGENTS.flatMap(a => a.tasks.map(t => t.ai).filter(Boolean))
+    expect(cmds.length).toBeGreaterThan(0)
+    for (const c of cmds) expect(parseBulkSpec(c, '2026-11-14'), c).toBeTruthy()
+    expect(parseBulkSpec(cmds[0], '2026-11-14').quietDays).toBe(7)
+  })
+})
