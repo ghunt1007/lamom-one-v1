@@ -587,3 +587,22 @@ describe('v1.0.1125 invoices + petty cash', () => {
     expect(r.text).toContain('รออนุมัติ 1 รายการ')
   })
 })
+
+describe('v1.0.1126 appts of the day, no model, new leads not contacted', () => {
+  it('parses and answers', async () => {
+    const oq = await import('./opsQuestions.js')
+    const { parseListSpec } = await import('./listQuestions.js')
+    expect(parseOpsSpec('ลูกค้าที่นัดวันนี้มีใครบ้าง')).toMatchObject({ kind: 'apptday', day: 'today' })
+    expect(parseOpsSpec('นัดทดลองขับพรุ่งนี้มีใครบ้าง')).toMatchObject({ kind: 'testdrive' })
+    const a = oq.apptDayAnswer([{ name: 'ก', date: T, time: '14:00', status: 'scheduled' }], [{ customerName: 'ข', date: T, time: '10:30', status: 'scheduled', model: 'S05' }, { customerName: 'ค', date: T, status: 'cancelled' }], { today: T })
+    expect(a.n).toBe(2)
+    expect(a.text.indexOf('10:30')).toBeLessThan(a.text.indexOf('14:00'))
+    expect(oq.apptDayAnswer([], [], { today: T, fuDue: 3 }).text).toContain('นัดโทรติดตามวันนี้อีก 3 ราย')
+    expect(parseOpsSpec('ลูกค้าที่ยังไม่ได้ใส่รุ่นที่สนใจ')).toMatchObject({ kind: 'nomodel' })
+    expect(oq.noModelAnswer([{ firstName: 'ก', stage: 'lead' }, { firstName: 'ข', stage: 'lead', interestedModel: 'S05' }]).n).toBe(1)
+    expect(parseOpsSpec('ลูกค้าที่มาจากงานบูธยังไม่ได้ตาม')).toMatchObject({ kind: 'newcust', source: 'event', nofollow: true })
+    const r = oq.newCustomerAnswer([{ firstName: 'ก', createdAt: T, source: 'event' }, { firstName: 'ข', createdAt: T, source: 'event', lastContactAt: T }], { today: T, source: 'event', nofollow: true })
+    expect(r.n).toBe(1)
+    expect(parseListSpec('ลูกค้าที่สนใจแต่ติดเรื่องราคา')?.model || null).toBe(null)
+  })
+})
