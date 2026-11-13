@@ -13,7 +13,7 @@ export const UI_OPTIONS = {
   era: [['be', 'พ.ศ. (10/11/2569)'], ['ce', 'ค.ศ. (10/11/2026)']],
   // (v1.0.1030) ธีม/ลูกเล่น
   theme: [...PRESETS.map(t => [t.id, t.name]), ['custom', 'เลือกสีเอง']],
-  surface: [['default', 'มาตรฐาน'], ['tinted', 'อมสีธีม'], ['midnight', 'ดำสนิท/ขาวล้วน'], ['warm', 'โทนอุ่น']],
+  surface: [['default', 'มาตรฐาน'], ['tinted', 'อมสีธีม'], ['midnight', 'ดำสนิท/ขาวล้วน'], ['warm', 'โทนอุ่น'], ['slate', 'เทาหน้าจอรถ'], ['paper', 'กระดาษ']],
   card: [['soft', 'นุ่มนวล'], ['flat', 'เรียบ'], ['glass', 'กระจก'], ['bold', 'เด่นชัด']],
   bg: [['glow', 'แสงเรือง'], ['none', 'เรียบ'], ['aurora', 'ออโรร่า'], ['mesh', 'ไล่สี'], ['grid', 'จุดตาราง']],
   motion: [['on', 'เปิด'], ['off', 'ปิด (เครื่องช้า)']],
@@ -29,6 +29,15 @@ export const LOOKS = [
   { name: 'ฟ้าใสออฟฟิศ', hint: 'ฟ้า สว่าง จุดตาราง', ui: { theme: 'sky', surface: 'tinted', card: 'soft', bg: 'grid' }, mode: 'light' },
   { name: 'มินิมอล', hint: 'เทากราไฟต์ เรียบ ไม่มีลาย', ui: { theme: 'graphite', surface: 'midnight', card: 'flat', bg: 'none' } },
   { name: 'กุหลาบ', hint: 'ชมพูแดง โทนอุ่น', ui: { theme: 'rose', surface: 'warm', card: 'bold', bg: 'mesh' } },
+  // (v1.0.1130) เพิ่มอีก 8 ชุด
+  { name: 'หน้าปัดรถ EV', hint: 'ฟ้าไซเบอร์ เทาเข้ม การ์ดกระจก', ui: { theme: 'cyber', surface: 'slate', card: 'glass', bg: 'grid' }, mode: 'dark' },
+  { name: 'ทะเลลึก', hint: 'น้ำเงินเข้ม สุขุม น่าเชื่อถือ', ui: { theme: 'navy', surface: 'tinted', card: 'soft', bg: 'glow' }, mode: 'dark' },
+  { name: 'มิ้นต์สดชื่น', hint: 'เขียวมิ้นต์ สว่าง สะอาดตา', ui: { theme: 'mint', surface: 'paper', card: 'flat', bg: 'none' }, mode: 'light' },
+  { name: 'ลาเวนเดอร์', hint: 'ม่วงอ่อน นุ่มนวล', ui: { theme: 'lavender', surface: 'tinted', card: 'soft', bg: 'aurora' } },
+  { name: 'ซากุระ', hint: 'ชมพูส้ม สดใส สว่าง', ui: { theme: 'sakura', surface: 'paper', card: 'soft', bg: 'mesh' }, mode: 'light' },
+  { name: 'ทับทิมทอง', hint: 'แดงทับทิม + ทอง หรูหรา', ui: { theme: 'ruby', surface: 'midnight', card: 'bold', bg: 'glow' }, mode: 'dark' },
+  { name: 'คาเฟ่', hint: 'น้ำตาลกาแฟ โทนอุ่น อบอุ่น', ui: { theme: 'coffee', surface: 'warm', card: 'flat', bg: 'none' } },
+  { name: 'ครามออฟฟิศ', hint: 'คราม สว่าง เป็นทางการ', ui: { theme: 'indigo', surface: 'slate', card: 'flat', bg: 'grid' }, mode: 'light' },
 ]
 export function randomLook(rand = Math.random) {
   const pick = a => a[Math.floor(rand() * a.length)][0]

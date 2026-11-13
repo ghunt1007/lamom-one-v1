@@ -481,3 +481,9 @@ input.dt-input.dt-bad { border-color: var(--danger) !important; box-shadow: 0 0 
 .win-menu-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .win-menu-empty { grid-column: 1 / -1; padding: 10px; text-align: center; color: var(--text-muted); font-size: 0.8rem; }
 .win-menu-tip { font-size: 0.72rem; line-height: 1.45; color: var(--text-muted); }
+
+/* (v1.0.1130) ชุดสำเร็จรูปมีภาพตัวอย่างจริง */
+.ts-looks { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.ts-look.on { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-dim); }
+.ts-prev-look { height: 64px; width: 100%; margin-bottom: 2px; pointer-events: none; }
+@media (max-width: 640px) { .ts-looks { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ts-prev-look { height: 54px; } }
