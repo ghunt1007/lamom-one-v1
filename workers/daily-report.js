@@ -33,7 +33,8 @@
 
 import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser, backupDecodeValue } from './nightly-backup.js'
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
-import { handleSocial, recordLineInbound, handleExtraLineWebhook } from './social.js'
+import { handleSocial, recordLineInbound, handleExtraLineWebhook, lineThreadId } from './social.js'
+import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
 import { handleNotify } from './notify.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
@@ -71,7 +72,7 @@ export default {
       if (request.method === 'POST' && url.pathname === '/line/webhook') return await handleLineWebhook(request, env, cors)
       // (v1.0.977) LINE OA เพิ่มเติม (ทีม/โชว์รูม/เซลส์) — เก็บแชตลูกค้าเข้ากล่องรวม
       if (request.method === 'POST' && url.pathname.startsWith('/line/webhook/')) {
-        const r = await handleExtraLineWebhook(env, url.pathname.slice('/line/webhook/'.length), await request.text(), request.headers.get('X-Line-Signature') || '', () => getFirestoreAccessToken(env))
+        const r = await handleExtraLineWebhook(env, url.pathname.slice('/line/webhook/'.length), await request.text(), request.headers.get('X-Line-Signature') || '', () => getFirestoreAccessToken(env), (ev, chan, token) => afterCustomerLine(env, token, ev, chan))
         return json(r.body, r.status, cors)
       }
       // ?kind=morning = ข้อความเตือนตอนเช้า (ไม่ใส่ = รายงานสรุป 18:00 เหมือนเดิม)
@@ -410,8 +411,7 @@ async function handleLineWebhook(request, env, cors) {
       } else if (userId !== owner && ev.type === 'message' && !(await readSalesTarget(env, accessToken, userId))?.name) {
         // ลูกค้าทักมา → เก็บลงกล่องแชต LINE OA ในแอป (หน้าเชื่อมช่องทาง) ให้ทีมตอบจากแอปได้ — ล้มเหลวไม่กระทบส่วนอื่น
         await recordLineInbound(env, accessToken, ev)
-        // (เปิดเองด้วย var AUTO_LEAD_FROM_LINE="1") ลูกค้าใหม่ → สร้าง Lead ให้ด้วย
-        if (env.AUTO_LEAD_FROM_LINE === '1') await captureLineLead(env, accessToken, userId, ev.message?.type === 'text' ? ev.message.text : '').catch(() => {})
+        await afterCustomerLine(env, accessToken, ev, null)
       }
     }
     // ข้อความอื่น (เช่น ลูกค้าทักมา) ไม่ตอบอะไร — OA นี้อาจเป็นช่องทางคุยกับลูกค้าด้วย
@@ -1481,7 +1481,26 @@ async function deleteSalesTarget(env, accessToken, userId) {
 // ลูกค้าทัก LINE OA → สร้างลูกค้าใหม่ (ที่มา LINE) ครั้งแรกครั้งเดียวต่อ LINE userId ไม่สร้างให้เซลส์ที่ลงทะเบียนไว้
 // ถ้าเปิด AUTO_ASSIGN_LINE_LEADS="1" ด้วย: แจกให้เซลส์ที่ลงทะเบียน LINE ไว้แบบวนคิว (คนละรายเรียงตามชื่อ)
 // สร้างนัดติดตามวันที่ 1/3/7 (แผนเดียวกับ src/utils/leadFollowups.js) และส่ง LINE บอกเซลส์คนนั้นทันที
-async function captureLineLead(env, accessToken, userId, firstText) {
+// (v1.0.1128) หลังเก็บข้อความลูกค้า LINE (OA หลัก/OA ทีม/OA ส่วนตัว): สร้างลีด + AI ตอบอัตโนมัติ ตามที่เปิดไว้ในแอป
+// (หน้าเชื่อมช่องทาง > 🤖 ตอบอัตโนมัติ) — ล้มเหลวตรงไหนก็ไม่กระทบ webhook
+async function afterCustomerLine(env, accessToken, ev, chan) {
+  try {
+    const userId = ev?.source?.userId
+    if (!userId || !accessToken || ev.type !== 'message' || (ev.source.type && ev.source.type !== 'user')) return
+    const inbox = await readInboxAuto(env, accessToken)
+    const text = ev.message?.type === 'text' ? ev.message.text : ''
+    if (inbox.autoLead) await captureLineLead(env, accessToken, userId, text, { autoAssign: inbox.autoAssign, chan }).catch(() => {})
+    const token = chan?.token || env.LINE_CHANNEL_ACCESS_TOKEN
+    await aiAutoReply(env, accessToken, {
+      threadId: lineThreadId(userId, chan?.id || ''), channel: chan?.id || 'main', platform: 'line', isText: ev.message?.type === 'text',
+      send: lineReplySender(token, ev.replyToken),
+    })
+  } catch { /* ไม่ให้ webhook ล้ม */ }
+}
+
+async function captureLineLead(env, accessToken, userId, firstText, opts = {}) {
+  const autoAssign = opts.autoAssign ?? env.AUTO_ASSIGN_LINE_LEADS === '1'
+  const chan = opts.chan || null
   const base = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`
   const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
   const sales = await fetch(`${base}/line_sales_targets/${encodeURIComponent(userId)}`, { headers })
@@ -1494,13 +1513,13 @@ async function captureLineLead(env, accessToken, userId, firstText) {
   if (!q.ok || (Array.isArray(found) && found.some(r => r.document))) return null
   let displayName = ''
   try {
-    const p = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, { headers: { Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}` } })
+    const p = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, { headers: { Authorization: `Bearer ${chan?.token || env.LINE_CHANNEL_ACCESS_TOKEN}` } })
     if (p.ok) displayName = (await p.json()).displayName || ''
   } catch { /* ไม่มีชื่อก็สร้างได้ */ }
 
   let assignee = null
   let companyId = env.LINE_LEAD_COMPANY_ID || null
-  if (env.AUTO_ASSIGN_LINE_LEADS === '1') {
+  if (autoAssign) {
     const targets = await runQuery(env, accessToken, 'line_sales_targets', null, null, 500, ['name', 'userId']).catch(() => [])
     const rr = await fetch(`${base}/system_integrations/line_lead_rr`, { headers }).then(r => (r.ok ? r.json() : {})).catch(() => ({}))
     assignee = pickNextSales(targets, rr.fields?.lastName?.stringValue || '')

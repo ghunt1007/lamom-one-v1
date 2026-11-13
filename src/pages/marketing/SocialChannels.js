@@ -22,9 +22,10 @@ import { catalogContext } from '../../utils/salesAi.js'
 import { openQuickLead } from '../../utils/quickLead.js'
 import { socialStatus, metaInbox, metaReply, metaPost, metaAds, metaAdsUpdate, lineReply, shareLinks, googlePlaces } from '../../utils/socialApi.js'
 import { PLATFORM_GUIDE, SECRET_STEPS, LEVELS, ACCOUNT_PLATFORMS } from '../../utils/socialGuide.js'
+import { createAutoTab } from './channelsAuto.js'
 const LEVEL_ORDER_UI = { team: 0, showroom: 1, sales: 2 }
 
-const TABS = { inbox: '💬 แชตรวม', post: '📝 โพสต์', ads: '📣 โฆษณา', maps: '📍 Google Maps', accounts: '👥 บัญชี', guide: '🧭 วิธีเชื่อม' }
+const TABS = { inbox: '💬 แชตรวม', auto: '🤖 ตอบอัตโนมัติ', post: '📝 โพสต์', ads: '📣 โฆษณา', maps: '📍 Google Maps', accounts: '👥 บัญชี', guide: '🧭 วิธีเชื่อม' }
 const KIND = { line: { icon: '💚', label: 'LINE' }, messenger: { icon: '📘', label: 'Messenger' }, instagram: { icon: '📸', label: 'IG' } }
 const lsGet = (k, d) => { try { return localStorage.getItem(k) ?? d } catch { return d } }
 const lsSet = (k, v) => { try { localStorage.setItem(k, v) } catch {} }
@@ -39,6 +40,8 @@ export default async function SocialChannelsPage(container) {
   const urlTab = new URLSearchParams(location.search || '').get('tab')
   let tab = TABS[urlTab] ? urlTab : TABS[lsGet('ch-tab', '')] ? lsGet('ch-tab', 'inbox') : 'inbox'
   let status = null, statusErr = '', statusLoading = true
+  // (v1.0.1128) แท็บ 🤖 ตอบอัตโนมัติ — วาดใหม่เฉพาะตอนอยู่แท็บนี้
+  const autoTab = createAutoTab({ getStatus: () => status, rerender: () => { if (alive() && tab === 'auto') render() } })
   let lineThreads = [], metaConvs = [], metaLoaded = false, metaLoading = false, metaErr = ''
   let filter = 'all', q = ''
   let openKey = '', lineMsgs = [], stopMsgs = null, replyDraft = ''
@@ -143,6 +146,7 @@ export default async function SocialChannelsPage(container) {
     else if (tab === 'ads') el.innerHTML = adsHtml()
     else if (tab === 'accounts') { loadAccRes(); el.innerHTML = accountsHtml() }
     else if (tab === 'maps') el.innerHTML = mapsHtml()
+    else if (tab === 'auto') el.innerHTML = autoTab.html()
     else el.innerHTML = guideHtml()
     if (tab === 'inbox') { const t = el.querySelector('.ch-msgs'); if (t) t.scrollTop = t.scrollHeight }
     if (focusId) { const f = container.querySelector('#' + focusId); if (f) { f.focus(); try { if (caret != null) f.setSelectionRange(caret, caret) } catch {} } }
@@ -151,7 +155,7 @@ export default async function SocialChannelsPage(container) {
 
   // ── แชตรวม ──
   function items() {
-    const line = lineThreads.map(t => ({ key: `line:${t.id}`, kind: 'line', id: t.id, name: t.name || 'ลูกค้า LINE', snippet: t.lastText || '', at: ms(t.lastAt), unread: !!t.unread, needsReply: t.lastDirection === 'in', sub: t.channelName || 'LINE OA', chan: t.channel || 'main' }))
+    const line = lineThreads.map(t => ({ key: `line:${t.id}`, kind: 'line', id: t.id, name: t.name || 'ลูกค้า LINE', snippet: t.lastText || '', at: ms(t.lastAt), unread: !!t.unread, needsReply: t.lastDirection === 'in' || !!t.needsHuman, human: !!t.needsHuman, ai: !!t.lastByAi, sub: t.channelName || 'LINE OA', chan: t.channel || 'main' }))
     const meta = metaConvs.map(c => {
       const last = c.messages[c.messages.length - 1]
       return { key: `${c.kind}:${c.id}`, kind: c.kind, id: c.id, name: c.withName, snippet: last?.text || '', at: ms(c.at), unread: c.unread > 0, needsReply: last ? !last.mine : false, sub: c.pageName, conv: c }
@@ -185,7 +189,7 @@ export default async function SocialChannelsPage(container) {
           ${list.length ? list.map(i => `
             <button type="button" class="ch-item ${i.key === openKey ? 'on' : ''}" data-open="${esc(i.key)}">
               <span class="ch-av">${KIND[i.kind].icon}</span>
-              <span class="ch-item-main"><b>${esc(i.name)}</b><small>${esc(i.snippet.slice(0, 70)) || '—'}</small><em>${esc(i.sub)} · ${i.at ? esc(timeAgo(new Date(i.at).toISOString())) : ''}</em></span>
+              <span class="ch-item-main"><b>${i.human ? '🙋 ' : ''}${esc(i.name)}${i.ai && !i.human ? ' <span class="ch-ai-tag">🤖</span>' : ''}</b><small>${esc(i.snippet.slice(0, 70)) || '—'}</small><em>${esc(i.sub)} · ${i.at ? esc(timeAgo(new Date(i.at).toISOString())) : ''}</em></span>
               ${i.needsReply ? '<span class="ch-dot" title="รอตอบ"></span>' : ''}
             </button>`).join('') : `<div class="ch-empty">${counts.all ? 'ไม่พบแชตที่ตรงกับตัวกรอง' : 'ยังไม่มีแชตเข้ามา<br><small>ข้อความลูกค้าที่ทัก LINE OA จะเข้ามาที่นี่อัตโนมัติ</small>'}</div>`}
         </div>
@@ -207,6 +211,7 @@ export default async function SocialChannelsPage(container) {
       <div class="ch-th-head">
         <button type="button" class="btn btn-ghost btn-sm ch-back" id="ch-back">‹ กลับ</button>
         <div class="ch-th-name"><b>${KIND[i.kind].icon} ${esc(i.name)}</b><small>${esc(i.sub)}</small></div>
+        ${i.kind === 'line' ? aiPauseBtn(i.id) : ''}
         ${i.kind === 'line' && linked.get(i.id) ? `<button type="button" class="btn btn-secondary btn-sm" id="ch-cust">👤 ดูลูกค้า</button>` : `<button type="button" class="btn btn-secondary btn-sm" id="ch-lead">➕ เป็น Lead</button>`}
       </div>
       <div class="ch-msgs">${msgs.length ? msgs.map(m => `<div class="ch-msg ${m.mine ? 'mine' : ''}"><div>${esc(m.text)}</div><small>${m.at ? esc(timeAgo(m.at)) : ''}${m.by && m.mine ? ` · ${esc(m.by)}` : ''}</small></div>`).join('') : '<div class="ch-empty">ยังไม่มีข้อความ</div>'}</div>
@@ -218,6 +223,21 @@ export default async function SocialChannelsPage(container) {
           <button type="button" class="btn btn-primary btn-sm" id="ch-send">📤 ส่ง</button></span>
         </div>
       </div>`
+  }
+  function aiPauseBtn(id) {
+    const t = lineThreads.find(x => x.id === id)
+    if (!t) return ''
+    const human = t.needsHuman ? '<span class="ch-human" title="ลูกค้าต้องการคุยกับพนักงาน">🙋 รอพนักงาน</span>' : ''
+    return `${human}<button type="button" class="btn btn-ghost btn-sm" id="ch-aipause" data-id="${esc(id)}" title="หยุด/ให้ AI ตอบแชตนี้">${t.aiPaused ? '▶️ ให้ AI ตอบ' : '⏸ หยุด AI'}</button>`
+  }
+  async function toggleAiPause(id) {
+    const t = lineThreads.find(x => x.id === id); if (!t) return
+    try {
+      await updateDocData('social_threads', id, { aiPaused: !t.aiPaused, ...(t.aiPaused ? {} : { needsHuman: false }) })
+      t.aiPaused = !t.aiPaused
+      showToast(t.aiPaused ? '⏸ AI จะไม่ตอบแชตนี้แล้ว' : '▶️ AI ตอบแชตนี้ได้แล้ว', 'success')
+      render()
+    } catch (e) { showToast(e.message, 'error') }
   }
   function openThread(key) {
     openKey = key; replyDraft = ''
@@ -570,7 +590,7 @@ export default async function SocialChannelsPage(container) {
 
   function guideHtml() {
     const s = status || {}
-    const ok = { line: s.line?.configured, meta: s.meta?.configured && (s.meta.pages || []).length, metaAds: s.metaAds?.configured, tiktok: false, google: s.google?.configured }
+    const ok = { line: s.line?.configured, meta: s.meta?.configured && (s.meta.pages || []).length, metaAds: s.metaAds?.configured, tiktok: false, google: s.google?.configured, ai: s.ai?.configured, leadHook: s.leadHook?.configured }
     return `
       <div class="ch-guide">
         ${PLATFORM_GUIDE.map(g => `
@@ -607,6 +627,8 @@ export default async function SocialChannelsPage(container) {
     const o = t.closest('[data-open]'); if (o) { openThread(o.dataset.open); return }
     if (t.closest('#ch-back')) { openKey = ''; stopMsgs?.(); stopMsgs = null; render(); return }
     if (t.closest('#ch-send')) { sendReply(); return }
+    const ap = t.closest('#ch-aipause'); if (ap) { toggleAiPause(ap.dataset.id); return }
+    if (t.closest('#au-save')) { autoTab.save(container); return }
     if (t.closest('#ch-ai')) { aiDraft(); return }
     if (t.closest('#ch-lead')) { toLead(); return }
     if (t.closest('#ch-cust')) { const c = linked.get(findItem(openKey)?.id); if (c) navigate(`/crm/customers?id=${encodeURIComponent(c.id)}`); return }

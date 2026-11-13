@@ -138,3 +138,20 @@ button.ch-acc-res { cursor: pointer; color: var(--primary); } button.ch-acc-res:
 .ch-spend-row { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; }
 .ch-spend-row > span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .ch-spend-row .input { flex: 0 0 110px; width: 110px; text-align: right; }
+
+/* (v1.0.1128) 🤖 ตอบอัตโนมัติ */
+.ch-sw { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; cursor: pointer; }
+.ch-sw input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.ch-sw-ui { flex: 0 0 auto; width: 40px; height: 22px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); position: relative; transition: background .15s; margin-top: 2px; }
+.ch-sw-ui::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--text-3); transition: transform .15s, background .15s; }
+.ch-sw input:checked + .ch-sw-ui { background: var(--primary); border-color: var(--primary); }
+.ch-sw input:checked + .ch-sw-ui::after { transform: translateX(18px); background: #fff; }
+.ch-sw input:focus-visible + .ch-sw-ui { outline: 2px solid var(--primary); outline-offset: 2px; }
+.ch-sw b { display: block; font-size: 0.88rem; }
+.ch-sw small { display: block; color: var(--text-3); font-size: 0.76rem; line-height: 1.45; overflow-wrap: anywhere; }
+.ch-auto-row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 6px 0 10px; font-size: 0.84rem; }
+.ch-radio { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.ch-auto-row .ch-tlabel { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.ch-auto-row .input.ch-time { width: 80px !important; flex: 0 0 80px; display: inline-block; margin-left: 4px; font-size: 16px; text-align: center; }
+.ch-ai-tag { font-size: 0.7rem; opacity: .8; }
+.ch-human { font-size: 0.72rem; color: var(--warning, #d97706); border: 1px solid currentColor; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }

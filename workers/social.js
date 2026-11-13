@@ -110,7 +110,7 @@ export async function verifyLineSig(rawBody, signature, secret) {
   } catch { return false }
 }
 // webhook ของ OA เพิ่มเติม — เก็บแชตลูกค้าเข้ากล่องรวมอย่างเดียว (คำสั่ง/รายงาน ใช้กับ OA หลักเท่านั้น)
-export async function handleExtraLineWebhook(env, channelId, rawBody, signature, getAccessToken) {
+export async function handleExtraLineWebhook(env, channelId, rawBody, signature, getAccessToken, onInbound = null) {
   const chan = lineChannels(env).find(c => c.id === channelId)
   if (!chan) return { status: 404, body: { error: 'Unknown LINE channel' } }
   if (!(await verifyLineSig(rawBody, signature, chan.secret))) return { status: 401, body: { error: 'Invalid signature' } }
@@ -119,7 +119,12 @@ export async function handleExtraLineWebhook(env, channelId, rawBody, signature,
   const events = Array.isArray(body.events) ? body.events : []
   const accessToken = events.length ? await getAccessToken() : null
   let saved = 0
-  for (const ev of events) if (await recordLineInbound(env, accessToken, ev, chan)) saved++
+  for (const ev of events) {
+    if (!(await recordLineInbound(env, accessToken, ev, chan))) continue
+    saved++
+    // (v1.0.1128) สร้างลีด + AI ตอบอัตโนมัติ (ตามที่เปิดไว้ในแอป) — OA ทีม/ส่วนตัวก็ได้เหมือน OA หลัก
+    if (onInbound) await onInbound(ev, chan, accessToken).catch?.(() => {})
+  }
   return { status: 200, body: { ok: true, saved } }
 }
 
@@ -162,6 +167,9 @@ export async function socialStatus(env) {
     metaAds: { configured: !!env.META_SYSTEM_USER_TOKEN },
     google: { configured: !!env.GOOGLE_MAPS_API_KEY },
     tiktok: { configured: false },
+    // (v1.0.1128) AI ตอบลูกค้าอัตโนมัติใช้ GEMINI_API_KEY ของ worker นี้
+    ai: { configured: !!env.GEMINI_API_KEY },
+    leadHook: { configured: !!env.LEAD_WEBHOOK_KEY },
   }
   if (out.meta.configured) {
     try { out.meta.pages = (await metaPages(env, { fresh: true })).map(publicPage) } catch (e) { out.meta.error = e.message }
@@ -369,7 +377,7 @@ export async function lineReply(env, accessToken, { threadId, text } = {}, staff
   const at = new Date()
   if (accessToken) {
     await addMessage(env, accessToken, { threadId, platform: 'line', direction: 'out', text: msg, at, by: clip(staffName, 80) })
-    await upsertThread(env, accessToken, threadId, { lastText: clip(msg, 200), lastAt: at, lastDirection: 'out', unread: false, updatedAt: at })
+    await upsertThread(env, accessToken, threadId, { lastText: clip(msg, 200), lastAt: at, lastDirection: 'out', lastByAi: false, lastHumanAt: at, needsHuman: false, unread: false, updatedAt: at })
   }
   return { configured: true, sent: true }
 }
