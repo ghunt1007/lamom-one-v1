@@ -57,3 +57,22 @@ describe('visits + mode', () => {
     expect(countItems(NAV)).toBe(6)
   })
 })
+
+import { essentialsFor, ROLE_ESSENTIALS, buildSimpleNav as bsn } from './navSimple.js'
+import { NAV as FULL_NAV } from '../data/navMenu.js'
+describe('v1.0.1131 role main menus', () => {
+  const all = new Set(FULL_NAV.flatMap(g => g.items.map(i => i.path)))
+  it('every role menu path exists in the full menu', () => {
+    for (const [role, groups] of Object.entries(ROLE_ESSENTIALS)) for (const g of groups) for (const p of g.paths) expect(all.has(p), `${role} ${p}`).toBe(true)
+  })
+  it('service staff see service work first, sales keep the sales menu', () => {
+    const nav = FULL_NAV
+    expect(bsn(nav, {}, { role: 'service' })[0].key).toBe('service')
+    expect(bsn(nav, {}, { role: 'sales' })[0].key).toBe('sales')
+    expect(bsn(nav, {}, { role: 'owner' })[0].key).toBe('boss')
+    expect(essentialsFor('unknown')[0].key).toBe('sales')
+  })
+  it('each role menu stays short (≤ 28 items)', () => {
+    for (const role of Object.keys(ROLE_ESSENTIALS)) expect(new Set(essentialsFor(role).flatMap(g => g.paths)).size).toBeLessThanOrEqual(28)
+  })
+})

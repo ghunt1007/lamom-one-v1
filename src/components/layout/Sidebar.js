@@ -60,7 +60,7 @@ export function Sidebar(container) {
     const gLabel = g => (lang === 'en' ? g.groupEn : lang === 'zh' ? g.groupZh : null) || g.group
     const iLabel = i => (lang === 'en' ? i.labelEn : lang === 'zh' ? i.labelZh : null) || i.label
     const mode = readNavMode()
-    const simpleNav = buildSimpleNav(nav, visitsAtStart)
+    const simpleNav = buildSimpleNav(nav, visitsAtStart, { role: user?.role })
     const groupsHtml = (groups, cls) => groups.map(group => {
       const isGroupCollapsed = !collapsed && !!grpState[group.group]
       const hasActive = group.items.some(i => i.path === route)
