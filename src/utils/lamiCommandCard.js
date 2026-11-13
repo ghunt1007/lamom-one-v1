@@ -374,6 +374,9 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'debt') {
     if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 ข้อมูลลูกหนี้ดูได้เฉพาะผู้บริหาร/บัญชี' }
     else res = oq.debtAnswer(await listDocs('debt_settlements', f, 'oldest', 'asc', 500).catch(() => []))
+  } else if (spec.kind === 'petty') {
+    if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 ยอดเงินสดย่อยดูได้เฉพาะผู้บริหาร/บัญชี' }
+    else res = oq.pettyAnswer(await listDocs('petty_cash', f, 'time', 'desc', 500).catch(() => []), { today })
   } else if (spec.kind === 'refund') {
     res = oq.refundAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)))
   } else if (spec.kind === 'floorplan') {

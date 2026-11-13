@@ -575,3 +575,15 @@ describe('v1.0.1124 service + aged stock', () => {
     expect(parseStockSpec('รถคันไหนอยู่ในสต็อกนานเกิน 90 วัน')).toMatchObject({ aged: true, agedDays: 90 })
   })
 })
+
+describe('v1.0.1125 invoices + petty cash', () => {
+  it('routes and computes', async () => {
+    const oq = await import('./opsQuestions.js')
+    expect(parseOpsSpec('ใบแจ้งหนี้ที่เลยกำหนด')).toMatchObject({ kind: 'debt' })
+    expect(parseOpsSpec('งานเลยกำหนด')).toMatchObject({ kind: 'overdue' })
+    expect(parseOpsSpec('เงินสดย่อยเหลือเท่าไหร่')).toMatchObject({ kind: 'petty' })
+    const r = oq.pettyAnswer([{ type: 'out', amount: 3000, status: 'approved', time: T }, { type: 'in', amount: 1000, status: 'approved', time: T }, { type: 'out', amount: 500, status: 'pending', time: T }, { type: 'out', amount: 900, status: 'rejected', time: T }], { today: T })
+    expect(r.text).toContain('18,000')
+    expect(r.text).toContain('รออนุมัติ 1 รายการ')
+  })
+})
