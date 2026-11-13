@@ -15,3 +15,11 @@ export function callLink(phone, name = '', { icon = '📞 ' } = {}) {
   if (!n) return `${icon}${escHtml(shown)}`
   return `<a class="call-pill" href="tel:${n}" onclick="event.stopPropagation()" aria-label="โทรหา ${escHtml(name || 'ลูกค้า')}">${icon}${escHtml(shown)}</a>`
 }
+
+// (v1.0.1134) อีเมลที่แตะแล้วเปิดแอปอีเมลพร้อมหัวเรื่อง/คำทักทาย — คืน '' ถ้าไม่ใช่อีเมลที่ถูกต้อง
+export function mailHref(email, { subject = '', body = '' } = {}) {
+  const e = String(email ?? '').trim()
+  if (!/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(e)) return ''
+  const q = [subject && 'subject=' + encodeURIComponent(subject), body && 'body=' + encodeURIComponent(body)].filter(Boolean).join('&')
+  return `mailto:${e}${q ? '?' + q : ''}`
+}
