@@ -3,14 +3,11 @@
  * เจ้าหน้าที่ AI ประจำแต่ละแผนก (ขาย การตลาด ธุรการ การเงิน บริการ บุคคล) ตรวจงานจากข้อมูลจริงให้เองทุกครั้งที่เปิด
  * แล้วบอกว่าวันนี้ต้องทำอะไร + ปุ่มไปทำทันที · เซลส์เห็นเฉพาะลูกค้าของตัวเอง ผู้จัดการ/เจ้าของเห็นทั้งทีม (สิทธิ์เดียวกับ LAMI)
  */
-import { listDocs, listAllDocs } from '../../core/db.js'
-import { companyScopeFilters } from '../../core/companyScope.js'
-import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { navigate } from '../../core/router.js'
-import { todayBangkok, dmy, hm } from '../../utils/format.js'
+import { dmy, hm } from '../../utils/format.js'
 import { escHtml as esc } from '../../utils/escape.js'
-import { runAgents, agentsSummary } from '../../utils/aiAgents.js'
-import { visibleCustomersForCommands } from '../../utils/lamiCommandCard.js'
+import { agentsSummary } from '../../utils/aiAgents.js'
+import { loadAgentBoard } from '../../utils/aiAgentsLoad.js'
 
 const CSS = `
 .at-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
@@ -50,37 +47,8 @@ export default async function AgentTeamPage(container) {
     <div id="at-body"><div class="at-sum">⏳ ทีม AI กำลังตรวจงานทุกแผนก…</div></div>
     </div>`
 
-  async function load() {
-    const today = todayBangkok()
-    const f = companyScopeFilters()
-    const vis = await getVisibilityScope().catch(() => null)
-    const whole = !!vis && (vis.unrestricted || vis.companyOnly)
-    const mine = (name, rec) => whole || (!!vis && scopeIncludesRecord(vis, name, rec))
-    const [customers, bookings, drives, quotes, appts, threads, pdis, complaints, leaves] = await Promise.all([
-      visibleCustomersForCommands().catch(() => []),
-      listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []),
-      listDocs('test_drives', f, 'date', 'desc', 1000).catch(() => []),
-      listDocs('quotations', f, 'createdDate', 'desc', 500).catch(() => []),
-      listDocs('appointments', f, 'date', 'desc', 300).catch(() => []),
-      listDocs('social_threads', [], 'lastAt', 'desc', 300).catch(() => []),
-      listDocs('pdi', f, 'startDate', 'desc', 300).catch(() => []),
-      listDocs('complaints', f, 'createdAt', 'desc', 300).catch(() => []),
-      listDocs('leave_requests', f, 'from', 'desc', 300).catch(() => []),
-    ])
-    const myCustIds = new Set(customers.map(c => c.id))
-    const data = {
-      today, customers,
-      bookings: bookings.filter(b => !b.deleted && mine(b.salesName, b)),
-      drives: drives.filter(t => mine(t.staff, t)),
-      quotes: quotes.filter(q => !q.deleted && (whole || myCustIds.has(q.customerId) || mine(q.salesperson || q.staff, q))),
-      appts: appts.filter(a => mine(a.salesperson, a)),
-      // แชตรวมเห็นได้ทั้งทีมเหมือนหน้าแชต (ใครว่างก็ตอบได้)
-      threads,
-      pdis, complaints: whole ? complaints : complaints.filter(c => mine(c.assignedTo || c.staff, c)),
-      leaves: whole ? leaves : leaves.filter(r => mine(r.staff, r)),
-    }
-    return runAgents(data)
-  }
+  // ข้อมูลที่ตรวจ (โหลดใน aiAgentsLoad.js — ระบุไว้ให้หน้า "หน้าไหนมีข้อมูลจริง" อ่านเจอ): 'customers' 'bookings' 'test_drives' 'quotations' 'appointments' 'social_threads' 'pdi' 'complaints' 'leave_requests'
+  const load = () => loadAgentBoard()
 
   function render(board, at) {
     const el = container.querySelector('#at-body'); if (!el) return

@@ -183,6 +183,7 @@ export const PAGE_COLLECTIONS = {
   "appointments",
   "bookings",
   "complaints",
+  "customers",
   "leave_requests",
   "pdi",
   "quotations",

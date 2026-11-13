@@ -304,7 +304,11 @@ export async function loadOpsAnswer(q, customersPromise) {
   if (!vis) return null
   const mine = (name, rec) => scopeIncludesRecord(vis, name, rec)
   let res
-  if (spec.kind === 'tdnobook') {
+  if (spec.kind === 'aiteam') {
+    const [{ loadAgentBoard }, { agentsSummary }] = await Promise.all([import('./aiAgentsLoad.js'), import('./aiAgents.js')])
+    const board = await loadAgentBoard(customersPromise)
+    res = { n: board.reduce((s, a) => s + a.open, 0), text: agentsSummary(board) }
+  } else if (spec.kind === 'tdnobook') {
     const [drives, bks] = await Promise.all([listDocs('test_drives', f, 'date', 'desc', 500).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])])
     res = oq.tdNoBookAnswer(drives.filter(t => mine(t.staff, t)), bks, { today, range: spec.range })
   } else if (spec.kind === 'testdrive') res = oq.testDriveAnswer((await listDocs('test_drives', f, 'date', 'desc', 300).catch(() => [])).filter(t => mine(t.staff, t)), { today, day: spec.day })

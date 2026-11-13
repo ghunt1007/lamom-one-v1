@@ -62,3 +62,15 @@ describe('v1.0.1133 office digest for the 09:00 LINE', () => {
     expect(officeDigestLines({ today: '2026-11-14' })).toEqual([])
   })
 })
+
+import { parseOpsSpec, OPS_LINKS, opsFollowUps } from './opsQuestions.js'
+describe('v1.0.1136 LAMI asks the AI team', () => {
+  it('routes team questions to the agent board', () => {
+    for (const q of ['ทีม AI วันนี้มีงานอะไร', 'ทีมเอไอแจ้งอะไรบ้าง', 'งานค้างทุกแผนก', 'ทุกฝ่ายมีงานค้างไหม', 'AI agent วันนี้ว่าไง']) expect(parseOpsSpec(q)?.kind, q).toBe('aiteam')
+    expect(OPS_LINKS.aiteam.path).toBe('/ai/team')
+    expect(opsFollowUps({ kind: 'aiteam' })[0]).toBeTruthy()
+  })
+  it('leaves other questions alone', () => {
+    for (const q of ['ใครลาวันนี้', 'เรื่องร้องเรียนค้างอยู่ไหม', 'มีลูกค้าทัก LINE รอตอบไหม']) expect(parseOpsSpec(q)?.kind).not.toBe('aiteam')
+  })
+})
