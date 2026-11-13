@@ -31,7 +31,7 @@
  * ไปแบบรายงานสถานะ configured:false ตรงๆ (ไม่ throw จนพังทั้งงาน) ตาม pattern เดียวกับ comms-send.js
  */
 
-import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser } from './nightly-backup.js'
+import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser, backupDecodeValue } from './nightly-backup.js'
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
 import { handleSocial, recordLineInbound, handleExtraLineWebhook } from './social.js'
 import { handleNotify } from './notify.js'
@@ -147,7 +147,7 @@ export default {
 function backupDeps(env) {
   return {
     getToken: () => getFirestoreAccessToken(env),
-    decode: decodeFsValue,
+    decode: backupDecodeValue,
     notify: text => sendTelegram(env, text),
     today: todayBangkok(),
   }
