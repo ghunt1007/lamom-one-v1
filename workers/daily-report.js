@@ -42,6 +42,7 @@ import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils
 import { campaignLeads } from '../src/utils/campaignLeads.js'
 import { financeQueue } from '../src/utils/financeQueue.js'
 import { serviceTodayLines, showroomVisitLine } from '../src/utils/apptFacts.js'
+import { officeDigestLines } from '../src/utils/aiAgents.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
@@ -715,7 +716,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 
 // ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
 async function buildMorningData(env, accessToken) {
-  const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads] = await Promise.all([
+  const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId']),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
@@ -725,14 +726,18 @@ async function buildMorningData(env, accessToken) {
     runQuery(env, accessToken, 'marketing_events', null, null, 300).catch(() => []),
     runQuery(env, accessToken, 'appointments', 'date', 'DESCENDING', 500, ['date', 'time', 'status', 'salesperson', 'custName', 'interestedIn', 'purpose', 'deleted']).catch(() => []),
     runQuery(env, accessToken, 'service_appointments', 'date', 'DESCENDING', 500, ['date', 'time', 'status', 'custName', 'model', 'plate', 'type', 'tech', 'deleted']).catch(() => []),
-    runQuery(env, accessToken, 'social_threads', 'lastAt', 'DESCENDING', 300, ['platform', 'userId', 'unread', 'lastDirection', 'lastText', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'social_threads', 'lastAt', 'DESCENDING', 300, ['platform', 'userId', 'unread', 'lastDirection', 'lastText', 'deleted', 'needsHuman', 'aiPaused', 'name', 'channelName']).catch(() => []),
+    // (v1.0.1133) งานแผนกหลังบ้านให้ทีม AI สรุปท้ายข้อความเจ้าของ
+    runQuery(env, accessToken, 'pdi', 'startDate', 'DESCENDING', 300, ['status', 'startDate', 'brand', 'model', 'color', 'vin', 'inspector', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'complaints', 'createdAt', 'DESCENDING', 300, ['status', 'priority', 'subject', 'assignedTo', 'createdAt', 'customerName', 'custName', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'leave_requests', 'from', 'DESCENDING', 300, ['status', 'from', 'to', 'staff', 'type', 'deleted']).catch(() => []),
   ])
   // แก้สถานะไฟแนนซ์ที่ค้าง "รอผล" ของใบจองที่ไปถึงรอรถ/รอส่งมอบ/ส่งมอบแล้ว ให้เป็น "ผ่าน" ในฐานข้อมูลจริงทุกเช้า
   const fixes = bookings.filter(b => b.id && finPassPatch(b))
   if (fixes.length && await commitFinancePassed(env, accessToken, fixes.map(b => b.id))) fixes.forEach(b => { b.finStatus = 'ผ่าน' })
   const today = todayBangkok()
-  const data = { bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads }
-  return { today, data, text: buildMorningReminder(data, { today }), sections: buildMorningSections(data, { today }) }
+  const data = { bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves }
+  return { today, data, text: buildMorningReminder(data, { today, appUrl: env.ALLOWED_ORIGIN }), sections: buildMorningSections(data, { today }) }
 }
 
 // คืน { finStatus: 'ผ่าน' } ถ้าใบจองนี้ต้องแก้สถานะไฟแนนซ์อัตโนมัติ (ไม่แตะซื้อสด) — ตรงกับ src/utils/finance.js
@@ -954,6 +959,7 @@ export function buildMorningReminder(data, opts) {
   const sections = buildMorningSections(data, opts).map(s => s.text)
   const finLine = financeQueueLine(data.bookings, today)
   const svc = serviceTodayLines(data.serviceAppts, today)
+  const office = officeDigestLines({ today, threads: data.lineThreads, pdis: data.pdis, complaints: data.complaints, leaves: data.leaves }, { appUrl: opts.appUrl || '' })
 
   const text = [
     '☀️ LAMOM ONE เตือนงานเช้านี้',
@@ -963,6 +969,7 @@ export function buildMorningReminder(data, opts) {
     ...(sections.length ? sections.flatMap((s, i) => i ? ['', s] : [s]) : ['✅ ไม่มีงานค้าง ขอให้ขายดีทั้งวันครับ 🎉']),
     ...(finLine ? ['', finLine] : []),
     ...(svc.length ? ['', ...svc] : []),
+    ...(office.length ? ['', ...office] : []),
     '',
     '─────────────────────',
     '🤖 LAMOM ONE Auto Reminder',

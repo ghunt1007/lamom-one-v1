@@ -42,3 +42,23 @@ describe('AI agent team', () => {
     expect(bodyLines('หัว\n• ก\n\n• ข')).toEqual(['• ก', '• ข'])
   })
 })
+
+import { officeDigestLines } from './aiAgents.js'
+describe('v1.0.1133 office digest for the 09:00 LINE', () => {
+  it('lists only back-office work, urgent first, with a link', () => {
+    const lines = officeDigestLines({
+      today: '2026-11-14',
+      threads: [{ needsHuman: true, name: 'คุณเอ' }],
+      pdis: [{ status: 'failed', startDate: '2026-11-10', model: 'X' }],
+      complaints: [],
+      leaves: [{ status: 'approved', from: '2026-11-14', to: '2026-11-14', staff: 'บี', type: 'sick' }],
+    }, { appUrl: 'https://app.example/' })
+    expect(lines[0]).toContain('ทีม AI')
+    expect(lines.filter(l => l.startsWith('🔴'))).toHaveLength(2)
+    expect(lines.some(l => l.startsWith('🟡') && l.includes('ลา'))).toBe(true)
+    expect(lines.at(-1)).toBe('👉 https://app.example/ai/team')
+  })
+  it('is empty when nothing is open or data is missing', () => {
+    expect(officeDigestLines({ today: '2026-11-14' })).toEqual([])
+  })
+})

@@ -92,3 +92,19 @@ export function agentsSummary(board) {
   return [`🤖 ทีม AI ตรวจแล้ว: มีงาน ${open.length} เรื่อง${urgent.length ? ` (ด่วน ${urgent.length})` : ''}`,
     ...open.sort((x, y) => (x.r.level === 'urgent' ? 0 : 1) - (y.r.level === 'urgent' ? 0 : 1)).slice(0, 8).map(({ a, r }) => `${r.level === 'urgent' ? '🔴' : '🟡'} ${a.emoji} ${a.dept}: ${r.label} ${r.n}`)].join('\n')
 }
+
+// (v1.0.1133) งานค้างแผนกหลังบ้านสำหรับข้อความ LINE 09:00 ของเจ้าของ — งานฝ่ายขายมีในข้อความเช้าอยู่แล้วจึงไม่ซ้ำ
+export const OFFICE_DIGEST_KEYS = ['human', 'pdi', 'complaint', 'leave']
+export function officeDigestLines(data, { keys = OFFICE_DIGEST_KEYS, appUrl = '' } = {}) {
+  const rows = []
+  for (const a of AGENTS) for (const t of a.tasks) {
+    if (!keys.includes(t.key)) continue
+    let r
+    try { r = t.run(data) } catch { r = null }
+    const n = Number(r?.n) || 0
+    if (n > 0) rows.push({ urgent: t.level === 'urgent', line: `${t.level === 'urgent' ? '🔴' : '🟡'} ${a.emoji} ${a.name} ${a.dept}: ${t.label} ${n}` })
+  }
+  if (!rows.length) return []
+  rows.sort((x, y) => (y.urgent ? 1 : 0) - (x.urgent ? 1 : 0))
+  return ['🤖 ทีม AI แผนกอื่นแจ้งงานค้าง', ...rows.map(r => r.line), ...(appUrl ? [`👉 ${String(appUrl).replace(/\/$/, '')}/ai/team`] : [])]
+}
