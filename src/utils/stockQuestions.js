@@ -6,7 +6,7 @@ import { stockAgeDays } from './stockAge.js'
 const norm = s => String(s || '').toLowerCase().replace(/[\s\-_.]+/g, '')
 const INTENT = /สต็อก|สต๊อก|stock|พร้อมขาย|พร้อมส่ง|มีรถ|มีของ|เหลือ|มีไหม|มีมั้ย|มีมั๊ย|มีหรือเปล่า|มีรึเปล่า|มีสี|สีอะไร|สีไหน|กี่คัน|มีกี่/i
 const GENERIC = /สต็อก|สต๊อก|stock|พร้อมขาย|พร้อมส่ง|มีรถอะไร|รถอะไรบ้าง/i
-const AGED = /ค้างสต็อก|ค้างสต๊อก|(?:สต็อก|สต๊อก|รถ)[^\n]{0,12}(?:ค้างนาน|อยู่นาน|นานสุด|นานที่สุด)|ควรเร่งขาย|รถเก่าสุด|ขายยาก|ขายไม่ออก|ขายช้า/
+const AGED = /ค้างสต็อก|ค้างสต๊อก|(?:อยู่)?ใน\s*(?:สต็อก|สต๊อก)\s*(?:นาน|เกิน)|(?:สต็อก|สต๊อก)[^\n]{0,12}เกิน\s*\d{1,3}\s*วัน|(?:สต็อก|สต๊อก|รถ)[^\n]{0,12}(?:ค้างนาน|อยู่นาน|นานสุด|นานที่สุด)|ควรเร่งขาย|รถเก่าสุด|ขายยาก|ขายไม่ออก|ขายช้า/
 
 // เช็คเร็วก่อนโหลดสต็อก — ไม่ใช่คำถามสต็อกแน่ๆ ก็ไม่ต้องอ่านข้อมูล
 export const maybeStockQuestion = q => { const s = String(q || ''); return s.length <= 80 && (INTENT.test(s) || AGED.test(s)) }
@@ -37,7 +37,8 @@ export function parseStockSpec(q, vehicles = [], catalog = []) {
       .sort((a, b) => b.length - a.length)[0] || ''
   }
   if (!model && !brand && !color && !aged && !missing && !GENERIC.test(s)) return null
-  return { model, brand, color, aged, ...(missing ? { missing } : {}) }
+  const ad = aged && s.match(/(\d{1,3})\s*วัน/)
+  return { model, brand, color, aged, ...(ad ? { agedDays: +ad[1] } : {}), ...(missing ? { missing } : {}) }
 }
 
 const title = spec => [spec.model || spec.brand, spec.color ? `สี${spec.color}` : ''].filter(Boolean).join(' ')
@@ -62,9 +63,10 @@ export function stockAnswer({ vehicles = [], spec, today }) {
   const query = [spec.model || spec.brand, spec.color].filter(Boolean).join(' ')
 
   if (spec.aged) {
-    const aged = ready.map(v => ({ v, d: age(v) })).filter(x => x.d >= 60).sort((a, b) => b.d - a.d)
-    const head = `⏳ รถพร้อมขายที่ค้างสต็อก 60 วันขึ้นไป${title(spec) ? ` (${title(spec)})` : ''} — ${aged.length} คัน`
-    if (!aged.length) return { text: `✅ ไม่มีรถพร้อมขายที่ค้างสต็อกเกิน 60 วัน${title(spec) ? ` (${title(spec)})` : ''}`, next: ['มีรถอะไรพร้อมขาย'], query }
+    const minD = spec.agedDays || 60
+    const aged = ready.map(v => ({ v, d: age(v) })).filter(x => x.d >= minD).sort((a, b) => b.d - a.d)
+    const head = `⏳ รถพร้อมขายที่ค้างสต็อก ${minD} วันขึ้นไป${title(spec) ? ` (${title(spec)})` : ''} — ${aged.length} คัน`
+    if (!aged.length) return { text: `✅ ไม่มีรถพร้อมขายที่ค้างสต็อกเกิน ${minD} วัน${title(spec) ? ` (${title(spec)})` : ''}`, next: ['มีรถอะไรพร้อมขาย'], query }
     return { text: [head, ...aged.slice(0, 8).map(({ v, d }) => `• ${carOf(v, true)} ${v.color || ''} — ${d} วัน`.replace(/\s+/g, ' ')), aged.length > 8 ? `…และอีก ${aged.length - 8} คัน` : '', '💡 เสนอคันที่ค้างนานก่อน หรือจัดโปรเร่งขาย'].filter(Boolean).join('\n'), next: ['มีรถอะไรพร้อมขาย'], query }
   }
 
