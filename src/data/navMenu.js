@@ -331,6 +331,7 @@ export const NAV = [
     group: 'AI & งาน', groupEn: 'AI & Tasks', groupZh: 'AI 与任务',
     items: [
       { icon: '💬', label: 'ถาม LAMI', labelEn: 'Ask LAMI', path: '/ai/ask' },
+      { icon: '🤖', label: 'ทีม AI ทำงานให้', labelEn: 'AI Agent Team', labelZh: 'AI 团队', path: '/ai/team' },
       { icon: '💫', label: 'ผู้ช่วยส่วนตัว', labelEn: 'Personal Assistant', labelZh: '个人助理', path: '/ai/personal' },
       { icon: '🤖', label: 'ทีมผู้ช่วย AI', labelEn: 'AI Officers', path: '/ai' },
       { icon: '🧠', label: 'สมอง LAMI', labelEn: 'LAMI Brain', path: '/ai/lami' },

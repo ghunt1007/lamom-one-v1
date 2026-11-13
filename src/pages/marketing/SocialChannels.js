@@ -44,7 +44,9 @@ export default async function SocialChannelsPage(container) {
   // (v1.0.1128) แท็บ 🤖 ตอบอัตโนมัติ — วาดใหม่เฉพาะตอนอยู่แท็บนี้
   const autoTab = createAutoTab({ getStatus: () => status, rerender: () => { if (alive() && tab === 'auto') render() } })
   let lineThreads = [], metaConvs = [], metaLoaded = false, metaLoading = false, metaErr = ''
-  let filter = 'all', q = ''
+  // (v1.0.1132) ?f=reply เปิดมาที่แชตรอตอบเลย (ลิงก์จากทีม AI)
+  let filter = new URLSearchParams(location.search || '').get('f') === 'reply' ? 'reply' : 'all', q = ''
+  if (filter === 'reply') tab = 'inbox'
   let openKey = '', lineMsgs = [], stopMsgs = null, replyDraft = ''
   // (v1.0.1024) ห้องแชต LINE ↔ ลูกค้าในระบบ (จับจาก lineUserId) — มีแล้วขึ้น "ดูลูกค้า" แทน "เป็น Lead" กันลูกค้าซ้ำ
   const linked = new Map() // threadId → customer | null

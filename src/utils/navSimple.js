@@ -9,7 +9,7 @@ export const ESSENTIALS = [
   { key: 'results', group: 'ผลงานและรายงาน', groupEn: 'Results', groupZh: '业绩与报告',
     paths: ['/', '/crm', '/crm/sales-income', '/analytics/sales-metrics', '/finance/commission'] },
   { key: 'helper', group: 'ผู้ช่วย', groupEn: 'Assistant', groupZh: '助手',
-    paths: ['/ai/ask', '/tasks', '/notifications'] },
+    paths: ['/ai/team', '/ai/ask', '/tasks', '/notifications'] },
   { key: 'setup', group: 'ตั้งค่า', groupEn: 'Settings', groupZh: '设置',
     paths: ['/settings', '/settings/daily-report'] },
 ]
@@ -52,7 +52,7 @@ export const SIMPLE_LABELS = {
   '/crm/testdrive': 'ทดลองขับ', '/crm/pipeline': 'Pipeline ดีล', '/dms/delivery-calendar': 'ปฏิทินส่งมอบ',
   '/finance/loan-calc': 'คำนวณค่างวด', '/finance/commission': 'ค่าคอมมิชชั่น', '/ai/ask': 'ถาม LAMI (AI)',
   '/tasks': 'งานที่ต้องทำ', '/calendar': 'ปฏิทินงาน', '/crm/programs': 'โปร ดอกเบี้ย & เงินพิเศษ', '/marketing/events': 'ออกบูธ & อีเวนต์', '/marketing/channels': 'แชต & โพสต์โซเชียล', '/analytics/sales-metrics': 'ตัวชี้วัดการขาย', '/notifications': 'การแจ้งเตือน', '/settings/daily-report': 'รายงานส่ง LINE',
-  '/crm/warroom': 'ห้องบัญชาการขาย', '/finance/pl': 'กำไร-ขาดทุน', '/finance/margin': 'กำไร & เป้าหมาย', '/settings/page-usage': 'ซ่อนเมนูที่ไม่ใช้', '/settings/backup': 'สำรองข้อมูล',
+  '/crm/warroom': 'ห้องบัญชาการขาย', '/finance/pl': 'กำไร-ขาดทุน', '/finance/margin': 'กำไร & เป้าหมาย', '/settings/page-usage': 'ซ่อนเมนูที่ไม่ใช้', '/ai/team': 'ทีม AI ทำงานให้', '/settings/backup': 'สำรองข้อมูล',
 }
 
 export const MODE_KEY = 'lamom_nav_mode'

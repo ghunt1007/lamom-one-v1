@@ -179,6 +179,16 @@ export const PAGE_COLLECTIONS = {
   "job_cards",
   "vehicles"
  ],
+ "/ai/team": [
+  "appointments",
+  "bookings",
+  "complaints",
+  "leave_requests",
+  "pdi",
+  "quotations",
+  "social_threads",
+  "test_drives"
+ ],
  "/tasks": [
   "tasks"
  ],
