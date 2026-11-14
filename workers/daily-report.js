@@ -41,6 +41,7 @@ import { withStoredSecrets, handleSecrets } from './secretStore.js'
 import { alertNewLead } from './leadAlert.js'
 import { runLeadNudge } from './leadNudge.js'
 import { SEND_CRON, runScheduledSends, scheduleSend, unscheduleSend } from './scheduledSend.js'
+import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } from './scheduledPost.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
 import { campaignLeads } from '../src/utils/campaignLeads.js'
@@ -141,6 +142,10 @@ export default {
           // (v1.0.1143) ตั้ง/ยกเลิกเวลาส่ง LINE Broadcast อัตโนมัติ — ดู workers/scheduledSend.js
           if (url.pathname === '/social/line/schedule') return json(await scheduleSend(env, await getFirestoreAccessToken(env), body || {}, { role: info.role, by: info.name }), 200, cors)
           if (url.pathname === '/social/line/unschedule') return json(await unscheduleSend(env, await getFirestoreAccessToken(env), body || {}, { role: info.role }), 200, cors)
+          // (v1.0.1152) ตั้งเวลาโพสต์ลงเพจ Facebook/Instagram — ดู workers/scheduledPost.js
+          if (url.pathname === '/social/meta/post/schedule') return json(await schedulePost(env, await getFirestoreAccessToken(env), body || {}, { role: info.role, by: info.name }), 200, cors)
+          if (url.pathname === '/social/meta/post/unschedule') return json(await unschedulePost(env, await getFirestoreAccessToken(env), body || {}, { role: info.role }), 200, cors)
+          if (url.pathname === '/social/meta/post/scheduled') return json(await listScheduledPosts(env, await getFirestoreAccessToken(env)), 200, cors)
           const out = await handleSocial(url.pathname, body || {}, env, { uid: verified.localId, role: info.role, name: info.name, getAccessToken: () => getFirestoreAccessToken(env) })
           if (out === null) return json({ error: 'Not found' }, 404, cors)
           return json(out, 200, cors)
@@ -180,6 +185,7 @@ export default {
         const e2 = await withStoredSecrets(env, () => getFirestoreAccessToken(env))
         const tok = await getFirestoreAccessToken(env)
         await runScheduledSends(e2, tok)
+        await runScheduledPosts(e2, tok).catch(() => null)
         await runLeadNudgeJob(e2, tok).catch(() => null)
       })())
       return

@@ -26,6 +26,7 @@ import { createAutoTab, leadFormLink } from './channelsAuto.js'
 import { goLiveHtml } from './channelsGoLive.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { createKeysCard } from './channelsKeys.js'
+import { createPostSched } from './channelsPostSched.js'
 const LEVEL_ORDER_UI = { team: 0, showroom: 1, sales: 2 }
 
 const TABS = { inbox: '💬 แชตรวม', auto: '🤖 ตอบอัตโนมัติ', post: '📝 โพสต์', ads: '📣 โฆษณา', maps: '📍 Google Maps', accounts: '👥 บัญชี', guide: '🧭 วิธีเชื่อม' }
@@ -46,6 +47,7 @@ export default async function SocialChannelsPage(container) {
   let metaStored = []
   // (v1.0.1128) แท็บ 🤖 ตอบอัตโนมัติ — วาดใหม่เฉพาะตอนอยู่แท็บนี้
   const keysCard = createKeysCard({ rerender: () => { if (alive() && tab === 'guide') render() }, onChanged: () => { loadStatus() } })
+  const postSched = createPostSched({ getDraft: () => { readPost(); return { pageIds: [...postDraft.pages], message: postDraft.message, imageUrl: postDraft.imageUrl, link: postDraft.link, toInstagram: postDraft.toIg } }, getPages: () => status?.meta?.pages || [], rerender: () => { if (alive() && tab === 'post') render() } })
   const autoTab = createAutoTab({ getStatus: () => status, rerender: () => { if (alive() && tab === 'auto') render() } })
   let lineThreads = [], metaConvs = [], metaLoaded = false, metaLoading = false, metaErr = ''
   // (v1.0.1132) ?f=reply เปิดมาที่แชตรอตอบเลย (ลิงก์จากทีม AI)
@@ -341,7 +343,7 @@ export default async function SocialChannelsPage(container) {
           ${pages.length ? `
             <div class="ch-pages">${pages.map(p => `<label class="ch-pagepick"><input type="checkbox" data-page="${esc(p.id)}" ${postDraft.pages.has(p.id) ? 'checked' : ''}><span><b>${esc(p.name)}</b><small>${p.fans != null ? `${Number(p.fans).toLocaleString()} ถูกใจ` : ''}${p.ig ? ` · 📸 @${esc(p.ig.username || '')}` : ''}</small></span></label>`).join('')}</div>
             <label class="ch-check"><input type="checkbox" id="ps-ig" ${postDraft.toIg ? 'checked' : ''} ${igOk ? '' : 'disabled'}> ลง Instagram ด้วย ${igOk ? '(ต้องมีลิงก์รูป)' : '(เลือกเพจที่ผูก IG ก่อน)'}</label>
-            <button type="button" class="btn btn-primary" id="ps-go">🚀 โพสต์เลย</button>
+            <div class="ch-row"><button type="button" class="btn btn-primary" id="ps-go">🚀 โพสต์เลย</button>${postSched.buttonHtml()}</div>
             <div id="ps-result"></div>`
           : (statusLoading ? '<div class="ch-note">⏳ กำลังตรวจ…</div>' : notConnected('Facebook เพจ'))}
           <div class="ch-card-h" style="margin-top:14px">📤 แชร์ด้วยบัญชีส่วนตัว (เซลส์ทุกคนทำได้)</div>
@@ -352,7 +354,8 @@ export default async function SocialChannelsPage(container) {
           </div>
           <small class="ch-muted">Facebook/LINE ส่วนตัวไม่มี API ให้โพสต์อัตโนมัติ — ปุ่มนี้เปิดหน้าแชร์ให้กดยืนยันเอง</small>
         </div>
-      </div>`
+      </div>
+      ${pages.length ? postSched.html() : ''}`
   }
   function readPost() {
     postDraft.message = $('#ps-msg')?.value || ''
@@ -659,6 +662,7 @@ export default async function SocialChannelsPage(container) {
     if (t.closest('#ch-lead')) { toLead(); return }
     if (t.closest('#ch-cust')) { const c = linked.get(findItem(openKey)?.id); if (c) navigate(`/crm/customers?id=${encodeURIComponent(c.id)}`); return }
     if (t.closest('#ch-reload-meta')) { metaLoaded = false; loadMeta(); return }
+    if (tab === 'post' && postSched.handleClick(t)) return
     if (t.closest('#ps-go')) { doPost(); return }
     if (t.closest('#ps-ai')) { aiPost(); return }
     const sh = t.closest('[data-share]'); if (sh) { share(sh.dataset.share); return }
