@@ -572,7 +572,8 @@ export const PAGE_COLLECTIONS = {
   "staff"
  ],
  "/quality/satisfaction": [
-  "customer_reviews"
+  "customer_reviews",
+  "customers"
  ],
  "/settings/activity": [],
  "/service/charging": [
