@@ -23,6 +23,7 @@ import { openQuickLead } from '../../utils/quickLead.js'
 import { socialStatus, metaInbox, metaReply, metaPost, metaAds, metaAdsUpdate, lineReply, shareLinks, googlePlaces } from '../../utils/socialApi.js'
 import { PLATFORM_GUIDE, SECRET_STEPS, LEVELS, ACCOUNT_PLATFORMS } from '../../utils/socialGuide.js'
 import { createAutoTab, leadFormLink } from './channelsAuto.js'
+import { createKeysCard } from './channelsKeys.js'
 const LEVEL_ORDER_UI = { team: 0, showroom: 1, sales: 2 }
 
 const TABS = { inbox: '💬 แชตรวม', auto: '🤖 ตอบอัตโนมัติ', post: '📝 โพสต์', ads: '📣 โฆษณา', maps: '📍 Google Maps', accounts: '👥 บัญชี', guide: '🧭 วิธีเชื่อม' }
@@ -42,6 +43,7 @@ export default async function SocialChannelsPage(container) {
   let status = null, statusErr = '', statusLoading = true
   let metaStored = []
   // (v1.0.1128) แท็บ 🤖 ตอบอัตโนมัติ — วาดใหม่เฉพาะตอนอยู่แท็บนี้
+  const keysCard = createKeysCard({ rerender: () => { if (alive() && tab === 'guide') render() }, onChanged: () => { loadStatus() } })
   const autoTab = createAutoTab({ getStatus: () => status, rerender: () => { if (alive() && tab === 'auto') render() } })
   let lineThreads = [], metaConvs = [], metaLoaded = false, metaLoading = false, metaErr = ''
   // (v1.0.1132) ?f=reply เปิดมาที่แชตรอตอบเลย (ลิงก์จากทีม AI)
@@ -601,6 +603,7 @@ export default async function SocialChannelsPage(container) {
     const ok = { line: s.line?.configured, meta: s.meta?.configured && (s.meta.pages || []).length, metaAds: s.metaAds?.configured, tiktok: false, google: s.google?.configured, ai: s.ai?.configured, leadHook: s.leadHook?.configured }
     return `
       <div class="ch-guide">
+        ${keysCard.html()}
         ${PLATFORM_GUIDE.map(g => `
           <details class="ch-card ch-g" id="g-${g.key}" ${!ok[g.statusKey] ? '' : ''}>
             <summary><span>${g.icon} <b>${esc(g.name)}</b></span><span class="ch-st ${ok[g.statusKey] ? 'on' : ''}">${ok[g.statusKey] ? '✅ ใช้ได้แล้ว' : '⚪ ยังไม่เชื่อม'}</span></summary>
@@ -610,8 +613,8 @@ export default async function SocialChannelsPage(container) {
               <div class="ch-g-h">⛔ แพลตฟอร์มไม่อนุญาต</div><ul class="no">${g.cannot.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
             </div>
           </details>`).join('')}
-        <div class="ch-card"><div class="ch-card-h">🔐 วิธีใส่โทเค็นอย่างปลอดภัย (Secret)</div><ol>${SECRET_STEPS.map(x => `<li>${esc(x)}</li>`).join('')}</ol>
-          <small class="ch-muted">โทเค็นอยู่ที่ Cloudflare เท่านั้น ไม่อยู่ในโค้ด ไม่อยู่ในฐานข้อมูล และหน้าเว็บมองไม่เห็น</small></div>
+        <div class="ch-card"><div class="ch-card-h">🔐 อีกทางหนึ่ง: ใส่กุญแจที่ Cloudflare (ไม่จำเป็นถ้าใส่ในการ์ด 🔑 ด้านบนแล้ว)</div><ol>${SECRET_STEPS.map(x => `<li>${esc(x)}</li>`).join('')}</ol>
+          <small class="ch-muted">กุญแจไม่อยู่ในโค้ด และหน้าเว็บมองไม่เห็น — ถ้าใส่จากในแอป ระบบเข้ารหัสก่อนเก็บ</small></div>
       </div>`
   }
 
@@ -636,6 +639,7 @@ export default async function SocialChannelsPage(container) {
     if (t.closest('#ch-back')) { openKey = ''; stopMsgs?.(); stopMsgs = null; render(); return }
     if (t.closest('#ch-send')) { sendReply(); return }
     const ap = t.closest('#ch-aipause'); if (ap) { toggleAiPause(ap.dataset.id); return }
+    if (tab === 'guide' && keysCard.handleClick(t, container)) return
     const cf = t.closest('[data-copy-form]'); if (cf) { copyText(leadFormLink(cf.dataset.copyForm)); return }
     if (t.closest('#au-save')) { autoTab.save(container); return }
     if (t.closest('#au-test')) { autoTab.test(container); return }

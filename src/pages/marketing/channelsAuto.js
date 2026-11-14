@@ -60,7 +60,7 @@ export function createAutoTab({ getStatus, rerender }) {
         <div class="ch-card">
           <div class="ch-card-h">🤖 AI ตอบลูกค้าอัตโนมัติ ${cfg.aiReply ? '<span class="ch-st on">เปิดอยู่</span>' : '<span class="ch-st">ปิดอยู่</span>'}</div>
           ${!owner ? '<div class="ch-note">เจ้าของโปรแกรมเป็นคนเปิด/ปิดได้ — หน้านี้แสดงสถานะให้ทีมดู</div>' : ''}
-          ${raw && !aiKey ? '<div class="ch-note bad">⚠️ ยังไม่ได้ใส่กุญแจ AI ให้ตัวรับแชต — ใส่ GEMINI_API_KEY ใน Cloudflare (worker lamom-daily-report) ครั้งเดียว ดูแท็บ 🧭 วิธีเชื่อม</div>' : ''}
+          ${raw && !aiKey ? '<div class="ch-note bad">⚠️ ยังไม่ได้ใส่กุญแจ AI ให้ตัวรับแชต — วางกุญแจ AI ที่แท็บ 🧭 วิธีเชื่อม → การ์ด 🔑 กุญแจเชื่อมต่อ (ครั้งเดียว)</div>' : ''}
           ${sw('au-ai', cfg.aiReply, 'ให้ AI ตอบแชตลูกค้า', 'ตอบคำถามเบื้องต้น โปร และขอชื่อ-เบอร์ให้เซลส์โทรกลับ · พนักงานตอบเองเมื่อไหร่ AI หยุด 30 นาที')}
           <div class="ch-auto-row">
             <label class="ch-radio"><input type="radio" name="au-mode" value="always" ${cfg.aiMode !== 'offhours' ? 'checked' : ''} ${owner ? '' : 'disabled'}> ตอบทุกเวลา</label>
@@ -139,7 +139,7 @@ export function createAutoTab({ getStatus, rerender }) {
     try {
       const r = await aiReplyTest(q, draft)
       testOut = r.ok ? { q, text: r.text, handoff: r.handoff }
-        : { q, error: r.reason === 'nokey' ? '⚠️ ยังไม่ได้ใส่กุญแจ AI (GEMINI_API_KEY) ให้ตัวรับแชต — ดูแท็บ 🧭 วิธีเชื่อม' : 'AI ไม่ได้ตอบ ลองถามใหม่อีกครั้ง' }
+        : { q, error: r.reason === 'nokey' ? '⚠️ ยังไม่ได้ใส่กุญแจ AI — วางได้ที่แท็บ 🧭 วิธีเชื่อม → การ์ด 🔑 กุญแจเชื่อมต่อ' : 'AI ไม่ได้ตอบ ลองถามใหม่อีกครั้ง' }
     } catch (e) { testOut = { q, error: e.message || 'ถามไม่สำเร็จ' } }
     testing = false; rerender()
   }

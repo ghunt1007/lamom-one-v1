@@ -17,6 +17,9 @@ async function call(path, body = {}) {
   return data
 }
 
+// (v1.0.1141) กุญแจเชื่อมต่อจากในแอป (เจ้าของโปรแกรมเท่านั้น) — ค่าจริงส่งไปอย่างเดียว ไม่มีทางอ่านกลับ
+export const secretsCall = body => call('/social/secrets', body)
+export const WORKER_URL = URL_
 export const socialStatus = () => call('/social/status')
 export const metaInbox = (pageId, platform) => call('/social/meta/inbox', { pageId, platform })
 export const metaReply = (pageId, recipientId, text) => call('/social/meta/reply', { pageId, recipientId, text })

@@ -1337,3 +1337,13 @@ describe('withProgramOwnerFlag (v1.0.1074)', () => {
     expect(await withProgramOwnerFlag(null, 't', env)).toBe(null)
   })
 })
+
+describe('v1.0.1141 /social/secrets is program-owner only', () => {
+  it('rejects no token and a normal owner-role staff account', async () => {
+    const noAuth = await worker.fetch(new Request('https://worker.example/social/secrets', { method: 'POST', body: '{"op":"status"}' }), BASE_ENV)
+    expect(noAuth.status).toBe(401)
+    stubFetch([], 'owner') // role owner แต่ไม่ใช่เจ้าของโปรแกรม (ไม่มี programOwner / อีเมลไม่ตรง)
+    const res = await worker.fetch(new Request('https://worker.example/social/secrets', { method: 'POST', headers: { Authorization: 'Bearer t', 'Content-Type': 'application/json' }, body: '{"op":"set","key":"GEMINI_API_KEY","value":"x"}' }), BASE_ENV)
+    expect(res.status).toBe(403)
+  })
+})
