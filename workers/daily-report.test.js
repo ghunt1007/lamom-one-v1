@@ -1347,3 +1347,18 @@ describe('v1.0.1141 /social/secrets is program-owner only', () => {
     expect(res.status).toBe(403)
   })
 })
+
+// (v1.0.1143) cron ทุก 10 นาที (ส่ง Broadcast ตามเวลา) ต้องไม่ไปส่งรายงานประจำวัน และ cron ที่ไม่รู้จักต้องไม่ทำอะไร
+describe('scheduled() cron routing', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  for (const cron of ['*/10 * * * *', '5 5 * * *']) {
+    it(`cron "${cron}" never sends the daily report`, async () => {
+      const urls = []
+      vi.stubGlobal('fetch', vi.fn(async url => { urls.push(String(url)); return { ok: true, json: async () => ({ access_token: 'a', documents: [] }) } }))
+      const waits = []
+      await worker.scheduled({ cron }, { ...BASE_ENV, FIRESTORE_SERVICE_ACCOUNT_JSON: await fakeServiceAccount(), TELEGRAM_BOT_TOKEN: 't', TELEGRAM_CHAT_ID: 'c', LINE_CHANNEL_ACCESS_TOKEN: 'tok' }, { waitUntil: p => waits.push(p) })
+      await Promise.all(waits)
+      expect(urls.some(u => u.includes('api.telegram.org') || u.includes('api.line.me'))).toBe(false)
+    })
+  }
+})

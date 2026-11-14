@@ -180,3 +180,7 @@ button.ch-acc-res { cursor: pointer; color: var(--primary); } button.ch-acc-res:
 .ch-key-copy { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
 .ch-key-copy small { flex:1 1 100%; color:var(--text-3); }
 .ch-key-copy code { flex:1 1 180px; min-width:0; overflow-wrap:anywhere; font-size:0.76rem; }
+/* (v1.0.1142) ขั้นต่อไปในการ์ดกุญแจ */
+.ch-note.ok { color: var(--success, #2ea36b); }
+.ch-key-next { font-weight: 600; border-left: 3px solid var(--primary); }
+.ch-key.is-next { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 10px; }
