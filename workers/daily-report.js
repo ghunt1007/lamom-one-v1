@@ -41,6 +41,7 @@ import { withStoredSecrets, handleSecrets } from './secretStore.js'
 import { alertNewLead } from './leadAlert.js'
 import { runLeadNudge } from './leadNudge.js'
 import { SEND_CRON, runScheduledSends, scheduleSend, unscheduleSend } from './scheduledSend.js'
+import { runChatNudge } from './chatNudge.js'
 import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } from './scheduledPost.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
@@ -187,6 +188,7 @@ export default {
         await runScheduledSends(e2, tok)
         await runScheduledPosts(e2, tok).catch(() => null)
         await runLeadNudgeJob(e2, tok).catch(() => null)
+        await runChatNudgeJob(e2, tok).catch(() => null)
       })())
       return
     }
@@ -230,6 +232,21 @@ async function runLeadNudgeJob(env, token) {
     mark: async (id, iso) => {
       const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/customers/${encodeURIComponent(id)}?updateMask.fieldPaths=leadNudgedAt&currentDocument.exists=true`, {
         method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields: { leadNudgedAt: { stringValue: iso } } }),
+      })
+      return res.ok
+    },
+  })
+}
+
+// (v1.0.1153) cron ทุก 10 นาที: แชตลูกค้าที่รอคนตอบเกิน 15 นาที → เตือนครั้งเดียวต่อข้อความล่าสุด (workers/chatNudge.js)
+async function runChatNudgeJob(env, token) {
+  if (!token) return { waiting: 0, nudged: 0 }
+  return runChatNudge({
+    ...(await leadTools(env, token)),
+    listThreads: () => runQuery(env, token, 'social_threads', 'lastAt', 'DESCENDING', 60, ['unread', 'lastDirection', 'lastText', 'lastAt', 'deleted', 'needsHuman', 'name', 'channelName', 'chatNudgedAt']),
+    mark: async (id, iso) => {
+      const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/social_threads/${encodeURIComponent(id)}?updateMask.fieldPaths=chatNudgedAt&currentDocument.exists=true`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields: { chatNudgedAt: { stringValue: iso } } }),
       })
       return res.ok
     },
