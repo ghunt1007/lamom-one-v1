@@ -2,13 +2,13 @@
  * Broadcast — ส่งข้อความหาลูกค้าจำนวนมาก
  * Route: /comms/broadcast
  */
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, formatDateTime, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { TARGET_SEGMENTS, getSegmentMembers, getSegmentCount, reachableMembers } from '../../core/segments.js'
 import { sendSms, sendEmail, sendPush } from '../../utils/comms.js'
-import { lineMulticast, lineBroadcastAll } from '../../utils/socialApi.js'
+import { lineMulticast, lineBroadcastAll, lineSchedule, lineUnschedule } from '../../utils/socialApi.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
@@ -84,8 +84,10 @@ export default async function BroadcastPage(container) {
                     <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px">
                       ${ch?.label} · ${TARGET_SEGS[b.target] || escHtml(b.target)}
                       ${b.sentAt ? ' · ส่งเมื่อ ' + timeAgo(b.sentAt) : ''}
-                      ${b.scheduledAt ? ' · กำหนดส่ง ' + formatDate(b.scheduledAt) : ''}
+                      ${b.scheduledAt && b.status === 'scheduled' ? ' · กำหนดส่ง ' + formatDateTime(b.scheduledAt) + (b.autoSend ? ' (ระบบส่งเอง)' : ' (ต้องกดส่งเอง)') : ''}
+                      ${b.sentBy === 'auto' ? ' · ระบบส่งให้ตามเวลา' : ''}
                     </div>
+                    ${b.scheduleNote ? `<div style="font-size:0.72rem;color:var(--warning);margin-top:2px;overflow-wrap:anywhere">⚠️ ${escHtml(b.scheduleNote)}</div>` : ''}
                   </div>
                 </div>
                 <div style="display:flex;gap:6px;align-items:center">
@@ -108,6 +110,7 @@ export default async function BroadcastPage(container) {
                 <button class="btn btn-xs btn-secondary view-bc-btn" data-id="${b.id}">ดูรายละเอียด</button>
                 ${b.status === 'draft' ? `<button class="btn btn-xs btn-primary send-bc-btn" data-id="${b.id}">📤 ส่งทันที</button>` : ''}
                 ${b.status === 'draft' ? `<button class="btn btn-xs btn-secondary sched-bc-btn" data-id="${b.id}">⏰ กำหนดเวลา</button>` : ''}
+                ${b.status === 'scheduled' ? `<button class="btn btn-xs btn-secondary unsched-bc-btn" data-id="${b.id}">✖ ยกเลิกกำหนดเวลา</button>` : ''}
               </div>
             </div>`
           }).join('')}
@@ -180,28 +183,59 @@ export default async function BroadcastPage(container) {
       } catch (e) { showToast('ส่งไม่สำเร็จ: ' + e.message, 'error') }
       finally { b.disabled = false }
     }))
+    container.querySelectorAll('.unsched-bc-btn').forEach(b => b.addEventListener('click', () => {
+      const bc = broadcasts.find(x => x.id === b.dataset.id); if (bc) cancelSchedule(bc)
+    }))
     container.querySelectorAll('.sched-bc-btn').forEach(b => b.addEventListener('click', () => {
       const bc = broadcasts.find(x => x.id === b.dataset.id); if (bc) openScheduleModal(bc)
     }))
   }
 
+  // (v1.0.1143) LINE: ระบบส่งเองตามเวลา (ตัวรับตรวจทุก 10 นาที) · ช่องทางอื่นยังต้องกลับมากดส่งเอง
   function openScheduleModal(bc) {
+    const auto = bc.channel === 'line'
     openModal({
       title: '⏰ กำหนดเวลาส่ง — ' + escHtml(bc.title),
       size: 'sm',
       body: `<div class="input-group"><label class="input-label">วันและเวลาที่ต้องการส่ง *</label><input class="input" type="datetime-local" id="sched-at"></div>
-        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px">⚠️ ระบบยังไม่มีตัวส่งอัตโนมัติตามเวลาที่กำหนด — ทีมงานต้องกลับมากด "ส่งทันที" เองเมื่อถึงเวลา</div>`,
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px">${auto
+          ? '✅ ถึงเวลาแล้วระบบจะส่ง LINE ให้เอง ไม่ต้องกลับมากด (ส่งภายใน 10 นาทีหลังเวลาที่ตั้ง) · รายชื่อผู้รับคือคนในกลุ่ม ณ ตอนนี้ · ยกเลิกได้ก่อนถึงเวลา'
+          : '⚠️ ช่องทางนี้ระบบยังไม่ส่งเองตามเวลา — ทีมงานต้องกลับมากด "ส่งทันที" เองเมื่อถึงเวลา (ส่งเองอัตโนมัติได้เฉพาะ LINE)'}</div>`,
       confirmText: '💾 บันทึกกำหนดการ',
       async onConfirm() {
         const val = document.getElementById('sched-at')?.value
         if (!val) { showToast('❗ กรุณาเลือกวันและเวลา', 'error'); return false }
+        const at = new Date(val)
+        if (!(at.getTime() > Date.now())) { showToast('❗ เวลาที่เลือกผ่านไปแล้ว — เลือกเวลาในอนาคต', 'error'); return false }
         try {
-          await updateDocData('broadcasts', bc.id, { status: 'scheduled', scheduledAt: new Date(val).toISOString() })
-          showToast('⏰ กำหนดเวลาส่งแล้ว', 'success')
+          let recipients = null
+          if (auto) {
+            let ids = null
+            if (bc.target !== 'all') {
+              ids = (await getSegmentMembers(bc.target)).filter(m => m.lineUserId).map(m => m.lineUserId)
+              if (!ids.length) { showToast('❗ ยังไม่มีลูกค้าในกลุ่มนี้ที่เคยทัก LINE OA — เลือกกลุ่ม "ทั้งหมด" หรือกลุ่มอื่น', 'error', 7000); return false }
+              recipients = ids.length
+            }
+            const r = await lineSchedule(bc.id, at.toISOString(), bc.message, ids)
+            if (r.configured === false) { showToast('❗ ' + r.error, 'error'); return false }
+          }
+          await updateDocData('broadcasts', bc.id, { status: 'scheduled', scheduledAt: at.toISOString(), autoSend: auto, recipients, scheduleNote: '' })
+          showToast(auto ? '⏰ ตั้งเวลาแล้ว — ถึงเวลาระบบจะส่ง LINE ให้เอง' : '⏰ กำหนดเวลาส่งแล้ว', 'success')
           await loadData()
-        } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+        } catch (e) { showToast('บันทึกไม่สำเร็จ' + (e?.message ? ': ' + e.message : ''), 'error', 6000); return false }
       }
     })
+  }
+
+  async function cancelSchedule(bc) {
+    const ok = await confirmDialog({ title: 'ยกเลิกกำหนดเวลา?', message: `"${escHtml(bc.title)}" จะกลับเป็นร่าง และระบบจะไม่ส่งให้`, confirmText: 'ยกเลิกกำหนดเวลา' })
+    if (!ok) return
+    try {
+      if (bc.autoSend) await lineUnschedule(bc.id)
+      await updateDocData('broadcasts', bc.id, { status: 'draft', scheduledAt: null, autoSend: false })
+      showToast('ยกเลิกกำหนดเวลาแล้ว', 'success')
+      await loadData()
+    } catch (e) { showToast('ยกเลิกไม่สำเร็จ' + (e?.message ? ': ' + e.message : ''), 'error') }
   }
 
   function openDetail(bc) {

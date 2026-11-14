@@ -38,6 +38,7 @@ import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
 import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFromChat, handleLeadForm } from './leadIntake.js'
 import { handleNotify } from './notify.js'
 import { withStoredSecrets, handleSecrets } from './secretStore.js'
+import { SEND_CRON, runScheduledSends, scheduleSend, unscheduleSend } from './scheduledSend.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
 import { campaignLeads } from '../src/utils/campaignLeads.js'
@@ -55,6 +56,8 @@ const FIN_PASSED_STATUSES = ['ผ่านไฟแนนซ์รอจอง',
 const STAFF_ROLES = ['owner', 'admin', 'manager', 'sales', 'service', 'finance', 'hr', 'staff']
 // 02:00 UTC = 09:00 เวลาไทย — ต้องตรงกับบรรทัดใน [triggers] crons ของ wrangler-daily-report.toml
 const MORNING_CRON = '0 2 * * *'
+// 11:00 UTC = 18:00 เวลาไทย — รายงานประจำวัน
+const EVENING_CRON = '0 11 * * *'
 // ป้ายช่องทางที่มาของลูกค้า — key เดียวกับหน้าลูกค้า (Customers.js SOURCE)
 const SOURCE_LABELS = { facebook: 'Facebook', line: 'LINE', tiktok: 'TikTok', 'walk-in': 'Walk-in', referral: 'แนะนำ', google: 'Google', website: 'เว็บไซต์', phone: 'โทรเข้า', other: 'อื่นๆ' }
 const STALE_LEAD_DAYS = 3
@@ -133,6 +136,9 @@ export default {
         let body
         try { body = await request.json() } catch { body = {} }
         try {
+          // (v1.0.1143) ตั้ง/ยกเลิกเวลาส่ง LINE Broadcast อัตโนมัติ — ดู workers/scheduledSend.js
+          if (url.pathname === '/social/line/schedule') return json(await scheduleSend(env, await getFirestoreAccessToken(env), body || {}, { role: info.role, by: info.name }), 200, cors)
+          if (url.pathname === '/social/line/unschedule') return json(await unscheduleSend(env, await getFirestoreAccessToken(env), body || {}, { role: info.role }), 200, cors)
           const out = await handleSocial(url.pathname, body || {}, env, { uid: verified.localId, role: info.role, name: info.name, getAccessToken: () => getFirestoreAccessToken(env) })
           if (out === null) return json({ error: 'Not found' }, 404, cors)
           return json(out, 200, cors)
@@ -166,7 +172,17 @@ export default {
       ctx.waitUntil(runNightlyBackup(env, backupDeps(env)))
       return
     }
-    ctx.waitUntil(event.cron === MORNING_CRON ? runDailyReport(env, true) : runDailyReport(env))
+    // (v1.0.1143) cron ทุก 10 นาที = ส่ง Broadcast ที่ตั้งเวลาไว้ — ต้องแยกออกก่อน ไม่งั้นจะตกไปส่งรายงานประจำวันทุก 10 นาที
+    if (event.cron === SEND_CRON) {
+      ctx.waitUntil((async () => {
+        const e2 = await withStoredSecrets(env, () => getFirestoreAccessToken(env))
+        await runScheduledSends(e2, await getFirestoreAccessToken(env))
+      })())
+      return
+    }
+    if (event.cron === MORNING_CRON) { ctx.waitUntil(runDailyReport(env, true)); return }
+    // รายงานเย็นส่งเฉพาะ cron 18:00 เท่านั้น — cron ที่ไม่รู้จักจะไม่ทำอะไร (กันส่งรายงานซ้ำถ้ามีการเพิ่ม cron ใหม่ในอนาคต)
+    if (event.cron === EVENING_CRON) ctx.waitUntil(runDailyReport(env))
   },
 }
 

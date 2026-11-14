@@ -29,6 +29,9 @@ export const metaAdsUpdate = payload => call('/social/meta/ads/update', payload)
 export const lineReply = (threadId, text) => call('/social/line/reply', { threadId, text })
 export const lineMulticast = (userIds, text) => call('/social/line/multicast', { userIds, text })
 export const lineBroadcastAll = text => call('/social/line/broadcast', { text })
+// (v1.0.1143) ตั้งเวลาให้ระบบส่ง LINE เองตามเวลา — userIds = null คือส่งถึงเพื่อน OA ทั้งหมด
+export const lineSchedule = (id, at, text, userIds) => call('/social/line/schedule', userIds ? { id, at, text, userIds } : { id, at, text, all: true })
+export const lineUnschedule = id => call('/social/line/unschedule', { id })
 
 // ลิงก์แชร์ด้วยบัญชีส่วนตัว (ทำได้ทุกคนโดยไม่ต้องใช้ API — คนกดแชร์เองจากเครื่องตัวเอง)
 export function shareLinks(text = '', link = '') {
