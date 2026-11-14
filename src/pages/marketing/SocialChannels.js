@@ -23,6 +23,8 @@ import { openQuickLead } from '../../utils/quickLead.js'
 import { socialStatus, metaInbox, metaReply, metaPost, metaAds, metaAdsUpdate, lineReply, shareLinks, googlePlaces } from '../../utils/socialApi.js'
 import { PLATFORM_GUIDE, SECRET_STEPS, LEVELS, ACCOUNT_PLATFORMS } from '../../utils/socialGuide.js'
 import { createAutoTab, leadFormLink } from './channelsAuto.js'
+import { goLiveHtml } from './channelsGoLive.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 import { createKeysCard } from './channelsKeys.js'
 const LEVEL_ORDER_UI = { team: 0, showroom: 1, sales: 2 }
 
@@ -604,6 +606,7 @@ export default async function SocialChannelsPage(container) {
     return `
       <div class="ch-guide">
         ${keysCard.html()}
+        ${ok.meta && isProgramOwner() ? goLiveHtml(esc, location.origin) : ''}
         ${PLATFORM_GUIDE.map(g => `
           <details class="ch-card ch-g" id="g-${g.key}" ${!ok[g.statusKey] ? '' : ''}>
             <summary><span>${g.icon} <b>${esc(g.name)}</b></span><span class="ch-st ${ok[g.statusKey] ? 'on' : ''}">${ok[g.statusKey] ? '✅ ใช้ได้แล้ว' : '⚪ ยังไม่เชื่อม'}</span></summary>
