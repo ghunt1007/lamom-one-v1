@@ -150,7 +150,7 @@ describe('v1.0.1139 phone from chat', () => {
   })
 })
 
-import { handleLeadForm, formRateOk, accountLeadInfo, __resetFormHits } from './leadIntake.js'
+import { handleLeadForm, formRateOk, accountLeadInfo, __resetFormHits, cleanTestDrive } from './leadIntake.js'
 import { beforeEach } from 'vitest'
 describe('v1.0.1140 public lead form', () => {
   beforeEach(() => { __resetInboxCache(); __resetFormHits() })
@@ -179,6 +179,37 @@ describe('v1.0.1140 public lead form', () => {
     expect(f.phone.stringValue).toBe('0812345678'); expect(f.source.stringValue).toBe('tiktok')
     expect(f.assignedTo.stringValue).toBe('เซลส์ หนึ่ง'); expect(f.sourceAccountId.stringValue).toBe('acc1')
     expect(f.companyId.stringValue).toBe('co1'); expect(f.sourceAccountLevel.stringValue).toBe('sales')
+  })
+  // (v1.0.1145) ขอนัดทดลองขับจากฟอร์ม
+  const NOW = Date.parse('2026-11-14T08:00:00Z') // 15:00 เวลาไทย
+  it('a test-drive request books the shared test-drive table, notes the lead and alerts', async () => {
+    const w = world()
+    const told = []
+    const r = await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', model: 'S07', note: 'โทรช่วงเย็น', td: true, tdDate: '2026-11-20', tdTime: '10:00' }), env, async () => 't', { fetch: w.f, now: NOW, onLead: async (l, res) => told.push([l.note, res.id]) })
+    expect(r.status).toBe(200)
+    expect(created(w.calls).notes.stringValue).toContain('ขอนัดทดลองขับ 20/11/2026 10:00')
+    const td = w.calls.find(x => x.url.endsWith('/test_drives') && x.method === 'POST')
+    const f = JSON.parse(td.body).fields
+    expect(f).toMatchObject({ date: { stringValue: '2026-11-20' }, time: { stringValue: '10:00' }, status: { stringValue: 'scheduled' }, customerId: { stringValue: 'new1' }, phone: { stringValue: '0812345678' }, model: { stringValue: 'S07' } })
+    expect(told).toEqual([['ขอนัดทดลองขับ 20/11/2026 10:00 · โทรช่วงเย็น', 'new1']])
+  })
+  it('without the tick no test drive is booked; a bad date is refused before anything is saved', async () => {
+    const w = world()
+    await handleLeadForm(req({ name: 'มานี', phone: '0912345678', tdDate: '2026-11-20', tdTime: '10:00' }), env, async () => 't', { fetch: w.f, now: NOW })
+    expect(w.calls.some(x => x.url.endsWith('/test_drives'))).toBe(false)
+    const w2 = world()
+    const r = await handleLeadForm(req({ name: 'มานี', phone: '0912345678', td: true, tdDate: '2026-11-13', tdTime: '10:00' }), env, async () => 't', { fetch: w2.f, now: NOW })
+    expect(r.status).toBe(400); expect(w2.calls.length).toBe(0)
+  })
+  it('cleanTestDrive accepts today in Thai time and rejects the past, far future, odd hours and nonsense', () => {
+    expect(cleanTestDrive({}, NOW)).toBe(null)
+    expect(cleanTestDrive({ td: true, tdDate: '2026-11-14', tdTime: '16:00' }, NOW)).toEqual({ date: '2026-11-14', time: '16:00', label: '14/11/2026 16:00' })
+    // 18:30 UTC ของวันที่ 14 = 01:30 เวลาไทยของวันที่ 15 → วันที่ 14 ถือว่าผ่านไปแล้ว
+    expect(cleanTestDrive({ td: true, tdDate: '2026-11-14', tdTime: '10:00' }, Date.parse('2026-11-14T18:30:00Z')).error).toContain('ผ่านไปแล้ว')
+    expect(cleanTestDrive({ td: true, tdDate: '2027-03-01', tdTime: '10:00' }, NOW).error).toContain('60 วัน')
+    expect(cleanTestDrive({ td: true, tdDate: '2026-11-20', tdTime: '22:00' }, NOW).error).toContain('08:00')
+    expect(cleanTestDrive({ td: true, tdDate: '2026-02-31', tdTime: '10:00' }, NOW).error).toBeTruthy()
+    expect(cleanTestDrive({ td: true, tdDate: '', tdTime: '' }, NOW).error).toBeTruthy()
   })
   it('team accounts and unknown accounts do not assign anyone', async () => {
     expect(accountLeadInfo({ name: 'x/social_channels/a', fields: { platform: { stringValue: 'facebook' }, level: { stringValue: 'team' }, owner: { stringValue: 'แอดมิน' } } }).assignedTo).toBe('')

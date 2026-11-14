@@ -357,6 +357,34 @@ export function formRateOk(ip, now = Date.now(), { max = 5, windowMs = 10 * 60_0
 }
 
 // บัญชีโซเชียลที่บันทึกไว้ในแอป (social_channels) → ที่มา + ผู้ดูแล (บัญชีระดับเซลส์ = มอบลีดให้เจ้าของบัญชี)
+// (v1.0.1145) ลูกค้าขอนัดทดลองขับจากฟอร์มสาธารณะ — ตรวจวัน/เวลา: วันนี้ถึง 60 วันข้างหน้า (เวลาไทย) และ 08:00–19:00
+// คืน null = ไม่ได้ขอนัด · { error } = ขอแต่กรอกไม่ถูก · { date, time, label } = ใช้ได้ (label = DD/MM/YYYY HH:MM)
+export function cleanTestDrive(b = {}, nowMs = Date.now()) {
+  if (b.td !== true && b.td !== 'true' && b.td !== 1) return null
+  const date = String(b.tdDate || ''), time = String(b.tdTime || '')
+  const bad = { error: 'กรุณาเลือกวันและเวลาทดลองขับ' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return bad
+  const d = new Date(date + 'T00:00:00Z')
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== date) return bad
+  const today = new Date(nowMs + 7 * 3600 * 1000).toISOString().slice(0, 10)
+  const max = new Date(nowMs + 7 * 3600 * 1000 + 60 * 864e5).toISOString().slice(0, 10)
+  if (date < today) return { error: 'วันที่เลือกผ่านไปแล้ว กรุณาเลือกวันใหม่' }
+  if (date > max) return { error: 'นัดล่วงหน้าได้ไม่เกิน 60 วัน' }
+  if (time < '08:00' || time > '19:00') return { error: 'เลือกเวลาได้ระหว่าง 08:00 ถึง 19:00' }
+  return { date, time, label: `${date.slice(8, 10)}/${date.slice(5, 7)}/${date.slice(0, 4)} ${time}` }
+}
+async function createTestDrive(env, token, { lead, customerId, td, companyId, now }, fetchImpl) {
+  const str = v => ({ stringValue: String(v ?? '') })
+  const fields = {
+    customerName: str(`${lead.first || ''} ${lead.last || ''}`.trim()), phone: str(lead.phone), model: str(lead.model), date: str(td.date), time: str(td.time),
+    staff: str(lead.assignedTo || ''), status: str('scheduled'), result: { nullValue: null }, notes: str('ลูกค้าขอนัดเองผ่านฟอร์มออนไลน์ — โทรยืนยันวันเวลาและรถก่อน'),
+    km: { integerValue: '0' }, duration: { integerValue: '30' }, companyId: companyId ? str(companyId) : { nullValue: null }, customerId: str(customerId || ''),
+    source: str('lead-form'), createdAt: { timestampValue: now }, updatedAt: { timestampValue: now },
+  }
+  const r = await call(fetchImpl, `${fsBase(env)}/test_drives`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }) })
+  return !!r?.ok
+}
+
 export function accountLeadInfo(doc) {
   const f = doc?.fields
   if (!f || f.deleted?.booleanValue) return null
@@ -378,6 +406,8 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   const phone = normPhone(b.phone)
   if (name.length < 2) return { status: 400, body: { ok: false, error: 'กรุณาใส่ชื่อ' } }
   if (!/^0[689]\d{8}$/.test(phone)) return { status: 400, body: { ok: false, error: 'กรุณาใส่เบอร์มือถือ 10 หลัก' } }
+  const td = cleanTestDrive(b, deps.now || Date.now())
+  if (td?.error) return { status: 400, body: { ok: false, error: td.error } }
   const ip = request.headers.get('CF-Connecting-IP') || ''
   if (!formRateOk(ip, deps.now || Date.now())) return { status: 429, body: { ok: false, error: 'ส่งถี่เกินไป กรุณาลองใหม่ภายหลัง' } }
   const token = await getToken()
@@ -392,10 +422,12 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   }
   const parts = name.split(' ')
   const clean = (v, n) => clip(String(v || '').replace(/[<>\u0000-\u001f]/g, ' ').trim(), n)
-  const lead = { first: parts[0], last: parts.slice(1).join(' '), phone, email: '', lineId: clean(b.line, 60), model: clean(b.model, 80), note: clean(b.note, 300),
+  const lead = { first: parts[0], last: parts.slice(1).join(' '), phone, email: '', lineId: clean(b.line, 60), model: clean(b.model, 80), note: [td ? `ขอนัดทดลองขับ ${td.label}` : '', clean(b.note, 300)].filter(Boolean).join(' · '),
     source: acc?.source || 'website', account: acc?.id || '', assignedTo: acc?.assignedTo || '', companyId: acc?.companyId || '' }
   const r = await createLead(env, token, lead, { tags: ['ฟอร์มรับลีด', ...(acc?.name ? [acc.name] : [])], extra: acc ? { sourceAccountName: acc.name, sourceAccountLevel: acc.level } : {}, fetchImpl })
   if (r.error) return { status: 500, body: { ok: false, error: 'บันทึกไม่สำเร็จ กรุณาลองใหม่' } }
+  // นัดทดลองขับลงตารางเดียวกับหน้า Test Drive (สถานะ "นัดแล้ว" พร้อมหมายเหตุให้โทรยืนยัน) — พลาดก็ยังมีข้อความในโน้ตลูกค้าและแจ้งเตือน
+  if (td) await createTestDrive(env, token, { lead, customerId: r.id, td, companyId: lead.companyId || env.LINE_LEAD_COMPANY_ID || null, now: new Date(deps.now || Date.now()).toISOString() }, fetchImpl).catch(() => false)
   await tell(deps, lead, r)
   // ไม่บอกคนกรอกว่าเบอร์นี้เคยมีในระบบหรือไม่ (กันเดาข้อมูลลูกค้า)
   return { status: 200, body: { ok: true } }
