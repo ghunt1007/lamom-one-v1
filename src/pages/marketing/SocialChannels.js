@@ -643,6 +643,7 @@ export default async function SocialChannelsPage(container) {
     const cf = t.closest('[data-copy-form]'); if (cf) { copyText(leadFormLink(cf.dataset.copyForm)); return }
     if (t.closest('#au-save')) { autoTab.save(container); return }
     if (t.closest('#au-test')) { autoTab.test(container); return }
+    if (t.closest('#au-fill')) { autoTab.fill(container); return }
     if (t.closest('#ch-ai')) { aiDraft(); return }
     if (t.closest('#ch-lead')) { toLead(); return }
     if (t.closest('#ch-cust')) { const c = linked.get(findItem(openKey)?.id); if (c) navigate(`/crm/customers?id=${encodeURIComponent(c.id)}`); return }

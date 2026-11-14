@@ -1,6 +1,6 @@
 // (v1.0.1128) แท็บ "🤖 ตอบอัตโนมัติ" ในหน้าเชื่อมช่องทาง — เปิด/ปิด AI ตอบลูกค้า + สร้างลีดเองจากแชต
 // ค่าเก็บที่ system_integrations/inbox_auto (เจ้าของโปรแกรมแก้ได้คนเดียว) worker อ่านค่านี้ทุก 1 นาที (workers/inboxAuto.js)
-import { readDoc, setDocData } from '../../core/db.js'
+import { readDoc, setDocData, listDocs } from '../../core/db.js'
 import { showToast, getState } from '../../core/store.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
@@ -76,6 +76,7 @@ export function createAutoTab({ getStatus, rerender }) {
           <input class="input" id="au-name" maxlength="40" value="${esc(cfg.aiName)}" ${owner ? '' : 'disabled'}>
           <label class="input-label" for="au-info">ข้อมูลโชว์รูมที่ให้ AI ใช้ตอบ</label>
           <textarea class="input" id="au-info" rows="6" maxlength="3000" placeholder="เช่น ที่อยู่โชว์รูม เวลาเปิด 08:30–18:00 ทุกวัน เบอร์ 0x-xxx-xxxx รุ่นที่ขาย จุดเด่น ทดลองขับได้ทุกวัน" ${owner ? '' : 'disabled'}>${esc(cfg.aiInfo)}</textarea>
+          ${owner ? `<button type="button" class="btn btn-secondary btn-sm" id="au-fill" style="margin:6px 0">✨ เติมข้อมูลจากระบบให้</button>` : ''}
           <small class="ch-muted">AI ใช้โปรจากหน้า "แคมเปญ & ดอกเบี้ยเดือนนี้" ให้อัตโนมัติ (เฉพาะโปรที่ลูกค้าเห็นได้) และไม่เคยแต่งราคาเอง</small>
           ${canTest() ? `<div class="ch-aitest">
             <label class="input-label" for="au-q">🧪 ลองถาม AI ก่อนเปิดจริง (ไม่ส่งถึงลูกค้า)</label>
@@ -145,5 +146,24 @@ export function createAutoTab({ getStatus, rerender }) {
     testing = false; rerender()
   }
 
-  return { html, save, read, test }
+  // (v1.0.1147) ร่างข้อมูลโชว์รูมจากข้อมูลบริษัท + รุ่นรถในระบบ ใส่ลงช่องให้ตรวจก่อน (ยังไม่บันทึกจนกว่าจะกด 💾)
+  async function fill(root) {
+    const box = root.querySelector('#au-info')
+    const btn = root.querySelector('#au-fill')
+    if (!box) return
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังรวบรวม…' }
+    try {
+      const [db, { buildShowroomInfo }] = await Promise.all([import('../../data/vehicleDatabase.js'), import('../../utils/showroomInfo.js')])
+      const company = (await listDocs('company_profile', [], 'createdAt', 'asc', 1).catch(() => []))[0] || {}
+      const draft = buildShowroomInfo({ company, vehicles: db.getVehicles(), dealerBrands: db.DEALER_BRANDS })
+      const cur = box.value.trim()
+      box.value = (cur ? cur + '\n\n' + draft : draft).slice(0, 3000)
+      box.rows = 12
+      box.focus()
+      showToast('✨ ใส่ร่างให้แล้ว — ตรวจ ลบรุ่นที่ไม่ได้ขาย แก้ราคาและเวลาเปิดให้ตรง แล้วกด 💾 บันทึก (AI จะตอบลูกค้าตามนี้)', 'success', 9000)
+    } catch (e) { showToast(e.message || 'รวบรวมข้อมูลไม่สำเร็จ', 'error') }
+    if (btn) { btn.disabled = false; btn.textContent = '✨ เติมข้อมูลจากระบบให้' }
+  }
+
+  return { html, save, read, test, fill }
 }
