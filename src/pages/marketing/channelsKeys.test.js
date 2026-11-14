@@ -3,7 +3,7 @@ vi.mock('../../core/store.js', () => ({ showToast: vi.fn() }))
 vi.mock('../../core/hierarchy.js', () => ({ isProgramOwner: () => true }))
 vi.mock('../../utils/socialApi.js', () => ({ secretsCall: vi.fn(), WORKER_URL: 'https://w.example' }))
 vi.mock('../../utils/modal.js', () => ({ confirmDialog: vi.fn() }))
-import { nextStep, looksLikeKey, hookUrls } from './channelsKeys.js'
+import { nextStep, looksLikeKey, hookUrls, metaLinks } from './channelsKeys.js'
 
 const on = (...ks) => Object.fromEntries(ks.map(k => [k, { set: true }]))
 
@@ -35,4 +35,13 @@ describe('looksLikeKey', () => {
 
 describe('hookUrls', () => {
   it('builds lead links with the code', () => expect(hookUrls('LEAD_WEBHOOK_KEY', 'K')[0][1]).toBe('https://w.example/lead/webhook?key=K&source=tiktok'))
+})
+
+describe('metaLinks', () => {
+  it('points Meta at the public privacy page', () => {
+    expect(metaLinks('https://app.example/')).toEqual([
+      ['URL นโยบายความเป็นส่วนตัว', 'https://app.example/privacy.html'],
+      ['URL วิธีขอลบข้อมูลผู้ใช้', 'https://app.example/privacy.html#delete'],
+    ])
+  })
 })
