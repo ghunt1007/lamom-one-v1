@@ -29,6 +29,15 @@ export function hookUrls(key, value, base = WORKER_URL) {
 }
 
 // (v1.0.1142) บอกเจ้าของว่า "ขั้นต่อไปทำอะไร" — กุญแจ AI ก่อน (ใช้ได้ทันทีไม่ต้องตั้งอะไรเพิ่ม) แล้วค่อยรหัสรับลีด และ Meta
+/** (v1.0.1149) ลิงก์สาธารณะที่ Meta บังคับใส่ก่อนสลับแอปเป็น Live — หน้า /privacy.html ไม่ต้องล็อกอิน */
+export function metaLinks(origin = '') {
+  const base = String(origin || '').replace(/\/+$/, '')
+  return [
+    ['URL นโยบายความเป็นส่วนตัว', `${base}/privacy.html`],
+    ['URL วิธีขอลบข้อมูลผู้ใช้', `${base}/privacy.html#delete`],
+  ]
+}
+
 export function nextStep(keys = {}) {
   const has = k => !!keys?.[k]?.set
   if (!has('GEMINI_API_KEY')) return { key: 'GEMINI_API_KEY', text: 'ขั้นต่อไป: คัดลอกกุญแจ AI จาก Google AI Studio แล้วกด "📋 วางแล้วบันทึก" ที่ช่องแรก' }
@@ -87,6 +96,11 @@ export function createKeysCard({ rerender, onChanged }) {
             </div>
             ${reveal?.key === f.key ? `<div class="ch-key-rev"><b>นำค่านี้ไปวางที่ปลายทาง (จะแสดงครั้งนี้ครั้งเดียว)</b>${copyRows(reveal.rows)}</div>` : ''}
           </div>`).join('')}
+        <div class="ch-key" data-key-row="META_LINKS">
+          <div class="ch-key-h"><b>📄 ลิงก์ที่ Meta ขอตอนเปิดใช้แอปจริง</b></div>
+          <small class="ch-muted">วางใน developers.facebook.com → แอปของคุณ → การตั้งค่าแอพ → ข้อมูลพื้นฐาน · ไม่ใช่ความลับ คัดลอกได้เลย</small>
+          ${copyRows(metaLinks(location.origin))}
+        </div>
         <div class="ch-key" data-key-row="LINE">
           <div class="ch-key-h"><b>💚 LINE OA เพิ่ม (ของทีม / โชว์รูม / เซลส์)</b><span class="ch-st ${st.lineExtra?.length ? 'on' : ''}">${st.lineExtra?.length ? `✅ ${st.lineExtra.length} บัญชี` : '⚪ ยังไม่มี'}</span></div>
           <small class="ch-muted">OA หลักเชื่อมอยู่แล้ว · OA อื่นเอาค่าจาก developers.line.biz → เลือก Channel ของ OA นั้น · <a href="https://developers.line.biz/console/" target="_blank" rel="noopener">เปิดหน้านั้น ↗</a></small>
