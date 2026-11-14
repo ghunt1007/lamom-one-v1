@@ -61,3 +61,19 @@ describe('accountFacts (v1.0.997)', () => {
     expect(f.join()).not.toContain('เงียบ')
   })
 })
+
+import { campaignResults } from './socialAccounts.js'
+describe('campaignResults', () => {
+  const rows = [
+    { fbCampaignId: '11', createdAt: '2026-11-03T05:00:00Z', stage: 'pp' },
+    { fbCampaignId: '11', createdAt: '2026-11-09T05:00:00Z', stage: 'booking' },
+    { fbCampaignId: '11', createdAt: '2026-10-09T05:00:00Z', stage: 'booking' },
+    { fbCampaignId: '22', createdAt: '2026-11-09T05:00:00Z', bookingId: 'B1' },
+    { fbCampaignId: '22', createdAt: '2026-11-09T05:00:00Z', deleted: true },
+    { createdAt: '2026-11-09T05:00:00Z', stage: 'booking' },
+  ]
+  it('counts this month leads and bookings per campaign', () => {
+    expect(campaignResults(rows, '2026-11')).toEqual({ 11: { leads: 2, booked: 1 }, 22: { leads: 1, booked: 1 } })
+  })
+  it('handles empty input', () => expect(campaignResults(null, '2026-11')).toEqual({}))
+})

@@ -34,6 +34,19 @@ export function accountResults(customers, month) {
   return out
 }
 
+// (v1.0.1151) ผลต่อแคมเปญโฆษณา Meta: ลีดจากฟอร์มโฆษณาที่เข้า CRM ในเดือน (fbCampaignId) และในนั้นจองแล้วกี่ราย
+export function campaignResults(customers, month) {
+  const out = {}
+  for (const c of customers || []) {
+    if (!c || c.deleted || !c.fbCampaignId) continue
+    if (month && ymdBangkok(c.createdAt).slice(0, 7) !== month) continue
+    const r = (out[c.fbCampaignId] ||= { leads: 0, booked: 0 })
+    r.leads++
+    if (BOOKED.has(c.stage) || !!c.bookingId) r.booked++
+  }
+  return out
+}
+
 // (v1.0.996) ค่าโฆษณาที่จ่ายจริงต่อบัญชี (กรอกเองรายเดือน — ยังไม่มีโทเค็น Meta ให้ดึงเอง)
 // เก็บใน social_channels.spend = { 'YYYY-MM': บาท }
 export function accountSpend(a, month) {

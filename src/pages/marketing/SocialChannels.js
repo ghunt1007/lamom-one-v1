@@ -13,7 +13,7 @@ import { copyText } from '../../utils/copyText.js'
 import { myName } from '../../utils/myName.js'
 import { isManagerRole } from '../../utils/managerRole.js'
 import { myEffectiveCompanyId, companyScopeFilters } from '../../core/companyScope.js'
-import { accountResults, accountSpend, withSpend, spendSummary } from '../../utils/socialAccounts.js'
+import { campaignResults, accountResults, accountSpend, withSpend, spendSummary } from '../../utils/socialAccounts.js'
 import { navigate } from '../../core/router.js'
 import { getSalesStaff } from '../../data/masterData.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
@@ -58,12 +58,12 @@ export default async function SocialChannelsPage(container) {
   let pendingOpen = new URLSearchParams(location.search || '').get('open') || ''
   let accounts = []
   // (v1.0.988) ผล Lead/จอง ต่อบัญชี (ลูกค้าที่เพิ่มแบบเลือก "จากบัญชีไหน")
-  let accRes = null
+  let accRes = null, campRes = null
   const thisMonth = todayBangkok().slice(0, 7)
   function loadAccRes() {
     if (accRes) return
     accRes = {}
-    listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 3000).then(r => { accRes = accountResults(r, thisMonth); if (alive() && tab === 'accounts') render() }).catch(() => {})
+    listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 3000).then(r => { accRes = accountResults(r, thisMonth); campRes = campaignResults(r, thisMonth); if (alive() && (tab === 'accounts' || tab === 'ads')) render() }).catch(() => {})
   }
   let ads = null, adsErr = '', adsLoading = false
   const postDraft = { message: '', imageUrl: '', link: '', pages: new Set(), toIg: false }
@@ -411,6 +411,9 @@ export default async function SocialChannelsPage(container) {
     if (adsErr) return `<div class="ch-note bad">⚠️ ${esc(adsErr)}</div><button class="btn btn-secondary btn-sm" id="ads-reload">🔄 ลองใหม่</button>`
     if (!ads) return '<button class="btn btn-primary" id="ads-reload">📣 ดึงข้อมูลโฆษณา</button>'
     const accs = ads.accounts || []
+    loadAccRes()
+    const crm = id => campRes?.[id] || { leads: 0, booked: 0 }
+    const crmLeads = Object.values(campRes || {}).reduce((x, r) => x + r.leads, 0), crmBooked = Object.values(campRes || {}).reduce((x, r) => x + r.booked, 0)
     if (!accs.length) return '<div class="ch-note">token นี้ยังไม่เห็นบัญชีโฆษณา — กำหนดบัญชีโฆษณาให้ System User ก่อน</div>'
     const total = accs.reduce((s, a) => s + (a.spend || 0), 0)
     const leads = accs.reduce((s, a) => s + (a.campaigns || []).reduce((x, c) => x + c.leads, 0), 0)
@@ -419,6 +422,8 @@ export default async function SocialChannelsPage(container) {
         <div class="ch-tile"><small>ใช้ไปเดือนนี้</small><b>${formatCurrency(total)}</b></div>
         <div class="ch-tile"><small>Lead จากโฆษณา</small><b>${leads.toLocaleString()}</b></div>
         <div class="ch-tile"><small>ต้นทุนต่อ Lead</small><b>${leads ? formatCurrency(Math.round(total / leads)) : '—'}</b></div>
+        <div class="ch-tile"><small>เข้า CRM / จองแล้ว</small><b>${crmLeads.toLocaleString()} / ${crmBooked.toLocaleString()}</b></div>
+        <div class="ch-tile"><small>ต้นทุนต่อการจอง</small><b>${crmBooked ? formatCurrency(Math.round(total / crmBooked)) : '—'}</b></div>
         <div class="ch-tile"><small>แคมเปญที่เปิดอยู่</small><b>${accs.reduce((s, a) => s + (a.campaigns || []).filter(c => c.effective === 'ACTIVE').length, 0)}</b></div>
       </div>
       ${accs.map(a => `
@@ -433,6 +438,8 @@ export default async function SocialChannelsPage(container) {
                 <span><small>ใช้ไป</small><b>${formatCurrency(c.spend)}</b></span>
                 <span><small>Lead</small><b>${c.leads}</b></span>
                 <span><small>ต่อ Lead</small><b>${c.costPerLead != null ? formatCurrency(c.costPerLead) : '—'}</b></span>
+                <span><small>เข้า CRM</small><b>${crm(c.id).leads}</b></span>
+                <span><small>จองแล้ว</small><b>${crm(c.id).booked}${crm(c.id).booked && c.spend ? ` <small class="ch-muted">(${formatCurrency(Math.round(c.spend / crm(c.id).booked))}/คัน)</small>` : ''}</b></span>
               </div>
               ${manager ? `<div class="ch-camp-a">
                 ${c.status === 'ACTIVE' ? `<button class="btn btn-secondary btn-sm" data-ad-status="PAUSED" data-camp="${esc(c.id)}">⏸ หยุด</button>` : `<button class="btn btn-secondary btn-sm" data-ad-status="ACTIVE" data-camp="${esc(c.id)}">▶️ เปิด</button>`}
@@ -441,6 +448,7 @@ export default async function SocialChannelsPage(container) {
             </div>`).join('') || '<div class="ch-muted">ไม่มีแคมเปญ</div>'}</div>
         </div>`).join('')}
       ${manager ? '' : '<small class="ch-muted">เฉพาะผู้จัดการ/เจ้าของที่หยุด เปิด หรือปรับงบได้</small>'}
+      <small class="ch-muted">"เข้า CRM / จองแล้ว" นับลีดจากฟอร์มโฆษณาที่ระบบรับเข้ามาเองในเดือนนี้ แยกตามแคมเปญ (เริ่มนับตั้งแต่ v1.0.1151)</small>
       <button class="btn btn-ghost btn-sm" id="ads-reload">🔄 ดึงใหม่</button>`
   }
   async function loadAds() {

@@ -179,6 +179,17 @@ export function metaVerifyChallenge(url, env) {
 
 export const metaThreadId = (platform, pageId, userId) => `${platform === 'instagram' ? 'ig' : 'fb'}_${String(pageId).replace(/\D/g, '')}__${String(userId).replace(/\D/g, '')}`
 
+// (v1.0.1151) จำว่าลีดมาจากแคมเปญ/โฆษณาไหน (เป็นฟิลด์ ไม่ใช่แค่ข้อความในโน้ต) — แท็บ 📣 โฆษณา ใช้นับ "เข้า CRM / จองแล้ว" ต่อแคมเปญ
+export function fbAdExtra(d = {}, ev = {}) {
+  const out = {}
+  const put = (k, v, n) => { const x = clip(v, n); if (x) out[k] = x }
+  put('fbCampaignId', String(d.campaign_id || '').replace(/\D/g, ''), 40)
+  put('fbCampaignName', d.campaign_name, 120)
+  put('fbAdId', String(d.ad_id || ev.adId || '').replace(/\D/g, ''), 40)
+  put('fbAdName', d.ad_name, 120)
+  return out
+}
+
 // แยกเหตุการณ์จาก body ของ Meta → [{kind:'message'|'echo'|'leadgen', ...}]
 export function metaEvents(body = {}) {
   const out = []
@@ -262,12 +273,12 @@ export async function handleMetaWebhook(request, env, getToken, deps = {}) {
       const page = pageOf(ev.pageId)
       if (ev.kind === 'leadgen') {
         if (!page) continue
-        const d = await graphGet(ev.leadgenId, page.token, { fields: 'field_data,created_time,ad_name,campaign_name,form_id' }, fetchImpl)
+        const d = await graphGet(ev.leadgenId, page.token, { fields: 'field_data,created_time,ad_id,ad_name,campaign_id,campaign_name,form_id' }, fetchImpl)
         if (!d) continue
         const lead = parseLeadPayload({ fields: d.field_data || [] }, { source: 'facebook' })
         if (!lead.first && !lead.phone && !lead.email) continue
         lead.note = [lead.note, d.ad_name ? `โฆษณา: ${d.ad_name}` : '', d.campaign_name ? `แคมเปญ: ${d.campaign_name}` : ''].filter(Boolean).join(' · ')
-        const r = await createLead(env, token, lead, { docId: `fblead_${ev.leadgenId}`, tags: ['Facebook Lead Ads', page.name], extra: { fbLeadId: ev.leadgenId, fbPageId: page.id }, fetchImpl })
+        const r = await createLead(env, token, lead, { docId: `fblead_${ev.leadgenId}`, tags: ['Facebook Lead Ads', page.name], extra: { fbLeadId: ev.leadgenId, fbPageId: page.id, ...fbAdExtra(d, ev) }, fetchImpl })
         if (r.created) { leads++; await tell(deps, lead, r) }
         continue
       }
