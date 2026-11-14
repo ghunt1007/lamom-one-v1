@@ -7,7 +7,7 @@ import { isProgramOwner } from '../../core/hierarchy.js'
 import { aiReplyTest } from '../../utils/socialApi.js'
 import { isManagerRole } from '../../utils/managerRole.js'
 
-export const AUTO_DEFAULTS = { autoLead: false, autoAssign: false, aiReply: false, aiMode: 'always', aiStart: '08:30', aiEnd: '18:00', aiChannels: 'all', aiName: 'น้องลามิ', aiInfo: '', publicForm: false }
+export const AUTO_DEFAULTS = { autoLead: false, autoAssign: false, aiReply: false, aiMode: 'always', aiStart: '08:30', aiEnd: '18:00', aiChannels: 'all', aiName: 'น้องลามิ', aiInfo: '', publicForm: false, leadAlert: true }
 
 // (v1.0.1140) ลิงก์ฟอร์มรับลีดสาธารณะ — accountId = บัญชีโซเชียลที่บันทึกไว้ (ลีดจะติดที่มา/ผู้ดูแลของบัญชีนั้น)
 export function leadFormLink(accountId = '', origin = typeof location !== 'undefined' ? location.origin : '') {
@@ -88,6 +88,7 @@ export function createAutoTab({ getStatus, rerender }) {
           <div class="ch-card-h">📥 รับลีดจากแชตอัตโนมัติ</div>
           ${sw('au-lead', cfg.autoLead, 'ลูกค้าใหม่ที่ทักมา → สร้างเป็นลูกค้าให้เลย', 'ใช้กับ LINE OA ทุกบัญชี (และ Facebook/IG เมื่อเชื่อมแล้ว) ไม่ต้องกด "เป็น Lead" เอง (ลูกค้าเดิมที่ผูก LINE แล้วไม่สร้างซ้ำ)')}
           ${sw('au-assign', cfg.autoAssign, 'แจกลีดใหม่ให้เซลส์แบบวนคิว', 'เซลส์ที่ลงทะเบียน LINE กับ OA หลักจะได้ลีดคนละราย พร้อมนัดติดตาม 3 ครั้ง และแจ้งเตือนทาง LINE')}
+          ${sw('au-alert', cfg.leadAlert !== false, 'แจ้งเตือนทันทีเมื่อมีลีดใหม่', 'ลีดเข้าทางฟอร์ม TikTok อีเมล หรือ Facebook เมื่อไร ส่ง LINE หาเซลส์ที่ดูแลและเจ้าของ พร้อมแจ้งเตือนในแอป เพื่อโทรกลับได้ภายใน 5 นาที')}
           ${sw('au-form', cfg.publicForm, 'เปิดฟอร์มให้ลูกค้าฝากชื่อ-เบอร์เอง', 'ลิงก์หน้าเดียว ลูกค้ากรอกชื่อ เบอร์ รุ่นที่สนใจ แล้วเข้าเป็นลูกค้าในโปรแกรมทันที — ใช้กับช่องทางที่ดึงแชตไม่ได้ (TikTok, เพจ/LINE ส่วนตัว, ป้ายที่บูธ)')}
           <div class="ch-formlink"><code>${esc(leadFormLink())}</code><button type="button" class="btn btn-secondary btn-xs" data-copy-form="">📋 คัดลอกลิงก์</button><a class="btn btn-ghost btn-xs" href="${esc(leadFormLink())}" target="_blank" rel="noopener">ดูฟอร์ม ↗</a></div>
           <small class="ch-muted">อยากรู้ว่าลีดมาจากบัญชีไหน: แท็บ 👥 บัญชี → กด 🔗 ที่บัญชีนั้น จะได้ลิงก์เฉพาะ (บัญชีของเซลส์ ลีดจะเข้าชื่อเซลส์คนนั้นเลย) ไปวางในไบโอ</small>
@@ -104,7 +105,7 @@ export function createAutoTab({ getStatus, rerender }) {
     const ids = [...root.querySelectorAll('[data-au-ch]')].filter(x => x.checked).map(x => x.dataset.auCh)
     const hm = v => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || '').trim()) ? String(v).trim() : null)
     return {
-      aiReply: !!$('#au-ai')?.checked, autoLead: !!$('#au-lead')?.checked, autoAssign: !!$('#au-assign')?.checked, publicForm: !!$('#au-form')?.checked,
+      aiReply: !!$('#au-ai')?.checked, autoLead: !!$('#au-lead')?.checked, autoAssign: !!$('#au-assign')?.checked, publicForm: !!$('#au-form')?.checked, leadAlert: $('#au-alert') ? !!$('#au-alert').checked : true,
       aiMode: root.querySelector('[name="au-mode"]:checked')?.value === 'offhours' ? 'offhours' : 'always',
       aiStart: hm($('#au-start')?.value), aiEnd: hm($('#au-end')?.value),
       aiChannels: channelsValue(ids, list),

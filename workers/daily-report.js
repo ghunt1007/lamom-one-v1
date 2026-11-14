@@ -38,6 +38,8 @@ import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
 import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFromChat, handleLeadForm } from './leadIntake.js'
 import { handleNotify } from './notify.js'
 import { withStoredSecrets, handleSecrets } from './secretStore.js'
+import { alertNewLead } from './leadAlert.js'
+import { runLeadNudge } from './leadNudge.js'
 import { SEND_CRON, runScheduledSends, scheduleSend, unscheduleSend } from './scheduledSend.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
@@ -92,11 +94,11 @@ export default {
       }
       if (request.method === 'POST' && url.pathname === '/line/webhook') return await handleLineWebhook(request, env, cors)
       // (v1.0.1129) ช่องรับลีดกลาง (TikTok/เว็บ/ฟอร์ม/อีเมลผ่าน Zapier) + Facebook/IG webhook — ดู workers/leadIntake.js
-      if (request.method === 'POST' && url.pathname === '/lead/webhook') { const r = await handleLeadWebhook(request, env, () => getFirestoreAccessToken(env)); return json(r.body, r.status, cors) }
-      if (request.method === 'POST' && url.pathname === '/lead/form') { const r = await handleLeadForm(request, env, () => getFirestoreAccessToken(env)); return json(r.body, r.status, cors) }
+      if (request.method === 'POST' && url.pathname === '/lead/webhook') { const r = await handleLeadWebhook(request, env, () => getFirestoreAccessToken(env), leadDeps(env)); return json(r.body, r.status, cors) }
+      if (request.method === 'POST' && url.pathname === '/lead/form') { const r = await handleLeadForm(request, env, () => getFirestoreAccessToken(env), leadDeps(env)); return json(r.body, r.status, cors) }
       if (url.pathname === '/meta/webhook') {
         if (request.method === 'GET') { const c = metaVerifyChallenge(url, env); return c === null ? new Response('Forbidden', { status: 403 }) : new Response(c, { status: 200, headers: { 'Content-Type': 'text/plain' } }) }
-        if (request.method === 'POST') { const r = await handleMetaWebhook(request, env, () => getFirestoreAccessToken(env)); return json(r.body, r.status, cors) }
+        if (request.method === 'POST') { const r = await handleMetaWebhook(request, env, () => getFirestoreAccessToken(env), leadDeps(env)); return json(r.body, r.status, cors) }
       }
       // (v1.0.977) LINE OA เพิ่มเติม (ทีม/โชว์รูม/เซลส์) — เก็บแชตลูกค้าเข้ากล่องรวม
       if (request.method === 'POST' && url.pathname.startsWith('/line/webhook/')) {
@@ -176,7 +178,9 @@ export default {
     if (event.cron === SEND_CRON) {
       ctx.waitUntil((async () => {
         const e2 = await withStoredSecrets(env, () => getFirestoreAccessToken(env))
-        await runScheduledSends(e2, await getFirestoreAccessToken(env))
+        const tok = await getFirestoreAccessToken(env)
+        await runScheduledSends(e2, tok)
+        await runLeadNudgeJob(e2, tok).catch(() => null)
       })())
       return
     }
@@ -184,6 +188,46 @@ export default {
     // รายงานเย็นส่งเฉพาะ cron 18:00 เท่านั้น — cron ที่ไม่รู้จักจะไม่ทำอะไร (กันส่งรายงานซ้ำถ้ามีการเพิ่ม cron ใหม่ในอนาคต)
     if (event.cron === EVENING_CRON) ctx.waitUntil(runDailyReport(env))
   },
+}
+
+// (v1.0.1144) ลีดใหม่เข้า → แจ้ง LINE (เซลส์ที่ดูแล + เจ้าของ) และแจ้งเตือนในแอป — ดู workers/leadAlert.js
+function leadDeps(env) {
+  return {
+    onLead: async (lead, result) => {
+      const token = await getFirestoreAccessToken(env)
+      if (!token) return
+      return alertNewLead(lead, result, await leadTools(env, token))
+    },
+  }
+}
+// เครื่องมือร่วมของ "แจ้งลีดใหม่ทันที" (leadAlert.js) และ "เตือนซ้ำเมื่อยังไม่มีใครติดต่อ" (leadNudge.js)
+async function leadTools(env, token) {
+  const inbox = await readInboxAuto(env, token).catch(() => null)
+  return {
+    enabled: inbox ? inbox.leadAlert !== false : true,
+    appUrl: env.ALLOWED_ORIGIN,
+    salesTargets: () => runQuery(env, token, 'line_sales_targets', null, null, 500, ['name', 'userId']),
+    ownerTarget: async () => env.LINE_TARGET_ID || await readLineTarget(env, token),
+    pushLine: env.LINE_CHANNEL_ACCESS_TOKEN ? async (to, text) => {
+      const res = await fetch('https://api.line.me/v2/bot/message/push', { method: 'POST', headers: { Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ to, messages: [{ type: 'text', text }] }) })
+      return res.ok
+    } : null,
+    notify: body => handleNotify(body, { uid: '', projectId: env.FIREBASE_PROJECT_ID, fetch: (...a) => fetch(...a), getAccessToken: async () => token, runQuery: (tok, c, f) => runQuery(env, tok, c, null, null, 1000, f) }),
+  }
+}
+// (v1.0.1146) cron ทุก 10 นาที: ลีดใหม่ที่ยังไม่มีใครติดต่อเกิน 30 นาที → เตือนซ้ำครั้งเดียว
+async function runLeadNudgeJob(env, token) {
+  if (!token) return { stale: 0, nudged: 0 }
+  return runLeadNudge({
+    ...(await leadTools(env, token)),
+    listRecent: () => runQuery(env, token, 'customers', 'createdAt', 'DESCENDING', 40, ['firstName', 'lastName', 'phone', 'interestedModel', 'assignedTo', 'stage', 'autoLead', 'isLost', 'deleted', 'lastContactAt', 'leadNudgedAt', 'createdAt']),
+    mark: async (id, iso) => {
+      const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/customers/${encodeURIComponent(id)}?updateMask.fieldPaths=leadNudgedAt&currentDocument.exists=true`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields: { leadNudgedAt: { stringValue: iso } } }),
+      })
+      return res.ok
+    },
+  })
 }
 
 function backupDeps(env) {
