@@ -59,3 +59,10 @@ describe('teamStats / text', () => {
     expect(teamFollowUps(st)).toEqual(['วันนี้ควรโทรหาใคร', 'ลูกค้า hot ที่ยังไม่มีนัดมีใครบ้าง', 'ใครขายดีสุด'])
   })
 })
+
+describe('v1.0.1136 AI team is not the sales team', () => {
+  it('does not take AI-team questions', () => {
+    expect(isTeamQuestion('ทีม AI วันนี้มีงานอะไร')).toBe(false)
+    expect(isTeamQuestion('ทีมวันนี้เป็นไง')).toBe(true)
+  })
+})

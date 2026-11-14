@@ -59,6 +59,17 @@ export const PRESETS = [
   { id: 'lava', name: 'แดงลาวา', p: '#E11D2E', a: '#F97316' },
   { id: 'gold', name: 'ทองหรู', p: '#D4A017', a: '#C2410C' },
   { id: 'graphite', name: 'กราไฟต์', p: '#7A8BA6', a: '#A1A1AA' },
+  // (v1.0.1130) เพิ่มอีก 10 ชุด
+  { id: 'navy', name: 'ทะเลลึก', p: '#2563EB', a: '#38BDF8' },
+  { id: 'indigo', name: 'คราม', p: '#4F46E5', a: '#22D3EE' },
+  { id: 'teal', name: 'เทอร์คอยซ์', p: '#0D9488', a: '#84CC16' },
+  { id: 'mint', name: 'มิ้นต์', p: '#14B8A6', a: '#A78BFA' },
+  { id: 'lime', name: 'ไลม์สด', p: '#65A30D', a: '#EAB308' },
+  { id: 'lavender', name: 'ลาเวนเดอร์', p: '#A78BFA', a: '#F0ABFC' },
+  { id: 'sakura', name: 'ซากุระ', p: '#EC4899', a: '#FB923C' },
+  { id: 'ruby', name: 'ทับทิม', p: '#BE123C', a: '#D4A017' },
+  { id: 'coffee', name: 'กาแฟ', p: '#B7791F', a: '#9C6644' },
+  { id: 'cyber', name: 'ไซเบอร์', p: '#06B6D4', a: '#D946EF' },
 ]
 // พื้นผิว (โทนพื้นหลัง/การ์ด) ต่อโหมด — null = ใช้ค่ามาตรฐานใน themes.css
 const SURFACES = {
@@ -74,6 +85,15 @@ const SURFACES = {
   warm: () => ({
     dark: { '--bg': '#13100D', '--surface': '#1C1814', '--surface-2': '#241F1A', '--surface-3': '#2E2822', '--border': '#3A322A', '--border-light': '#4D4338', '--border-subtle': '#201B16' },
     light: { '--bg': '#F7F3EC', '--surface': '#FFFDF9', '--surface-2': '#F3EDE3', '--surface-3': '#E9E1D4', '--border': '#DED4C4', '--border-light': '#C9BCA8', '--border-subtle': '#EFE8DC' },
+  }),
+  // (v1.0.1130) เทาอมฟ้าแบบหน้าจอรถยนต์ / กระดาษนุ่มตา
+  slate: () => ({
+    dark: { '--bg': '#0F1419', '--surface': '#161D25', '--surface-2': '#1D2630', '--surface-3': '#26313D', '--border': '#2E3A47', '--border-light': '#3E4C5B', '--border-subtle': '#1A222B' },
+    light: { '--bg': '#EEF1F4', '--surface': '#FFFFFF', '--surface-2': '#F2F4F7', '--surface-3': '#E4E8ED', '--border': '#D5DBE2', '--border-light': '#BCC5CF', '--border-subtle': '#E9EDF1' },
+  }),
+  paper: () => ({
+    dark: { '--bg': '#18181B', '--surface': '#1F1F23', '--surface-2': '#27272B', '--surface-3': '#303036', '--border': '#3A3A41', '--border-light': '#4B4B53', '--border-subtle': '#232327' },
+    light: { '--bg': '#FAF9F6', '--surface': '#FFFFFF', '--surface-2': '#F5F4F0', '--surface-3': '#EBE9E3', '--border': '#E0DDD5', '--border-light': '#C9C5BB', '--border-subtle': '#F0EEE9' },
   }),
 }
 export const SURFACE_IDS = Object.keys(SURFACES)
@@ -108,6 +128,17 @@ export function themeVars({ theme = 'ocean', custom = '', surface = 'default' } 
     }
   }
   return out
+}
+
+// (v1.0.1130) ภาพตัวอย่างของชุดธีมใดก็ได้ (ไม่ต้องเปลี่ยนธีมจริง) — ตัวแปรสีใส่เป็น style ของกล่องตัวอย่าง
+const BASE = {
+  dark: { '--bg': '#0B1220', '--surface': '#111A2E', '--surface-2': '#17223A', '--surface-3': '#1F2C47', '--border': '#26334F', '--primary': '#5B7FF5', '--accent': '#2DD4BF', '--success': '#34D399', '--text-2': '#C3CCDC' },
+  light: { '--bg': '#F4F6FA', '--surface': '#FFFFFF', '--surface-2': '#F1F4F9', '--surface-3': '#E6EBF3', '--border': '#DCE2EC', '--primary': '#2F57D6', '--accent': '#0E7368', '--success': '#046C4E', '--text-2': '#334155' },
+}
+export function previewVars(opts = {}, mode = 'dark') {
+  const m = mode === 'light' ? 'light' : 'dark'
+  const v = { ...BASE[m], ...themeVars(opts)[m] }
+  return ['--bg', '--surface', '--surface-2', '--surface-3', '--border', '--primary', '--accent', '--success', '--text-2'].map(k => `${k}:${v[k]}`).join(';')
 }
 
 export function themeCss(opts) {

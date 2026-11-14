@@ -1,10 +1,10 @@
 // หน้าต่าง "ปรับหน้าตา" — (v1.0.1030) ธีมหลายแบบ มีลูกเล่น ปรับแต่งได้
-// ชุดสำเร็จรูป 1 คลิก · สีธีม 10 ชุด + เลือกสีเอง · พื้นผิว · สไตล์การ์ด · พื้นหลังมีลูกเล่น · ตัวอักษร
+// ชุดสำเร็จรูป 1 คลิก (16 ชุด มีภาพตัวอย่าง) · สีธีม 20 ชุด + เลือกสีเอง · พื้นผิว · สไตล์การ์ด · พื้นหลังมีลูกเล่น · ตัวอักษร
 // โหมด มืด/สว่าง/ตามเครื่อง · ขนาด · ระยะห่าง · มุม · รูปแบบปี — เปลี่ยนทันทีและจำไว้ในเครื่องนี้
 import { openModal } from '../utils/modal.js'
 import { setMode } from '../core/store.js'
 import { UI_OPTIONS, UI_DEFAULTS, loadUi, saveUi, applyUi, LOOKS, randomLook } from '../utils/appearance.js'
-import { PRESETS, colorsFor } from '../utils/themeEngine.js'
+import { PRESETS, colorsFor, previewVars } from '../utils/themeEngine.js'
 import { escHtml as esc } from '../utils/escape.js'
 
 const MODES = [
@@ -26,6 +26,14 @@ function preview(mode) {
   return mode === 'auto' ? `<div class="ts-prev-split">${box('light')}${box('dark')}</div>` : box(mode)
 }
 
+// (v1.0.1130) ภาพย่อหน้าจอในสีของชุดนั้นจริง ๆ (ก่อนกดเลือก)
+function miniPreview(look, mode) {
+  return `<span class="ts-prev ts-prev-look" style="${previewVars(look, mode)}" aria-hidden="true">
+    <i class="ts-side"><b></b><b></b><b></b></i>
+    <span class="ts-main"><i class="ts-bar"></i><span class="ts-kpis"><i></i><i></i><i></i></span><span class="ts-row"><i class="ts-line"></i><i class="ts-btn"></i></span></span>
+  </span>`
+}
+
 const dot = (p, a) => `background:linear-gradient(135deg, ${p}, ${a})`
 
 export function openThemeStudio() {
@@ -41,10 +49,10 @@ export function openThemeStudio() {
     <div id="theme-studio">
       <div class="ts-group">✨ ชุดสำเร็จรูป (กดครั้งเดียวเปลี่ยนทั้งชุด)</div>
       <div class="ts-looks">
-        ${LOOKS.map((l, i) => { const c = colorsFor(l.ui.theme); return `
-          <button type="button" class="ts-look" data-look="${i}">
-            <span class="ts-dots"><i style="background:${c.p}"></i><i style="background:${c.a}"></i></span>
-            <b>${esc(l.name)}</b><small>${esc(l.hint)}</small>
+        ${LOOKS.map((l, i) => { const on = l.ui.theme === ui.theme && l.ui.surface === ui.surface && l.ui.card === ui.card && l.ui.bg === ui.bg; return `
+          <button type="button" class="ts-look${on ? ' on' : ''}" data-look="${i}">
+            ${miniPreview(l.ui, l.mode || (mode === 'light' ? 'light' : 'dark'))}
+            <b>${esc(l.name)}${on ? ' ✓' : ''}</b><small>${esc(l.hint)}</small>
           </button>` }).join('')}
         <button type="button" class="ts-look" data-look="random"><span class="ts-dots"><i style="background:conic-gradient(#f43f5e,#f59e0b,#10b981,#0ea5e9,#8b5cf6,#f43f5e)"></i></span><b>🎲 สุ่มธีม</b><small>ลองแบบใหม่ๆ ไม่ชอบกดอีกครั้ง</small></button>
       </div>

@@ -27,6 +27,32 @@ export function isProgramOwnerUser(u) {
 
 const fsBase = env => `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`
 
+// (v1.0.1127) แปลงค่าจาก Firestore REST ให้ "วันที่" เก็บเป็นรูปเดียวกับปุ่มสำรองในแอป
+// ({type, seconds, nanoseconds}) — เดิมเก็บเป็นข้อความ พอกู้คืนแล้ววันที่กลายเป็นข้อความ แยกไม่ออกจากข้อความทั่วไป
+export function backupDecodeValue(v = {}) {
+  if (v.timestampValue !== undefined) {
+    const m = /\.(\d+)Z$/.exec(v.timestampValue)
+    const ms = Date.parse(v.timestampValue)
+    const seconds = Math.floor(ms / 1000)
+    const nanoseconds = m ? Number(m[1].padEnd(9, '0').slice(0, 9)) : 0
+    return { type: 'firestore/timestamp/1.0', seconds, nanoseconds }
+  }
+  if (v.stringValue !== undefined) return v.stringValue
+  if (v.integerValue !== undefined) return Number(v.integerValue)
+  if (v.doubleValue !== undefined) return v.doubleValue
+  if (v.booleanValue !== undefined) return v.booleanValue
+  if (v.nullValue !== undefined) return null
+  if (v.mapValue !== undefined) {
+    const o = {}
+    for (const [k, vv] of Object.entries(v.mapValue.fields || {})) o[k] = backupDecodeValue(vv)
+    return o
+  }
+  if (v.arrayValue !== undefined) return (v.arrayValue.values || []).map(backupDecodeValue)
+  if (v.geoPointValue !== undefined) return { latitude: v.geoPointValue.latitude, longitude: v.geoPointValue.longitude }
+  if (v.referenceValue !== undefined) return v.referenceValue
+  return null
+}
+
 export function backupKey(date, id) {
   return `${BACKUP_PREFIX}${date}-${id}.json.gz`
 }

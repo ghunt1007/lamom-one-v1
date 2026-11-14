@@ -38,6 +38,7 @@ import { planLeadImport } from '../../utils/leadImport.js'
 import { scheduleLeadFollowups, closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
 import { pendingFollowupsFor, followupWindowFilters, followupStatusByCustomer, matchFollowupFilter, QUIET_DAYS, quietDays } from '../../utils/customerFollowups.js'
 import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
+import { mailHref } from '../../utils/callLink.js'
 import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
 import { armCallLog } from '../../utils/callLogger.js'
@@ -507,7 +508,7 @@ export default async function CustomersPage(container) {
               <div style="display:flex;flex-direction:column;gap:8px">
                 ${detail('📱 โทร', c.phone && String(c.phone).replace(/[^\d+]/g, '') ? `<a id="wk-tel" href="tel:${String(c.phone).replace(/[^\d+]/g, '')}" style="color:var(--primary)">${formatPhone(c.phone)}</a>` : (formatPhone(c.phone) || '-'))}
                 ${c.lineId || c.lineUserId ? detail('💚 LINE', escHtml(c.lineId || 'LINE OA') + (c.lineUserId ? ' <button class="btn btn-ghost btn-xs" id="wk-line-chat" title="เปิดห้องแชต LINE OA ของลูกค้าคนนี้">💬 แชต LINE</button>' : '')) : ''}
-                ${c.email ? detail('📧 Email', escHtml(c.email)) : ''}
+                ${c.email ? detail('📧 Email', (() => { const h = mailHref(c.email, { subject: `สวัสดีคุณ${c.firstName || fullName(c)} — ${c.interestedModel ? 'ข้อมูลรถ ' + c.interestedModel : 'จากโชว์รูม'}`, body: `สวัสดีคุณ${c.firstName || fullName(c)}\n\n` }); return h ? `<a href="${escHtml(h)}" style="color:var(--primary);overflow-wrap:anywhere" title="เปิดแอปอีเมลพร้อมหัวเรื่อง">${escHtml(c.email)}</a> <a class="btn btn-ghost btn-xs" href="${escHtml(h)}">✉️ ส่งอีเมล</a>` : escHtml(c.email) })()) : ''}
                 ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-') + (c.isLost ? '' : ' <button class="btn btn-ghost btn-xs" id="wk-td-btn" title="นัดลูกค้ามาทดลองขับ">🚙 นัดทดลองขับ</button>'))}
                 ${(() => { const f = c.interestedModel ? modelFacts(c.interestedModel, getVehicles(), 4) : []; return f.length ? `<details style="margin:-2px 0 2px;font-size:0.76rem"><summary style="cursor:pointer;color:var(--primary)">📋 ราคา/สเปครุ่นนี้ (ไว้ตอบลูกค้า)</summary><div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${f.map(x => `<div style="padding:6px 8px;border-radius:8px;background:var(--surface-2);line-height:1.45">${escHtml(x)}</div>`).join('')}<div id="wk-promos"></div><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.66rem;color:var(--text-muted)">ราคาตั้งจากฐานข้อมูลรถ</span><button type="button" class="btn btn-secondary btn-xs" id="wk-facts-copy">📋 คัดลอกสเปคส่งลูกค้า</button></div>${calcHtml(c)}</div></details>` : '' })()}
                 ${c.budget ? detail('💰 งบประมาณ', formatCurrency(c.budget)) : ''}

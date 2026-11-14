@@ -35,4 +35,6 @@ export function shareLinks(text = '', link = '') {
     facebook: link ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}` : 'https://www.facebook.com/',
   }
 }
+// (v1.0.1135) ลองถาม AI ตอบแชต — ไม่ส่งถึงลูกค้า draft = ค่าบนหน้าจอที่ยังไม่บันทึก
+export const aiReplyTest = (text, draft) => call('/social/ai/test', { text, draft })
 export const googlePlaces = query => call('/social/google/places', { query })

@@ -23,3 +23,14 @@ describe('callLink', () => {
     expect(callLink('0812345678', '', { icon: '' })).toMatch(/>0812345678<\/a>$/)
   })
 })
+
+import { mailHref } from './callLink.js'
+describe('mailHref', () => {
+  it('builds a mailto with encoded subject and body', () => {
+    expect(mailHref(' a@b.co ', { subject: 'สวัสดี & ทักทาย', body: 'บรรทัด1\nบรรทัด2' })).toBe('mailto:a@b.co?subject=' + encodeURIComponent('สวัสดี & ทักทาย') + '&body=' + encodeURIComponent('บรรทัด1\nบรรทัด2'))
+    expect(mailHref('a@b.co')).toBe('mailto:a@b.co')
+  })
+  it('rejects non-emails', () => {
+    for (const bad of ['', null, 'abc', 'a@b', 'a b@c.d', '"x"@y.z']) expect(mailHref(bad)).toBe('')
+  })
+})

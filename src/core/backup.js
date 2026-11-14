@@ -16,6 +16,7 @@ import { db } from './firebase.js'
 import {
   collection, doc, getDocs, query, orderBy, limit, startAfter, documentId, setDoc, serverTimestamp,
 } from 'firebase/firestore'
+import { reviveBackupDoc } from '../utils/backupRevive.js'
 
 // collection ที่ไม่ควร backup/restore:
 // - audit_log: ห้ามแก้ไข/ลบตาม Firestore Rules อยู่แล้ว (allow update, delete: if false) เป็น log ต่อเนื่อง
@@ -165,7 +166,7 @@ export async function restoreFromBackupData(backupObj, onProgress) {
       onProgress?.({ colIndex: ci + 1, colTotal: collections.length, colName, docIndex: di + 1, docTotal: docs.length })
       const { id, ...fields } = docs[di]
       try {
-        await setDoc(doc(db, colName, id), { ...fields, updatedAt: serverTimestamp() }, { merge: true })
+        await setDoc(doc(db, colName, id), { ...reviveBackupDoc(fields), updatedAt: serverTimestamp() }, { merge: true })
         restored++
       } catch (e) {
         failed++

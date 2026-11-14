@@ -31,15 +31,18 @@
  * ไปแบบรายงานสถานะ configured:false ตรงๆ (ไม่ throw จนพังทั้งงาน) ตาม pattern เดียวกับ comms-send.js
  */
 
-import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser } from './nightly-backup.js'
+import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser, backupDecodeValue } from './nightly-backup.js'
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
-import { handleSocial, recordLineInbound, handleExtraLineWebhook } from './social.js'
+import { handleSocial, recordLineInbound, handleExtraLineWebhook, lineThreadId } from './social.js'
+import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
+import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFromChat, handleLeadForm } from './leadIntake.js'
 import { handleNotify } from './notify.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
 import { campaignLeads } from '../src/utils/campaignLeads.js'
 import { financeQueue } from '../src/utils/financeQueue.js'
 import { serviceTodayLines, showroomVisitLine } from '../src/utils/apptFacts.js'
+import { officeDigestLines } from '../src/utils/aiAgents.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
@@ -69,9 +72,16 @@ export default {
 
     try {
       if (request.method === 'POST' && url.pathname === '/line/webhook') return await handleLineWebhook(request, env, cors)
+      // (v1.0.1129) ช่องรับลีดกลาง (TikTok/เว็บ/ฟอร์ม/อีเมลผ่าน Zapier) + Facebook/IG webhook — ดู workers/leadIntake.js
+      if (request.method === 'POST' && url.pathname === '/lead/webhook') { const r = await handleLeadWebhook(request, env, () => getFirestoreAccessToken(env)); return json(r.body, r.status, cors) }
+      if (request.method === 'POST' && url.pathname === '/lead/form') { const r = await handleLeadForm(request, env, () => getFirestoreAccessToken(env)); return json(r.body, r.status, cors) }
+      if (url.pathname === '/meta/webhook') {
+        if (request.method === 'GET') { const c = metaVerifyChallenge(url, env); return c === null ? new Response('Forbidden', { status: 403 }) : new Response(c, { status: 200, headers: { 'Content-Type': 'text/plain' } }) }
+        if (request.method === 'POST') { const r = await handleMetaWebhook(request, env, () => getFirestoreAccessToken(env)); return json(r.body, r.status, cors) }
+      }
       // (v1.0.977) LINE OA เพิ่มเติม (ทีม/โชว์รูม/เซลส์) — เก็บแชตลูกค้าเข้ากล่องรวม
       if (request.method === 'POST' && url.pathname.startsWith('/line/webhook/')) {
-        const r = await handleExtraLineWebhook(env, url.pathname.slice('/line/webhook/'.length), await request.text(), request.headers.get('X-Line-Signature') || '', () => getFirestoreAccessToken(env))
+        const r = await handleExtraLineWebhook(env, url.pathname.slice('/line/webhook/'.length), await request.text(), request.headers.get('X-Line-Signature') || '', () => getFirestoreAccessToken(env), (ev, chan, token) => afterCustomerLine(env, token, ev, chan))
         return json(r.body, r.status, cors)
       }
       // ?kind=morning = ข้อความเตือนตอนเช้า (ไม่ใส่ = รายงานสรุป 18:00 เหมือนเดิม)
@@ -147,7 +157,7 @@ export default {
 function backupDeps(env) {
   return {
     getToken: () => getFirestoreAccessToken(env),
-    decode: decodeFsValue,
+    decode: backupDecodeValue,
     notify: text => sendTelegram(env, text),
     today: todayBangkok(),
   }
@@ -410,8 +420,7 @@ async function handleLineWebhook(request, env, cors) {
       } else if (userId !== owner && ev.type === 'message' && !(await readSalesTarget(env, accessToken, userId))?.name) {
         // ลูกค้าทักมา → เก็บลงกล่องแชต LINE OA ในแอป (หน้าเชื่อมช่องทาง) ให้ทีมตอบจากแอปได้ — ล้มเหลวไม่กระทบส่วนอื่น
         await recordLineInbound(env, accessToken, ev)
-        // (เปิดเองด้วย var AUTO_LEAD_FROM_LINE="1") ลูกค้าใหม่ → สร้าง Lead ให้ด้วย
-        if (env.AUTO_LEAD_FROM_LINE === '1') await captureLineLead(env, accessToken, userId, ev.message?.type === 'text' ? ev.message.text : '').catch(() => {})
+        await afterCustomerLine(env, accessToken, ev, null)
       }
     }
     // ข้อความอื่น (เช่น ลูกค้าทักมา) ไม่ตอบอะไร — OA นี้อาจเป็นช่องทางคุยกับลูกค้าด้วย
@@ -708,7 +717,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 
 // ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
 async function buildMorningData(env, accessToken) {
-  const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads] = await Promise.all([
+  const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId']),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
@@ -718,14 +727,18 @@ async function buildMorningData(env, accessToken) {
     runQuery(env, accessToken, 'marketing_events', null, null, 300).catch(() => []),
     runQuery(env, accessToken, 'appointments', 'date', 'DESCENDING', 500, ['date', 'time', 'status', 'salesperson', 'custName', 'interestedIn', 'purpose', 'deleted']).catch(() => []),
     runQuery(env, accessToken, 'service_appointments', 'date', 'DESCENDING', 500, ['date', 'time', 'status', 'custName', 'model', 'plate', 'type', 'tech', 'deleted']).catch(() => []),
-    runQuery(env, accessToken, 'social_threads', 'lastAt', 'DESCENDING', 300, ['platform', 'userId', 'unread', 'lastDirection', 'lastText', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'social_threads', 'lastAt', 'DESCENDING', 300, ['platform', 'userId', 'unread', 'lastDirection', 'lastText', 'deleted', 'needsHuman', 'aiPaused', 'name', 'channelName']).catch(() => []),
+    // (v1.0.1133) งานแผนกหลังบ้านให้ทีม AI สรุปท้ายข้อความเจ้าของ
+    runQuery(env, accessToken, 'pdi', 'startDate', 'DESCENDING', 300, ['status', 'startDate', 'brand', 'model', 'color', 'vin', 'inspector', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'complaints', 'createdAt', 'DESCENDING', 300, ['status', 'priority', 'subject', 'assignedTo', 'createdAt', 'customerName', 'custName', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'leave_requests', 'from', 'DESCENDING', 300, ['status', 'from', 'to', 'staff', 'type', 'deleted']).catch(() => []),
   ])
   // แก้สถานะไฟแนนซ์ที่ค้าง "รอผล" ของใบจองที่ไปถึงรอรถ/รอส่งมอบ/ส่งมอบแล้ว ให้เป็น "ผ่าน" ในฐานข้อมูลจริงทุกเช้า
   const fixes = bookings.filter(b => b.id && finPassPatch(b))
   if (fixes.length && await commitFinancePassed(env, accessToken, fixes.map(b => b.id))) fixes.forEach(b => { b.finStatus = 'ผ่าน' })
   const today = todayBangkok()
-  const data = { bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads }
-  return { today, data, text: buildMorningReminder(data, { today }), sections: buildMorningSections(data, { today }) }
+  const data = { bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves }
+  return { today, data, text: buildMorningReminder(data, { today, appUrl: env.ALLOWED_ORIGIN }), sections: buildMorningSections(data, { today }) }
 }
 
 // คืน { finStatus: 'ผ่าน' } ถ้าใบจองนี้ต้องแก้สถานะไฟแนนซ์อัตโนมัติ (ไม่แตะซื้อสด) — ตรงกับ src/utils/finance.js
@@ -947,6 +960,7 @@ export function buildMorningReminder(data, opts) {
   const sections = buildMorningSections(data, opts).map(s => s.text)
   const finLine = financeQueueLine(data.bookings, today)
   const svc = serviceTodayLines(data.serviceAppts, today)
+  const office = officeDigestLines({ today, threads: data.lineThreads, pdis: data.pdis, complaints: data.complaints, leaves: data.leaves }, { appUrl: opts.appUrl || '' })
 
   const text = [
     '☀️ LAMOM ONE เตือนงานเช้านี้',
@@ -956,6 +970,7 @@ export function buildMorningReminder(data, opts) {
     ...(sections.length ? sections.flatMap((s, i) => i ? ['', s] : [s]) : ['✅ ไม่มีงานค้าง ขอให้ขายดีทั้งวันครับ 🎉']),
     ...(finLine ? ['', finLine] : []),
     ...(svc.length ? ['', ...svc] : []),
+    ...(office.length ? ['', ...office] : []),
     '',
     '─────────────────────',
     '🤖 LAMOM ONE Auto Reminder',
@@ -1481,7 +1496,28 @@ async function deleteSalesTarget(env, accessToken, userId) {
 // ลูกค้าทัก LINE OA → สร้างลูกค้าใหม่ (ที่มา LINE) ครั้งแรกครั้งเดียวต่อ LINE userId ไม่สร้างให้เซลส์ที่ลงทะเบียนไว้
 // ถ้าเปิด AUTO_ASSIGN_LINE_LEADS="1" ด้วย: แจกให้เซลส์ที่ลงทะเบียน LINE ไว้แบบวนคิว (คนละรายเรียงตามชื่อ)
 // สร้างนัดติดตามวันที่ 1/3/7 (แผนเดียวกับ src/utils/leadFollowups.js) และส่ง LINE บอกเซลส์คนนั้นทันที
-async function captureLineLead(env, accessToken, userId, firstText) {
+// (v1.0.1128) หลังเก็บข้อความลูกค้า LINE (OA หลัก/OA ทีม/OA ส่วนตัว): สร้างลีด + AI ตอบอัตโนมัติ ตามที่เปิดไว้ในแอป
+// (หน้าเชื่อมช่องทาง > 🤖 ตอบอัตโนมัติ) — ล้มเหลวตรงไหนก็ไม่กระทบ webhook
+async function afterCustomerLine(env, accessToken, ev, chan) {
+  try {
+    const userId = ev?.source?.userId
+    if (!userId || !accessToken || ev.type !== 'message' || (ev.source.type && ev.source.type !== 'user')) return
+    const inbox = await readInboxAuto(env, accessToken)
+    const text = ev.message?.type === 'text' ? ev.message.text : ''
+    if (inbox.autoLead) await captureLineLead(env, accessToken, userId, text, { autoAssign: inbox.autoAssign, chan }).catch(() => {})
+    // (v1.0.1139) ลูกค้าพิมพ์เบอร์มา → ใส่เบอร์ให้ลูกค้าที่ผูก LINE นี้ (ถ้ายังไม่มีเบอร์)
+    if (text) await fillPhoneFromChat(env, accessToken, { field: 'lineUserId', value: userId, text, channelLabel: chan?.name ? `LINE ${chan.name}` : 'LINE OA' }).catch(() => null)
+    const token = chan?.token || env.LINE_CHANNEL_ACCESS_TOKEN
+    await aiAutoReply(env, accessToken, {
+      threadId: lineThreadId(userId, chan?.id || ''), channel: chan?.id || 'main', platform: 'line', isText: ev.message?.type === 'text',
+      send: lineReplySender(token, ev.replyToken),
+    })
+  } catch { /* ไม่ให้ webhook ล้ม */ }
+}
+
+async function captureLineLead(env, accessToken, userId, firstText, opts = {}) {
+  const autoAssign = opts.autoAssign ?? env.AUTO_ASSIGN_LINE_LEADS === '1'
+  const chan = opts.chan || null
   const base = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`
   const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
   const sales = await fetch(`${base}/line_sales_targets/${encodeURIComponent(userId)}`, { headers })
@@ -1494,13 +1530,13 @@ async function captureLineLead(env, accessToken, userId, firstText) {
   if (!q.ok || (Array.isArray(found) && found.some(r => r.document))) return null
   let displayName = ''
   try {
-    const p = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, { headers: { Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}` } })
+    const p = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, { headers: { Authorization: `Bearer ${chan?.token || env.LINE_CHANNEL_ACCESS_TOKEN}` } })
     if (p.ok) displayName = (await p.json()).displayName || ''
   } catch { /* ไม่มีชื่อก็สร้างได้ */ }
 
   let assignee = null
   let companyId = env.LINE_LEAD_COMPANY_ID || null
-  if (env.AUTO_ASSIGN_LINE_LEADS === '1') {
+  if (autoAssign) {
     const targets = await runQuery(env, accessToken, 'line_sales_targets', null, null, 500, ['name', 'userId']).catch(() => [])
     const rr = await fetch(`${base}/system_integrations/line_lead_rr`, { headers }).then(r => (r.ok ? r.json() : {})).catch(() => ({}))
     assignee = pickNextSales(targets, rr.fields?.lastName?.stringValue || '')
