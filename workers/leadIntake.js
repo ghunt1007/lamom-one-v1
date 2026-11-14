@@ -133,6 +133,12 @@ function safeEqual(a, b) {
 }
 
 // ── 1) ช่องรับลีดกลาง ──
+// (v1.0.1144) บอกตัวแจ้งเตือน (workers/leadAlert.js ผ่าน deps.onLead) ว่ามีลีดเข้า — พังก็ไม่กระทบการรับลีด
+async function tell(deps, lead, r) {
+  if (!deps?.onLead || !r || r.error) return
+  try { await deps.onLead(lead, r) } catch { /* ข้าม */ }
+}
+
 export async function handleLeadWebhook(request, env, getToken, deps = {}) {
   const url = new URL(request.url)
   const key = url.searchParams.get('key') || request.headers.get('X-Lead-Key') || ''
@@ -149,6 +155,7 @@ export async function handleLeadWebhook(request, env, getToken, deps = {}) {
   const token = await getToken()
   const r = await createLead(env, token, lead, { fetchImpl: deps.fetch || fetch })
   if (r.error) return { status: 500, body: { ok: false, error: r.error } }
+  await tell(deps, lead, r)
   return { status: 200, body: { ok: true, created: r.created, duplicate: !!r.duplicate, id: r.id } }
 }
 
@@ -261,7 +268,7 @@ export async function handleMetaWebhook(request, env, getToken, deps = {}) {
         if (!lead.first && !lead.phone && !lead.email) continue
         lead.note = [lead.note, d.ad_name ? `โฆษณา: ${d.ad_name}` : '', d.campaign_name ? `แคมเปญ: ${d.campaign_name}` : ''].filter(Boolean).join(' · ')
         const r = await createLead(env, token, lead, { docId: `fblead_${ev.leadgenId}`, tags: ['Facebook Lead Ads', page.name], extra: { fbLeadId: ev.leadgenId, fbPageId: page.id }, fetchImpl })
-        if (r.created) leads++
+        if (r.created) { leads++; await tell(deps, lead, r) }
         continue
       }
       if (!ev.userId) continue
@@ -288,9 +295,10 @@ export async function handleMetaWebhook(request, env, getToken, deps = {}) {
         const parts = name.split(/\s+/).filter(Boolean)
         const existing = await findByField(env, token, ev.platform === 'instagram' ? 'igUserId' : 'fbPsid', ev.userId, fetchImpl)
         if (!existing) {
-          const r = await createLead(env, token, { first: parts[0] || '', last: parts.slice(1).join(' '), phone: '', email: '', lineId: '', model: '', note: ev.text, source: ev.platform === 'instagram' ? 'instagram' : 'facebook', account: '' },
+          const chatLead = { first: parts[0] || '', last: parts.slice(1).join(' '), phone: '', email: '', lineId: '', model: '', note: ev.text, source: ev.platform === 'instagram' ? 'instagram' : 'facebook', account: '' }
+          const r = await createLead(env, token, chatLead,
             { docId: `${ev.platform === 'instagram' ? 'ig' : 'fb'}_${ev.userId}`, tags: [chanName], extra: ev.platform === 'instagram' ? { igUserId: ev.userId, fbPageId: page?.id || '' } : { fbPsid: ev.userId, fbPageId: page?.id || '' }, fetchImpl })
-          if (r.created) leads++
+          if (r.created) { leads++; await tell(deps, chatLead, r) }
         }
       }
       if (ev.isText) await fillPhoneFromChat(env, token, { field: ev.platform === 'instagram' ? 'igUserId' : 'fbPsid', value: ev.userId, text: ev.text, channelLabel: `แชต ${chanName}` }, fetchImpl).catch(() => null)
@@ -388,6 +396,7 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
     source: acc?.source || 'website', account: acc?.id || '', assignedTo: acc?.assignedTo || '', companyId: acc?.companyId || '' }
   const r = await createLead(env, token, lead, { tags: ['ฟอร์มรับลีด', ...(acc?.name ? [acc.name] : [])], extra: acc ? { sourceAccountName: acc.name, sourceAccountLevel: acc.level } : {}, fetchImpl })
   if (r.error) return { status: 500, body: { ok: false, error: 'บันทึกไม่สำเร็จ กรุณาลองใหม่' } }
+  await tell(deps, lead, r)
   // ไม่บอกคนกรอกว่าเบอร์นี้เคยมีในระบบหรือไม่ (กันเดาข้อมูลลูกค้า)
   return { status: 200, body: { ok: true } }
 }
