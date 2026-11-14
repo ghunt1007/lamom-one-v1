@@ -74,7 +74,7 @@ export function buildLeadFields(lead, { now, tags = [], companyId = null, extra 
   const notes = [`ลีดเข้ามาเองจาก ${src}`, lead.model ? `สนใจ ${lead.model}` : '', lead.note ? `"${clip(lead.note, 300)}"` : ''].filter(Boolean).join(' · ')
   const f = {
     firstName: str(lead.first || `ลูกค้า ${src}`), lastName: str(lead.last), phone: str(lead.phone), email: str(lead.email),
-    lineId: str(lead.lineId), interestedModel: str(lead.model), source: str(lead.source), temperature: { nullValue: null }, assignedTo: str(''),
+    lineId: str(lead.lineId), interestedModel: str(lead.model), source: str(lead.source), temperature: { nullValue: null }, assignedTo: str(lead.assignedTo || ''),
     vip: { booleanValue: false }, notes: str(notes), budget: { integerValue: '0' }, occupation: str(''), monthlyIncome: { integerValue: '0' },
     stage: str(lead.phone || lead.lineId ? 'pp' : 'lead'), isLost: { booleanValue: false }, lostReason: str(''), lostAt: { nullValue: null }, bookingId: { nullValue: null },
     tags: { arrayValue: { values: [...new Set([src, 'ลีดอัตโนมัติ', ...tags])].map(str) } }, companyId: companyId ? str(companyId) : { nullValue: null },
@@ -115,7 +115,7 @@ export async function createLead(env, token, lead, { docId = '', tags = [], extr
     await addNote(env, token, dupId, `ทักเข้ามาอีกครั้งทาง ${lead.source}${lead.model ? ` (สนใจ ${lead.model})` : ''}${lead.note ? `: ${lead.note}` : ''}`, fetchImpl)
     return { created: false, duplicate: true, id: dupId }
   }
-  const fields = buildLeadFields(lead, { now, tags, companyId: env.LINE_LEAD_COMPANY_ID || null, extra })
+  const fields = buildLeadFields(lead, { now, tags, companyId: lead.companyId || env.LINE_LEAD_COMPANY_ID || null, extra })
   const url = `${fsBase(env)}/customers${docId ? `?documentId=${encodeURIComponent(docId)}` : ''}`
   const r = await call(fetchImpl, url, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }) })
   if (r?.status === 409) return { created: false, duplicate: true, id: docId }
@@ -333,4 +333,61 @@ export async function fillPhoneFromChat(env, token, { field, value, text, channe
   if (!p?.ok) return null
   await addNote(env, token, id, `📞 ได้เบอร์ ${phone} จากที่ลูกค้าพิมพ์ใน${channelLabel} — ระบบใส่ให้อัตโนมัติ`, fetchImpl)
   return { id, phone, filled: true }
+}
+
+// ── (v1.0.1140) ฟอร์มรับลีดสาธารณะ — ลูกค้ากรอกชื่อ-เบอร์เองจากลิงก์/QR (ใส่ในไบโอ TikTok/เพจส่วนตัว/บูธ) ──
+// ไม่มีรหัส จึงกันสแปมด้วย: ต้องเปิดสวิตช์ในแท็บตอบอัตโนมัติ · ช่องล่อบอต · เบอร์มือถือไทยที่ถูกต้อง · จำกัดจำนวนต่อ IP · เบอร์ซ้ำไม่สร้างคนใหม่
+const formHits = new Map()
+export function __resetFormHits() { formHits.clear() }
+export function formRateOk(ip, now = Date.now(), { max = 5, windowMs = 10 * 60_000 } = {}) {
+  const k = String(ip || 'x')
+  const hits = (formHits.get(k) || []).filter(t => now - t < windowMs)
+  if (hits.length >= max) { formHits.set(k, hits); return false }
+  hits.push(now); formHits.set(k, hits)
+  if (formHits.size > 5000) formHits.clear()
+  return true
+}
+
+// บัญชีโซเชียลที่บันทึกไว้ในแอป (social_channels) → ที่มา + ผู้ดูแล (บัญชีระดับเซลส์ = มอบลีดให้เจ้าของบัญชี)
+export function accountLeadInfo(doc) {
+  const f = doc?.fields
+  if (!f || f.deleted?.booleanValue) return null
+  const g = k => String(f[k]?.stringValue || '').trim()
+  const level = g('level') || 'team'
+  return { id: String(doc.name || '').split('/').pop(), source: normSource(g('platform')), name: clip(g('name') || g('handle'), 80), level, assignedTo: level === 'sales' ? clip(g('owner'), 80) : '', companyId: g('companyId') }
+}
+
+export async function handleLeadForm(request, env, getToken, deps = {}) {
+  const fetchImpl = deps.fetch || fetch
+  const raw = await request.text()
+  if (raw.length > 5000) return { status: 413, body: { ok: false, error: 'ข้อมูลยาวเกินไป' } }
+  let b = {}
+  try { b = JSON.parse(raw) } catch { return { status: 400, body: { ok: false, error: 'ส่งข้อมูลไม่ถูกต้อง' } } }
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return { status: 400, body: { ok: false, error: 'ส่งข้อมูลไม่ถูกต้อง' } }
+  // ช่องล่อบอต: คนจริงมองไม่เห็นช่องนี้ — ถ้ามีค่า ตอบสำเร็จหลอกแต่ไม่บันทึก
+  if (String(b.website || '').trim()) return { status: 200, body: { ok: true } }
+  const name = clip(String(b.name || '').replace(/[<>\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim(), 100)
+  const phone = normPhone(b.phone)
+  if (name.length < 2) return { status: 400, body: { ok: false, error: 'กรุณาใส่ชื่อ' } }
+  if (!/^0[689]\d{8}$/.test(phone)) return { status: 400, body: { ok: false, error: 'กรุณาใส่เบอร์มือถือ 10 หลัก' } }
+  const ip = request.headers.get('CF-Connecting-IP') || ''
+  if (!formRateOk(ip, deps.now || Date.now())) return { status: 429, body: { ok: false, error: 'ส่งถี่เกินไป กรุณาลองใหม่ภายหลัง' } }
+  const token = await getToken()
+  if (!token) return { status: 503, body: { ok: false, error: 'ระบบยังไม่พร้อม กรุณาลองใหม่' } }
+  const inbox = await readInboxAuto(env, token, fetchImpl)
+  if (!inbox.publicForm) return { status: 403, body: { ok: false, error: 'ฟอร์มนี้ปิดรับอยู่' } }
+  const accId = clip(String(b.a || ''), 60).replace(/[^A-Za-z0-9_-]/g, '')
+  let acc = null
+  if (accId) {
+    const r = await call(fetchImpl, `${fsBase(env)}/social_channels/${encodeURIComponent(accId)}`, { headers: { Authorization: `Bearer ${token}` } })
+    if (r?.ok) acc = accountLeadInfo(await r.json().catch(() => null))
+  }
+  const parts = name.split(' ')
+  const clean = (v, n) => clip(String(v || '').replace(/[<>\u0000-\u001f]/g, ' ').trim(), n)
+  const lead = { first: parts[0], last: parts.slice(1).join(' '), phone, email: '', lineId: clean(b.line, 60), model: clean(b.model, 80), note: clean(b.note, 300),
+    source: acc?.source || 'website', account: acc?.id || '', assignedTo: acc?.assignedTo || '', companyId: acc?.companyId || '' }
+  const r = await createLead(env, token, lead, { tags: ['ฟอร์มรับลีด', ...(acc?.name ? [acc.name] : [])], extra: acc ? { sourceAccountName: acc.name, sourceAccountLevel: acc.level } : {}, fetchImpl })
+  if (r.error) return { status: 500, body: { ok: false, error: 'บันทึกไม่สำเร็จ กรุณาลองใหม่' } }
+  // ไม่บอกคนกรอกว่าเบอร์นี้เคยมีในระบบหรือไม่ (กันเดาข้อมูลลูกค้า)
+  return { status: 200, body: { ok: true } }
 }

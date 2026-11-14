@@ -35,7 +35,7 @@ import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser, 
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
 import { handleSocial, recordLineInbound, handleExtraLineWebhook, lineThreadId } from './social.js'
 import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
-import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFromChat } from './leadIntake.js'
+import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFromChat, handleLeadForm } from './leadIntake.js'
 import { handleNotify } from './notify.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
@@ -74,6 +74,7 @@ export default {
       if (request.method === 'POST' && url.pathname === '/line/webhook') return await handleLineWebhook(request, env, cors)
       // (v1.0.1129) ช่องรับลีดกลาง (TikTok/เว็บ/ฟอร์ม/อีเมลผ่าน Zapier) + Facebook/IG webhook — ดู workers/leadIntake.js
       if (request.method === 'POST' && url.pathname === '/lead/webhook') { const r = await handleLeadWebhook(request, env, () => getFirestoreAccessToken(env)); return json(r.body, r.status, cors) }
+      if (request.method === 'POST' && url.pathname === '/lead/form') { const r = await handleLeadForm(request, env, () => getFirestoreAccessToken(env)); return json(r.body, r.status, cors) }
       if (url.pathname === '/meta/webhook') {
         if (request.method === 'GET') { const c = metaVerifyChallenge(url, env); return c === null ? new Response('Forbidden', { status: 403 }) : new Response(c, { status: 200, headers: { 'Content-Type': 'text/plain' } }) }
         if (request.method === 'POST') { const r = await handleMetaWebhook(request, env, () => getFirestoreAccessToken(env)); return json(r.body, r.status, cors) }

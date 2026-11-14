@@ -149,3 +149,70 @@ describe('v1.0.1139 phone from chat', () => {
     expect(await fillPhoneFromChat(env, 't', { field: 'lineUserId', value: 'U3', text: 'สวัสดี' }, b.f)).toBe(null)
   })
 })
+
+import { handleLeadForm, formRateOk, accountLeadInfo, __resetFormHits } from './leadIntake.js'
+import { beforeEach } from 'vitest'
+describe('v1.0.1140 public lead form', () => {
+  beforeEach(() => { __resetInboxCache(); __resetFormHits() })
+  const env = { FIREBASE_PROJECT_ID: 'p' }
+  const req = (body, ip = '1.1.1.1') => new Request('https://w/lead/form', { method: 'POST', headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': ip }, body: typeof body === 'string' ? body : JSON.stringify(body) })
+  const world = ({ on = true, account = null, dup = false } = {}) => {
+    const calls = []
+    const f = async (url, init = {}) => {
+      calls.push({ url, method: init.method || 'GET', body: init.body })
+      if (url.includes('system_integrations/inbox_auto')) return { ok: true, json: async () => ({ fields: { publicForm: { booleanValue: on } } }) }
+      if (url.includes('/social_channels/')) return account ? { ok: true, json: async () => account } : { ok: false, status: 404, json: async () => ({}) }
+      if (url.endsWith(':runQuery')) return { ok: true, json: async () => (dup ? [{ document: { name: 'x/customers/old1', fields: {} } }] : [{}]) }
+      if (url.includes('/customers') && init.method === 'POST') return { ok: true, status: 200, json: async () => ({ name: 'x/customers/new1' }) }
+      return { ok: true, json: async () => ({}) }
+    }
+    return { f, calls }
+  }
+  const created = calls => { const c = calls.find(x => /\/customers(\?|$)/.test(x.url) && x.method === 'POST'); return c ? JSON.parse(c.body).fields : null }
+
+  it('creates a lead tied to the social account, assigned to a sales-level owner', async () => {
+    const w = world({ account: { name: 'x/social_channels/acc1', fields: { platform: { stringValue: 'tiktok' }, level: { stringValue: 'sales' }, owner: { stringValue: 'เซลส์ หนึ่ง' }, name: { stringValue: 'TikTok พี่หนึ่ง' }, companyId: { stringValue: 'co1' } } } })
+    const r = await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '081-234-5678', model: 'S07', note: 'ขอใบเสนอราคา', a: 'acc1' }), env, async () => 't', { fetch: w.f })
+    expect(r).toEqual({ status: 200, body: { ok: true } })
+    const f = created(w.calls)
+    expect(f.firstName.stringValue).toBe('สมชาย'); expect(f.lastName.stringValue).toBe('ใจดี')
+    expect(f.phone.stringValue).toBe('0812345678'); expect(f.source.stringValue).toBe('tiktok')
+    expect(f.assignedTo.stringValue).toBe('เซลส์ หนึ่ง'); expect(f.sourceAccountId.stringValue).toBe('acc1')
+    expect(f.companyId.stringValue).toBe('co1'); expect(f.sourceAccountLevel.stringValue).toBe('sales')
+  })
+  it('team accounts and unknown accounts do not assign anyone', async () => {
+    expect(accountLeadInfo({ name: 'x/social_channels/a', fields: { platform: { stringValue: 'facebook' }, level: { stringValue: 'team' }, owner: { stringValue: 'แอดมิน' } } }).assignedTo).toBe('')
+    expect(accountLeadInfo({ name: 'x/a', fields: { deleted: { booleanValue: true } } })).toBe(null)
+    const w = world()
+    await handleLeadForm(req({ name: 'มานี', phone: '0912345678', a: 'nope' }), env, async () => 't', { fetch: w.f })
+    const f = created(w.calls)
+    expect(f.source.stringValue).toBe('website'); expect(f.assignedTo.stringValue).toBe(''); expect(f.sourceAccountId).toBeUndefined()
+  })
+  it('is closed unless the owner switched it on', async () => {
+    const w = world({ on: false })
+    const r = await handleLeadForm(req({ name: 'มานี', phone: '0912345678' }), env, async () => 't', { fetch: w.f })
+    expect(r.status).toBe(403); expect(created(w.calls)).toBe(null)
+  })
+  it('rejects bad input, traps bots, and never reveals duplicates', async () => {
+    const w = world()
+    expect((await handleLeadForm(req({ name: 'ก', phone: '0912345678' }), env, async () => 't', { fetch: w.f })).status).toBe(400)
+    expect((await handleLeadForm(req({ name: 'มานี', phone: '02-123-4567' }), env, async () => 't', { fetch: w.f })).status).toBe(400)
+    expect((await handleLeadForm(req('not json'), env, async () => 't', { fetch: w.f })).status).toBe(400)
+    expect((await handleLeadForm(req('x'.repeat(6000)), env, async () => 't', { fetch: w.f })).status).toBe(413)
+    expect(await handleLeadForm(req({ name: 'bot', phone: '0912345678', website: 'http://spam' }), env, async () => 't', { fetch: w.f })).toEqual({ status: 200, body: { ok: true } })
+    expect(w.calls.length).toBe(0)
+    const d = world({ dup: true })
+    expect(await handleLeadForm(req({ name: '<b>มานี</b>', phone: '0912345678' }), env, async () => 't', { fetch: d.f })).toEqual({ status: 200, body: { ok: true } })
+    expect(created(d.calls)).toBe(null)
+    expect(d.calls.some(c => c.url.endsWith('/customer_notes'))).toBe(true)
+  })
+  it('limits submissions per IP', async () => {
+    for (let i = 0; i < 5; i++) expect(formRateOk('9.9.9.9', 1000 + i)).toBe(true)
+    expect(formRateOk('9.9.9.9', 2000)).toBe(false)
+    expect(formRateOk('8.8.8.8', 2000)).toBe(true)
+    expect(formRateOk('9.9.9.9', 1000 + 11 * 60_000)).toBe(true)
+    const w = world()
+    const r = await handleLeadForm(req({ name: 'มานี', phone: '0912345678' }, '9.9.9.9'), env, async () => 't', { fetch: w.f, now: 1000 + 11 * 60_000 + 5 })
+    expect(r.status).toBe(200)
+  })
+})

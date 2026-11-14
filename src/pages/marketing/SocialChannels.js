@@ -22,7 +22,7 @@ import { catalogContext } from '../../utils/salesAi.js'
 import { openQuickLead } from '../../utils/quickLead.js'
 import { socialStatus, metaInbox, metaReply, metaPost, metaAds, metaAdsUpdate, lineReply, shareLinks, googlePlaces } from '../../utils/socialApi.js'
 import { PLATFORM_GUIDE, SECRET_STEPS, LEVELS, ACCOUNT_PLATFORMS } from '../../utils/socialGuide.js'
-import { createAutoTab } from './channelsAuto.js'
+import { createAutoTab, leadFormLink } from './channelsAuto.js'
 const LEVEL_ORDER_UI = { team: 0, showroom: 1, sales: 2 }
 
 const TABS = { inbox: '💬 แชตรวม', auto: '🤖 ตอบอัตโนมัติ', post: '📝 โพสต์', ads: '📣 โฆษณา', maps: '📍 Google Maps', accounts: '👥 บัญชี', guide: '🧭 วิธีเชื่อม' }
@@ -480,7 +480,7 @@ export default async function SocialChannelsPage(container) {
               ${(() => { const r = accRes?.[a.id]; return r ? (r.allLeads ? `<button type="button" class="ch-acc-res" data-acc-cust="${esc(a.id)}" data-acc-name="${esc(a.name || '')}" title="Lead ที่เข้ามาเดือนนี้ · ในนั้นจองแล้ว (รวมทั้งหมด ${r.allLeads} Lead / จอง ${r.allBooked}) — แตะเพื่อดูรายชื่อลูกค้า">🧲 ${r.leads} · 📝 ${r.booked} ›</button>` : `<span class="ch-acc-res" title="ยังไม่มี Lead จากบัญชีนี้">🧲 0 · 📝 0</span>`) : '' })()}
               ${(() => { const sp = accountSpend(a, thisMonth); if (!sp) return ''; const l = accRes?.[a.id]?.leads || 0; return `<span class="ch-acc-spend" title="ค่าโฆษณาที่ใส่ไว้เดือนนี้ · ต้นทุนต่อ Lead">💸 ${formatCurrency(sp)}${l ? ` · ${formatCurrency(Math.round(sp / l))}/Lead` : ''}</span>` })()}
               <span class="ch-st ${c ? 'on' : ''}">${c ? '✅ เชื่อมแล้ว' : '⚪ บันทึกไว้'}</span>
-              <span class="ch-acc-a">${a.url ? `<a class="btn btn-ghost btn-sm" href="${esc(a.url)}" target="_blank" rel="noopener">เปิด ↗</a>` : ''}<button class="btn btn-ghost btn-sm" data-acc-edit="${esc(a.id)}">แก้ไข</button></span>
+              <span class="ch-acc-a">${a.url ? `<a class="btn btn-ghost btn-sm" href="${esc(a.url)}" target="_blank" rel="noopener">เปิด ↗</a>` : ''}<button class="btn btn-ghost btn-sm" data-copy-form="${esc(a.id)}" title="คัดลอกลิงก์ฟอร์มรับลีดของบัญชีนี้ ไปวางในไบโอ/โพสต์">🔗 ลิงก์รับลีด</button><button class="btn btn-ghost btn-sm" data-acc-edit="${esc(a.id)}">แก้ไข</button></span>
             </div>` }).join('')}</div>` : '<div class="ch-muted">— ยังไม่มี —</div>'}</div>`
       }).join('')}`
   }
@@ -636,6 +636,7 @@ export default async function SocialChannelsPage(container) {
     if (t.closest('#ch-back')) { openKey = ''; stopMsgs?.(); stopMsgs = null; render(); return }
     if (t.closest('#ch-send')) { sendReply(); return }
     const ap = t.closest('#ch-aipause'); if (ap) { toggleAiPause(ap.dataset.id); return }
+    const cf = t.closest('[data-copy-form]'); if (cf) { copyText(leadFormLink(cf.dataset.copyForm)); return }
     if (t.closest('#au-save')) { autoTab.save(container); return }
     if (t.closest('#au-test')) { autoTab.test(container); return }
     if (t.closest('#ch-ai')) { aiDraft(); return }

@@ -29,6 +29,7 @@ export const INBOX_DEFAULTS = {
   aiChannels: 'all', // all หรือรายชื่อช่องทางคั่นด้วย , เช่น main,team,fb
   aiName: 'น้องลามิ',
   aiInfo: '', // ข้อมูลโชว์รูมที่ให้ AI ใช้ตอบ เช่น ที่อยู่ เวลาเปิด เบอร์โทร รุ่นที่ขาย
+  publicForm: false, // (v1.0.1140) เปิดฟอร์มรับลีดสาธารณะ /lead.html
 }
 
 const bool = (v, d) => (v === true || v === false ? v : d)
@@ -47,6 +48,7 @@ export function normalizeInboxAuto(raw = {}, env = {}) {
     aiChannels: str(r.aiChannels, 'all', 300).trim() || 'all',
     aiName: str(r.aiName, INBOX_DEFAULTS.aiName, 40).trim() || INBOX_DEFAULTS.aiName,
     aiInfo: str(r.aiInfo, '', 3000),
+    publicForm: bool(r.publicForm, false),
   }
 }
 

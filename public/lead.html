@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ฝากชื่อ-เบอร์ ให้เซลส์ติดต่อกลับ</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+  :root { --bg:#f4f6fb; --card:#fff; --text:#16202e; --muted:#5b6778; --line:#d6dce6; --pri:#2563eb; --pri-text:#fff; --ok:#15803d; --bad:#b91c1c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0e1420; --card:#172033; --text:#eef2f8; --muted:#a3afc2; --line:#2c3a52; --pri:#4f8cff; --pri-text:#07101f; --ok:#4ade80; --bad:#fca5a5; } }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai","Leelawadee UI",sans-serif; font-size:16px; line-height:1.6; display:flex; align-items:flex-start; justify-content:center; padding:24px 16px; }
+  main { width:100%; max-width:440px; background:var(--card); border:1px solid var(--line); border-radius:18px; padding:22px 20px; margin-top:4vh; }
+  h1 { font-size:1.35rem; line-height:1.35; margin:0 0 6px; }
+  p.sub { margin:0 0 18px; color:var(--muted); font-size:0.95rem; }
+  label { display:block; font-weight:600; font-size:0.92rem; margin:14px 0 5px; }
+  label small { font-weight:400; color:var(--muted); }
+  input, textarea { width:100%; font:inherit; color:inherit; background:transparent; border:1.5px solid var(--line); border-radius:12px; padding:11px 12px; }
+  input:focus, textarea:focus { outline:3px solid color-mix(in srgb, var(--pri) 35%, transparent); border-color:var(--pri); }
+  textarea { resize:vertical; min-height:72px; }
+  .hp { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+  button { width:100%; margin-top:20px; font:inherit; font-weight:700; font-size:1.05rem; color:var(--pri-text); background:var(--pri); border:0; border-radius:12px; padding:13px; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:default; }
+  .msg { margin-top:14px; font-size:0.95rem; min-height:1.4em; }
+  .msg.bad { color:var(--bad); }
+  .done { text-align:center; padding:18px 0 8px; }
+  .done .big { font-size:3rem; line-height:1; }
+  .done h2 { margin:12px 0 6px; font-size:1.25rem; color:var(--ok); }
+  .fine { margin-top:16px; color:var(--muted); font-size:0.8rem; }
+</style>
+</head>
+<body>
+<main>
+  <div id="form-wrap">
+    <h1>สนใจรถ? ฝากชื่อและเบอร์ไว้ได้เลย</h1>
+    <p class="sub">เจ้าหน้าที่จะโทรกลับพร้อมโปรโมชันล่าสุด ไม่มีค่าใช้จ่าย</p>
+    <form id="f" novalidate>
+      <label for="name">ชื่อ</label>
+      <input id="name" name="name" autocomplete="name" maxlength="100" required>
+      <label for="phone">เบอร์มือถือ</label>
+      <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="16" placeholder="08x-xxx-xxxx" required>
+      <label for="model">รุ่นที่สนใจ <small>(ไม่ใส่ก็ได้)</small></label>
+      <input id="model" name="model" maxlength="80">
+      <label for="note">อยากให้ติดต่อเรื่องอะไร <small>(ไม่ใส่ก็ได้)</small></label>
+      <textarea id="note" name="note" maxlength="300" placeholder="เช่น ขอใบเสนอราคา นัดทดลองขับ สะดวกให้โทรช่วงเย็น"></textarea>
+      <div class="hp" aria-hidden="true"><label for="website">เว็บไซต์</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
+      <button type="submit" id="send">ส่งข้อมูล</button>
+      <div class="msg" id="msg" role="alert"></div>
+    </form>
+    <p class="fine">ข้อมูลนี้ใช้เพื่อให้เจ้าหน้าที่ติดต่อกลับเรื่องรถที่สนใจเท่านั้น</p>
+  </div>
+  <div id="done" class="done" hidden>
+    <div class="big">✅</div>
+    <h2>ได้รับข้อมูลแล้ว ขอบคุณค่ะ</h2>
+    <p>เจ้าหน้าที่จะติดต่อกลับโดยเร็วที่สุด</p>
+  </div>
+</main>
+<script>
+(function () {
+  var API = (location.hostname === 'localhost' && new URLSearchParams(location.search).get('api')) || 'https://lamom-daily-report.ghunt1007.workers.dev'
+  var f = document.getElementById('f'), msg = document.getElementById('msg'), btn = document.getElementById('send')
+  var a = (new URLSearchParams(location.search).get('a') || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60)
+  function say(t) { msg.textContent = t; msg.className = 'msg' + (t ? ' bad' : '') }
+  f.addEventListener('submit', function (e) {
+    e.preventDefault()
+    var name = f.name.value.trim(), digits = f.phone.value.replace(/[^\d+]/g, '')
+    if (digits.indexOf('+66') === 0) digits = '0' + digits.slice(3)
+    digits = digits.replace(/\D/g, '')
+    if (name.length < 2) { say('กรุณาใส่ชื่อ'); f.name.focus(); return }
+    if (!/^0[689]\d{8}$/.test(digits)) { say('กรุณาใส่เบอร์มือถือ 10 หลัก เช่น 0812345678'); f.phone.focus(); return }
+    say(''); btn.disabled = true; btn.textContent = 'กำลังส่ง…'
+    fetch(API + '/lead/form', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, phone: digits, model: f.model.value.trim(), note: f.note.value.trim(), website: f.website.value, a: a }) })
+      .then(function (r) { return r.json().catch(function () { return {} }).then(function (d) { return { ok: r.ok && d.ok, error: d.error } }) })
+      .then(function (r) {
+        if (r.ok) { document.getElementById('form-wrap').hidden = true; document.getElementById('done').hidden = false; return }
+        say(r.error || 'ส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'); btn.disabled = false; btn.textContent = 'ส่งข้อมูล'
+      })
+      .catch(function () { say('ส่งไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง'); btn.disabled = false; btn.textContent = 'ส่งข้อมูล' })
+  })
+})()
+</script>
+</body>
+</html>
