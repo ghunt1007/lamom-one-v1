@@ -165,3 +165,18 @@ button.ch-acc-res { cursor: pointer; color: var(--primary); } button.ch-acc-res:
 /* (v1.0.1140) ลิงก์ฟอร์มรับลีด */
 .ch-formlink { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
 .ch-formlink code { flex:1 1 180px; min-width:0; overflow-wrap:anywhere; font-size:0.78rem; background:var(--surface-2); padding:6px 8px; border-radius:8px; }
+
+/* (v1.0.1141) การ์ดกุญแจเชื่อมต่อ */
+.ch-keys { display:flex; flex-direction:column; gap:10px; }
+.ch-key { border:1px solid var(--border); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; min-width:0; }
+.ch-key-h { display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+.ch-key-h b { font-size:0.9rem; min-width:0; overflow-wrap:anywhere; }
+.ch-key-in { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+.ch-key-in .input { flex:1 1 200px; min-width:0; }
+.ch-key-line { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:6px; }
+.ch-key-oa { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:0.86rem; }
+.ch-key-oa span { flex:1 1 140px; min-width:0; overflow-wrap:anywhere; }
+.ch-key-rev { background:var(--surface-2); border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:6px; font-size:0.84rem; }
+.ch-key-copy { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.ch-key-copy small { flex:1 1 100%; color:var(--text-3); }
+.ch-key-copy code { flex:1 1 180px; min-width:0; overflow-wrap:anywhere; font-size:0.76rem; }

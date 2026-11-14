@@ -37,6 +37,7 @@ import { handleSocial, recordLineInbound, handleExtraLineWebhook, lineThreadId }
 import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
 import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFromChat, handleLeadForm } from './leadIntake.js'
 import { handleNotify } from './notify.js'
+import { withStoredSecrets, handleSecrets } from './secretStore.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
 import { campaignLeads } from '../src/utils/campaignLeads.js'
@@ -70,7 +71,22 @@ export default {
     }
     if (request.method === 'OPTIONS') return new Response(null, { headers: cors })
 
+    // (v1.0.1141) กุญแจที่เจ้าของใส่จากในแอป (เข้ารหัสใน Firestore) ทับค่าใน Cloudflare — ดู workers/secretStore.js
+    const baseEnv = env
+    try { env = await withStoredSecrets(baseEnv, () => getFirestoreAccessToken(baseEnv)) } catch { env = baseEnv }
+
     try {
+      if (request.method === 'POST' && url.pathname === '/social/secrets') {
+        const authHeader = request.headers.get('Authorization') || ''
+        const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+        const verified = idToken ? await withProgramOwnerFlag(await verifyFirebaseToken(idToken, baseEnv.FIREBASE_API_KEY), idToken, baseEnv) : null
+        if (!verified) return json({ error: 'Unauthorized' }, 401, cors)
+        if (!isProgramOwnerUser(verified)) return json({ error: 'เฉพาะเจ้าของโปรแกรมเท่านั้นที่ตั้งค่ากุญแจได้' }, 403, cors)
+        let body
+        try { body = await request.json() } catch { body = {} }
+        try { return json(await handleSecrets(baseEnv, body || {}, { getToken: () => getFirestoreAccessToken(baseEnv), by: verified.email || verified.localId }), 200, cors) }
+        catch (e) { return json({ error: e.message || 'secrets error' }, e.status || 400, cors) }
+      }
       if (request.method === 'POST' && url.pathname === '/line/webhook') return await handleLineWebhook(request, env, cors)
       // (v1.0.1129) ช่องรับลีดกลาง (TikTok/เว็บ/ฟอร์ม/อีเมลผ่าน Zapier) + Facebook/IG webhook — ดู workers/leadIntake.js
       if (request.method === 'POST' && url.pathname === '/lead/webhook') { const r = await handleLeadWebhook(request, env, () => getFirestoreAccessToken(env)); return json(r.body, r.status, cors) }
