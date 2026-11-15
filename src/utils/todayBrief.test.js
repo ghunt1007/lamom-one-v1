@@ -51,3 +51,19 @@ describe('todayStats / text', () => {
     expect(parseListSpec('ลูกค้า hot ที่ยังไม่มีนัดมีใครบ้าง')).toMatchObject({ temp: 'hot', noFu: true })
   })
 })
+
+describe('todayStats returning customers (v1.0.1219)', () => {
+  it('counts re-enquiries waiting for a call-back and puts them first', () => {
+    const today = '2026-11-16'
+    const s = todayStats({ today, tomorrow: '2026-11-17', customers: [
+      { id: 'a', stage: 'pp', reEnquiredAt: '2026-11-16T02:00:00Z' },
+      { id: 'b', stage: 'pp', reEnquiredAt: '2026-11-15T02:00:00Z', lastContactAt: '2026-11-15T03:00:00Z' },
+      { id: 'c', stage: 'pp', reEnquiredAt: '2026-11-10T02:00:00Z' },
+    ] })
+    expect(s.back).toBe(1)
+    const t = todayBriefText(s)
+    expect(t).toContain('📣 ลูกค้าเดิมทักกลับมา รอโทรกลับ 1 คน')
+    expect(t).toContain('เริ่มจาก: โทรกลับลูกค้าเดิมที่ทักมา')
+    expect(todayFollowUps(s)).toContain('ใครทักกลับมาบ้าง')
+  })
+})
