@@ -66,9 +66,11 @@ describe('teamToday', () => {
     }
     const rows = teamToday(data, { today, names: ['เอ', 'บี', 'ซี'] })
     expect(rows).toEqual([
-      { name: 'บี', total: 2, contacted: 1, newUntouched: 0 },
-      { name: 'เอ', total: 0, contacted: 0, newUntouched: 1 },
+      { name: 'บี', total: 2, contacted: 1, newUntouched: 0, back: 0 },
+      { name: 'เอ', total: 0, contacted: 0, newUntouched: 1, back: 0 },
     ])
+    const r2 = teamToday({ ...data, customers: [{ id: 'z', stage: 'pp', createdAt: '2026-09-01', assignedTo: 'ซี', reEnquiredAt: today + 'T02:00:00Z' }] }, { today, names: ['ซี'] })
+    expect(r2).toEqual([{ name: 'ซี', total: 0, contacted: 0, newUntouched: 0, back: 1 }])
   })
 })
 

@@ -219,14 +219,14 @@ export default async function MyDayPage(container) {
     if (!canPick || seller !== 'all') return ''
     const rows = teamToday(data, { today, names: sellerNames().filter(n => n !== UNASSIGNED), same: (a, b) => normName(a) === normName(b), allowed: (n, rec) => scopeIncludesRecord(scope, n, rec) })
     if (rows.length < 2) return ''
-    const max = Math.max(...rows.map(r => r.total + r.newUntouched), 1)
+    const max = Math.max(...rows.map(r => r.total + r.newUntouched + (r.back || 0)), 1)
     return `<div class="card" style="padding:0;margin-bottom:14px;overflow:hidden">
       <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px"><span style="font-size:1.1rem">👥</span><b>ทีมวันนี้</b>
         <span style="margin-left:auto;font-size:0.7rem;color:var(--text-muted)">กดชื่อเพื่อดูงานของคนนั้น</span></div>
       ${rows.map(r => `<div class="md-who" data-name="${escHtml(r.name)}" style="display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border);cursor:pointer;flex-wrap:wrap">
         <div style="width:130px;font-weight:600;font-size:0.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(r.name)}</div>
-        <div style="flex:1;min-width:90px;height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.round((r.total + r.newUntouched) / max * 100)}%;background:var(--warning)"></div></div>
-        <div class="md-who-stats" style="font-size:0.74rem;color:var(--text-muted);white-space:nowrap">📋 ค้าง <b style="color:var(--text)">${r.total}</b>${r.newUntouched ? ` · 🧲 Lead ใหม่ยังไม่โทร <b style="color:var(--danger)">${r.newUntouched}</b>` : ''} · 💪 ติดต่อแล้ว <b style="color:var(--success)">${r.contacted}</b></div>
+        <div style="flex:1;min-width:90px;height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.round((r.total + r.newUntouched + (r.back || 0)) / max * 100)}%;background:var(--warning)"></div></div>
+        <div class="md-who-stats" style="font-size:0.74rem;color:var(--text-muted);white-space:nowrap">📋 ค้าง <b style="color:var(--text)">${r.total}</b>${r.newUntouched ? ` · 🧲 Lead ใหม่ยังไม่โทร <b style="color:var(--danger)">${r.newUntouched}</b>` : ''}${r.back ? ` · 📣 ทักกลับมา <b style="color:var(--danger)">${r.back}</b>` : ''} · 💪 ติดต่อแล้ว <b style="color:var(--success)">${r.contacted}</b></div>
       </div>`).join('')}
     </div>`
   }

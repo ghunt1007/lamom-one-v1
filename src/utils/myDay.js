@@ -249,9 +249,9 @@ export function teamToday(data, { today, names = [], same = (a, b) => String(a |
   return names.map(name => {
     const d = buildMyDay(data, { today, mine: (n, rec) => allowed(n, rec) && same(n, name) })
     const newUntouched = d.newLeads.filter(c => bangkokDate(c.lastContactAt) !== today).length
-    return { name, total: d.total, contacted: d.contactedToday, newUntouched }
-  }).filter(r => r.total || r.contacted || r.newUntouched)
-    .sort((a, b) => b.total + b.newUntouched - (a.total + a.newUntouched) || a.name.localeCompare(b.name, 'th'))
+    return { name, total: d.total, contacted: d.contactedToday, newUntouched, back: (d.returning || []).length }
+  }).filter(r => r.total || r.contacted || r.newUntouched || r.back)
+    .sort((a, b) => b.total + b.newUntouched + b.back - (a.total + a.newUntouched + a.back) || a.name.localeCompare(b.name, 'th'))
 }
 
 // Lead ใหม่วันนี้: รอมากี่นาทีแล้ว (ยิ่งโทรเร็วยิ่งปิดได้) — คืน null ถ้าติดต่อแล้วหรือไม่มีเวลาสร้าง
