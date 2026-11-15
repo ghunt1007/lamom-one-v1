@@ -86,6 +86,10 @@ export function buildLeadFields(lead, { now, tags = [], companyId = null, extra 
 }
 
 async function findByField(env, token, field, value, fetchImpl) {
+  return (await findCustomer(env, token, field, value, fetchImpl))?.id || null
+}
+// { id, owner } ของลูกค้าคนแรกที่ช่องนี้ตรง (owner = ผู้ดูแลเดิม ใช้แจ้งเตือนคนที่ดูแลอยู่เมื่อลูกค้าเดิมทักมาอีกครั้ง)
+async function findCustomer(env, token, field, value, fetchImpl) {
   if (!value) return null
   const r = await call(fetchImpl, `${fsBase(env)}:runQuery`, {
     method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -94,7 +98,7 @@ async function findByField(env, token, field, value, fetchImpl) {
   if (!r?.ok) return null
   const rows = await r.json().catch(() => [])
   const d = (Array.isArray(rows) ? rows : []).find(x => x.document)?.document
-  return d ? String(d.name).split('/').pop() : null
+  return d ? { id: String(d.name).split('/').pop(), owner: String(d.fields?.assignedTo?.stringValue || '').trim() } : null
 }
 
 async function addNote(env, token, customerId, text, fetchImpl) {
@@ -119,12 +123,13 @@ export async function markReEnquiry(env, token, id, lead = {}, now = new Date().
  */
 export async function createLead(env, token, lead, { docId = '', tags = [], extra = {}, fetchImpl = fetch, now = new Date().toISOString() } = {}) {
   if (!token) return { created: false, error: 'no-token' }
-  const dupId = (await findByField(env, token, 'phone', lead.phone, fetchImpl)) || (await findByField(env, token, 'email', lead.email, fetchImpl))
+  const dup = (await findCustomer(env, token, 'phone', lead.phone, fetchImpl)) || (await findCustomer(env, token, 'email', lead.email, fetchImpl))
+  const dupId = dup?.id
   if (dupId) {
     await addNote(env, token, dupId, `ทักเข้ามาอีกครั้งทาง ${lead.source}${lead.model ? ` (สนใจ ${lead.model})` : ''}${lead.note ? `: ${lead.note}` : ''}`, fetchImpl)
     // (v1.0.1208) ติดป้าย "ทักกลับมา" ให้หน้างานวันนี้/รายงาน 09:00 ยกขึ้นมาให้เซลส์โทรกลับ — พังก็ไม่กระทบการรับลีด
     await markReEnquiry(env, token, dupId, lead, now, fetchImpl).catch(() => null)
-    return { created: false, duplicate: true, id: dupId }
+    return { created: false, duplicate: true, id: dupId, owner: dup.owner || '' }
   }
   const fields = buildLeadFields(lead, { now, tags, companyId: lead.companyId || env.LINE_LEAD_COMPANY_ID || null, extra })
   const url = `${fsBase(env)}/customers${docId ? `?documentId=${encodeURIComponent(docId)}` : ''}`
@@ -147,6 +152,12 @@ function safeEqual(a, b) {
 // (v1.0.1144) บอกตัวแจ้งเตือน (workers/leadAlert.js ผ่าน deps.onLead) ว่ามีลีดเข้า — พังก็ไม่กระทบการรับลีด
 async function tell(deps, lead, r) {
   if (!deps?.onLead || !r || r.error) return
+  // (v1.0.1212) ลูกค้าเดิมที่มีผู้ดูแลอยู่แล้ว → แจ้งผู้ดูแลเดิมเป็นหลัก (เดิมแจ้งตามลิงก์/QR ที่สแกน หรือ "ใครว่างรับเลย" ทั้งทีม)
+  // คนที่เป็นเจ้าของ QR/เวรบูธยังได้แจ้งด้วย (ลูกค้าอาจยืนอยู่ตรงหน้า)
+  if (r.duplicate && !r.created && r.owner) {
+    const also = [lead.assignedTo, ...(Array.isArray(lead.alsoNotify) ? lead.alsoNotify : [])].filter(n => n && n !== r.owner)
+    lead = { ...lead, assignedTo: r.owner, alsoNotify: [...new Set(also)] }
+  }
   try { await deps.onLead(lead, r) } catch { /* ข้าม */ }
 }
 

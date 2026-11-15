@@ -446,3 +446,19 @@ describe('v1.0.1203 booth QR leads go to who is on shift today', () => {
     expect(boothRouting({ note: '' }, null)).toEqual({ note: '' })
   })
 })
+
+describe('returning customer alert goes to the existing owner (v1.0.1212)', () => {
+  it('passes the current owner to onLead and keeps the QR owner as alsoNotify', async () => {
+    const env = { FIREBASE_PROJECT_ID: 'p', LEAD_WEBHOOK_KEY: 'k123' }
+    const fetch = async (url) => {
+      if (String(url).endsWith(':runQuery')) return { ok: true, json: async () => [{ document: { name: 'x/customers/c9', fields: { assignedTo: { stringValue: 'เซลส์บี' } } } }] }
+      return { ok: true, status: 200, json: async () => ({}) }
+    }
+    const seen = []
+    const req = new Request('https://w/lead/webhook?key=k123&source=tiktok', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'สมชาย', phone: '0812345678', owner: 'เซลส์เอ' }) })
+    const r = await handleLeadWebhook(req, env, async () => 't', { fetch, onLead: (lead, res) => seen.push({ lead, res }) })
+    expect(r.body).toMatchObject({ duplicate: true, id: 'c9' })
+    expect(seen[0].lead.assignedTo).toBe('เซลส์บี')
+    expect(seen[0].res.owner).toBe('เซลส์บี')
+  })
+})
