@@ -34,3 +34,13 @@ describe('09:00 customer query fields', () => {
     expect(missing).toEqual([])
   })
 })
+
+describe('18:00 customer query fields', () => {
+  it('includes every field entryPointOf reads', async () => {
+    const { EVENING_CUSTOMER_FIELDS } = await import('./daily-report.js')
+    const fs = await import('node:fs')
+    const src = fs.readFileSync(new URL('../src/utils/entryPoints.js', import.meta.url), 'utf8')
+    const used = new Set([...src.matchAll(/\bc\.([a-zA-Z]+)/g)].map(m => m[1]))
+    expect([...used].filter(f => !EVENING_CUSTOMER_FIELDS.includes(f))).toEqual([])
+  })
+})
