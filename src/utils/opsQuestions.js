@@ -7,6 +7,7 @@ import { plateRows, deliveredOn, PLATE_LATE_DAYS } from './plateList.js'
 import { carOf } from './carLabel.js'
 import { nextAnniversary } from './anniversary.js'
 import { lostBySeller, classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
+import { entryPointOf, ENTRY_INFO } from './entryPoints.js'
 
 const has = (s, re) => re.test(s)
 // คำสั่งให้ทำ (นัด/บันทึก/สร้าง) ไม่ใช่คำถาม → ปล่อยให้ตัวสั่งงานจัดการ
@@ -70,6 +71,9 @@ export function parseOpsSpec(q) {
   // (v1.0.1117) "ใครจะส่งมอบเดือนนี้" / "ลูกค้าที่จะออกรถเดือนนี้" → นัดส่งมอบที่เหลือของเดือนนี้ (ไม่ใช่ยอดที่ส่งไปแล้ว)
   if (has(s, /ส่งมอบ|ออกรถ|รับรถ/) && has(s, /เดือนนี้/) && has(s, /จะ|นัด|กำหนด|ที่เหลือ/) && !has(s, /ยอด|เป้า|แล้ว(?!ยัง)/)) return { kind: 'delivery', day: 'restmonth' }
   if (has(s, /ส่งมอบ/) && !has(s, /ยอด|เป้า|เดือน|ปีนี้|ทั้งปี|ปีก่อน|ปีที่แล้ว|ประเมิน|พึงพอใจ|แบบสอบถาม|รีวิว|ยังไม่(?:ได้)?\s*นัด|ไม่ได้นัด/) && has(s, /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์|นัด|ใคร|กี่คัน|ไหม/)) return { kind: 'delivery', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /สัปดาห์หน้า|อาทิตย์หน้า/.test(s) ? 'nextweek' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
+  // (v1.0.1204) "ลีดจาก QR เดือนนี้กี่คน" / "ใครสแกน QR วันนี้" / "QR ไหนได้ลีดเยอะสุด" → ลีดจากลิงก์/QR ของเราแยกตามจุด
+  if (has(s, /\bqr\b|คิวอาร์|สแกน|นามบัตร|ลิงก์แนะนำ/i) && has(s, /ลีด|ลูกค้า|lead|กี่|ใคร|ไหน|บ้าง/i) && !has(s, /สร้าง|พิมพ์|ทำ\s*qr|ขอ\s*qr|qr\s*(?:ของ)?ฉัน/i))
+    return { kind: 'qrleads', period: /เมื่อวาน/.test(s) ? 'yesterday' : /วันนี้/.test(s) ? 'today' : /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
   if (has(s, /ช่องทาง|ที่มา|มาจาก/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'newcust', ...(sourceOf(s) ? { source: sourceOf(s) } : {}), ...(NOFOLLOW.test(s) ? { nofollow: true } : {}), period: /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
   // (v1.0.1094) "เคลมประกันค้างกี่เรื่อง" (เคลมประกันภัยรถยนต์ ไม่ใช่เคลมรับประกันศูนย์)
   if (has(s, /เคลม/) && !has(s, /รับประกัน|วอร์แรนตี|warranty/i)) return { kind: 'claim' }
@@ -994,6 +998,26 @@ export function newCustomerAnswer(customers, { today, period = 'month', sourceLa
   return { n: list.length, text: [`👥 ลูกค้าใหม่${label} ${list.length} คน (${dmy(from)}–${dmy(to)})`, `🔴 Hot ${hot} · 📝 จองแล้ว ${booked}`, '', '📍 มาจาก', ...Object.entries(src).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, v]) => `• ${k} ${v} คน`)].join('\n') }
 }
 
+// (v1.0.1204) ลีดที่เข้ามาทางลิงก์/QR ของเราเอง แยกตามจุด (บูธ ติดรถ นามบัตร แนะนำเพื่อน หน้าแคมเปญ UTM ฟอร์ม)
+export function qrLeadsAnswer(customers, { today, period = 'month' }) {
+  let from, to = today, label
+  if (period === 'today') { from = today; label = 'วันนี้' }
+  else if (period === 'yesterday') { from = to = addDays(today, -1); label = 'เมื่อวาน' }
+  else if (period === 'week') { from = addDays(today, -6); label = 'ในรอบ 7 วัน' }
+  else if (period === 'prevmonth') { const d = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 2, 1)); from = d.toISOString().slice(0, 10); to = addDays(today.slice(0, 7) + '-01', -1); label = 'เดือนก่อน' }
+  else { from = today.slice(0, 7) + '-01'; label = 'เดือนนี้' }
+  const hit = alive(customers).map(c => ({ c, k: entryPointOf(c) })).filter(({ c, k }) => { const d = ymd(c.createdAt); return k && d && d >= from && d <= to })
+  if (!hit.length) return { n: 0, text: `🔳 ลีดจากลิงก์/QR ของเรา${label}: ยังไม่มี (${dmy(from)}–${dmy(to)})\n💡 ฟอร์มต้องเปิดรับอยู่ (🔗 ช่องทางโซเชียล › 🤖 ตอบอัตโนมัติ) แล้วติด QR ที่บูธ/รถโชว์/นามบัตร` }
+  const by = {}
+  hit.forEach(({ k }) => { by[k] = (by[k] || 0) + 1 })
+  const booked = hit.filter(({ c }) => c.bookingId || ['booking', 'booked', 'delivered'].includes(c.stage)).length
+  const nocall = hit.filter(({ c }) => !ymd(c.lastContactAt) && !c.isLost).length
+  return { n: hit.length, text: [`🔳 ลีดจากลิงก์/QR ของเรา${label} ${hit.length} คน (${dmy(from)}–${dmy(to)})`,
+    ...Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${ENTRY_INFO[k][0]} ${ENTRY_INFO[k][1]} ${v}`),
+    `📝 จองแล้ว ${booked}${nocall ? ` · 📞 ยังไม่ได้ติดต่อ ${nocall}` : ''}`, '',
+    ...hit.slice(0, MAX).map(({ c, k }) => `• ${nm(c)} · ${ENTRY_INFO[k][0]}${c.eventName ? ' ' + c.eventName : c.utmCampaign ? ' ' + c.utmCampaign : ''}${c.assignedTo ? ' · 👤 ' + c.assignedTo : ''}`), ...more(hit.length)].join('\n') }
+}
+
 // ระบบยังไม่มีวันเกิดลูกค้า → บอกตรงๆ แล้วให้วันครบรอบซื้อรถแทน (จากใบจองที่ส่งมอบแล้ว)
 export function annivAnswer(bookings, { today, range = 0, asked = '', nextMonth = false }) {
   // (v1.0.1094) "เดือนหน้า" = วันที่ 1 ถึงสิ้นเดือนหน้า (เดิมนับ 30 วันจากวันนี้)
@@ -1383,6 +1407,7 @@ export const OPS_LINKS = {
   metachat: { path: '/marketing/channels', label: '🔗 เปิดแชตรวม' },
   complaint: { path: '/crm/complaints', label: '⚠️ เปิดหน้าเรื่องร้องเรียน' },
   newcust: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
+  qrleads: { path: '/marketing/lead-sources', label: '🧲 เปิดหน้าแหล่งที่มา Lead' },
   anniv: { path: '/crm/birthdays', label: '🎉 ส่งคำอวยพร' },
   delivery: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   lost: { path: '/crm/lostdeals', label: '📉 เปิดหน้าดีลที่หลุด' },
@@ -1390,7 +1415,7 @@ export const OPS_LINKS = {
 }
 
 export function opsFollowUps(spec) {
-  const all = { aiteam: 'วันนี้มีอะไรบ้าง', nomodel: 'ลูกค้าคนไหนยังไม่ได้ใส่เบอร์', apptday: 'วันนี้ควรโทรหาใคร', petty: 'ค่าใช้จ่ายเดือนนี้เท่าไหร่', jobready: 'งานซ่อมค้างอยู่กี่งาน', noservice: 'รถคันไหนถึงรอบเช็คระยะเดือนนี้', metachat: 'มีลูกค้าทัก LINE รอตอบไหม', approvals: 'ใครลาวันนี้', staffcount: 'ใครมาสายวันนี้', recall: 'งานซ่อมค้างอยู่กี่งาน', servicetop: 'งานซ่อมค้างอยู่กี่งาน', calls: 'วันนี้ควรโทรหาใคร', mktspend: 'ลีดจากบูธเดือนนี้กี่คน', dup: 'ลูกค้าคนไหนยังไม่ได้ใส่เบอร์', debt: 'เงินสดย่อยเหลือเท่าไหร่', refund: 'มีใครถอนจองบ้าง', floorplan: 'รถค้างสต็อกนานมีคันไหน', late: 'ใครลาวันนี้', arrived: 'รถรุ่นไหนเหลือน้อย', plate: 'ลูกค้าที่ส่งมอบเดือนนี้', csat: 'เรื่องร้องเรียนค้างอยู่ไหม', expense: 'กำไรเดือนนี้เท่าไหร่', profit: 'ค่าใช้จ่ายเดือนนี้เท่าไหร่', leave: 'วันนี้มีอะไรบ้าง', incoming: 'รถรุ่นไหนเหลือน้อย', lowstock: 'รถที่กำลังจะมาถึงมีกี่คัน', noanswer: 'ลูกค้า hot ที่ยังไม่มีนัด', hotbyseller: 'ลูกค้า hot มีใครบ้าง', pdi: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', stale: 'ลูกค้าคนไหนยังไม่ได้ทดลองขับ', tradein: 'ใครรอไฟแนนซ์', closerate: 'ลูกค้าใหม่เดือนนี้กี่คน', noquote: 'ใบเสนอราคาค้างอยู่กี่ใบ', bookmodel: 'รถรุ่นไหนขายดีสุดเดือนนี้', notd: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', claim: 'งานซ่อมค้างอยู่กี่งาน', parts: 'รถรออะไหล่มีคันไหน', servicerev: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', yesterday: 'วันนี้มีอะไรบ้าง', referask: 'ใครครบรอบซื้อรถเดือนนี้', eventbest: 'ลีดจากบูธเดือนนี้กี่คน', campaignbest: 'โปรเดือนนี้มีอะไรบ้าง', delivered: 'ใครครบรอบซื้อรถเดือนนี้', mycust: 'ลูกค้า hot มีใครบ้าง', nophone: 'ลูกค้าที่ยังไม่มีผู้ดูแล', topscore: 'วันนี้ควรโทรหาใคร', withdrawn: 'ยอดเดือนนี้เป็นไง', finbank: 'ใครรอไฟแนนซ์', noshow: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', nobookseller: 'ทีมวันนี้เป็นไง', bookday: 'ยอดเดือนนี้เป็นไง', tdnobook: 'ลูกค้า hot มีใครบ้าง', testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', insurance: 'รับประกันรถคันไหนใกล้หมด', walkin: 'walk in สัปดาห์นี้กี่คน', warranty: 'ประกันภัยใครใกล้หมด', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
+  const all = { aiteam: 'วันนี้มีอะไรบ้าง', nomodel: 'ลูกค้าคนไหนยังไม่ได้ใส่เบอร์', apptday: 'วันนี้ควรโทรหาใคร', petty: 'ค่าใช้จ่ายเดือนนี้เท่าไหร่', jobready: 'งานซ่อมค้างอยู่กี่งาน', noservice: 'รถคันไหนถึงรอบเช็คระยะเดือนนี้', metachat: 'มีลูกค้าทัก LINE รอตอบไหม', approvals: 'ใครลาวันนี้', staffcount: 'ใครมาสายวันนี้', recall: 'งานซ่อมค้างอยู่กี่งาน', servicetop: 'งานซ่อมค้างอยู่กี่งาน', calls: 'วันนี้ควรโทรหาใคร', mktspend: 'ลีดจากบูธเดือนนี้กี่คน', dup: 'ลูกค้าคนไหนยังไม่ได้ใส่เบอร์', debt: 'เงินสดย่อยเหลือเท่าไหร่', refund: 'มีใครถอนจองบ้าง', floorplan: 'รถค้างสต็อกนานมีคันไหน', late: 'ใครลาวันนี้', arrived: 'รถรุ่นไหนเหลือน้อย', plate: 'ลูกค้าที่ส่งมอบเดือนนี้', csat: 'เรื่องร้องเรียนค้างอยู่ไหม', expense: 'กำไรเดือนนี้เท่าไหร่', profit: 'ค่าใช้จ่ายเดือนนี้เท่าไหร่', leave: 'วันนี้มีอะไรบ้าง', incoming: 'รถรุ่นไหนเหลือน้อย', lowstock: 'รถที่กำลังจะมาถึงมีกี่คัน', noanswer: 'ลูกค้า hot ที่ยังไม่มีนัด', hotbyseller: 'ลูกค้า hot มีใครบ้าง', pdi: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', stale: 'ลูกค้าคนไหนยังไม่ได้ทดลองขับ', tradein: 'ใครรอไฟแนนซ์', closerate: 'ลูกค้าใหม่เดือนนี้กี่คน', noquote: 'ใบเสนอราคาค้างอยู่กี่ใบ', bookmodel: 'รถรุ่นไหนขายดีสุดเดือนนี้', notd: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', claim: 'งานซ่อมค้างอยู่กี่งาน', parts: 'รถรออะไหล่มีคันไหน', servicerev: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', yesterday: 'วันนี้มีอะไรบ้าง', referask: 'ใครครบรอบซื้อรถเดือนนี้', eventbest: 'ลีดจากบูธเดือนนี้กี่คน', campaignbest: 'โปรเดือนนี้มีอะไรบ้าง', delivered: 'ใครครบรอบซื้อรถเดือนนี้', mycust: 'ลูกค้า hot มีใครบ้าง', nophone: 'ลูกค้าที่ยังไม่มีผู้ดูแล', topscore: 'วันนี้ควรโทรหาใคร', withdrawn: 'ยอดเดือนนี้เป็นไง', finbank: 'ใครรอไฟแนนซ์', noshow: 'ลูกค้าที่ทดลองขับแล้วยังไม่จอง', nobookseller: 'ทีมวันนี้เป็นไง', bookday: 'ยอดเดือนนี้เป็นไง', tdnobook: 'ลูกค้า hot มีใครบ้าง', testdrive: 'นัดทดลองขับพรุ่งนี้มีใครบ้าง', showroom: 'พรุ่งนี้มีใครนัดเข้าโชว์รูม', line: 'วันนี้มีอะไรบ้าง', complaint: 'มีลูกค้าทัก LINE รอตอบไหม', newcust: 'ลูกค้าใหม่สัปดาห์นี้กี่คน', qrleads: 'ลีดจากบูธเดือนนี้กี่คน', anniv: 'ใครครบรอบซื้อรถเดือนนี้', delivery: 'นัดส่งมอบสัปดาห์นี้มีใครบ้าง', lost: 'ลูกค้า hot มีใครบ้าง', income: 'ค่าคอมเดือนนี้เท่าไหร่', service: 'พรุ่งนี้มีรถเข้าศูนย์กี่คัน', reminder: 'รถเข้าศูนย์วันนี้กี่คัน', insurance: 'รับประกันรถคันไหนใกล้หมด', walkin: 'walk in สัปดาห์นี้กี่คน', warranty: 'ประกันภัยใครใกล้หมด', overdue: 'วันนี้มีอะไรบ้าง', unassigned: 'ลูกค้าใหม่เดือนนี้กี่คน' }
   const out = [all[spec.kind]]
   if (spec.kind === 'testdrive' && spec.day === 'tomorrow') out[0] = 'พรุ่งนี้มีใครนัดเข้าโชว์รูม'
   if (spec.kind === 'delivery' && spec.day === 'week') out[0] = 'มีนัดส่งมอบพรุ่งนี้ไหม'
