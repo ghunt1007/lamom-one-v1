@@ -150,7 +150,7 @@ describe('v1.0.1139 phone from chat', () => {
   })
 })
 
-import { handleLeadForm, formRateOk, accountLeadInfo, __resetFormHits, cleanTestDrive, cleanRefCode } from './leadIntake.js'
+import { handleLeadForm, formRateOk, accountLeadInfo, __resetFormHits, cleanTestDrive, cleanRefCode, cleanUtm } from './leadIntake.js'
 import { beforeEach } from 'vitest'
 describe('v1.0.1140 public lead form', () => {
   beforeEach(() => { __resetInboxCache(); __resetFormHits() })
@@ -189,6 +189,14 @@ describe('v1.0.1140 public lead form', () => {
     expect(f.source.stringValue).toBe('referral'); expect(f.referralCode.stringValue).toBe('AB001X')
     expect(f.notes.stringValue).toContain('แนะนำโดยรหัส AB001X')
     expect(f.tags.arrayValue.values.map(v => v.stringValue)).toContain('แนะนำ AB001X')
+  })
+  it('UTM from an ad link is stored and sets the source', async () => {
+    const w = world()
+    await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', utm: { s: 'Facebook', m: 'paid', c: 'nov_promo<b>' } }), env, async () => 't', { fetch: w.f })
+    const f = created(w.calls)
+    expect(f.source.stringValue).toBe('facebook'); expect(f.utmSource.stringValue).toBe('facebook')
+    expect(f.utmCampaign.stringValue).toBe('nov_promob'); expect(f.utmMedium.stringValue).toBe('paid')
+    expect(cleanUtm({})).toBeNull()
   })
   it('cleanRefCode keeps letters/digits only, max 20', () => {
     expect(cleanRefCode(' sm-ch 001 ')).toBe('SMCH001'); expect(cleanRefCode('x'.repeat(30)).length).toBe(20); expect(cleanRefCode(null)).toBe('')

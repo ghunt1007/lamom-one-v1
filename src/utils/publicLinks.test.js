@@ -35,3 +35,15 @@ describe('referralStats', () => {
     expect(r).toEqual({ R1: { leads: 3, booked: 2, sold: 1 } })
   })
 })
+
+describe('UTM helpers', async () => {
+  const { withUtm, utmLeadCounts, utmKey } = await import('./publicLinks.js')
+  it('adds utm params, keeping an existing query', () => {
+    expect(withUtm('https://lamom-one.pages.dev/lead.html?m=S07', { source: 'facebook', medium: 'paid', campaign: 'nov promo' }))
+      .toBe('https://lamom-one.pages.dev/lead.html?m=S07&utm_source=facebook&utm_medium=paid&utm_campaign=nov+promo')
+  })
+  it('counts leads per source+campaign, case-insensitive', () => {
+    const r = utmLeadCounts([{ utmSource: 'Facebook', utmCampaign: 'NOV' }, { utmSource: 'facebook', utmCampaign: 'nov' }, { utmSource: 'line', utmCampaign: 'nov', deleted: true }, {}])
+    expect(r).toEqual({ [utmKey('facebook', 'nov')]: 2 })
+  })
+})
