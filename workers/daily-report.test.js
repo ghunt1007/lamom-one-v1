@@ -1362,3 +1362,17 @@ describe('scheduled() cron routing', () => {
     })
   }
 })
+
+import { metaAdsLine } from './daily-report.js'
+describe('metaAdsLine (v1.0.1154)', () => {
+  it('sums real spend and leads across accounts', () => {
+    const ads = { accounts: [{ campaigns: [{ spend: 9000, leads: 30, effective: 'ACTIVE' }, { spend: 3000, leads: 0, effective: 'PAUSED' }] }, { error: 'x', campaigns: [{ spend: 999, leads: 9 }] }] }
+    expect(metaAdsLine(ads)).toBe('  • 📣 โฆษณา Meta เดือนนี้ (ยอดจริง): ใช้ไป ฿12,000 · Lead 30 · ฿400/Lead · เปิดอยู่ 1 แคมเปญ')
+  })
+  it('says so when there are no leads or no running campaign', () => {
+    expect(metaAdsLine({ accounts: [{ campaigns: [{ spend: 500, leads: 0, effective: 'PAUSED' }] }] })).toBe('  • 📣 โฆษณา Meta เดือนนี้ (ยอดจริง): ใช้ไป ฿500 · ยังไม่มี Lead · ไม่มีแคมเปญเปิดอยู่')
+  })
+  it('is hidden with no token, no data or no spend', () => {
+    expect(metaAdsLine(null)).toBe(''); expect(metaAdsLine({ accounts: [] })).toBe(''); expect(metaAdsLine({ accounts: [{ campaigns: [{ spend: 0, leads: 0 }] }] })).toBe('')
+  })
+})

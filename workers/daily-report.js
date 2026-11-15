@@ -33,7 +33,7 @@
 
 import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser, backupDecodeValue } from './nightly-backup.js'
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
-import { handleSocial, recordLineInbound, handleExtraLineWebhook, lineThreadId } from './social.js'
+import { metaAds, handleSocial, recordLineInbound, handleExtraLineWebhook, lineThreadId } from './social.js'
 import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
 import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFromChat, handleLeadForm } from './leadIntake.js'
 import { handleNotify } from './notify.js'
@@ -600,7 +600,8 @@ async function buildReportText(env, accessToken) {
     runQuery(env, accessToken, 'appointments', 'date', 'DESCENDING', 500, ['date', 'status', 'deleted']).catch(() => []),
   ])
   const followups = [...fuPending, ...fuDone]
-  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts, appointments }, {
+  const metaAdsData = await fetchMetaAdsForReport(env)
+  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts, appointments, metaAds: metaAdsData }, {
     today: todayBangkok(),
     time: new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()),
     defaultTarget: parseInt(env.MONTHLY_DELIVERY_TARGET) || 0,
@@ -640,6 +641,27 @@ export function marketingSpendLine(accounts, events, today, bookedMonth) {
   if (!ad && !ev) return ''
   const b = v => '฿' + Math.round(v).toLocaleString('en-US')
   return `  • 💸 ค่าการตลาดเดือนนี้: ${b(ad + ev)}${ad && ev ? ` (โฆษณา ${b(ad)} + ออกบูธ ${b(ev)})` : ''}${bookedMonth ? ` · ต่อใบจอง ${b((ad + ev) / bookedMonth)}` : ''}`
+}
+
+// (v1.0.1154) ยอดโฆษณา Meta จริงของเดือนนี้ (ดึงจากบัญชีโฆษณาที่เชื่อมไว้) — ไม่มีโทเค็น/ยังไม่ใช้เงิน = ไม่แสดง
+// แยกบรรทัดจาก "ค่าการตลาดเดือนนี้" (ตัวเลขที่ทีมกรอกเอง) เพื่อไม่ให้นับซ้ำ
+export function metaAdsLine(ads) {
+  const accs = (ads?.accounts || []).filter(a => a && !a.error)
+  const camps = accs.flatMap(a => a.campaigns || [])
+  const spend = camps.reduce((s, c) => s + (Number(c.spend) || 0), 0)
+  if (!spend) return ''
+  const leads = camps.reduce((s, c) => s + (Number(c.leads) || 0), 0)
+  const active = camps.filter(c => c.effective === 'ACTIVE').length
+  const b = v => '฿' + Math.round(v).toLocaleString('en-US')
+  return `  • 📣 โฆษณา Meta เดือนนี้ (ยอดจริง): ใช้ไป ${b(spend)}${leads ? ` · Lead ${leads} · ${b(spend / leads)}/Lead` : ' · ยังไม่มี Lead'}${active ? ` · เปิดอยู่ ${active} แคมเปญ` : ' · ไม่มีแคมเปญเปิดอยู่'}`
+}
+// ดึงยอดโฆษณา — พังหรือช้าเกิน 8 วินาทีต้องไม่ทำให้รายงานประจำวันไม่ออก
+async function fetchMetaAdsForReport(env) {
+  try {
+    const e2 = await withStoredSecrets(env, () => getFirestoreAccessToken(env))
+    if (!e2.META_SYSTEM_USER_TOKEN) return null
+    return await Promise.race([metaAds(e2), new Promise(r => setTimeout(() => r(null), 8000))])
+  } catch { return null }
 }
 
 // (v1.0.994) งานออกบูธที่จัดอยู่วันนี้: Lead วันนี้/รวมทั้งงาน แยกรายคน (ใช้ eventId ที่ติดตอนกด ➕ Lead ระหว่างงาน)
@@ -778,6 +800,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     `  • จองใหม่วันนี้: ${newBkToday} คัน`,
     `  • จองใหม่เดือนนี้: ${newBkMonth} คัน${vsLast(newBkMonth, newBkLm, lm)}`,
     marketingSpendLine(data.socialAccounts, data.events, today, newBkMonth) || null,
+    metaAdsLine(data.metaAds) || null,
     '',
     '🚗 สถานะปัจจุบัน',
     ...PENDING_STATUSES.filter(s => cnt(s) > 0 || PENDING_ALWAYS_SHOWN.includes(s)).map(s => `  • ${s}: ${cnt(s)} คัน`),
