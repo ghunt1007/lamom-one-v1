@@ -44,7 +44,13 @@ export default async function SystemHealthPage(container) {
         const okb = b.find(x => x.status === 'success' || x.status === 'partial')
         if (okb) lastBackupMs = Date.parse(okb.time) || null
       } catch (e) {}
-      ready = readinessItems({ status, auto, lastBackupMs })
+      let sheet = null
+      try {
+        const { getSheetStatus } = await import('../../utils/dailyReport.js')
+        const r = await getSheetStatus()
+        sheet = r && r.modifiedTime ? { ok: true } : null
+      } catch (e) { sheet = e?.code === 'not_shared' ? { code: 'not_shared', shareWith: e.shareWith || '' } : null }
+      ready = readinessItems({ status, auto, lastBackupMs, sheet })
     }
 
     return { firestoreOk, firestoreLatency, integrations, errors, todayAudit, activeUsersToday, errorsToday, ready }

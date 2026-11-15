@@ -8,7 +8,7 @@ const BACKUP_MAX_AGE_MS = 36 * 3600 * 1000
  * @param {{status?:object|null, auto?:object|null, lastBackupMs?:number|null, now?:number}} i
  * @returns {{id:string,label:string,state:'ok'|'todo'|'unknown',hint:string,link?:string}[]}
  */
-export function readinessItems({ status, auto, lastBackupMs, now = Date.now() } = {}) {
+export function readinessItems({ status, auto, lastBackupMs, sheet, now = Date.now() } = {}) {
   const items = []
   const add = (id, label, state, hint, link) => items.push({ id, label, state, hint, ...(link ? { link } : {}) })
   const noStatus = !status
@@ -25,6 +25,12 @@ export function readinessItems({ status, auto, lastBackupMs, now = Date.now() } 
   sw('publicform', 'เปิดฟอร์มรับลูกค้าสาธารณะ', auto?.publicForm, 'เจ้าของเปิดเองที่หน้าช่องทางโซเชียล → ตอบอัตโนมัติ')
   sw('aireply', 'เปิด AI ตอบแชตอัตโนมัติ', auto?.aiReply, 'เจ้าของเปิดเองเมื่อพร้อม (ทดสอบข้อความก่อน)')
   sw('leadalert', 'แจ้งเตือนลีดใหม่ทาง LINE', auto?.leadAlert !== false, 'เปิดสวิตช์ "แจ้งเตือนทันที" ที่หน้าช่องทางโซเชียล')
+
+  // (v1.0.1158) Google Sheet DATA Booking — ระบบเปิดไฟล์เองได้ไหม (ปุ่มซิงก์ไม่ต้องโหลดไฟล์เอง + แถบเตือน Sheet มีแก้ไข)
+  // sheet: { ok:true } | { code:'not_shared', shareWith } | null (ตรวจไม่ได้)
+  if (sheet?.ok) add('sheet', 'ระบบเปิด Google Sheet ลูกค้าได้เอง', 'ok', '', '/crm/bookings')
+  else if (sheet?.code === 'not_shared') add('sheet', 'ระบบเปิด Google Sheet ลูกค้าได้เอง', 'todo', `แชร์ไฟล์ Sheet (สิทธิ์ผู้มีสิทธิ์อ่าน) ให้อีเมล ${sheet.shareWith || 'ของระบบ'} ครั้งเดียว แล้วกด 🔄 ซิงก์ Sheet จะดึงไฟล์ให้เอง`, '/crm/bookings')
+  else add('sheet', 'ระบบเปิด Google Sheet ลูกค้าได้เอง', 'unknown', 'ตรวจไม่ได้ตอนนี้ (ออฟไลน์หรือระบบรายงานไม่ตอบ) ลองเปิดหน้านี้ใหม่', '/crm/bookings')
 
   let backupState = 'unknown'
   let backupHint = 'ยังไม่พบประวัติสำรองข้อมูล — ตรวจที่หน้าสำรองข้อมูล'
