@@ -8,7 +8,11 @@
  */
 import { timeAgo, todayBangkok, toDateStr } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, readDoc } from '../../core/db.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
+import { socialStatus } from '../../utils/socialApi.js'
+import './health.css'
+import { readinessItems, readinessSummary } from './readiness.js'
 import { escHtml } from '../../utils/escape.js'
 
 function todayStr() { return todayBangkok() }
@@ -29,13 +33,27 @@ export default async function SystemHealthPage(container) {
     const activeUsersToday = new Set(todayAudit.map(a => a.user).filter(Boolean)).size
     const errorsToday = errors.filter(e => toDateStr(e.createdAt).startsWith(todayStr())).length
 
-    return { firestoreOk, firestoreLatency, integrations, errors, todayAudit, activeUsersToday, errorsToday }
+    // (v1.0.1155) ความพร้อมใช้งานจริง — เฉพาะเจ้าของโปรแกรม (ต้องอ่านสวิตช์ใน system_integrations ได้)
+    let ready = null
+    if (isProgramOwner()) {
+      let status = null, auto = null, lastBackupMs = null
+      try { status = await socialStatus() } catch (e) {}
+      try { auto = (await readDoc('system_integrations', 'inbox_auto')) || {} } catch (e) { auto = { _noAccess: true } }
+      try {
+        const b = await listDocs('system_backups', [], 'time', 'desc', 20)
+        const okb = b.find(x => x.status === 'success' || x.status === 'partial')
+        if (okb) lastBackupMs = Date.parse(okb.time) || null
+      } catch (e) {}
+      ready = readinessItems({ status, auto, lastBackupMs })
+    }
+
+    return { firestoreOk, firestoreLatency, integrations, errors, todayAudit, activeUsersToday, errorsToday, ready }
   }
 
   async function renderPage() {
     container.innerHTML = `<div class="page-content"><div class="spinner"></div></div>`
     const data = await loadData()
-    const { firestoreOk, firestoreLatency, integrations, errors, todayAudit, activeUsersToday, errorsToday } = data
+    const { firestoreOk, firestoreLatency, integrations, errors, todayAudit, activeUsersToday, errorsToday, ready } = data
 
     const connected = integrations.filter(i => i.status === 'connected').length
     const errored = integrations.filter(i => i.status === 'error')
@@ -67,6 +85,8 @@ export default async function SystemHealthPage(container) {
             <div style="font-size:0.72rem;color:var(--text-muted)">${allOk ? `Firestore ตอบสนอง ${firestoreLatency}ms · Integration เชื่อมต่ออยู่ ${connected}/${integrations.length}` : degradedNote}</div>
           </div>
         </div>
+
+        ${readyCard(ready)}
 
         <!-- Services -->
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:16px">
@@ -128,5 +148,20 @@ export default async function SystemHealthPage(container) {
 function activityRow(label, value, color) {
   return `<div style="display:flex;justify-content:space-between;font-size:0.78rem;padding:6px 0;border-bottom:1px solid var(--border)">
     <span>${label}</span><span style="font-weight:700;color:var(--${color || 'text'})">${value.toLocaleString()}</span>
+  </div>`
+}
+
+const READY_ICON = { ok: '✅', todo: '⬜', unknown: '❔' }
+function readyCard(items) {
+  if (!items) return ''
+  const sm = readinessSummary(items)
+  const rows = items.map(i => `<div class="ready-row ready-${i.state}">
+      <span class="ready-ic">${READY_ICON[i.state]}</span>
+      <span class="ready-tx"><b>${escHtml(i.label)}</b>${i.state === 'ok' ? '' : `<small>${i.state === 'unknown' ? 'ตรวจไม่ได้ตอนนี้ · ' : ''}${escHtml(i.hint)}</small>`}</span>
+      ${i.state !== 'ok' && i.link ? `<a class="btn btn-sm" href="${i.link}">เปิด</a>` : ''}
+    </div>`).join('')
+  return `<div class="card ready-card">
+    <div class="ready-head"><b>🚦 ความพร้อมใช้งานจริง</b><span>${sm.ok}/${sm.total} พร้อมแล้ว${sm.todo ? ` · ต้องทำ ${sm.todo}` : ''}${sm.unknown ? ` · ตรวจไม่ได้ ${sm.unknown}` : ''}</span></div>
+    ${rows}
   </div>`
 }
