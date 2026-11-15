@@ -61,3 +61,31 @@ describe('runLeadNudge', () => {
     expect((await runLeadNudge(h.deps)).nudged).toBe(2)
   })
 })
+
+describe('returning customers not called back (v1.0.1214)', () => {
+  const back = (o = {}) => ({ id: 'b1', firstName: 'กลับ', phone: '0812345678', assignedTo: 'นภา', reEnquiredAt: ago(40), reEnquiredModel: 'Seal', ...o })
+  it('picks re-enquiries 30 min – 18 h old with no call back and no nudge yet', async () => {
+    const { pickStaleReturns } = await import('./leadNudge.js')
+    const got = pickStaleReturns([
+      back(),
+      back({ id: 'b2', reEnquiredAt: ago(10) }),
+      back({ id: 'b3', lastContactAt: ago(5) }),
+      back({ id: 'b4', backNudgedAt: ago(5) }),
+      back({ id: 'b5', backNudgedAt: ago(60 * 24 * 3) }),
+      back({ id: 'b6', reEnquiredAt: ago(60 * 20) }),
+      back({ id: 'b7', deleted: true }),
+    ], NOW).map(c => c.id)
+    expect(got).toEqual(['b1', 'b5'])
+  })
+  it('marks, LINEs the owner with a returning-customer text', async () => {
+    const pushes = [], marks = []
+    const r = await runLeadNudge({ now: NOW, appUrl: 'https://a', listRecent: async () => [], listBack: async () => [back({ isLost: true })], mark: async () => true, markBack: async id => { marks.push(id); return true },
+      salesTargets: () => [{ name: 'นภา', userId: 'UN' }], ownerTarget: () => 'UO', pushLine: async (to, text) => { pushes.push([to, text]); return true } })
+    expect(r).toEqual({ stale: 0, back: 1, nudged: 1 })
+    expect(marks).toEqual(['b1'])
+    expect(pushes[0][0]).toBe('UN')
+    expect(pushes[0][1]).toContain('ลูกค้าเดิมทักมาอีกครั้ง 40 นาที')
+    expect(pushes[0][1]).toContain('Seal')
+    expect(pushes[0][1]).toContain('เคยเสียดีล')
+  })
+})

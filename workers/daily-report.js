@@ -242,6 +242,14 @@ async function runLeadNudgeJob(env, token) {
       })
       return res.ok
     },
+    // (v1.0.1214) ลูกค้าเดิมที่ทักมาอีกครั้ง (เรียงตาม reEnquiredAt — ลูกค้าที่ไม่มีช่องนี้ไม่ถูกดึงมา)
+    listBack: () => runQuery(env, token, 'customers', 'reEnquiredAt', 'DESCENDING', 20, ['firstName', 'lastName', 'phone', 'interestedModel', 'assignedTo', 'isLost', 'deleted', 'lastContactAt', 'reEnquiredAt', 'reEnquiredModel', 'backNudgedAt']),
+    markBack: async (id, iso) => {
+      const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/customers/${encodeURIComponent(id)}?updateMask.fieldPaths=backNudgedAt&currentDocument.exists=true`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields: { backNudgedAt: { stringValue: iso } } }),
+      })
+      return res.ok
+    },
   })
 }
 
