@@ -11,6 +11,7 @@ import { getVisibilityScope, isProgramOwner, scopeIncludesRecord, normName } fro
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { newBookingNo } from '../../utils/bookingNo.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
+import { bookingDataIssues, issueCount, rowLabel } from '../../utils/bookingDataCheck.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { navigate } from '../../core/router.js'
 import { pickVehicle } from '../../utils/vehiclePicker.js'
@@ -497,6 +498,9 @@ export default async function BookingsPage(container) {
     const filtered = getFiltered()
     const statusCounts = getStatusCounts()
     const statusTotal = Object.values(statusCounts).reduce((s, n) => s + n, 0)
+    // (v1.0.1164) 🧹 ใบจองที่ข้อมูลขาด/ผิดรูปจนรายงานนับพลาด — เจ้าของ/แอดมิน (คนที่แก้ Sheet)
+    const dataIssues = canReconcileSheet ? bookingDataIssues(bookings, { today: todayBangkok() }) : []
+    const dataIssueN = issueCount(dataIssues)
     // (v1.0.1007) ตัวเลขสรุป/การ์ดยี่ห้อนับจากใบจองที่ผู้ใช้เห็นจริง (เดิมนับทั้งโชว์รูม เซลส์เห็น "แสดง 0 / 28" กับมูลค่า 8 ล้านที่ตัวเองไม่มีสักใบ)
     const visible = ownScopeActive ? bookings.filter(b => scopeIncludesRecord(visScope, b.salesName, b)) : bookings
     const actionCount = bookings.filter(b => matchesFilters(b, { ignoreStatus: true }) && needsAction(b)).length
@@ -575,6 +579,7 @@ export default async function BookingsPage(container) {
             ${canImportExcel ? `<button class="btn btn-ghost btn-sm pa-more" id="bk-import-excel-btn" title="นำเข้าใบจองจากไฟล์ Excel อื่น (ไฟล์ DATA Booking ใช้ปุ่มซิงก์ Sheet ได้เลย)">📤 นำเข้า Excel</button>` : ''}
             ${canFillDeposit ? `<button class="btn btn-ghost btn-sm pa-more" id="bk-fill-deepal-deposit-btn" title="เครื่องมือครั้งเดียว: เติมเงินจอง 4,000 ให้ใบจอง DEEPAL ที่ยังว่าง">🔧 เติมเงินจอง</button>` : ''}
             <button class="btn btn-ghost btn-sm pa-more-btn" type="button" title="เมนูเพิ่มเติม">⋯ อื่นๆ</button>
+            ${dataIssueN ? `<button class="btn btn-warning btn-sm" id="bk-datacheck-btn" title="ใบจองที่ข้อมูลไม่ครบ ทำให้รายงาน/ค่าคอมนับพลาด — ดูว่าต้องแก้คอลัมน์ไหนใน Sheet">🧹 ต้องแก้ใน Sheet ${dataIssueN}</button>` : ''}
             ${canReconcileSheet ? `<button class="btn btn-secondary btn-sm" id="bk-sheet-reconcile-btn" title="นำเข้า + ลบส่วนเกิน + แก้ข้อมูล ให้ตรงกับไฟล์ DATA Booking ในคลิกเดียว">🔄 ซิงก์ Sheet</button>` : ''}
             <button class="btn btn-primary" id="bk-wizard-btn" title="จองทีละขั้น 4 ขั้น · อยากกรอกหน้าเดียวกด 📝 ฟอร์มเต็ม">➕ จองใหม่</button>
           </div>
@@ -621,6 +626,7 @@ export default async function BookingsPage(container) {
     document.getElementById('bk-fill-deepal-deposit-btn')?.addEventListener('click', () => fillDeepalDeposit())
     document.getElementById('bk-import-excel-btn')?.addEventListener('click', () => openExcelImport())
     document.getElementById('bk-sheet-reconcile-btn')?.addEventListener('click', () => openSheetReconcile({ onDone: () => loadData() }))
+    document.getElementById('bk-datacheck-btn')?.addEventListener('click', () => openDataCheck(dataIssues))
     container.querySelector('.pa-more-btn')?.addEventListener('click', e => e.currentTarget.closest('.page-actions').classList.toggle('pa-open'))
     // พิมพ์ต่อเนื่องได้ลื่น: รอให้หยุดพิมพ์ 0.2 วิ ค่อยกรอง (ตาราง 300 แถว × 65 ช่องวาดใหม่ทุกตัวอักษรจะหน่วง)
     document.getElementById('bk-search').addEventListener('input', ev => {
@@ -1334,6 +1340,26 @@ export default async function BookingsPage(container) {
       <summary style="cursor:pointer;font-weight:700;font-size:0.78rem;color:var(--primary)">📊 ครบทุกช่องเหมือน Sheet <span style="font-weight:400;color:var(--text-muted)">(มีข้อมูล ${filled}/${list.length} ช่อง)</span></summary>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:0 14px;margin-top:6px">${list.map(x => dRow(escHtml(x.h), x.v || '-')).join('')}</div>
     </details>`
+  }
+
+  // (v1.0.1164) รายการใบจองที่ต้องแก้ใน Sheet แยกตามเรื่อง — กดแถวเพื่อเปิดใบจองดูรายละเอียด
+  function openDataCheck(issues) {
+    const lvl = { high: 'var(--danger)', medium: 'var(--warning)', low: 'var(--text-muted)' }
+    const { el, close } = openModal({
+      title: '🧹 ใบจองที่ต้องแก้ใน Sheet', size: 'lg',
+      body: `<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:10px">แก้ใน Google Sheet แล้วกด 🔄 ซิงก์ Sheet ตามปกติ รายการนี้จะหายไปเอง</div>
+        ${issues.map(g => `<div class="card" style="padding:10px 12px;margin-bottom:8px;border-left:4px solid ${lvl[g.level]}">
+          <div style="font-weight:700;font-size:0.88rem">${escHtml(g.title)} · ${g.rows.length} ใบ</div>
+          <div style="font-size:0.76rem;color:var(--text-muted);margin:2px 0 6px">ผลกระทบ: ${escHtml(g.why)} · แก้คอลัมน์ <b>${escHtml(g.col)}</b></div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">${g.rows.slice(0, 30).map(b => `<button class="btn btn-ghost btn-xs dq-row" data-id="${escHtml(b.id)}" style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(rowLabel(b))}</button>`).join('')}${g.rows.length > 30 ? `<span style="font-size:0.74rem;color:var(--text-muted);align-self:center">…และอีก ${g.rows.length - 30} ใบ</span>` : ''}</div>
+        </div>`).join('')}`,
+      footer: '<button class="btn btn-primary" id="dq-ok">ปิด</button>',
+    })
+    el.querySelector('#dq-ok')?.addEventListener('click', close)
+    el.querySelectorAll('.dq-row').forEach(btn => btn.addEventListener('click', () => {
+      const b = bookings.find(x => x.id === btn.dataset.id)
+      if (b) { close(); openDetail(b) }
+    }))
   }
 
   function openDetail(b) {
