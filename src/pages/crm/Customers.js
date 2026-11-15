@@ -137,6 +137,15 @@ async function fillPromos(root, c) {
   }
 }
 
+// (v1.0.1209) ลูกค้าเดิมกรอกฟอร์ม/สแกน QR เข้ามาอีกครั้งใน 3 วัน และยังไม่มีใครโทรกลับ (reEnquiredAt จากระบบรับลีด)
+function backBadge(c) {
+  const at = toDate(c.reEnquiredAt)
+  if (!at || Date.now() - at.getTime() > 3 * 86400000) return ''
+  const contacted = toDate(c.lastContactAt)
+  if (contacted && contacted > at) return ''
+  return `<div style="margin-top:3px"><span class="badge badge-danger" style="font-size:0.62rem" title="ทักเข้ามาอีกครั้ง ${escHtml(timeAgo(c.reEnquiredAt))}">📣 ทักกลับมา</span></div>`
+}
+
 // หมวดเหตุผลเสียดีลยอดนิยม (ปุ่มลัดในหน้าต่างมาร์คเสียดีล) — รายงานสัปดาห์นับรวมตามคำแรกก่อนเครื่องหมาย "-"
 
 const STAGE = {
@@ -341,6 +350,7 @@ export default async function CustomersPage(container) {
         <td class="cc-stage">
           <span class="badge badge-${st.badge}">${escHtml(st.label)}</span>
           ${c.isLost ? `<div style="margin-top:3px"><span class="badge badge-secondary" style="font-size:0.62rem">⬛ เสียดีล</span></div>` : ''}
+          ${backBadge(c)}
         </td>
         <td class="cc-temp${c.temperature || scoreBar(c) ? '' : ' cc-blank'}">${c.temperature ? `<span class="badge badge-${TEMP[c.temperature]?.badge}" style="font-size:0.68rem">${TEMP[c.temperature]?.label}</span>` : scoreBar(c) ? '' : '<span style="color:var(--text-muted)">-</span>'}${scoreBar(c)}</td>
         <td class="cc-model${c.interestedModel ? '' : ' cc-blank'}" style="color:var(--text-2)">${escHtml(c.interestedModel || '-')}</td>
@@ -520,6 +530,7 @@ export default async function CustomersPage(container) {
                 ${detail('👤 ผู้ดูแล', escHtml(c.assignedTo || '-'))}
                 ${detail('📅 เพิ่มเมื่อ', formatDate(c.createdAt))}
                 ${detail('📞 ติดต่อล่าสุด', `<span id="wk-last-contact">${c.lastContactAt ? timeAgo(c.lastContactAt) : 'ยังไม่มีบันทึก'}</span> <button class="btn btn-ghost btn-xs" id="wk-touch-btn" title="โทร/ทักลูกค้าแล้ว กดบันทึกไว้">✅ ติดต่อแล้ว</button>`)}
+                ${c.reEnquiredAt && toDate(c.reEnquiredAt) ? detail('📣 ทักกลับมาล่าสุด', `${timeAgo(c.reEnquiredAt)}${c.reEnquiredModel ? ` · สนใจ ${escHtml(c.reEnquiredModel)}` : ''}${toDate(c.lastContactAt) && toDate(c.lastContactAt) > toDate(c.reEnquiredAt) ? ' · <span style="color:var(--success)">โทรกลับแล้ว</span>' : ' · <b style="color:var(--danger)">ยังไม่มีใครโทรกลับ</b>'}`) : ''}
                 ${c.isLost ? detail('❌ เหตุผลเสียดีล', escHtml(c.lostReason || '-')) : ''}
                 ${!c.isLost && c.prevLostReason ? detail('↩️ เคยเสียดีล', escHtml(c.prevLostReason)) : ''}
                 ${(() => { /* ช่องที่ยังว่างรวมเป็นบรรทัดเดียว (เดิมขึ้น "-" ทีละแถว) กดแล้วเปิดแก้ไข */
