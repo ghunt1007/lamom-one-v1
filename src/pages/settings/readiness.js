@@ -2,6 +2,8 @@
 // ฟังก์ชันล้วน ไม่แตะฐานข้อมูล: รับสถานะจาก worker (socialStatus) + สวิตช์ inbox_auto + สถานะสำรองข้อมูล
 // ทุกข้อเป็นของจริงที่ตรวจได้ ไม่ใช่ตัวเลขสมมติ ข้อที่ตรวจไม่ได้จะบอกว่า "ตรวจไม่ได้" ไม่เดาว่าผ่าน
 
+import { dmy, hm } from '../../utils/format.js'
+
 const BACKUP_MAX_AGE_MS = 36 * 3600 * 1000
 
 /**
@@ -43,7 +45,7 @@ export function readinessItems({ status, auto, lastBackupMs, sheet, reports, now
   const rep = (kind, label, maxAgeH) => {
     const at = Date.parse(reports?.[`${kind}At`] || '')
     if (!reports || !Number.isFinite(at)) return add(`report_${kind}`, label, 'unknown', 'ยังไม่มีบันทึกผลการส่ง (เริ่มบันทึกตั้งแต่รอบถัดไปหลังอัปเดต)')
-    if (now - at > maxAgeH * 3600e3) return add(`report_${kind}`, label, 'todo', `รอบล่าสุดที่ระบบส่งคือ ${new Date(at + 7 * 3600e3).toISOString().slice(0, 16).replace(/^(\d{4})-(\d\d)-(\d\d)T/, '$3/$2/$1 ')} — นานเกินกำหนด ระบบตั้งเวลาอาจหยุดทำงาน`)
+    if (now - at > maxAgeH * 3600e3) return add(`report_${kind}`, label, 'todo', `รอบล่าสุดที่ระบบส่งคือ ${dmy(at)} ${hm(at)} — นานเกินกำหนด ระบบตั้งเวลาอาจหยุดทำงาน`)
     if (reports[`${kind}Ok`] !== true) return add(`report_${kind}`, label, 'todo', `ส่งไม่ออก: ${reports[`${kind}Error`] || 'ไม่ทราบสาเหตุ'}`)
     return add(`report_${kind}`, label, 'ok', reports[`${kind}Error`] ? `ส่งได้ แต่มีช่องทางหนึ่งพลาด: ${reports[`${kind}Error`]}` : '')
   }

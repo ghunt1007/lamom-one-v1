@@ -140,6 +140,8 @@ export default async function DashboardPage(container) {
         </div>
       </div>
 
+      <div id="owner-alerts"></div>
+
       <!-- เดือนเดียวคุมทั้งหน้า: ทุกการ์ด/กราฟเปลี่ยนตามเดือนนี้ (เดิมปุ่ม ◀ ▶ ซ่อนอยู่กลางหน้าในการ์ดยอดจอง) -->
       <div class="dash-toolbar">
         <div class="dash-month">
@@ -468,6 +470,8 @@ export default async function DashboardPage(container) {
   `
 
   // Bind navigation
+  // (v1.0.1163) แถบเตือนเจ้าของ: รายงาน LINE ส่งไม่ออก / สำรองข้อมูลขาด
+  import('../utils/ownerAlerts.js').then(m => m.mountOwnerAlerts(container.querySelector('#owner-alerts'))).catch(() => {})
   container.addEventListener('click', e => {
     const el = e.target.closest('[data-nav]')
     if (el) navigate(el.dataset.nav)
