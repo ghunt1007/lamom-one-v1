@@ -7,7 +7,7 @@ const by = (items, id) => items.find(i => i.id === id)
 
 describe('readinessItems', () => {
   it('ทุกอย่างพร้อม → ok ทั้งหมด', () => {
-    const it2 = readinessItems({ status: full, auto: { publicForm: true, aiReply: true, leadAlert: true }, lastBackupMs: NOW - 3600e3, now: NOW })
+    const it2 = readinessItems({ status: full, auto: { publicForm: true, aiReply: true, leadAlert: true }, lastBackupMs: NOW - 3600e3, sheet: { ok: true }, now: NOW })
     expect(readinessSummary(it2)).toEqual({ ok: it2.length, todo: 0, unknown: 0, total: it2.length })
   })
   it('ไม่มีสถานะจาก worker → unknown ไม่เดาว่าผ่าน', () => {
@@ -27,5 +27,11 @@ describe('readinessItems', () => {
   it('สำรองข้อมูลเก่าเกิน 36 ชม. → todo, ไม่มีประวัติ → unknown', () => {
     expect(by(readinessItems({ status: full, auto: {}, lastBackupMs: NOW - 40 * 3600e3, now: NOW }), 'backup').state).toBe('todo')
     expect(by(readinessItems({ status: full, auto: {}, now: NOW }), 'backup').state).toBe('unknown')
+  })
+  it('Google Sheet: เปิดได้ → ok, ยังไม่แชร์ → todo พร้อมอีเมลที่ต้องแชร์, ตรวจไม่ได้ → unknown', () => {
+    expect(by(readinessItems({ status: full, auto: {}, sheet: { ok: true }, now: NOW }), 'sheet').state).toBe('ok')
+    const t = by(readinessItems({ status: full, auto: {}, sheet: { code: 'not_shared', shareWith: 'bot@demo.iam.gserviceaccount.com' }, now: NOW }), 'sheet')
+    expect(t.state).toBe('todo'); expect(t.hint).toContain('bot@demo.iam.gserviceaccount.com')
+    expect(by(readinessItems({ status: full, auto: {}, now: NOW }), 'sheet').state).toBe('unknown')
   })
 })

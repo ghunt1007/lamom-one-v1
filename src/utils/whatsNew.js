@@ -3,26 +3,35 @@
 import { openModal } from './modal.js'
 import { escHtml as esc } from './escape.js'
 
-export const WHATS_NEW_ID = '2026-11-03'
+export const WHATS_NEW_ID = '2026-11-16'
+// roles: ถ้าใส่ไว้ = โชว์เฉพาะตำแหน่งนั้น (เจ้าของ/แอดมินเห็นทุกข้อ) · ไม่ใส่ = โชว์ทุกคน
 export const HIGHLIGHTS = [
-  { icon: '⌨️', title: 'พิมพ์ต่อเนื่องได้ทุกช่อง', desc: 'แก้อาการพิมพ์ได้ตัวเดียวแล้วเด้ง ต้องคลิกใหม่ — ช่องค้นหาและช่องกรอกทุกหน้า พิมพ์ยาวๆ ได้ลื่นแล้ว', path: '/crm/customers' },
-  { icon: '🤖', title: 'ถาม LAMI เรื่องลูกค้ารายคนได้', desc: 'ถามเช่น "มานีถึงไหนแล้ว" "ใบจองเลขนี้สถานะอะไร" LAMI ตอบจากข้อมูลจริงในระบบ: สถานะ นัดส่งมอบ นัดติดตามถัดไป ขั้นต่อไป', path: '/ai/ask' },
-  { icon: '📝', title: 'จองใหม่ ผูกลูกค้าเดิมให้เอง', desc: 'กรอกเบอร์ลูกค้าที่มีอยู่แล้วในฟอร์มจอง ระบบผูกใบจองกับลูกค้าคนนั้นให้อัตโนมัติ ไม่ต้องค้นหาเอง', path: '/crm/bookings' },
-  { icon: '📱', title: 'มือถือดูง่ายขึ้น', desc: 'หน้าลูกค้า: สถานะเป็นแถวเลื่อนแถวเดียว ตัวกรองซ่อนไว้ใต้ปุ่ม "⚙️ ตัวกรอง" · ตารางที่เคยล้นจอเลื่อนซ้าย-ขวาดูได้ครบ', path: '/crm/customers' },
-  { icon: '🔍', title: 'ค้นหาด้านบนเร็วขึ้น', desc: 'กด 🔍 หรือ Ctrl+K พิมพ์ชื่อ เบอร์ เลขจอง รุ่นรถ ผลขึ้นทันที · ยี่ห้อที่ขายอยู่ขึ้นก่อนในทุกช่องเลือกรถ', path: '/' },
+  { icon: '📅', title: 'ปฏิทินงานรวมที่เดียว', desc: 'นัดลูกค้า ทดลองขับ ส่งมอบ ตามไฟแนนซ์ และงานติดตาม รวมในปฏิทินเดียว ทำเสร็จกด ✓ ได้เลย', path: '/calendar' },
+  { icon: '🤖', title: 'สั่ง LAMI เป็นประโยคได้', desc: 'พิมพ์เช่น "นัดสมชายพรุ่งนี้ 10 โมง" หรือ "จดว่า สมชาย ขอส่วนลด" แล้วกด ✅ ทำเลย ไม่ต้องเปิดฟอร์ม', path: '/ai/ask' },
+  { icon: '🌞', title: 'งานของฉันวันนี้', desc: 'ใครต้องโทร ใครต้องตาม โปรไหนใกล้หมด เรียงให้แล้วในหน้าเดียว กดเบอร์เพื่อโทรได้ทันที', path: '/crm/my-day' },
+  { icon: '🔔', title: 'ลีดใหม่เด้งเข้า LINE ทันที', desc: 'ลีดจากฟอร์ม/เว็บ/Facebook แจ้งเซลส์ที่ดูแลทันที ถ้า 30 นาทียังไม่ได้ติดต่อจะเตือนอีกครั้ง', path: '/crm/customers', roles: ['manager', 'sales', 'marketing'] },
+  { icon: '🗗', title: 'เปิดหลายหน้าต่างพร้อมกัน', desc: 'กดปุ่ม 🗗 หรือ Ctrl+คลิกเมนู เพื่อเปิดอีกหน้าคู่กัน เช่น ใบจองคู่กับลูกค้า ข้อมูลอัปเดตตรงกันเอง', path: '/crm/bookings' },
+  { icon: '📣', title: 'ตั้งเวลาโพสต์ Facebook / Instagram', desc: 'เขียนโพสต์ล่วงหน้า ระบบโพสต์ให้ตามเวลา และดูผลโฆษณาต่อแคมเปญว่าได้ลีด/ยอดจองเท่าไร', path: '/marketing/channels', roles: ['marketing'] },
+  { icon: '🚦', title: 'เช็กความพร้อมระบบในหน้าเดียว', desc: 'ดูว่ากุญแจ LINE/Meta/AI ใส่ครบไหม สวิตช์ไหนยังปิด และสำรองข้อมูลล่าสุดเมื่อไร', path: '/settings/health', roles: [] },
 ]
+const ALL_ROLES = ['owner', 'admin']
+export function highlightsFor(role, owner = false) {
+  if (owner || ALL_ROLES.includes(role)) return HIGHLIGHTS
+  return HIGHLIGHTS.filter(h => !h.roles || h.roles.includes(role))
+}
 
 export function shouldShowWhatsNew(seen, id = WHATS_NEW_ID) { return seen !== id }
 
 const KEY = 'lamom.whatsNewSeen'
-export function maybeShowWhatsNew({ navigate, openQuickLead } = {}) {
+export function maybeShowWhatsNew({ navigate, openQuickLead, role, owner } = {}) {
+  const items = highlightsFor(role, owner)
   let seen = null
   try { seen = localStorage.getItem(KEY) } catch { return }
   if (!shouldShowWhatsNew(seen)) return
   try { localStorage.setItem(KEY, WHATS_NEW_ID) } catch { return }
   const { el, close } = openModal({
     title: '✨ มีอะไรใหม่ใน LAMOM ONE', size: 'md',
-    body: `<div style="display:flex;flex-direction:column;gap:8px">${HIGHLIGHTS.map((h, i) => `
+    body: `<div style="display:flex;flex-direction:column;gap:8px">${items.map((h, i) => `
       <div class="card" style="padding:10px 12px;display:flex;gap:10px;align-items:flex-start">
         <div style="font-size:1.5rem;line-height:1">${h.icon}</div>
         <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:0.88rem">${esc(h.title)}</div><div style="font-size:0.78rem;color:var(--text-muted);line-height:1.55">${esc(h.desc)}</div>
@@ -32,7 +41,7 @@ export function maybeShowWhatsNew({ navigate, openQuickLead } = {}) {
   })
   el.querySelector('#wn-ok').addEventListener('click', close)
   el.querySelectorAll('.wn-go').forEach(b => b.addEventListener('click', () => {
-    const h = HIGHLIGHTS[+b.dataset.i]
+    const h = items[+b.dataset.i]
     close()
     if (h.path) navigate?.(h.path)
     else if (h.action === 'quickLead') openQuickLead?.()

@@ -142,7 +142,10 @@ async function bootstrapShell() {
   setTimeout(() => {
     import('./utils/whatsNew.js').then(async m => {
       const { openQuickLead } = await import('./utils/quickLead.js')
-      m.maybeShowWhatsNew({ navigate, openQuickLead })
+      const { isProgramOwner } = await import('./core/hierarchy.js')
+      let owner = false
+      try { owner = isProgramOwner() } catch { owner = false }
+      m.maybeShowWhatsNew({ navigate, openQuickLead, role: getState('role') || getState('user')?.role, owner })
     }).catch(() => {})
   }, 2500)
 

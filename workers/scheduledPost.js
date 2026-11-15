@@ -5,7 +5,7 @@
 // cron ทุก 10 นาที: "ลบคิวก่อนแล้วค่อยโพสต์" (ลบสำเร็จได้ครั้งเดียว = ไม่โพสต์ซ้ำ) แล้วเก็บผลไว้ที่ postlog_<id> 14 วัน
 // คิวที่เลยเวลาเกิน 6 ชม. ไม่โพสต์ย้อนหลัง — บันทึกผลว่า "ข้าม" ให้เห็นในรายการ
 import { validatePost, metaPost, MULTICAST_ROLES } from './social.js'
-import { QUEUE_PREFIX, MAX_LATE_MS, MAX_AHEAD_MS, fsBase, call, bad, auth, enc, decDoc } from './scheduledSend.js'
+import { QUEUE_PREFIX, MAX_LATE_MS, MAX_AHEAD_MS, fsBase, call, bad, auth, enc, decDoc, listCollection } from './scheduledSend.js'
 
 export const POST_KIND = 'meta-post'
 export const POST_LOG_KIND = 'meta-post-log'
@@ -36,9 +36,9 @@ export function cleanPostSchedule(body = {}, now = Date.now()) {
 }
 
 async function listAll(env, token, fetchImpl) {
-  const r = await call(fetchImpl, `${fsBase(env)}/system_integrations?pageSize=300`, { headers: auth(token) })
-  if (!r?.ok) return null
-  return ((await r.json().catch(() => ({}))).documents || []).map(d => ({ ...decDoc(d), docId: docName(d), name: d.name, updateTime: d.updateTime }))
+  const docs = await listCollection(fetchImpl, env, token, 'system_integrations')
+  if (!docs) return null
+  return docs.map(d => ({ ...decDoc(d), docId: docName(d), name: d.name, updateTime: d.updateTime }))
 }
 const pendingOf = rows => rows.filter(r => r.kind === POST_KIND && r.docId.startsWith(POST_QUEUE_PREFIX))
 const logsOf = rows => rows.filter(r => r.kind === POST_LOG_KIND && r.docId.startsWith(POST_LOG_PREFIX))
