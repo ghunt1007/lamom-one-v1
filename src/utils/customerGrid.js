@@ -24,6 +24,8 @@ export function customerColumns({ stage = {}, temp = {}, source = {} } = {}) {
     { h: 'หมายเหตุ', f: 'notes', t: 'text', w: 260 },
     { h: 'เพิ่มเมื่อ', f: '_added', t: 'date', ro: true },
     { h: 'เงียบ (วัน)', f: '_quiet', t: 'num', ro: true, w: 84 },
+    // (v1.0.1216) วันที่ลูกค้าเดิมกรอกฟอร์ม/สแกน QR เข้ามาอีกครั้งล่าสุด (เรียงคอลัมน์นี้ = เห็นคนที่กลับมาล่าสุดก่อน)
+    { h: 'ทักกลับมา', f: '_back', t: 'date', ro: true },
   ]
 }
 
@@ -33,6 +35,8 @@ export function withGridFields(rows, today = todayBangkok()) {
   for (const c of rows) {
     const d = toDate(c.createdAt)
     hide(c, '_added', d && !isNaN(d) ? new Date(d.getTime() + 7 * 3600e3).toISOString().slice(0, 10) : '')
+    const b = toDate(c.reEnquiredAt)
+    hide(c, '_back', b && !isNaN(b) ? new Date(b.getTime() + 7 * 3600e3).toISOString().slice(0, 10) : '')
     hide(c, '_quiet', !c.isLost && ['lead', 'pp'].includes(c.stage) ? (quietDays(c, today) ?? 0) : 0)
   }
   return rows
