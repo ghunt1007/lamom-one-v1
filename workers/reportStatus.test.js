@@ -5,7 +5,7 @@ describe('report status (v1.0.1161)', () => {
   it('ok when at least one channel sent; keeps the other channel error', () => {
     expect(summarizeReportRun({ line: { configured: true, sent: true }, telegram: { configured: false } })).toEqual({ ok: true, error: '' })
     const r = summarizeReportRun({ line: { configured: true, sent: false, error: 'You have reached your monthly limit.' }, telegram: { configured: true, sent: true } })
-    expect(r.ok).toBe(true); expect(r.error).toContain('LINE: You have reached')
+    expect(r.ok).toBe(true); expect(r.error).toContain('LINE: โควตาข้อความ LINE OA เดือนนี้หมดแล้ว')
   })
   it('fails when nothing was sent, or the run errored', () => {
     expect(summarizeReportRun({ line: { configured: true, sent: false, error: 'x' }, telegram: { configured: false } }).ok).toBe(false)

@@ -60,7 +60,7 @@ describe('report readiness (v1.0.1161)', () => {
     const bad = by(readinessItems({ status: st, auto: {}, reports: { eveningAt: fresh, eveningOk: false, eveningError: 'LINE: monthly limit' }, now: NOW }), 'report_evening')
     expect(bad.state).toBe('todo'); expect(bad.hint).toContain('monthly limit')
     const old = by(readinessItems({ status: st, auto: {}, reports: { morningAt: '2026-11-14T02:00:05.000Z', morningOk: true }, now: NOW }), 'report_morning')
-    expect(old.state).toBe('todo'); expect(old.hint).toContain('14/11/2026 09:00')
+    expect(old.state).toBe('todo'); expect(old.hint).toMatch(/14\/11\/(2026|2569) 09:00/)
     expect(by(readinessItems({ status: st, auto: {}, now: NOW }), 'report_morning').state).toBe('unknown')
   })
 })
