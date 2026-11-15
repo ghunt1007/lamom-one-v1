@@ -324,6 +324,9 @@ export async function loadOpsAnswer(q, customersPromise) {
     const mineIds = new Set((customers || []).filter(c => mine(c.assignedTo, c)).map(c => c.lineUserId).filter(Boolean))
     const whole = !!(vis.unrestricted || vis.companyOnly)
     res = oq.lineWaitingAnswer(threads.filter(t => whole || mineIds.has(t.userId)), customers || [])
+  } else if (spec.kind === 'qrleads') {
+    const customers = await (customersPromise || visibleCustomersForCommands())
+    res = oq.qrLeadsAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, period: spec.period })
   } else if (spec.kind === 'newcust') {
     const [{ QUICK_SOURCES }, customers] = await Promise.all([import('./quickLead.js'), customersPromise || visibleCustomersForCommands()])
     res = oq.newCustomerAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, period: spec.period, source: spec.source, nofollow: !!spec.nofollow, sourceLabel: { event: '🎪 ออกบูธ/อีเวนต์', ...Object.fromEntries(QUICK_SOURCES) } })

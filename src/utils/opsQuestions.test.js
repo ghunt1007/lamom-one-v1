@@ -205,3 +205,27 @@ describe('walk-in (v1.0.1087)', () => {
     expect(walkinAnswer([], { today: T, day: 'week' }).text).toContain('ในรอบ 7 วัน')
   })
 })
+
+import { qrLeadsAnswer } from './opsQuestions.js'
+describe('v1.0.1204 LAMI: leads from our QR/links', () => {
+  it('parses QR lead questions, not "make me a QR"', () => {
+    expect(parseOpsSpec('ลีดจาก QR เดือนนี้กี่คน')).toEqual({ kind: 'qrleads', period: 'month' })
+    expect(parseOpsSpec('วันนี้มีใครสแกน QR บ้าง')).toEqual({ kind: 'qrleads', period: 'today' })
+    expect(parseOpsSpec('ลูกค้าจากนามบัตรสัปดาห์นี้กี่คน')).toEqual({ kind: 'qrleads', period: 'week' })
+    expect(parseOpsSpec('ขอ QR ของฉันหน่อย')?.kind).not.toBe('qrleads')
+  })
+  it('counts per entry point with names', () => {
+    const customers = [
+      { firstName: 'เอ', createdAt: '2026-11-16T03:00:00Z', eventId: 'e', eventName: 'บูธเซ็นทรัล', autoLead: true, assignedTo: 'นภา' },
+      { firstName: 'บี', createdAt: '2026-11-10T03:00:00Z', utmSource: 'walk-in', utmMedium: 'namecard', autoLead: true, bookingId: 'b1' },
+      { firstName: 'ซี', createdAt: '2026-11-10T03:00:00Z', source: 'facebook' },
+      { firstName: 'ดี', createdAt: '2026-10-10T03:00:00Z', eventId: 'e', autoLead: true },
+    ]
+    const r = qrLeadsAnswer(customers, { today: '2026-11-16', period: 'month' })
+    expect(r.n).toBe(2)
+    expect(r.text).toContain('🎪 QR บูธ 1'); expect(r.text).toContain('📇 QR นามบัตรเซลส์ 1')
+    expect(r.text).toContain('📝 จองแล้ว 1 · 📞 ยังไม่ได้ติดต่อ 2'); expect(r.text).toContain('• เอ · 🎪 บูธเซ็นทรัล · 👤 นภา')
+    expect(qrLeadsAnswer(customers, { today: '2026-11-16', period: 'today' }).n).toBe(1)
+    expect(qrLeadsAnswer([], { today: '2026-11-16' }).text).toContain('ยังไม่มี')
+  })
+})
