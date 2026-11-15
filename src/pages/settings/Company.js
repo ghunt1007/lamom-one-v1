@@ -1,4 +1,5 @@
 import { showToast } from '../../core/store.js'
+import { companyLineFrom } from '../../utils/companyFooter.js'
 import { navigate } from '../../core/router.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { validateTaxId } from '../../utils/thaiId.js'
@@ -129,8 +130,13 @@ export default async function CompanyPage(container) {
     `
     document.getElementById('save-info-btn')?.addEventListener('click', async () => {
       const taxId = document.getElementById('co-tax').value
-      const taxCheck = validateTaxId(taxId)
-      if (!taxCheck.valid) { showToast(taxCheck.error, 'error'); return }
+      // (v1.0.1207) เลขภาษีเว้นว่างได้ (กรอกทีหลังได้) — เดิมบังคับ ทำให้ใส่แค่ชื่อ/เบอร์โชว์รูมไม่ได้ · ถ้ากรอกต้องถูกต้อง
+      if (String(taxId || '').trim()) {
+        const taxCheck = validateTaxId(taxId)
+        if (!taxCheck.valid) { showToast(taxCheck.error, 'error'); return }
+      }
+      const telRaw = document.getElementById('co-phone').value
+      if (String(telRaw || '').trim() && !companyLineFrom({ phone: telRaw }).includes('📞')) showToast('⚠️ เบอร์นี้อ่านไม่ได้ จะไม่ขึ้นเป็นปุ่มโทรบนฟอร์มลูกค้า — ใส่แบบ 02-123-4567 หรือ 081-234-5678', 'warning')
 
       data = {
         ...data,
