@@ -14,7 +14,7 @@
 // เสมอ ไม่มีทางถูกตัดออกไปเงียบๆแบบนั้น)
 import { db } from './firebase.js'
 import {
-  collection, doc, getDocs, query, orderBy, limit, startAfter, documentId, setDoc, serverTimestamp,
+  collection, doc, getDocs, query, orderBy, limit, startAfter, documentId, setDoc, serverTimestamp, writeBatch,
 } from 'firebase/firestore'
 import { reviveBackupDoc } from '../utils/backupRevive.js'
 
@@ -155,22 +155,35 @@ export function summarizeBackupData(backupObj) {
 // เพิ่มเข้ามาใหม่หลังจาก backup ถูกสร้าง) ทำงานแบบ resilient — เอกสาร/collection ไหนพลาด (เช่นไม่มีสิทธิ์
 // เขียนตาม Firestore Rules ของ collection นั้น หรือ collection ห้ามแก้ไข) จะข้ามแล้วรายงาน ไม่ทำให้การ
 // กู้คืนที่เหลือหยุดกลางทาง
-export async function restoreFromBackupData(backupObj, onProgress) {
+export const RESTORE_BATCH = 400
+
+// (v1.0.1168) เขียนทีละชุด (สูงสุด 400 เอกสารต่อครั้ง) แทนทีละเอกสาร — ข้อมูลหลายพันรายการกู้คืนเสร็จในไม่กี่วินาที
+// แทนที่จะเป็นหลายนาที ถ้าชุดไหนเขียนไม่ผ่าน (เช่นมีเอกสารที่ Rules ไม่ให้เขียน) จะลองทีละเอกสารเฉพาะชุดนั้น
+// เพื่อให้ที่เหลือยังกู้คืนได้และรายงานได้ว่าเอกสารไหนพลาด
+export async function restoreFromBackupData(backupObj, onProgress, { batchSize = RESTORE_BATCH } = {}) {
   const collections = Object.keys(backupObj?.data || {})
   let restored = 0, failed = 0
   const errors = []
+  const fail = (colName, id, e) => {
+    failed++
+    if (errors.length < 50) errors.push({ colName, id, message: e?.message || String(e) }) // เก็บตัวอย่าง Error ไว้แค่ 50 รายการแรก
+  }
   for (let ci = 0; ci < collections.length; ci++) {
     const colName = collections[ci]
-    const docs = backupObj.data[colName] || []
-    for (let di = 0; di < docs.length; di++) {
-      onProgress?.({ colIndex: ci + 1, colTotal: collections.length, colName, docIndex: di + 1, docTotal: docs.length })
-      const { id, ...fields } = docs[di]
+    const docs = (backupObj.data[colName] || []).filter(d => d && d.id)
+    for (let start = 0; start < docs.length; start += batchSize) {
+      const chunk = docs.slice(start, start + batchSize)
+      onProgress?.({ colIndex: ci + 1, colTotal: collections.length, colName, docIndex: Math.min(start + chunk.length, docs.length), docTotal: docs.length })
+      const rows = chunk.map(({ id, ...fields }) => [id, { ...reviveBackupDoc(fields), updatedAt: serverTimestamp() }])
       try {
-        await setDoc(doc(db, colName, id), { ...reviveBackupDoc(fields), updatedAt: serverTimestamp() }, { merge: true })
-        restored++
-      } catch (e) {
-        failed++
-        if (errors.length < 50) errors.push({ colName, id, message: e.message || String(e) }) // เก็บตัวอย่าง Error ไว้แค่ 50 รายการแรก กันล้นหน่วยความจำถ้าพลาดจำนวนมาก
+        const batch = writeBatch(db)
+        for (const [id, data] of rows) batch.set(doc(db, colName, id), data, { merge: true })
+        await batch.commit()
+        restored += rows.length
+      } catch (batchErr) {
+        for (const [id, data] of rows) {
+          try { await setDoc(doc(db, colName, id), data, { merge: true }); restored++ } catch (e) { fail(colName, id, e) }
+        }
       }
     }
   }
