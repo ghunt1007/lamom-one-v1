@@ -218,7 +218,7 @@ export const NAV = [
       { icon: '🧠', label: 'อารมณ์ลูกค้า (AI)', labelEn: 'Sentiment AI', path: '/marketing/sentiment' },
       { icon: '🌐', label: 'หน้าเว็บแคมเปญ', labelEn: 'Landing Pages', path: '/marketing/landing-pages' },
       { icon: '🔗', label: 'ติดตามลิงก์ (UTM)', labelEn: 'UTM Tracker', path: '/marketing/utm-tracker' },
-      { icon: '🌐', label: 'โชว์รูมออนไลน์', labelEn: 'Digital Showroom', path: '/marketing/digital-showroom' },
+      { icon: '🚗', label: 'QR ประจำรุ่นรถ (โชว์รูม)', labelEn: 'Showroom QR', path: '/marketing/digital-showroom' },
       { icon: '✨', label: 'สร้างคอนเทนต์ (AI)', labelEn: 'AI Content Factory', path: '/marketing/ai-content' },
     ]
   },
