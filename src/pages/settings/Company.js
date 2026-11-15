@@ -94,7 +94,7 @@ export default async function CompanyPage(container) {
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📍 ที่อยู่และติดต่อ</div>
             <div style="display:flex;flex-direction:column;gap:10px">
               <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="co-addr" rows="2">${escHtml(data.address || '')}</textarea></div>
-              <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="co-phone" value="${escHtml(data.phone)}"></div>
+              <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="co-phone" value="${escHtml(data.phone)}"><div style="font-size:0.7rem;color:var(--text-muted);margin-top:3px">เบอร์แรกจะขึ้นเป็นปุ่ม 📞 โทรหาโชว์รูม บนฟอร์มฝากชื่อ/QR ของลูกค้า</div></div>
               <div class="input-group"><label class="input-label">อีเมล</label><input class="input" type="email" id="co-email" value="${escHtml(data.email)}"></div>
             </div>
           </div>

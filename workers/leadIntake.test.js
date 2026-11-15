@@ -353,3 +353,42 @@ describe('fbAdExtra', () => {
     expect(fbAdExtra()).toEqual({})
   })
 })
+
+import { pickShopPhone, shopPhone, __resetShopPhoneCache } from './leadIntake.js'
+describe('v1.0.1191 showroom phone on the lead form', () => {
+  const env = { FIREBASE_PROJECT_ID: 'p' }
+  const req = body => new Request('https://w/lead/form', { method: 'POST', headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '9.9.9.9' }, body: JSON.stringify(body) })
+  const fetchWith = ({ on = true, phone = '02-123-4567', ok = true } = {}) => async (url, init = {}) => {
+    if (url.includes('system_integrations/inbox_auto')) return { ok: true, json: async () => ({ fields: { publicForm: { booleanValue: on } } }) }
+    if (url.includes('/company_profile')) return ok ? { ok: true, json: async () => ({ documents: [{ fields: { phone: { stringValue: phone } } }] }) } : { ok: false, status: 500, json: async () => ({}) }
+    if (url.endsWith(':runQuery')) return { ok: true, json: async () => [{}] }
+    if (url.includes('/customers') && init.method === 'POST') return { ok: true, status: 200, json: async () => ({ name: 'x/customers/n1' }) }
+    return { ok: true, json: async () => ({}) }
+  }
+  beforeEach(() => { __resetInboxCache(); __resetFormHits(); __resetShopPhoneCache() })
+  it('reads the first usable number from free text', () => {
+    expect(pickShopPhone('02-123-4567, 081-234-5678')).toBe('021234567')
+    expect(pickShopPhone('โทร 081 234 5678')).toBe('0812345678')
+    expect(pickShopPhone('+66 81 234 5678')).toBe('0812345678')
+    expect(pickShopPhone('')).toBe(''); expect(pickShopPhone('1234')).toBe(''); expect(pickShopPhone('<b>')).toBe('')
+  })
+  it('a closed form gives the customer the showroom number to call', async () => {
+    const r = await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678' }), env, async () => 't', { fetch: fetchWith({ on: false }) })
+    expect(r.status).toBe(403); expect(r.body.tel).toBe('021234567'); expect(r.body.error).toContain('ติดต่อพนักงานโดยตรง')
+  })
+  it('after sending, the number is offered too; no number in company settings = no button', async () => {
+    const r = await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678' }), env, async () => 't', { fetch: fetchWith() })
+    expect(r.body).toEqual({ ok: true, tel: '021234567' })
+    __resetShopPhoneCache(); __resetFormHits()
+    const r2 = await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678' }), env, async () => 't', { fetch: fetchWith({ phone: '' }) })
+    expect(r2.body).toEqual({ ok: true })
+  })
+  it('caches for 6 hours but does not remember a failed read', async () => {
+    let n = 0
+    const f = fetchWith(), g = async (u, i) => (n++, f(u, i))
+    expect(await shopPhone(env, 't', g, 1000)).toBe('021234567'); expect(await shopPhone(env, 't', g, 2000)).toBe('021234567'); expect(n).toBe(1)
+    __resetShopPhoneCache()
+    expect(await shopPhone(env, 't', fetchWith({ ok: false }), 1000)).toBe('')
+    expect(await shopPhone(env, 't', fetchWith(), 1500)).toBe('021234567')
+  })
+})

@@ -471,6 +471,32 @@ export async function lineBasicId(env, fetchImpl, now = Date.now()) {
   return id
 }
 
+// (v1.0.1191) เบอร์โชว์รูมจากหน้า "ข้อมูลบริษัท" (company_profile) — โชว์ปุ่ม 📞 โทรหาโชว์รูม บนฟอร์ม
+// ทั้งตอนส่งสำเร็จ และตอนฟอร์มยังไม่เปิด/บันทึกไม่ได้ (ลูกค้าจะได้ติดต่อได้ทันที ไม่หลุดหาย) · จำไว้ 6 ชม. · ไม่มีเบอร์ = ไม่แสดงปุ่ม
+export function pickShopPhone(v) {
+  const m = String(v || '').match(/(?:\+66|0)[\d\s-]{7,13}/)
+  if (!m) return ''
+  let d = m[0].replace(/\D/g, '')
+  if (d.startsWith('66')) d = '0' + d.slice(2)
+  return /^0\d{8,9}$/.test(d) ? d : ''
+}
+let shopPhoneCache = { at: 0, phone: '' }
+export function __resetShopPhoneCache() { shopPhoneCache = { at: 0, phone: '' } }
+export async function shopPhone(env, token, fetchImpl, now = Date.now()) {
+  if (shopPhoneCache.at && now - shopPhoneCache.at < 6 * 3600e3) return shopPhoneCache.phone
+  let phone = ''
+  if (token) {
+    const r = await call(fetchImpl, `${fsBase(env)}/company_profile?pageSize=10`, { headers: { Authorization: `Bearer ${token}` } })
+    const docs = r?.ok ? ((await r.json().catch(() => null))?.documents || []) : []
+    const live = docs.map(d => d.fields || {}).filter(f => !f.deleted?.booleanValue)
+      .sort((a, b) => String(a.createdAt?.stringValue || a.createdAt?.timestampValue || '').localeCompare(String(b.createdAt?.stringValue || b.createdAt?.timestampValue || '')))
+    for (const f of live) { phone = pickShopPhone(f.phone?.stringValue); if (phone) break }
+    if (!r?.ok) return '' // อ่านไม่ได้ชั่วคราว — ไม่จำค่าว่าง
+  }
+  shopPhoneCache = { at: now, phone }
+  return phone
+}
+
 export async function handleLeadForm(request, env, getToken, deps = {}) {
   const fetchImpl = deps.fetch || fetch
   const raw = await request.text()
@@ -494,7 +520,7 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   const token = await getToken()
   if (!token) return { status: 503, body: { ok: false, error: 'ระบบยังไม่พร้อม กรุณาลองใหม่' } }
   const inbox = await readInboxAuto(env, token, fetchImpl)
-  if (!inbox.publicForm) return { status: 403, body: { ok: false, error: 'ขณะนี้ยังไม่เปิดรับข้อมูลทางฟอร์ม กรุณาติดต่อพนักงานโดยตรง ขออภัยในความไม่สะดวก' } }
+  if (!inbox.publicForm) { const tel = await shopPhone(env, token, fetchImpl, nowMs).catch(() => ''); return { status: 403, body: { ok: false, error: 'ขณะนี้ยังไม่เปิดรับข้อมูลทางฟอร์ม กรุณาติดต่อพนักงานโดยตรง ขออภัยในความไม่สะดวก', ...(tel ? { tel } : {}) } } }
   const accId = clip(String(b.a || ''), 60).replace(/[^A-Za-z0-9_-]/g, '')
   const ref = cleanRefCode(b.ref)
   const utm = cleanUtm(b.utm)
@@ -520,11 +546,11 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   if (seller) lead.note = [`📇 ฝากชื่อผ่าน QR นามบัตรของ ${seller.name}`, lead.note].filter(Boolean).join(' · ')
   const extra = { ...(acc ? { sourceAccountName: acc.name, sourceAccountLevel: acc.level } : {}), ...(ref ? { referralCode: ref } : {}), ...(utm ? { utmSource: utm.source, utmMedium: utm.medium, utmCampaign: utm.campaign } : {}), ...(ev ? { eventId: ev.id, eventName: ev.title } : {}) }
   const r = await createLead(env, token, lead, { tags: ['ฟอร์มรับลีด', ...(acc?.name ? [acc.name] : []), ...(ref ? [`แนะนำ ${ref}`] : []), ...(ev ? [`บูธ ${ev.title}`.trim()] : [])], extra, fetchImpl })
-  if (r.error) return { status: 500, body: { ok: false, error: 'บันทึกไม่สำเร็จ กรุณาลองใหม่' } }
+  if (r.error) { const tel = await shopPhone(env, token, fetchImpl, nowMs).catch(() => ''); return { status: 500, body: { ok: false, error: tel ? 'บันทึกไม่สำเร็จ กรุณาลองใหม่ หรือโทรหาโชว์รูม' : 'บันทึกไม่สำเร็จ กรุณาลองใหม่', ...(tel ? { tel } : {}) } } }
   // นัดทดลองขับลงตารางเดียวกับหน้า Test Drive (สถานะ "นัดแล้ว" พร้อมหมายเหตุให้โทรยืนยัน) — พลาดก็ยังมีข้อความในโน้ตลูกค้าและแจ้งเตือน
   if (td) await createTestDrive(env, token, { lead, customerId: r.id, td, companyId: lead.companyId || env.LINE_LEAD_COMPANY_ID || null, now: new Date(deps.now || Date.now()).toISOString() }, fetchImpl).catch(() => false)
   await tell(deps, lead, r)
   // ไม่บอกคนกรอกว่าเบอร์นี้เคยมีในระบบหรือไม่ (กันเดาข้อมูลลูกค้า)
-  const line = await lineBasicId(env, fetchImpl, nowMs).catch(() => '')
-  return { status: 200, body: { ok: true, ...(line ? { line } : {}) } }
+  const [line, tel] = await Promise.all([lineBasicId(env, fetchImpl, nowMs).catch(() => ''), shopPhone(env, token, fetchImpl, nowMs).catch(() => '')])
+  return { status: 200, body: { ok: true, ...(line ? { line } : {}), ...(tel ? { tel } : {}) } }
 }
