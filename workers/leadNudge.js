@@ -7,6 +7,9 @@
 import { fmtPhone, salesLineId } from './leadAlert.js'
 
 export const NUDGE_AFTER_MS = 30 * 60 * 1000
+// (v1.0.1182) ลีดที่สแกน QR หน้างาน (บูธ / รถโชว์) — ลูกค้ายังยืนอยู่ตรงนั้น รอ 30 นาทีก็เดินกลับไปแล้ว → เตือนหลัง 10 นาที
+export const NUDGE_ONSITE_MS = 10 * 60 * 1000
+export const isOnsiteLead = c => !!(c && (c.eventId || c.utmMedium === 'qr'))
 export const NUDGE_MAX_AGE_MS = 18 * 3600 * 1000
 const clip = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n)
 
@@ -23,15 +26,17 @@ export function pickStaleLeads(customers = [], now = Date.now()) {
     const at = new Date(c.createdAt || '').getTime()
     if (!Number.isFinite(at)) return false
     const age = now - at
-    return age >= NUDGE_AFTER_MS && age <= NUDGE_MAX_AGE_MS
+    return age >= (isOnsiteLead(c) ? NUDGE_ONSITE_MS : NUDGE_AFTER_MS) && age <= NUDGE_MAX_AGE_MS
   })
 }
 
 export function nudgeText(c = {}, { appUrl = '', now = Date.now() } = {}) {
   const name = clip(`${c.firstName || ''} ${c.lastName || ''}`, 80) || 'ไม่ระบุชื่อ'
-  const mins = Math.max(30, Math.round((now - new Date(c.createdAt).getTime()) / 60000))
+  const onsite = isOnsiteLead(c)
+  const mins = Math.max(onsite ? 10 : 30, Math.round((now - new Date(c.createdAt).getTime()) / 60000))
   const waited = mins >= 120 ? `${Math.floor(mins / 60)} ชั่วโมง` : `${mins} นาที`
   const lines = [`⏰ ลีดรอมา ${waited}แล้ว ยังไม่มีใครติดต่อ`, `👤 ${name}`]
+  if (onsite) lines.push(c.eventId ? `📍 สแกน QR ที่บูธ${c.eventName ? ' ' + clip(c.eventName, 60) : ''} — ลูกค้าอาจยังอยู่ที่บูธ` : (c.utmSource === 'walk-in' ? '📍 สแกน QR ที่รถโชว์ — ลูกค้าอาจยังอยู่ในโชว์รูม' : '📍 สแกน QR เข้ามา — รีบติดต่อขณะลูกค้ายังสนใจ'))
   if (c.phone) lines.push(`📞 ${fmtPhone(c.phone)}`)
   if (c.interestedModel) lines.push(`🚗 สนใจ ${clip(c.interestedModel, 80)}`)
   lines.push(c.assignedTo ? `🙋 ผู้ดูแล: ${clip(c.assignedTo, 60)}` : '🙋 ยังไม่มีผู้ดูแล')

@@ -465,6 +465,9 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   const lead = { first: parts[0], last: parts.slice(1).join(' '), phone, email: '', lineId: clean(b.line, 60), model: clean(b.model, 80), note: [td ? `ขอนัดทดลองขับ ${td.label}` : '', clean(b.note, 300)].filter(Boolean).join(' · '),
     source: acc?.source || (ref ? 'referral' : ev ? 'event' : (utm?.source && normSource(utm.source) !== 'other' ? normSource(utm.source) : 'website')), account: acc?.id || '', assignedTo: acc?.assignedTo || '', companyId: acc?.companyId || ev?.companyId || '' }
   if (ref) lead.note = [`แนะนำโดยรหัส ${ref}`, lead.note].filter(Boolean).join(' · ')
+  // (v1.0.1182) สแกน QR หน้างาน = ลูกค้าอาจยังยืนอยู่ตรงนั้น — บอกเซลส์ในแจ้งเตือนให้รีบเดินไปหา/โทรทันที
+  const where = ev ? `📍 สแกน QR ที่บูธ ${ev.title || ''}`.trim() : (utm?.source === 'walk-in' && utm?.medium === 'qr' ? `📍 สแกน QR ที่รถโชว์${utm.campaign ? ' ' + utm.campaign : ''} — ลูกค้าอาจอยู่ในโชว์รูมตอนนี้` : '')
+  if (where) lead.note = [where, lead.note].filter(Boolean).join(' · ')
   const extra = { ...(acc ? { sourceAccountName: acc.name, sourceAccountLevel: acc.level } : {}), ...(ref ? { referralCode: ref } : {}), ...(utm ? { utmSource: utm.source, utmMedium: utm.medium, utmCampaign: utm.campaign } : {}), ...(ev ? { eventId: ev.id, eventName: ev.title } : {}) }
   const r = await createLead(env, token, lead, { tags: ['ฟอร์มรับลีด', ...(acc?.name ? [acc.name] : []), ...(ref ? [`แนะนำ ${ref}`] : []), ...(ev ? [`บูธ ${ev.title}`.trim()] : [])], extra, fetchImpl })
   if (r.error) return { status: 500, body: { ok: false, error: 'บันทึกไม่สำเร็จ กรุณาลองใหม่' } }

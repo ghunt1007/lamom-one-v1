@@ -203,6 +203,7 @@ describe('v1.0.1140 public lead form', () => {
     expect(f.source.stringValue).toBe('event'); expect(f.eventId.stringValue).toBe('ev_1x')
     expect(f.eventName.stringValue).toBe('บูธเซ็นทรัล'); expect(f.companyId.stringValue).toBe('co9')
     expect(f.tags.arrayValue.values.map(v => v.stringValue)).toContain('บูธ บูธเซ็นทรัล')
+    expect(f.notes.stringValue).toContain('📍 สแกน QR ที่บูธ บูธเซ็นทรัล')
     __resetFormHits()
     const w2 = evWorld(null)
     await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', ev: 'nope' }), env, async () => 't', { fetch: w2.f })
@@ -211,6 +212,13 @@ describe('v1.0.1140 public lead form', () => {
     const w3 = evWorld({ title: { stringValue: 'x' }, deleted: { booleanValue: true } })
     await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', ev: 'old' }), env, async () => 't', { fetch: w3.f })
     expect(created(w3.calls).eventId).toBeUndefined()
+  })
+  it('a showroom car QR becomes a walk-in lead with a "customer may be here now" note', async () => {
+    const w = world()
+    await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', model: 'Deepal S07', utm: { s: 'walk-in', m: 'qr', c: 'Deepal S07' } }), env, async () => 't', { fetch: w.f })
+    const f = created(w.calls)
+    expect(f.source.stringValue).toBe('walk-in'); expect(f.utmCampaign.stringValue).toBe('Deepal S07')
+    expect(f.notes.stringValue).toContain('ลูกค้าอาจอยู่ในโชว์รูมตอนนี้')
   })
   it('UTM from an ad link is stored and sets the source', async () => {
     const w = world()

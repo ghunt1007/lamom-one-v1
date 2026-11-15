@@ -56,6 +56,23 @@ export function referralStats(customers = []) {
   return out
 }
 
+// (v1.0.1182) ค่าแนะนำเพื่อน: คันละ REFERRAL_RATE เมื่อลูกค้าที่มาจากลิงก์ส่งมอบแล้ว (ไม่ลดจากที่เคยบันทึกไว้)
+// ใช้ทั้งหน้า "ลิงก์แนะนำเพื่อน" และรายงาน 18:00 ให้ตัวเลขตรงกัน · owed = ค้างจ่าย
+export const REFERRAL_RATE = 5000
+export function referrerTotals(r = {}, st = null) {
+  const sales = st ? Math.max(st.sold, Number(r.sales) || 0) : (Number(r.sales) || 0)
+  const commission = Math.max(Number(r.commission) || 0, sales * REFERRAL_RATE)
+  const paid = Number(r.paid) || 0
+  return { sales, commission, paid, owed: Math.max(0, commission - paid) }
+}
+export function referralOwed(referrers = [], customers = []) {
+  const stats = referralStats(customers)
+  const rows = (referrers || []).filter(r => r && !r.deleted && r.code)
+    .map(r => ({ name: String(r.name || r.code), ...referrerTotals(r, stats[String(r.code).trim().toUpperCase()] || { leads: 0, booked: 0, sold: 0 }) }))
+    .filter(r => r.owed > 0).sort((a, b) => b.owed - a.owed)
+  return { rows, total: rows.reduce((s, r) => s + r.owed, 0) }
+}
+
 // (v1.0.1176) ใส่ UTM ต่อท้ายลิงก์ (รองรับลิงก์ที่มี ?... อยู่แล้ว)
 export function withUtm(url, { source = '', medium = '', campaign = '' } = {}) {
   try {
