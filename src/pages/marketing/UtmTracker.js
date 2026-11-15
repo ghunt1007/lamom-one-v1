@@ -9,7 +9,7 @@ import { todayBangkok } from '../../utils/format.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { withUtm, utmLeadCounts, utmKey, leadFormUrl } from '../../utils/publicLinks.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
-import { qrSvg, qrDownloadLink } from '../../utils/qr.js'
+import { openQrModal } from '../../utils/qrModal.js'
 
 export default async function UtmTrackerPage(container) {
   const myGen = container.__routerGen
@@ -110,12 +110,7 @@ export default async function UtmTrackerPage(container) {
     }))
     container.querySelectorAll('.qr-btn').forEach(b=>b.addEventListener('click',()=>{
       const u=UTM_LINKS.find(x=>x.id===b.dataset.id)
-      if(!u) return
-      openModal({ title:'🔳 QR — '+esc(u.name), size:'sm', body:`<div style="text-align:center">
-        <div style="width:min(240px,100%);margin:0 auto 8px;background:#fff;border-radius:8px;line-height:0">${qrSvg(u.link,{size:'100%'})}</div>
-        <div style="font-size:0.7rem;color:var(--text-muted);overflow-wrap:anywhere;margin-bottom:10px">${esc(u.link)}</div>
-        ${qrDownloadLink(u.link,'QR-'+(u.campaign||u.name||'utm'),'💾 บันทึกรูป QR','btn btn-primary btn-sm')}
-        <div style="font-size:0.68rem;color:var(--text-muted);margin-top:8px">พิมพ์ติดบูธ/ใบปลิว ใครสแกนแล้วกรอกฟอร์ม ลีดจะนับให้ลิงก์นี้</div></div>` })
+      if(u) openQrModal({ title:'QR — '+u.name, url:u.link, filename:'QR-'+(u.campaign||u.name||'utm'), note:'พิมพ์ติดบูธ/ใบปลิว ใครสแกนแล้วกรอกฟอร์ม ลีดจะนับให้ลิงก์นี้', poster:{ heading:'สแกนฝากชื่อ-เบอร์', lines:['รับข้อมูลรถและข้อเสนอจากเจ้าหน้าที่'] } })
     }))
     document.getElementById('new-utm-btn')?.addEventListener('click',()=>openNewModal())
   }
