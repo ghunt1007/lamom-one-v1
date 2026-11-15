@@ -6,6 +6,7 @@ describe('public links', () => {
     expect(referralUrl('R7K2PQ')).toBe(`${PUBLIC_ORIGIN}/lead.html?ref=R7K2PQ`)
     expect(leadFormUrl()).toBe(`${PUBLIC_ORIGIN}/lead.html`)
     expect(leadFormUrl({ model: 'Deepal S07' })).toBe(`${PUBLIC_ORIGIN}/lead.html?m=Deepal+S07`)
+    expect(leadFormUrl({ event: 'ev_1' })).toBe(`${PUBLIC_ORIGIN}/lead.html?ev=ev_1`)
     expect(referralUrl('สมชา001')).toContain('ref=%E0%B8')
   })
   it('makes readable ascii referral codes', () => {

@@ -15,6 +15,8 @@ import { getSalesStaff } from '../../data/masterData.js'
 import { openQuickLead } from '../../utils/quickLead.js'
 import { navigate } from '../../core/router.js'
 import { copyText } from '../../utils/copyText.js'
+import { leadFormUrl } from '../../utils/publicLinks.js'
+import { qrSvg, qrDownloadLink } from '../../utils/qr.js'
 import {
   EVENT_TYPES, EVENT_TYPE_ORDER, EVENT_STATUS, typeOf, autoStatus, eventMetrics, normalizeEvent, eventDays,
   normalizeShifts, autoRoster, shiftCounts, defaultChecklist, normalizeChecklist, prepProgress, eventBreakdown, eventSummaryText,
@@ -26,6 +28,31 @@ const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 
 const dateRange = e => (!e.startDate ? 'ยังไม่ระบุวัน' : e.endDate && e.endDate !== e.startDate ? `${fmtDMY(e.startDate)} – ${fmtDMY(e.endDate)}` : fmtDMY(e.startDate))
 const money = n => (n ? formatCurrency(Math.round(n)) : '—')
 const TABS = { upcoming: 'กำลังจะมา', ongoing: 'กำลังจัด', done: 'จบแล้ว', all: 'ทั้งหมด' }
+
+// (v1.0.1179) QR ประจำบูธ: ลูกค้าสแกน → ฟอร์มฝากชื่อ-เบอร์ → ลีดติดป้ายงานนี้ (นับในหน้านี้และรายงาน 18:00) แจ้งเซลส์ทันที
+function openBoothQr(e) {
+  const url = leadFormUrl({ event: e.id })
+  const { el } = openModal({
+    title: '🔳 QR ฟอร์มบูธ — ' + esc(e.title || ''), size: 'sm',
+    body: `<div style="text-align:center">
+      <div style="width:min(240px,100%);margin:0 auto 8px;background:#fff;border-radius:8px;line-height:0">${qrSvg(url, { size: '100%' })}</div>
+      <div style="font-size:0.68rem;color:var(--text-muted);overflow-wrap:anywhere;margin-bottom:10px">${esc(url)}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
+        <button type="button" class="btn btn-primary btn-sm" id="bq-print">🖨 พิมพ์ป้ายตั้งบูธ</button>
+        ${qrDownloadLink(url, 'QR-บูธ-' + (e.title || e.id), '💾 บันทึกรูป QR', 'btn btn-secondary btn-sm')}
+        <button type="button" class="btn btn-secondary btn-sm" id="bq-copy">📋 คัดลอกลิงก์</button>
+      </div>
+      <div style="font-size:0.68rem;color:var(--text-muted);margin-top:10px;line-height:1.5">ฟอร์มต้องเปิดรับอยู่ (ตั้งค่าที่ 🔗 ช่องทางโซเชียล › 🤖 ตอบอัตโนมัติ) · ลีดที่สแกนเข้ามาจะแจ้งเซลส์ทาง LINE ทันทีเหมือนลีดจากเว็บ</div>
+    </div>`,
+  })
+  el.querySelector('#bq-copy').addEventListener('click', () => copyText(url, '📋 คัดลอกลิงก์ฟอร์มบูธแล้ว'))
+  el.querySelector('#bq-print').addEventListener('click', () => {
+    const w = window.open('', '_blank', 'width=600,height=800')
+    if (!w) { showToast('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาต pop-up แล้วลองใหม่', 'warning'); return }
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR บูธ ${esc(e.title || '')}</title><style>body{font-family:sans-serif;text-align:center;padding:40px 24px}h1{font-size:34px;margin:0 0 6px}p{font-size:20px;color:#333;margin:6px 0}.qr{margin:24px auto}.ev{font-size:16px;color:#666}</style></head><body><h1>สแกนฝากชื่อ-เบอร์</h1><p>รับข้อมูลรถและข้อเสนอจากเจ้าหน้าที่</p><div class="qr">${qrSvg(url, { size: 380 })}</div><p class="ev">${esc(e.title || '')}</p><script>window.print()<\/script></body></html>`)
+    w.document.close()
+  })
+}
 
 export default async function EventManagementPage(container) {
   const myGen = container.__routerGen
@@ -192,6 +219,7 @@ export default async function EventManagementPage(container) {
         <div class="ev-h">ลูกค้าจากงานนี้ (${leads.length})${nNeed ? ` <button type="button" class="ev-need" id="evd-quiet" title="เปิดรายชื่อที่เงียบในหน้าลูกค้า">🔕 ต้องตามต่อ ${nNeed} ราย ›</button>` : ''}</div>
         ${leads.length ? `<div class="ev-leads">${leads.slice(0, 60).map(c => `<button type="button" class="ev-lead" data-cust="${esc(c.id)}"><b>${first(c)}</b><span>${esc(STAGE[c.stage] || c.stage || '')}${c.interestedModel ? ' · ' + esc(c.interestedModel) : ''}${c.assignedTo ? ' · ' + esc(c.assignedTo) : ''}</span>${needs(c) ? `<em class="ev-quiet">🔕 เงียบ ${quiet(c)} วัน</em>` : ''}</button>`).join('')}</div>`
           : '<div class="ev-meta">ยังไม่มีลูกค้าที่ติดป้ายงานนี้ — ระหว่างงานกด “➕ Lead” ที่แถบบน (ปุ่มงานนี้จะถูกเลือกไว้ให้)</div>'}
+        ${autoStatus(e, today) !== 'done' ? '<button type="button" class="btn btn-secondary btn-sm" id="evd-qr" style="margin:8px 0">🔳 QR ฟอร์มบูธ — ลูกค้าสแกนฝากชื่อเอง ลีดนับให้งานนี้</button>' : ''}
         <div id="evd-roster"></div>
         <div id="evd-prep"></div>
         ${e.lessons ? `<div class="ev-h">สิ่งที่ได้เรียนรู้</div><div class="ev-note">${esc(e.lessons)}</div>` : ''}
@@ -203,6 +231,7 @@ export default async function EventManagementPage(container) {
     el.querySelector('#evd-quiet')?.addEventListener('click', () => { close(); navigate(`/crm/customers?event=${encodeURIComponent(e.id)}&eventName=${encodeURIComponent(e.title || '')}&fu=quiet`) })
     el.querySelector('#evd-sum').addEventListener('click', () => copyText(eventSummaryText(e, m, eventBreakdown(e, ref), dayLabel, qm.size), '📋 คัดลอกสรุปผลงานแล้ว วางในกลุ่ม LINE ได้เลย'))
     el.querySelector('#evd-lead')?.addEventListener('click', () => { close(); openQuickLead() })
+    el.querySelector('#evd-qr')?.addEventListener('click', () => openBoothQr(e))
     el.querySelector('#evd-del').addEventListener('click', async () => {
       if (!(await confirmDialog({ title: 'ลบงานนี้?', message: `“${e.title}” จะหายจากตารางและปฏิทิน (ลูกค้าที่ติดป้ายงานยังอยู่ครบ)`, confirmText: '🗑 ลบ', danger: true }))) return
       try { await softDelete(COL, e.id); showToast('ลบแล้ว', 'success'); close() } catch { showToast('ลบไม่สำเร็จ', 'error') }

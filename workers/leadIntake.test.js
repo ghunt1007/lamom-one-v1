@@ -190,6 +190,28 @@ describe('v1.0.1140 public lead form', () => {
     expect(f.notes.stringValue).toContain('แนะนำโดยรหัส AB001X')
     expect(f.tags.arrayValue.values.map(v => v.stringValue)).toContain('แนะนำ AB001X')
   })
+  // (v1.0.1179) QR ประจำบูธ ?ev=
+  it('a booth QR tags the lead with the real event; unknown or deleted events are ignored', async () => {
+    const evWorld = fields => {
+      const w = world(), base = w.f
+      w.f = async (url, init = {}) => url.includes('/marketing_events/') ? (fields ? { ok: true, json: async () => ({ fields }) } : { ok: false, status: 404, json: async () => ({}) }) : base(url, init)
+      return w
+    }
+    const w = evWorld({ title: { stringValue: 'บูธเซ็นทรัล' }, companyId: { stringValue: 'co9' } })
+    await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', ev: 'ev_1<x>' }), env, async () => 't', { fetch: w.f })
+    const f = created(w.calls)
+    expect(f.source.stringValue).toBe('event'); expect(f.eventId.stringValue).toBe('ev_1x')
+    expect(f.eventName.stringValue).toBe('บูธเซ็นทรัล'); expect(f.companyId.stringValue).toBe('co9')
+    expect(f.tags.arrayValue.values.map(v => v.stringValue)).toContain('บูธ บูธเซ็นทรัล')
+    __resetFormHits()
+    const w2 = evWorld(null)
+    await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', ev: 'nope' }), env, async () => 't', { fetch: w2.f })
+    expect(created(w2.calls).eventId).toBeUndefined(); expect(created(w2.calls).source.stringValue).toBe('website')
+    __resetFormHits()
+    const w3 = evWorld({ title: { stringValue: 'x' }, deleted: { booleanValue: true } })
+    await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', ev: 'old' }), env, async () => 't', { fetch: w3.f })
+    expect(created(w3.calls).eventId).toBeUndefined()
+  })
   it('UTM from an ad link is stored and sets the source', async () => {
     const w = world()
     await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', utm: { s: 'Facebook', m: 'paid', c: 'nov_promo<b>' } }), env, async () => 't', { fetch: w.f })

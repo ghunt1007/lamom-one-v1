@@ -14,8 +14,9 @@ export function publicOrigin(loc = typeof location !== 'undefined' ? location : 
 }
 
 // ฟอร์มรับลีดสาธารณะ (public/lead.html) — ref = รหัสผู้แนะนำ, model = เติมรุ่นที่สนใจให้ก่อน
-export function leadFormUrl({ ref = '', model = '', account = '' } = {}) {
+export function leadFormUrl({ ref = '', model = '', account = '', event = '' } = {}) {
   const q = new URLSearchParams()
+  if (event) q.set('ev', String(event))
   if (ref) q.set('ref', String(ref))
   if (model) q.set('m', String(model).slice(0, 80))
   if (account) q.set('a', String(account))
