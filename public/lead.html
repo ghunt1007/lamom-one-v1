@@ -61,7 +61,7 @@
       <label for="phone">เบอร์มือถือ</label>
       <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="16" placeholder="08x-xxx-xxxx" required>
       <label for="model">รุ่นที่สนใจ <small>(ไม่ใส่ก็ได้)</small></label>
-      <input id="model" name="model" maxlength="80">
+      <input id="model" name="model" maxlength="80" list="models" autocomplete="off"><datalist id="models"></datalist>
       <label for="note">อยากให้ติดต่อเรื่องอะไร <small>(ไม่ใส่ก็ได้)</small></label>
       <textarea id="note" name="note" maxlength="300" placeholder="เช่น ขอใบเสนอราคา นัดทดลองขับ สะดวกให้โทรช่วงเย็น"></textarea>
       <label class="chk" for="td"><input id="td" name="td" type="checkbox"> อยากนัดทดลองขับ</label>
@@ -127,6 +127,7 @@
   // (v1.0.1193) ถามก่อนว่าฟอร์มเปิดรับไหม + ชื่อโชว์รูม/เบอร์ — ปิดอยู่ก็บอกทันที ไม่ต้องกรอกจนจบ · ถามไม่ได้ = ใช้ฟอร์มตามปกติ
   fetch(API + '/lead/info').then(function (r) { return r.ok ? r.json() : null }).then(function (d) {
     if (!d || !d.ok) return
+    if (d.models && d.models.length) { var dl = document.getElementById('models'); d.models.slice(0, 30).forEach(function (m) { var o = document.createElement('option'); o.value = String(m).slice(0, 80); dl.appendChild(o) }) }
     if (d.shop) { var sh = document.getElementById('shop'); sh.textContent = '🚗 ' + String(d.shop).slice(0, 80); sh.hidden = false }
     if (d.open === false) { document.getElementById('closed').hidden = false; f.hidden = true; var sub = document.querySelector('p.sub'); if (sub) sub.hidden = true; showCall('call-closed', d.tel, '📞 โทรหาโชว์รูม ') }
   }).catch(function () {})
