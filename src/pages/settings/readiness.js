@@ -10,7 +10,7 @@ const BACKUP_MAX_AGE_MS = 36 * 3600 * 1000
  * @param {{status?:object|null, auto?:object|null, lastBackupMs?:number|null, now?:number}} i
  * @returns {{id:string,label:string,state:'ok'|'todo'|'unknown',hint:string,link?:string}[]}
  */
-export function readinessItems({ status, auto, lastBackupMs, sheet, reports, now = Date.now() } = {}) {
+export function readinessItems({ status, auto, lastBackupMs, sheet, reports, company, now = Date.now() } = {}) {
   const items = []
   const add = (id, label, state, hint, link) => items.push({ id, label, state, hint, ...(link ? { link } : {}) })
   const noStatus = !status
@@ -51,6 +51,15 @@ export function readinessItems({ status, auto, lastBackupMs, sheet, reports, now
   }
   rep('morning', 'รายงานเช้า 09:00 ส่งออกล่าสุดสำเร็จ', 26)
   rep('evening', 'รายงานเย็น 18:00 ส่งออกล่าสุดสำเร็จ', 26)
+
+  // (v1.0.1192) ข้อมูลบริษัท — ชื่อขึ้นหัวใบเสนอราคา/ใบเสร็จ · เบอร์ขึ้นเป็นปุ่ม 📞 โทรหาโชว์รูม บนฟอร์มฝากชื่อ/QR ของลูกค้า
+  // company: เอกสาร company_profile (null = ยังไม่เคยกรอก) · undefined = อ่านไม่ได้
+  if (company !== undefined) {
+    const nm = String(company?.nameTh || company?.name || '').trim()
+    const tel = String(company?.phone || '').replace(/\D/g, '')
+    const miss = [!nm && 'ชื่อบริษัท', !/0\d{8,9}/.test(tel) && 'เบอร์โทรโชว์รูม'].filter(Boolean)
+    add('company', 'ข้อมูลบริษัท (ชื่อ + เบอร์โชว์รูม) ครบ', miss.length ? 'todo' : 'ok', miss.length ? `ยังไม่ได้ใส่${miss.join(' และ ')} — ใช้บนใบเสนอราคา/ใบเสร็จ และเป็นปุ่ม 📞 โทรหาโชว์รูม บนฟอร์มลูกค้า` : '', '/settings/company')
+  } else add('company', 'ข้อมูลบริษัท (ชื่อ + เบอร์โชว์รูม) ครบ', 'unknown', 'อ่านข้อมูลบริษัทไม่ได้ตอนนี้ ลองเปิดหน้านี้ใหม่', '/settings/company')
 
   let backupState = 'unknown'
   let backupHint = 'ยังไม่พบประวัติสำรองข้อมูล — ตรวจที่หน้าสำรองข้อมูล'

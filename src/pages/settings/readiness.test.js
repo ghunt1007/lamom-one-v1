@@ -7,7 +7,7 @@ const by = (items, id) => items.find(i => i.id === id)
 
 describe('readinessItems', () => {
   it('ทุกอย่างพร้อม → ok ทั้งหมด', () => {
-    const it2 = readinessItems({ status: full, auto: { publicForm: true, aiReply: true, leadAlert: true }, lastBackupMs: NOW - 3600e3, sheet: { ok: true }, reports: { morningAt: new Date(NOW - 3600e3).toISOString(), morningOk: true, eveningAt: new Date(NOW - 7200e3).toISOString(), eveningOk: true }, now: NOW })
+    const it2 = readinessItems({ status: full, auto: { publicForm: true, aiReply: true, leadAlert: true }, lastBackupMs: NOW - 3600e3, sheet: { ok: true }, company: { nameTh: 'บริษัท ทดสอบ', phone: '02-123-4567' }, reports: { morningAt: new Date(NOW - 3600e3).toISOString(), morningOk: true, eveningAt: new Date(NOW - 7200e3).toISOString(), eveningOk: true }, now: NOW })
     expect(readinessSummary(it2)).toEqual({ ok: it2.length, todo: 0, unknown: 0, total: it2.length })
   })
   it('ไม่มีสถานะจาก worker → unknown ไม่เดาว่าผ่าน', () => {
@@ -62,5 +62,16 @@ describe('report readiness (v1.0.1161)', () => {
     const old = by(readinessItems({ status: st, auto: {}, reports: { morningAt: '2026-11-14T02:00:05.000Z', morningOk: true }, now: NOW }), 'report_morning')
     expect(old.state).toBe('todo'); expect(old.hint).toMatch(/14\/11\/(2026|2569) 09:00/)
     expect(by(readinessItems({ status: st, auto: {}, now: NOW }), 'report_morning').state).toBe('unknown')
+  })
+})
+
+describe('company profile readiness (v1.0.1192)', () => {
+  it('needs a name and a showroom phone; never filled → todo; unreadable → unknown', () => {
+    expect(by(readinessItems({ company: { nameTh: 'บ.ทดสอบ', phone: 'โทร 081-234-5678' }, now: NOW }), 'company').state).toBe('ok')
+    const noPhone = by(readinessItems({ company: { nameTh: 'บ.ทดสอบ', phone: '' }, now: NOW }), 'company')
+    expect(noPhone.state).toBe('todo'); expect(noPhone.hint).toContain('เบอร์โทรโชว์รูม'); expect(noPhone.hint).not.toContain('ชื่อบริษัท')
+    const none = by(readinessItems({ company: null, now: NOW }), 'company')
+    expect(none.state).toBe('todo'); expect(none.hint).toContain('ชื่อบริษัท และ เบอร์โทรโชว์รูม'); expect(none.link).toBe('/settings/company')
+    expect(by(readinessItems({ now: NOW }), 'company').state).toBe('unknown')
   })
 })
