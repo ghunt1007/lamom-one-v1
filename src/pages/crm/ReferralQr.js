@@ -9,7 +9,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { sendSms } from '../../utils/comms.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
-import { referralUrl, newReferralCode, referralLeadCounts } from '../../utils/publicLinks.js'
+import { referralUrl, newReferralCode, referralStats } from '../../utils/publicLinks.js'
 
 const COMMISSION_RATE = 5000 // บาทต่อคันที่ขายได้
 const PAY_ROLES = ['finance', 'manager', 'owner', 'admin']
@@ -33,8 +33,13 @@ export default async function ReferralQrPage(container) {
     // (v1.0.1172) ลิงก์จริงไปฟอร์มรับลีด (?ref=รหัส) — นับลีดที่เข้ามาจากลิงก์ของแต่ละคนจากลูกค้าจริง
     // (สิทธิ์อ่านลูกค้าไม่พอ = ไม่แสดงตัวเลข ไม่เดา)
     leadCounts = null
-    try { leadCounts = referralLeadCounts(await listDocs('customers', [...companyScopeFilters(), ['source', '==', 'referral']], 'createdAt', 'desc', 1000)) } catch (e) { leadCounts = null }
-    REFERRERS = REFERRERS.map(r => ({ ...r, qrUrl: referralUrl(r.code), leads: leadCounts ? (leadCounts[String(r.code || '').toUpperCase()] || 0) : (r.leads || 0) }))
+    try { leadCounts = referralStats(await listDocs('customers', [...companyScopeFilters(), ['source', '==', 'referral']], 'createdAt', 'desc', 1000)) } catch (e) { leadCounts = null }
+    REFERRERS = REFERRERS.map(r => {
+      const st = leadCounts ? (leadCounts[String(r.code || '').toUpperCase()] || { leads: 0, booked: 0, sold: 0 }) : null
+      // ขายได้ = ลูกค้าที่มาจากลิงก์และส่งมอบแล้ว (ไม่ลดจากที่เคยบันทึก) — ค่าคอม = คันละ COMMISSION_RATE
+      const sales = st ? Math.max(st.sold, Number(r.sales) || 0) : (Number(r.sales) || 0)
+      return { ...r, qrUrl: referralUrl(r.code), leads: st ? st.leads : (r.leads || 0), booked: st ? st.booked : null, sales, commission: Math.max(Number(r.commission) || 0, sales * COMMISSION_RATE), paid: Number(r.paid) || 0 }
+    })
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -93,9 +98,9 @@ export default async function ReferralQrPage(container) {
 
             <div class="card" style="padding:14px">
               <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:4px">📊 สถิติ</div>
-              <div style="font-size:0.66rem;color:var(--text-muted);margin-bottom:10px">🧲 Leads นับจากลูกค้าที่กรอกฟอร์มผ่านลิงก์ของคนนี้จริง${leadCounts ? '' : ' (ตอนนี้อ่านข้อมูลลูกค้าไม่ได้ จึงแสดงตัวเลขที่บันทึกไว้)'}</div>
+              <div style="font-size:0.66rem;color:var(--text-muted);margin-bottom:10px">🧲 Leads/จอง/ขายได้ นับจากลูกค้าที่กรอกฟอร์มผ่านลิงก์ของคนนี้จริง (ขายได้ = ส่งมอบแล้ว)${leadCounts ? '' : ' (ตอนนี้อ่านข้อมูลลูกค้าไม่ได้ จึงแสดงตัวเลขที่บันทึกไว้)'}</div>
               <div style="display:flex;flex-direction:column;gap:6px;font-size:0.78rem">
-                ${[['🧲 Leads',sel.leads],['🚗 ขายได้',sel.sales+' คัน'],['💰 Commission',formatCurrency(sel.commission)],['✅ จ่ายแล้ว',formatCurrency(sel.paid)],['⏳ ค้างจ่าย',formatCurrency(sel.commission-sel.paid)]].map(([k,v])=>`
+                ${[['🧲 Leads',sel.leads],...(sel.booked != null ? [['📝 จองแล้ว',sel.booked+' ราย']] : []),['🚗 ขายได้',sel.sales+' คัน'],['💰 Commission',formatCurrency(sel.commission)],['✅ จ่ายแล้ว',formatCurrency(sel.paid)],['⏳ ค้างจ่าย',formatCurrency(sel.commission-sel.paid)]].map(([k,v])=>`
                   <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">
                     <span style="color:var(--text-muted)">${k}</span>
                     <span style="font-weight:700">${v}</span>
@@ -150,7 +155,7 @@ export default async function ReferralQrPage(container) {
         async onConfirm() {
           if (!sel) return
           try {
-            await updateDocData('referrers', sel.id, { paid: sel.commission })
+            await updateDocData('referrers', sel.id, { paid: sel.commission, sales: sel.sales, commission: sel.commission })
             showToast(`💸 จ่าย Commission ${sel.name} แล้ว`, 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

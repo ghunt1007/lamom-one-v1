@@ -36,10 +36,21 @@ export function newReferralCode(rand = Math.random) {
 // นับลีดที่มาจากลิงก์ของผู้แนะนำแต่ละคน (customers.referralCode)
 export function referralLeadCounts(customers = []) {
   const out = {}
+  for (const [k, v] of Object.entries(referralStats(customers))) out[k] = v.leads
+  return out
+}
+
+// (v1.0.1174) ต่อรหัสผู้แนะนำ: ลีดทั้งหมด / จองแล้ว / ส่งมอบแล้ว (ส่งมอบ = ขายได้ นับค่าคอมผู้แนะนำ)
+export function referralStats(customers = []) {
+  const out = {}
   for (const c of customers) {
     if (!c || c.deleted) continue
     const k = String(c.referralCode || '').trim().toUpperCase()
-    if (k) out[k] = (out[k] || 0) + 1
+    if (!k) continue
+    const o = (out[k] ||= { leads: 0, booked: 0, sold: 0 })
+    o.leads++
+    if (c.stage === 'booking' || c.stage === 'delivered') o.booked++
+    if (c.stage === 'delivered') o.sold++
   }
   return out
 }
