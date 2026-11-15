@@ -102,21 +102,9 @@ export function periodRange(key, today) {
 }
 
 // (v1.0.1189) ลีดที่เข้ามาทาง "ลิงก์/QR ของเราเอง" แยกตามจุดที่สแกน/กด — ดูว่า QR ไหนคุ้มที่จะพิมพ์ต่อ
-export const ENTRY_INFO = {
-  ref: ['🤝', 'ลิงก์แนะนำเพื่อน'], booth: ['🎪', 'QR บูธ'], car: ['🚗', 'QR ติดรถโชว์'], card: ['📇', 'QR นามบัตรเซลส์'],
-  landing: ['🌐', 'หน้าเว็บแคมเปญ'], utm: ['🔗', 'ลิงก์ UTM/โฆษณา'], form: ['📝', 'ฟอร์มทั่วไป'],
-}
-export function entryPointOf(c) {
-  if (!c) return null
-  if (c.referralCode) return 'ref'
-  if (c.eventId && c.autoLead) return 'booth'
-  if (c.utmMedium === 'namecard') return 'card'
-  if (c.utmSource === 'walk-in' && c.utmMedium === 'qr') return 'car'
-  if (c.utmSource === 'landing') return 'landing'
-  if (c.utmCampaign || c.utmSource) return 'utm'
-  if (c.autoLead && (c.tags || []).includes('ฟอร์มรับลีด')) return 'form'
-  return null
-}
+// (v1.0.1199) ย้ายไป entryPoints.js (ไฟล์ล้วน ใช้ได้ทั้งแอปและรายงาน 18:00 บน worker)
+export { ENTRY_INFO, entryPointOf } from './entryPoints.js'
+import { ENTRY_INFO, entryPointOf } from './entryPoints.js'
 export function summarizeEntryPoints({ customers = [], bookings = [] }, period = {}) {
   const mapped = (customers || []).map(c => { const k = entryPointOf(c); return k ? { ...c, source: k } : null }).filter(Boolean)
   const { rows, total } = summarizeSources({ customers: mapped, bookings, campaigns: [] }, period)

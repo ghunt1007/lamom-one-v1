@@ -1451,3 +1451,19 @@ describe('referral commission owed in the 18:00 report (v1.0.1182)', async () =>
     expect(text).toContain('💸 ค่าแนะนำเพื่อนค้างจ่าย ฿10,000')
   })
 })
+
+describe('v1.0.1199 evening report: leads from our own links/QR', () => {
+  it('adds a line counting today\'s leads per entry point; nothing when none', async () => {
+    const { buildReport } = await import('./daily-report.js')
+    const base = { bookings: [], followups: [], testDrives: [], teamTargets: [] }
+    const today = '2026-11-16'
+    const customers = [
+      { stage: 'lead', createdAt: '2026-11-16T03:00:00Z', eventId: 'e1', autoLead: true, source: 'event' },
+      { stage: 'lead', createdAt: '2026-11-16T04:00:00Z', eventId: 'e1', autoLead: true, source: 'event' },
+      { stage: 'lead', createdAt: '2026-11-16T05:00:00Z', utmSource: 'walk-in', utmMedium: 'namecard', autoLead: true, source: 'walk-in' },
+      { stage: 'lead', createdAt: '2026-11-16T05:00:00Z', source: 'facebook' },
+    ]
+    expect(buildReport({ ...base, customers }, { today, time: '18:00' })).toContain('ผ่านลิงก์/QR ของเรา: 🎪 QR บูธ 2 · 📇 QR นามบัตรเซลส์ 1')
+    expect(buildReport({ ...base, customers: [customers[3]] }, { today, time: '18:00' })).not.toContain('ผ่านลิงก์/QR ของเรา')
+  })
+})
