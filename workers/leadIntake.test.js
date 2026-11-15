@@ -424,3 +424,22 @@ describe('v1.0.1202 showroom models for the form', () => {
     expect(await showroomModels({ FIREBASE_PROJECT_ID: 'p' }, 't', f, 2000)).toEqual(['S07 x', 'Seal']); expect(n).toBe(1)
   })
 })
+
+import { boothRouting, readEventTag } from './leadIntake.js'
+describe('v1.0.1203 booth QR leads go to who is on shift today', () => {
+  it('reads today\'s shift (Bangkok date) from the event', async () => {
+    const f = async () => ({ ok: true, json: async () => ({ fields: { title: { stringValue: 'บูธ A' }, shifts: { mapValue: { fields: {
+      '2026-11-16': { arrayValue: { values: [{ stringValue: 'นภา' }, { stringValue: 'ต้น' }, { stringValue: 'นภา' }] } },
+      '2026-11-15': { arrayValue: { values: [{ stringValue: 'เมื่อวาน' }] } },
+    } } } } }) })
+    // 2026-11-15T18:00Z = 01:00 วันที่ 16 เวลาไทย
+    expect((await readEventTag({ FIREBASE_PROJECT_ID: 'p' }, 't', 'e1', f, Date.parse('2026-11-15T18:00:00Z'))).onShift).toEqual(['นภา', 'ต้น'])
+  })
+  it('one on shift → assigned; several → everyone notified with a note; existing owner kept', () => {
+    expect(boothRouting({ note: '' }, { onShift: ['นภา'] }).assignedTo).toBe('นภา')
+    const r = boothRouting({ note: 'x' }, { onShift: ['นภา', 'ต้น'] })
+    expect(r.assignedTo).toBeUndefined(); expect(r.alsoNotify).toEqual(['นภา', 'ต้น']); expect(r.note).toBe('👥 เวรบูธวันนี้: นภา, ต้น — ใครว่างกดรับลีดนี้ · x')
+    expect(boothRouting({ assignedTo: 'เอ' }, { onShift: ['นภา'] }).assignedTo).toBe('เอ')
+    expect(boothRouting({ note: '' }, null)).toEqual({ note: '' })
+  })
+})

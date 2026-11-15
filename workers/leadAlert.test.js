@@ -67,3 +67,15 @@ describe('alertNewLead', () => {
     expect(await alertNewLead(lead, { duplicate: true, id: 'c1' }, h.deps)).toEqual({ line: 0, app: false })
   })
 })
+
+describe('v1.0.1203 alsoNotify (booth shift)', () => {
+  it('pushes LINE to every person on shift and lists them for in-app alerts', async () => {
+    const { alertNewLead } = await import('./leadAlert.js')
+    const sent = []; let note = null
+    await alertNewLead({ first: 'ลูกค้า', phone: '0812345678', alsoNotify: ['นภา', 'ต้น'] }, { created: true, id: 'c1' }, {
+      salesTargets: () => [{ name: 'นภา', userId: 'U1' }, { name: 'ต้น', userId: 'U2' }], ownerTarget: () => 'U0',
+      pushLine: async (to) => { sent.push(to); return true }, notify: async b => { note = b },
+    })
+    expect(sent).toEqual(['U1', 'U2', 'U0']); expect(note.names).toEqual(['นภา', 'ต้น'])
+  })
+})

@@ -44,7 +44,7 @@ function openBoothQr(e) {
         ${qrDownloadLink(url, 'QR-บูธ-' + (e.title || e.id), '💾 บันทึกรูป QR', 'btn btn-secondary btn-sm')}
         <button type="button" class="btn btn-secondary btn-sm" id="bq-copy">📋 คัดลอกลิงก์</button>
       </div>
-      <div style="font-size:0.68rem;color:var(--text-muted);margin-top:10px;line-height:1.5">ฟอร์มต้องเปิดรับอยู่ (ตั้งค่าที่ 🔗 ช่องทางโซเชียล › 🤖 ตอบอัตโนมัติ) · ลีดที่สแกนเข้ามาจะแจ้งเซลส์ทาง LINE ทันทีเหมือนลีดจากเว็บ</div>
+      <div style="font-size:0.68rem;color:var(--text-muted);margin-top:10px;line-height:1.5">ฟอร์มต้องเปิดรับอยู่ (ตั้งค่าที่ 🔗 ช่องทางโซเชียล › 🤖 ตอบอัตโนมัติ) · ลีดที่สแกนเข้ามาส่งให้คนเข้าเวรบูธวันนี้ทันที (เวรคนเดียวได้ลีดเลย หลายคนแจ้งทุกคนให้กดรับ) — จัดเวรได้ที่ตารางเวรในงานนี้</div>
     </div>`,
   })
   el.querySelector('#bq-copy').addEventListener('click', () => copyText(url, '📋 คัดลอกลิงก์ฟอร์มบูธแล้ว'))

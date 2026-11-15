@@ -52,9 +52,11 @@ export async function alertNewLead(lead, result = {}, deps = {}) {
       try { if (await deps.pushLine(to, text)) out.line++ } catch { /* ข้าม */ }
     }
     if (deps.pushLine) {
-      if (lead.assignedTo && deps.salesTargets) {
+      // (v1.0.1203) alsoNotify = คนเข้าเวรบูธวันนี้ (ลีดจาก QR บูธที่ยังไม่มีผู้ดูแล) — แจ้งทุกคนในเวร
+      const who = [lead.assignedTo, ...(Array.isArray(lead.alsoNotify) ? lead.alsoNotify : [])].filter(Boolean)
+      if (who.length && deps.salesTargets) {
         const targets = await Promise.resolve(deps.salesTargets()).catch(() => [])
-        await push(salesLineId(targets, lead.assignedTo), leadAlertText(lead, opts))
+        for (const n of who) await push(salesLineId(targets, n), leadAlertText(lead, opts))
       }
       if (deps.ownerTarget) await push(await Promise.resolve(deps.ownerTarget()).catch(() => ''), leadAlertText(lead, { ...opts, forOwner: true }))
     }
@@ -67,7 +69,7 @@ export async function alertNewLead(lead, result = {}, deps = {}) {
         link: `/crm/customers?id=${encodeURIComponent(result.id)}`,
         type: 'lead',
         roles: lead.assignedTo ? ['manager'] : ['manager', 'sales'],
-        names: lead.assignedTo ? [lead.assignedTo] : [],
+        names: lead.assignedTo ? [lead.assignedTo] : (Array.isArray(lead.alsoNotify) ? lead.alsoNotify : []),
       })).then(() => { out.app = true }).catch(() => {})
     }
   } catch { /* ไม่ให้การแจ้งเตือนทำให้รับลีดล้ม */ }
