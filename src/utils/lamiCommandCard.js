@@ -324,6 +324,9 @@ export async function loadOpsAnswer(q, customersPromise) {
     const mineIds = new Set((customers || []).filter(c => mine(c.assignedTo, c)).map(c => c.lineUserId).filter(Boolean))
     const whole = !!(vis.unrestricted || vis.companyOnly)
     res = oq.lineWaitingAnswer(threads.filter(t => whole || mineIds.has(t.userId)), customers || [])
+  } else if (spec.kind === 'back') {
+    const customers = await (customersPromise || visibleCustomersForCommands())
+    res = oq.backAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, days: spec.days })
   } else if (spec.kind === 'qrleads') {
     const customers = await (customersPromise || visibleCustomersForCommands())
     res = oq.qrLeadsAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, period: spec.period })

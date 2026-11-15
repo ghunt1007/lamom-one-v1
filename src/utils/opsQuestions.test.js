@@ -213,6 +213,9 @@ describe('v1.0.1204 LAMI: leads from our QR/links', () => {
     expect(parseOpsSpec('วันนี้มีใครสแกน QR บ้าง')).toEqual({ kind: 'qrleads', period: 'today' })
     expect(parseOpsSpec('ลูกค้าจากนามบัตรสัปดาห์นี้กี่คน')).toEqual({ kind: 'qrleads', period: 'week' })
     expect(parseOpsSpec('ขอ QR ของฉันหน่อย')?.kind).not.toBe('qrleads')
+    expect(parseOpsSpec('ใครทักกลับมาบ้าง')).toEqual({ kind: 'back', days: 7 })
+    expect(parseOpsSpec('วันนี้มีลูกค้าเดิมติดต่อมาอีกครั้งไหม')).toEqual({ kind: 'back', days: 1 })
+    expect(parseOpsSpec('ลูกค้าเก่าที่กรอกฟอร์มเดือนนี้')).toEqual({ kind: 'back', days: 30 })
   })
   it('counts per entry point with names', () => {
     const customers = [
@@ -227,5 +230,23 @@ describe('v1.0.1204 LAMI: leads from our QR/links', () => {
     expect(r.text).toContain('📝 จองแล้ว 1 · 📞 ยังไม่ได้ติดต่อ 2'); expect(r.text).toContain('• เอ · 🎪 บูธเซ็นทรัล · 👤 นภา')
     expect(qrLeadsAnswer(customers, { today: '2026-11-16', period: 'today' }).n).toBe(1)
     expect(qrLeadsAnswer([], { today: '2026-11-16' }).text).toContain('ยังไม่มี')
+  })
+})
+
+describe('backAnswer (v1.0.1210)', () => {
+  it('lists re-enquiries, not-called-back first', async () => {
+    const { backAnswer } = await import('./opsQuestions.js')
+    const ts = iso => ({ toMillis: () => Date.parse(iso), toDate: () => new Date(iso) })
+    const r = backAnswer([
+      { id: 'a', firstName: 'โทรแล้ว', reEnquiredAt: ts('2026-11-15T03:00:00Z'), lastContactAt: ts('2026-11-15T05:00:00Z') },
+      { id: 'b', firstName: 'รออยู่', reEnquiredAt: ts('2026-11-14T03:00:00Z'), reEnquiredModel: 'Seal', assignedTo: 'เอ' },
+      { id: 'c', firstName: 'นานแล้ว', reEnquiredAt: ts('2026-10-01T03:00:00Z') },
+    ], { today: '2026-11-16', days: 7 })
+    expect(r.n).toBe(2)
+    expect(r.text).toContain('ยังไม่มีใครโทรกลับ 1')
+    expect(r.text.indexOf('รออยู่')).toBeLessThan(r.text.indexOf('โทรแล้ว'))
+    expect(r.text).toContain('Seal')
+    expect(r.text).not.toContain('นานแล้ว')
+    expect(backAnswer([], { today: '2026-11-16', days: 1 }).text).toContain('ยังไม่มี')
   })
 })
