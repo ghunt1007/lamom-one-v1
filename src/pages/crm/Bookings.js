@@ -11,7 +11,7 @@ import { getVisibilityScope, isProgramOwner, scopeIncludesRecord, normName } fro
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { newBookingNo } from '../../utils/bookingNo.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { bookingDataIssues, issueCount, rowLabel } from '../../utils/bookingDataCheck.js'
+import { bookingDataIssues, issueCount, rowLabel, knownPeopleNames } from '../../utils/bookingDataCheck.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { navigate } from '../../core/router.js'
 import { pickVehicle } from '../../utils/vehiclePicker.js'
@@ -342,6 +342,18 @@ export default async function BookingsPage(container) {
   const gridInstance = Math.random().toString(36).slice(2) // ตารางที่เก็บไว้ใช้ได้เฉพาะหน้านี้รอบนี้
   function setView(v) { viewMode = v; try { localStorage.setItem('bk-view', v) } catch {} ; render() }
 
+  let peopleNames = null
+  // (v1.0.1166) รายชื่อพนักงาน/บัญชี ไว้ตรวจว่าชื่อเซลส์ใน Sheet ตรงกับคนในระบบไหม (เฉพาะคนที่เห็นปุ่ม 🧹)
+  async function loadPeopleNames() {
+    if (!canReconcileSheet || peopleNames) return
+    try {
+      const [staffRows, userRows] = await Promise.all([
+        listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 1000).catch(() => []),
+        listDocs('users', [], 'createdAt', 'desc', 1000).catch(() => []),
+      ])
+      if (staffRows.length || userRows.length) peopleNames = knownPeopleNames(staffRows, userRows)
+    } catch { /* ข้าม ไม่ตรวจชื่อ */ }
+  }
   async function loadData() {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก ใบจองที่ "ลบ" ไปแล้วจะยังโผล่กลับมา
     // ทุกครั้งที่โหลดหน้านี้ใหม่ (ขัดกับข้อความยืนยันลบที่บอกผู้ใช้ว่า "จะไม่ปรากฏในระบบอีกต่อไป")
@@ -370,6 +382,7 @@ export default async function BookingsPage(container) {
   // เฉยๆ ตอนนี้ต้องยกเลิก subscription เก่าแล้วยิงใหม่ทุกครั้งที่ filter เปลี่ยน ไม่งั้นตัวกรองจะหยุดทำงาน
   function startWatchBookings() {
     unsubBookings()
+    loadPeopleNames().then(() => { if (peopleNames && container.__routerGen === myGen && !firstSnapshot) safeRender() })
     unsubBookings = watchDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500, rows => {
       if (container.__routerGen !== myGen) { unsubBookings(); return }
       bookings = rows.filter(b => !b.deleted)
@@ -499,7 +512,7 @@ export default async function BookingsPage(container) {
     const statusCounts = getStatusCounts()
     const statusTotal = Object.values(statusCounts).reduce((s, n) => s + n, 0)
     // (v1.0.1164) 🧹 ใบจองที่ข้อมูลขาด/ผิดรูปจนรายงานนับพลาด — เจ้าของ/แอดมิน (คนที่แก้ Sheet)
-    const dataIssues = canReconcileSheet ? bookingDataIssues(bookings, { today: todayBangkok() }) : []
+    const dataIssues = canReconcileSheet ? bookingDataIssues(bookings, { today: todayBangkok(), knownNames: peopleNames }) : []
     const dataIssueN = issueCount(dataIssues)
     // (v1.0.1007) ตัวเลขสรุป/การ์ดยี่ห้อนับจากใบจองที่ผู้ใช้เห็นจริง (เดิมนับทั้งโชว์รูม เซลส์เห็น "แสดง 0 / 28" กับมูลค่า 8 ล้านที่ตัวเองไม่มีสักใบ)
     const visible = ownScopeActive ? bookings.filter(b => scopeIncludesRecord(visScope, b.salesName, b)) : bookings
