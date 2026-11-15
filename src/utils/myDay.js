@@ -48,6 +48,9 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
   alive(customers).filter(c => (c.stage === 'lead' || c.stage === 'pp') && !c.isLost && mine(c.assignedTo, c)).forEach(c => {
     const created = bangkokDate(c.createdAt)
     if (created === today) { out.newLeads.push({ ...c, name: custName(c) }); return }
+    // (v1.0.1195) ลีดที่เข้ามาเมื่อวาน/เมื่อวานซืน (เช่นสแกน QR ตอนกลางคืน) และยังไม่มีใครติดต่อเลย — เดิมหายจากหน้านี้จนครบ 3 วันถึงขึ้น "เงียบ"
+    const waitDays = created && !c.lastContactAt ? daysBetween(created, today) : 0
+    if (waitDays >= 1 && waitDays < STALE_LEAD_DAYS) { out.newLeads.push({ ...c, name: custName(c), waitDays }); return }
     const last = [c.lastContactAt, c.updatedAt, c.stageChangedAt, c.createdAt].map(bangkokDate).filter(Boolean).sort().pop()
     if (last && daysBetween(last, today) >= STALE_LEAD_DAYS) out.stale.push({ ...c, name: custName(c), days: daysBetween(last, today) })
   })
@@ -160,7 +163,7 @@ export function topPriorities(d, limit = 3, { short = false } = {}) {
     return short ? n.split(/\s+/)[0] : n
   }
   const car = b => carOf(b)
-  ;(d.newLeads || []).forEach(c => add({ key: 'new:' + c.id, icon: '🧲', title: `โทรหา Lead ใหม่ ${nm(c)}`, why: `เข้ามาวันนี้${leadWait(c) ? ` (${leadWait(c).label})` : ''}${c.interestedModel ? ` สนใจ ${c.interestedModel}` : ''} · โทรภายในชั่วโมงแรกโอกาสปิดสูงสุด`, score: c.lastContactAt && bangkokDate(c.lastContactAt) === bangkokDate(c.createdAt) ? 20 : 100, customerId: c.id, phone: c.phone }))
+  ;(d.newLeads || []).forEach(c => add({ key: 'new:' + c.id, icon: '🧲', title: `โทรหา Lead ใหม่ ${nm(c)}`, why: `${c.waitDays ? `เข้ามา${c.waitDays === 1 ? 'เมื่อวาน' : ` ${c.waitDays} วันก่อน`} ยังไม่มีใครติดต่อ` : `เข้ามาวันนี้${leadWait(c) ? ` (${leadWait(c).label})` : ''}`}${c.interestedModel ? ` สนใจ ${c.interestedModel}` : ''} · โทรภายในชั่วโมงแรกโอกาสปิดสูงสุด`, score: c.lastContactAt && bangkokDate(c.lastContactAt) === bangkokDate(c.createdAt) ? 20 : 100, customerId: c.id, phone: c.phone }))
   ;(d.lineWaiting || []).forEach(w => add({ key: 'line:' + w.id, icon: '💬', title: `ตอบ LINE ${nm(w)}`, why: `ทักมายังไม่มีใครตอบ${w.text ? `: "${String(w.text).slice(0, 40)}"` : ''}`, score: 88, customerId: w.customerId, lineThread: w.id }))
   ;(d.deliveries || []).filter(b => b.inDays === 0).forEach(b => add({ key: 'dlv:' + b.id, icon: '🚗', title: `ส่งมอบรถ ${nm(b)} วันนี้`, why: `${car(b) || 'รถ'}${b.deliveryTime ? ` เวลา ${b.deliveryTime}` : ''} · เช็กรถและเอกสารให้พร้อม`, score: 95, bookingId: b.id, phone: b.phone || b.custPhone }))
   ;(d.hotNoPlan || []).forEach(c => add({ key: 'hot:' + c.id, icon: '🔴', title: `นัดลูกค้า Hot ${nm(c)}`, why: 'สนใจมากแต่ยังไม่มีนัดครั้งถัดไป', score: 90, customerId: c.id, phone: c.phone }))
@@ -201,7 +204,7 @@ export function spokenBriefing(d, name = '') {
 export function myDayDigest(d) {
   const lines = [
     `งานค้างทั้งหมด ${d.total || 0} รายการ · ติดต่อลูกค้าแล้ววันนี้ ${d.contactedToday || 0} ราย · พรุ่งนี้มีนัด ${d.tomorrow || 0} ราย`,
-    `Lead ใหม่วันนี้ ${(d.newLeads || []).length} · นัดติดตามถึงกำหนด/เลยกำหนด ${(d.followups || []).length} · Lead เงียบเกิน ${STALE_LEAD_DAYS} วัน ${(d.stale || []).length} · ลูกค้า Hot ไม่มีนัด ${(d.hotNoPlan || []).length}`,
+    `Lead ใหม่/ยังไม่ติดต่อ ${(d.newLeads || []).length} · นัดติดตามถึงกำหนด/เลยกำหนด ${(d.followups || []).length} · Lead เงียบเกิน ${STALE_LEAD_DAYS} วัน ${(d.stale || []).length} · ลูกค้า Hot ไม่มีนัด ${(d.hotNoPlan || []).length}`,
     `ไฟแนนซ์รอผล/ไม่ผ่าน ${(d.finance || []).length} · รถพร้อมส่งยังไม่นัด ${(d.unscheduled || []).length} · ส่งมอบ 7 วันข้างหน้า ${(d.deliveries || []).length} · ยังไม่กรอกรายได้ ${(d.income || []).length}`,
   ]
   // (v1.0.1013) นัดลูกค้าวันนี้ (ทดลองขับ + เข้าโชว์รูม) เรียงตามเวลา
@@ -238,6 +241,6 @@ export function leadWait(c, now = Date.now()) {
   const contacted = toDate(c.lastContactAt)
   if (contacted && contacted.getTime() > created.getTime() + 60000) return null
   const mins = Math.max(0, Math.floor((now - created.getTime()) / 60000))
-  const label = mins < 1 ? 'เพิ่งเข้ามา' : mins < 60 ? `รอ ${mins} นาที` : `รอ ${Math.floor(mins / 60)} ชม.${mins % 60 ? ` ${mins % 60} นาที` : ''}`
+  const label = mins < 1 ? 'เพิ่งเข้ามา' : mins < 60 ? `รอ ${mins} นาที` : mins < 1440 ? `รอ ${Math.floor(mins / 60)} ชม.${mins % 60 ? ` ${mins % 60} นาที` : ''}` : `รอ ${Math.floor(mins / 1440)} วัน${Math.floor(mins % 1440 / 60) ? ` ${Math.floor(mins % 1440 / 60)} ชม.` : ''}`
   return { mins, label, level: mins < 15 ? 'ok' : mins < 60 ? 'warn' : 'late' }
 }

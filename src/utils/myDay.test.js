@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildMyDay, bangkokDate, daysBetween } from './myDay.js'
+import { buildMyDay, bangkokDate, daysBetween, topPriorities, leadWait } from './myDay.js'
 
 const today = '2026-10-25'
 
@@ -213,5 +213,27 @@ describe('spokenBriefing', () => {
     expect(t).toContain('งานค้าง 2 รายการ')
     expect(t).toContain('ข้อ 1 โทรหา Lead ใหม่ สมชาย')
     expect(t).not.toContain('081')
+  })
+})
+
+describe('v1.0.1195 yesterday\'s uncontacted leads stay on My Day', () => {
+  it('lists leads from 1–2 days ago that nobody contacted, not ones already contacted', () => {
+    const today = '2026-11-16'
+    const d = buildMyDay({ customers: [
+      { id: 'y1', stage: 'lead', firstName: 'เมื่อวาน', createdAt: '2026-11-15T15:30:00Z', assignedTo: 'A' },
+      { id: 'y2', stage: 'lead', firstName: 'สองวัน', createdAt: '2026-11-14T03:00:00Z', assignedTo: 'A' },
+      { id: 'y3', stage: 'lead', firstName: 'โทรแล้ว', createdAt: '2026-11-15T03:00:00Z', lastContactAt: '2026-11-15T05:00:00Z', assignedTo: 'A' },
+      { id: 'y4', stage: 'lead', firstName: 'สามวัน', createdAt: '2026-11-13T03:00:00Z', assignedTo: 'A' },
+    ] }, { today })
+    // y1 = 22:30 เวลาไทย 15/11 → เมื่อวาน
+    expect(d.newLeads.map(c => [c.id, c.waitDays])).toEqual([['y1', 1], ['y2', 2]])
+    const d2 = buildMyDay({ customers: [{ id: 'y1', stage: 'lead', firstName: 'เมื่อวาน', createdAt: '2026-11-15T03:30:00Z' }] }, { today })
+    expect(d2.newLeads[0].waitDays).toBe(1)
+    expect(d.stale.map(c => c.id)).toEqual(['y4'])
+    const top = topPriorities(d2, 3)
+    expect(top[0].why).toContain('เข้ามาเมื่อวาน ยังไม่มีใครติดต่อ')
+  })
+  it('wait label switches to days after 24 hours', () => {
+    expect(leadWait({ createdAt: '2026-11-15T00:00:00Z' }, Date.parse('2026-11-16T06:00:00Z')).label).toBe('รอ 1 วัน 6 ชม.')
   })
 })
