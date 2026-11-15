@@ -81,13 +81,18 @@
 (function () {
   var API = (location.hostname === 'localhost' && new URLSearchParams(location.search).get('api')) || 'https://lamom-daily-report.ghunt1007.workers.dev'
   var f = document.getElementById('f'), msg = document.getElementById('msg'), btn = document.getElementById('send')
-  var a = (new URLSearchParams(location.search).get('a') || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60)
+  var qs = new URLSearchParams(location.search)
+  var a = (qs.get('a') || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60)
+  // ลิงก์แนะนำเพื่อน (?ref=รหัส) และลิงก์จากหน้ารุ่นรถ (?m=รุ่น)
+  var ref = (qs.get('ref') || '').replace(/[^A-Za-z0-9\u0E01-\u0E59]/g, '').slice(0, 20)
+  var m0 = (qs.get('m') || '').replace(/[<>]/g, '').slice(0, 80)
   function say(t) { msg.textContent = t; msg.className = 'msg' + (t ? ' bad' : '') }
   // นัดทดลองขับ: เลือกได้ตั้งแต่วันนี้ถึง 60 วันข้างหน้า (ตามวันที่ของเครื่องลูกค้า — ตัวรับตรวจซ้ำตามเวลาไทย)
   var tdBox = document.getElementById('td-box')
   function ymd(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2) }
   var t0 = new Date(), t1 = new Date(t0.getTime() + 60 * 864e5), tm = new Date(t0.getTime() + 864e5)
   f.tdDate.min = ymd(t0); f.tdDate.max = ymd(t1); f.tdDate.value = ymd(tm)
+  if (m0 && !f.model.value) f.model.value = m0
   f.td.addEventListener('change', function () { tdBox.hidden = !f.td.checked })
   f.addEventListener('submit', function (e) {
     e.preventDefault()
@@ -98,7 +103,7 @@
     if (!/^0[689]\d{8}$/.test(digits)) { say('กรุณาใส่เบอร์มือถือ 10 หลัก เช่น 0812345678'); f.phone.focus(); return }
     if (f.td.checked && !f.tdDate.value) { say('กรุณาเลือกวันที่สะดวกทดลองขับ'); f.tdDate.focus(); return }
     say(''); btn.disabled = true; btn.textContent = 'กำลังส่ง…'
-    fetch(API + '/lead/form', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, phone: digits, model: f.model.value.trim(), note: f.note.value.trim(), website: f.website.value, a: a, td: f.td.checked, tdDate: f.td.checked ? f.tdDate.value : '', tdTime: f.td.checked ? f.tdTime.value : '' }) })
+    fetch(API + '/lead/form', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, phone: digits, model: f.model.value.trim(), note: f.note.value.trim(), website: f.website.value, a: a, ref: ref, td: f.td.checked, tdDate: f.td.checked ? f.tdDate.value : '', tdTime: f.td.checked ? f.tdTime.value : '' }) })
       .then(function (r) { return r.json().catch(function () { return {} }).then(function (d) { return { ok: r.ok && d.ok, error: d.error } }) })
       .then(function (r) {
         if (r.ok) { document.getElementById('form-wrap').hidden = true; document.getElementById('done').hidden = false; return }

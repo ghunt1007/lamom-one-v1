@@ -10,6 +10,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { saleCost } from '../../utils/saleCost.js'
 import { escHtml } from '../../utils/escape.js'
+import { PUBLIC_ORIGIN } from '../../utils/publicLinks.js'
 
 const SUMMARY = {
   month: 'มิถุนายน 2569',
@@ -272,7 +273,7 @@ export default async function ExecutiveSummaryPage(container) {
     })
     document.getElementById('share-btn')?.addEventListener('click', () => {
       const text = `📊 LAMOM ONE — Executive Summary ${s.month}\n\n🚗 ยอดขาย: ${s.sales.actual}/${s.sales.target} คัน (${Math.round(s.sales.actual/s.sales.target*100)}%)\n💰 รายได้: ${formatCurrency(s.sales.revenue)}\n🔧 งานบริการ: ${s.service.jobs} งาน CSAT ⭐${s.service.csat}\n📈 Gross Profit: ${formatCurrency(s.finance.grossProfit)} (${s.finance.margin}%)\n👑 Top Sales: ${s.people.topSales}`
-      const lineUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent('https://lamom.app/executive')}&text=${encodeURIComponent(text)}`
+      const lineUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(PUBLIC_ORIGIN + '/analytics/executive')}&text=${encodeURIComponent(text)}`
       openModal({
         title: '📤 แชร์ Executive Summary',
         size: 'sm',

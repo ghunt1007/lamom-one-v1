@@ -9,6 +9,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { sendSms } from '../../utils/comms.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
+import { referralUrl, newReferralCode, referralLeadCounts } from '../../utils/publicLinks.js'
 
 const COMMISSION_RATE = 5000 // บาทต่อคันที่ขายได้
 const PAY_ROLES = ['finance', 'manager', 'owner', 'admin']
@@ -22,12 +23,18 @@ export default async function ReferralQrPage(container) {
   const canPay = PAY_ROLES.includes(getState('role') || me.role || 'staff')
 
   let REFERRERS = []
+  let leadCounts = null
   let selId = null
   let loading = true
 
   async function loadData() {
     loading = true
     try { REFERRERS = await listDocs('referrers', companyScopeFilters(), 'sales', 'desc', 100) } catch (e) { REFERRERS = [] }
+    // (v1.0.1172) ลิงก์จริงไปฟอร์มรับลีด (?ref=รหัส) — นับลีดที่เข้ามาจากลิงก์ของแต่ละคนจากลูกค้าจริง
+    // (สิทธิ์อ่านลูกค้าไม่พอ = ไม่แสดงตัวเลข ไม่เดา)
+    leadCounts = null
+    try { leadCounts = referralLeadCounts(await listDocs('customers', [...companyScopeFilters(), ['source', '==', 'referral']], 'createdAt', 'desc', 1000)) } catch (e) { leadCounts = null }
+    REFERRERS = REFERRERS.map(r => ({ ...r, qrUrl: referralUrl(r.code), leads: leadCounts ? (leadCounts[String(r.code || '').toUpperCase()] || 0) : (r.leads || 0) }))
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -46,11 +53,11 @@ export default async function ReferralQrPage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">🔗 Referral QR Generator</div>
-            <div class="page-subtitle">QR แนะนำเพื่อน ✕ Commission ${formatCurrency(COMMISSION_RATE)}/คัน · ${REFERRERS.length} ผู้แนะนำ</div>
+            <div class="page-title">🔗 ลิงก์แนะนำเพื่อน</div>
+            <div class="page-subtitle">ลิงก์ให้ลูกค้าเก่าส่งต่อเพื่อน · Commission ${formatCurrency(COMMISSION_RATE)}/คัน · ${REFERRERS.length} ผู้แนะนำ</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-primary" id="new-ref-btn">+ สร้าง QR ใหม่</button>
+            <button class="btn btn-primary" id="new-ref-btn">+ สร้างลิงก์ใหม่</button>
           </div>
         </div>
 
@@ -61,7 +68,7 @@ export default async function ReferralQrPage(container) {
           ${sc('⏳ ค้างจ่าย', formatCurrency(unpaid), unpaid>0?'var(--danger)':'var(--success)')}
         </div>
 
-        <div style="display:grid;grid-template-columns:${sel?'1fr 320px':'1fr'};gap:16px">
+        <div style="display:grid;grid-template-columns:${sel?'repeat(auto-fit,minmax(min(300px,100%),1fr))':'1fr'};gap:16px">
           <!-- Referrer list -->
           <div style="display:flex;flex-direction:column;gap:10px">
             ${REFERRERS.map(r => referrerCard(r)).join('')}
@@ -71,27 +78,24 @@ export default async function ReferralQrPage(container) {
           ${sel ? `
           <div style="display:flex;flex-direction:column;gap:12px">
             <div class="card" style="padding:14px">
-              <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📱 QR Code — ${escHtml(sel.name)}</div>
-              <!-- QR mock -->
-              <div style="aspect-ratio:1;max-width:180px;margin:0 auto 12px;background:var(--surface-2);border-radius:var(--radius-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;border:3px solid var(--primary)">
-                <div style="font-size:3rem">📱</div>
-                <div style="font-size:0.62rem;color:var(--text-muted);margin-top:4px;text-align:center">${escHtml(sel.code)}<br>SCAN TO REFER</div>
+              <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">🔗 ลิงก์ของ ${escHtml(sel.name)}</div>
+              <div style="text-align:center;margin-bottom:8px">
+                <div style="font-size:0.7rem;color:var(--text-muted)">รหัสผู้แนะนำ</div>
+                <div style="font-size:1.6rem;font-weight:900;letter-spacing:0.08em;color:var(--primary)">${escHtml(sel.code)}</div>
               </div>
-              <div style="font-size:0.7rem;text-align:center;color:var(--primary);margin-bottom:10px">${escHtml(sel.qrUrl)}</div>
+              <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:6px;line-height:1.5">เพื่อนที่เปิดลิงก์นี้จะเจอฟอร์มฝากชื่อ-เบอร์ ลีดเข้าระบบพร้อมรหัสนี้ทันที (ฟอร์มต้องเปิดรับอยู่)</div>
+              <div style="font-size:0.7rem;text-align:center;color:var(--primary);margin-bottom:10px;overflow-wrap:anywhere">${escHtml(sel.qrUrl)}</div>
               <div style="display:flex;gap:6px">
                 <button class="btn btn-secondary" id="copy-link" style="flex:1;font-size:0.74rem">📋 คัดลอกลิงก์</button>
-                <button class="btn btn-primary" id="print-qr" style="flex:1;font-size:0.74rem">🖨 พิมพ์</button>
+                <button class="btn btn-primary" id="print-qr" style="flex:1;font-size:0.74rem">🖨 พิมพ์การ์ด</button>
               </div>
             </div>
 
             <div class="card" style="padding:14px">
               <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:4px">📊 สถิติ</div>
-              <!-- (v1.0.xxx) clicks/leads ไม่มีจุดไหนในระบบเขียนอัปเดตจริงเลย (ไม่มี public landing route
-              ที่ /ref/:code ให้ track การสแกน) — ต้องบันทึกมือ/นับจากภายนอกเท่านั้น บอกตรงๆไว้กันเข้าใจผิด
-              ว่าเป็นตัวเลข tracking สด — sales/commission อัปเดตได้จริงตอนจ่าย Commission ด้านล่าง -->
-              <div style="font-size:0.66rem;color:var(--text-muted);margin-bottom:10px">👆 Clicks/🧲 Leads ต้องนับจากการสแกนจริงภายนอกระบบ (ยังไม่มีหน้า Landing ที่ติดตามการสแกนอัตโนมัติ) — กรอกอัปเดตเองเมื่อทราบตัวเลขจริง</div>
+              <div style="font-size:0.66rem;color:var(--text-muted);margin-bottom:10px">🧲 Leads นับจากลูกค้าที่กรอกฟอร์มผ่านลิงก์ของคนนี้จริง${leadCounts ? '' : ' (ตอนนี้อ่านข้อมูลลูกค้าไม่ได้ จึงแสดงตัวเลขที่บันทึกไว้)'}</div>
               <div style="display:flex;flex-direction:column;gap:6px;font-size:0.78rem">
-                ${[['👆 Clicks',sel.clicks],['🧲 Leads',sel.leads],['🚗 ขายได้',sel.sales+' คัน'],['💰 Commission',formatCurrency(sel.commission)],['✅ จ่ายแล้ว',formatCurrency(sel.paid)],['⏳ ค้างจ่าย',formatCurrency(sel.commission-sel.paid)]].map(([k,v])=>`
+                ${[['🧲 Leads',sel.leads],['🚗 ขายได้',sel.sales+' คัน'],['💰 Commission',formatCurrency(sel.commission)],['✅ จ่ายแล้ว',formatCurrency(sel.paid)],['⏳ ค้างจ่าย',formatCurrency(sel.commission-sel.paid)]].map(([k,v])=>`
                   <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">
                     <span style="color:var(--text-muted)">${k}</span>
                     <span style="font-weight:700">${v}</span>
@@ -131,9 +135,9 @@ export default async function ReferralQrPage(container) {
     document.getElementById('print-qr')?.addEventListener('click', () => {
       if (!sel) { showToast('เลือก Referrer ก่อน', 'warning'); return }
       const win = window.open('', '_blank', 'width=400,height=500')
-      win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR ${escHtml(sel.name)}</title><style>body{font-family:sans-serif;text-align:center;padding:30px}h2{margin:0 0 8px}p{color:#666;font-size:14px}</style></head><body><h2>${escHtml(sel.name)}</h2><p>Referral QR Code</p><p style="font-size:20px;margin:20px">▩▦▩<br>▦▩▦<br>▩▦▩</p><p>${escHtml(sel.qrUrl)}</p><script>window.print()</script></body></html>`)
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>แนะนำเพื่อน ${escHtml(sel.name)}</title><style>body{font-family:sans-serif;text-align:center;padding:30px}h2{margin:0 0 8px}p{color:#444;font-size:15px}.code{font-size:40px;font-weight:900;letter-spacing:4px;margin:18px 0}.url{font-size:13px;word-break:break-all;color:#1d4ed8}</style></head><body><h2>แนะนำเพื่อนซื้อรถ</h2><p>โดยคุณ ${escHtml(sel.name)}</p><div class="code">${escHtml(sel.code)}</div><p>ให้เพื่อนเปิดลิงก์นี้ ฝากชื่อและเบอร์ไว้</p><p class="url">${escHtml(sel.qrUrl)}</p><script>window.print()<\/script></body></html>`)
       win.document.close()
-      showToast(`🖨 พิมพ์ QR ของ ${sel.name} แล้ว`, 'success')
+      showToast(`🖨 เปิดหน้าพิมพ์ของ ${sel.name} แล้ว`, 'success')
     })
     document.getElementById('pay-btn')?.addEventListener('click', () => {
       openModal({ title:'💸 จ่าย Commission', size:'xs',
@@ -171,31 +175,32 @@ export default async function ReferralQrPage(container) {
           </div>
         </div>
         <div style="display:flex;gap:12px;margin-top:8px;font-size:0.72rem;color:var(--text-muted)">
-          <span>👆 ${r.clicks}</span><span>🧲 ${r.leads}</span><span>🚗 ${r.sales} คัน</span><span>🎯 Conv.${conv}%</span>
+          <span>🧲 ${r.leads}</span><span>🚗 ${r.sales} คัน</span><span>🎯 Conv.${conv}%</span>
         </div>
         <div style="margin-top:8px">
-          <button class="btn btn-xs btn-secondary share-btn" data-id="${r.id}" style="font-size:0.7rem">📤 ส่ง QR ทาง LINE</button>
+          <button class="btn btn-xs btn-secondary share-btn" data-id="${r.id}" style="font-size:0.7rem">📤 ส่งลิงก์ทาง SMS</button>
         </div>
       </div>`
   }
 
   function openNewModal() {
     openModal({
-      title:'+ สร้าง Referral QR', size:'xs',
+      title:'+ สร้างลิงก์แนะนำเพื่อน', size:'xs',
       body:`<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:8px">
         <div><label style="font-size:0.72rem;color:var(--text-muted)">ชื่อผู้แนะนำ</label><input class="input" id="rf-name" placeholder="ชื่อลูกค้า" style="width:100%;margin-top:4px"></div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">เบอร์โทร</label><input class="input" id="rf-phone" placeholder="08x-xxx-xxxx" style="width:100%;margin-top:4px"></div>
         <div style="font-size:0.7rem;color:var(--text-muted)">Commission: ${formatCurrency(COMMISSION_RATE)}/คัน · หมดอายุ 1 ปี</div>`,
-      confirmText:'🔗 สร้าง QR',
+      confirmText:'🔗 สร้างลิงก์',
       async onConfirm() {
         const name = document.getElementById('rf-name')?.value?.trim()
         const phone = document.getElementById('rf-phone')?.value?.trim()
         if (!name) { showToast('ใส่ชื่อ', 'warning'); return false }
-        const code = name.replace(/\s/g,'').toUpperCase().slice(0,4)+(REFERRERS.length+1).toString().padStart(3,'0')
+        let code = newReferralCode()
+        while (REFERRERS.some(r => r.code === code)) code = newReferralCode()
         try {
-          const newId = await createDoc('referrers', { name, phone, code, qrUrl:`lamom.app/ref/${code}`, clicks:0, leads:0, sales:0, commission:0, paid:0, createdAt: todayBangkok(), companyId: myEffectiveCompanyId() })
+          const newId = await createDoc('referrers', { name, phone, code, qrUrl: referralUrl(code), clicks:0, leads:0, sales:0, commission:0, paid:0, createdAt: todayBangkok(), companyId: myEffectiveCompanyId() })
           selId = newId
-          showToast(`🔗 สร้าง QR ของ ${name} แล้ว · Code: ${code}`, 'success')
+          showToast(`🔗 สร้างลิงก์ของ ${name} แล้ว · Code: ${code}`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }

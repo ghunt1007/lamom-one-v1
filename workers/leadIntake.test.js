@@ -150,7 +150,7 @@ describe('v1.0.1139 phone from chat', () => {
   })
 })
 
-import { handleLeadForm, formRateOk, accountLeadInfo, __resetFormHits, cleanTestDrive } from './leadIntake.js'
+import { handleLeadForm, formRateOk, accountLeadInfo, __resetFormHits, cleanTestDrive, cleanRefCode } from './leadIntake.js'
 import { beforeEach } from 'vitest'
 describe('v1.0.1140 public lead form', () => {
   beforeEach(() => { __resetInboxCache(); __resetFormHits() })
@@ -179,6 +179,19 @@ describe('v1.0.1140 public lead form', () => {
     expect(f.phone.stringValue).toBe('0812345678'); expect(f.source.stringValue).toBe('tiktok')
     expect(f.assignedTo.stringValue).toBe('เซลส์ หนึ่ง'); expect(f.sourceAccountId.stringValue).toBe('acc1')
     expect(f.companyId.stringValue).toBe('co1'); expect(f.sourceAccountLevel.stringValue).toBe('sales')
+  })
+  // (v1.0.1172) ลิงก์แนะนำเพื่อน ?ref=
+  it('a referral link marks the lead as referred, with the code saved for the referrer page', async () => {
+    const w = world()
+    const r = await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', ref: 'ab-001<x>' }), env, async () => 't', { fetch: w.f })
+    expect(r.status).toBe(200)
+    const f = created(w.calls)
+    expect(f.source.stringValue).toBe('referral'); expect(f.referralCode.stringValue).toBe('AB001X')
+    expect(f.notes.stringValue).toContain('แนะนำโดยรหัส AB001X')
+    expect(f.tags.arrayValue.values.map(v => v.stringValue)).toContain('แนะนำ AB001X')
+  })
+  it('cleanRefCode keeps letters/digits only, max 20', () => {
+    expect(cleanRefCode(' sm-ch 001 ')).toBe('SMCH001'); expect(cleanRefCode('x'.repeat(30)).length).toBe(20); expect(cleanRefCode(null)).toBe('')
   })
   // (v1.0.1145) ขอนัดทดลองขับจากฟอร์ม
   const NOW = Date.parse('2026-11-14T08:00:00Z') // 15:00 เวลาไทย
