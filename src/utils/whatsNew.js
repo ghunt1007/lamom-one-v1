@@ -12,7 +12,8 @@ export const HIGHLIGHTS = [
   { icon: '🔔', title: 'ลีดใหม่เด้งเข้า LINE ทันที', desc: 'ลีดจากฟอร์ม/เว็บ/Facebook แจ้งเซลส์ที่ดูแลทันที ถ้า 30 นาทียังไม่ได้ติดต่อจะเตือนอีกครั้ง', path: '/crm/customers', roles: ['manager', 'sales', 'marketing'] },
   { icon: '🗗', title: 'เปิดหลายหน้าต่างพร้อมกัน', desc: 'กดปุ่ม 🗗 หรือ Ctrl+คลิกเมนู เพื่อเปิดอีกหน้าคู่กัน เช่น ใบจองคู่กับลูกค้า ข้อมูลอัปเดตตรงกันเอง', path: '/crm/bookings' },
   { icon: '📣', title: 'ตั้งเวลาโพสต์ Facebook / Instagram', desc: 'เขียนโพสต์ล่วงหน้า ระบบโพสต์ให้ตามเวลา และดูผลโฆษณาต่อแคมเปญว่าได้ลีด/ยอดจองเท่าไร', path: '/marketing/channels', roles: ['marketing'] },
-  { icon: '🚦', title: 'เช็กความพร้อมระบบในหน้าเดียว', desc: 'ดูว่ากุญแจ LINE/Meta/AI ใส่ครบไหม สวิตช์ไหนยังปิด และสำรองข้อมูลล่าสุดเมื่อไร', path: '/settings/health', roles: [] },
+  { icon: '🧹', title: 'ใบจองที่ต้องแก้ใน Sheet', desc: 'ปุ่ม 🧹 ในหน้าใบจองชี้ใบที่ข้อมูลขาดจนรายงานนับพลาด เช่น ส่งมอบแล้วไม่มีวันที่ หรือชื่อเซลส์ไม่ตรงกับพนักงาน บอกคอลัมน์ที่ต้องแก้ให้เลย', path: '/crm/bookings', roles: [] },
+  { icon: '🚦', title: 'เช็กความพร้อมระบบในหน้าเดียว', desc: 'ดูว่ากุญแจ LINE/Meta/AI ใส่ครบไหม รายงาน LINE ส่งออกจริงไหม โควตา LINE เหลือเท่าไร และสำรองข้อมูลล่าสุดเมื่อไร — ถ้ามีปัญหาจะขึ้นแถบเตือนที่หน้าแรกเอง', path: '/settings/health', roles: [] },
 ]
 const ALL_ROLES = ['owner', 'admin']
 export function highlightsFor(role, owner = false) {
