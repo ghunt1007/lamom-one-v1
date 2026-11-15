@@ -8,10 +8,22 @@ import { escHtml as esc } from './escape.js'
 export const ALERT_IDS = ['report_morning', 'report_evening', 'backup']
 const TITLES = { report_morning: 'รายงานเช้า 09:00', report_evening: 'รายงานเย็น 18:00', backup: 'สำรองข้อมูลอัตโนมัติ' }
 
-export function ownerAlertItems({ reports = null, lastBackupMs = null, now = Date.now() } = {}) {
-  return readinessItems({ status: null, auto: { _noAccess: true }, reports, lastBackupMs, now })
+// (v1.0.1181) ฟอร์มฝากชื่อปิดอยู่ แต่มีลิงก์/QR ที่แจกออกไปแล้ว (แนะนำเพื่อน, หน้าแคมเปญ, UTM, QR ติดรถ, งานบูธที่ยังไม่จบ)
+// → ลูกค้าที่สแกน/กดเข้ามาจะเจอ "ฟอร์มนี้ปิดรับอยู่" ลีดหายเงียบ · links = { referrers, landing, utm, showroom, events } (จำนวน)
+export function formOffItem(publicForm, links = {}) {
+  if (publicForm !== false) return null
+  const LABEL = { referrers: 'ลิงก์แนะนำเพื่อน', landing: 'หน้าเว็บแคมเปญ', utm: 'ลิงก์ UTM', showroom: 'QR ติดรถ', events: 'งานบูธที่ยังไม่จบ' }
+  const used = Object.entries(LABEL).filter(([k]) => Number(links[k]) > 0).map(([k, l]) => `${l} ${links[k]}`)
+  if (!used.length) return null
+  return { id: 'publicform', state: 'todo', title: 'ฟอร์มฝากชื่อปิดอยู่', hint: `มีลิงก์/QR ที่แจกออกไปแล้ว (${used.join(', ')}) ลูกค้าที่กดเข้ามาจะส่งข้อมูลไม่ได้ — เปิดที่ 🔗 ช่องทางโซเชียล › 🤖 ตอบอัตโนมัติ`, nav: '/marketing/channels?tab=auto' }
+}
+
+export function ownerAlertItems({ reports = null, lastBackupMs = null, now = Date.now(), publicForm, links } = {}) {
+  const out = readinessItems({ status: null, auto: { _noAccess: true }, reports, lastBackupMs, now })
     .filter(i => ALERT_IDS.includes(i.id) && i.state === 'todo')
     .map(i => ({ ...i, title: TITLES[i.id] }))
+  const f = formOffItem(publicForm, links)
+  return f ? [f, ...out] : out
 }
 
 const KEY = 'lamom.ownerAlertsHidden'
@@ -30,7 +42,21 @@ export async function mountOwnerAlerts(el, { now = Date.now() } = {}) {
     const ok = b.find(x => x.status === 'success' || x.status === 'partial')
     if (ok) lastBackupMs = Date.parse(ok.time) || null
   } catch { /* ข้าม */ }
-  const items = ownerAlertItems({ reports, lastBackupMs, now })
+  let publicForm, links = {}
+  try {
+    const auto = await readDoc('system_integrations', 'inbox_auto')
+    publicForm = !!auto?.publicForm
+    if (!publicForm) {
+      const today = new Date(now + 7 * 3600e3).toISOString().slice(0, 10)
+      const n = async (col, sortBy, keep = () => true) => { try { return (await listDocs(col, [], sortBy, 'desc', 200)).filter(d => !d.deleted && keep(d)).length } catch { return 0 } }
+      const [referrers, landing, utm, showroom, events] = await Promise.all([
+        n('referrers', 'createdAt'), n('landing_pages', 'created', d => d.status !== 'ended'), n('utm_links', 'created'), n('digital_showroom', 'model'),
+        n('marketing_events', 'startDate', d => d.status !== 'cancelled' && String(d.endDate || d.startDate || '') >= today),
+      ])
+      links = { referrers, landing, utm, showroom, events }
+    }
+  } catch { /* อ่านสวิตช์ไม่ได้ — ไม่เตือนเรื่องนี้ */ }
+  const items = ownerAlertItems({ reports, lastBackupMs, now, publicForm, links })
   if (!items.length || !el.isConnected) return
   el.innerHTML = `<div class="card" role="status" style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;margin-bottom:12px;border-left:4px solid var(--warning)">
     <div style="font-size:1.2rem;line-height:1">⚠️</div>
@@ -38,7 +64,8 @@ export async function mountOwnerAlerts(el, { now = Date.now() } = {}) {
       <div style="font-weight:700;font-size:0.86rem">ระบบมีเรื่องต้องดู ${items.length} ข้อ</div>
       ${items.map(i => `<div style="font-size:0.78rem;color:var(--text-muted);line-height:1.5;overflow-wrap:anywhere">• <b>${esc(i.title)}</b>: ${esc(i.hint)}</div>`).join('')}
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-        <button class="btn btn-primary btn-xs" data-nav="/settings/health">ดูหน้าสถานะระบบ</button>
+        ${items.some(i => i.id === 'publicform') ? '<button class="btn btn-primary btn-xs" data-nav="/marketing/channels?tab=auto">🔗 ไปเปิดฟอร์ม</button>' : ''}
+        ${items.some(i => i.id !== 'publicform') ? '<button class="btn btn-primary btn-xs" data-nav="/settings/health">ดูหน้าสถานะระบบ</button>' : ''}
         <button class="btn btn-ghost btn-xs" id="owner-alerts-hide">ซ่อนวันนี้</button>
       </div>
     </div>
