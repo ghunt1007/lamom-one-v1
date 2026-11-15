@@ -13,6 +13,7 @@ import { syncRagChunk, RAG_SOURCE_COLLECTIONS } from '../utils/rag.js'
 import { companyScopeFilters } from './companyScope.js'
 import { finPassPatch, FIN_PASSED_STATUSES } from '../utils/finance.js'
 import { toDateStr } from '../utils/format.js'
+import { isCancelled, isDelivered } from '../utils/bookingStatus.js'
 
 // ── Input sanitization — strip stored XSS before Firestore writes ──
 // เดิม export แค่ผ่าน createDoc()/updateDocData() เท่านั้น — จุดที่เขียน Firestore ตรงๆนอก db.js (เช่น
@@ -492,10 +493,16 @@ export async function getSalesData() {
   // CRM คำนวณสถิติ "รวมทั้งหมด/ตลอดเวลา" (ยอดขายรวม, กำไรสุทธิรวม, Customer Lifetime Value ฯลฯ) ต้องได้
   // ใบจองครบทุกใบจริงๆ ไม่ใช่แค่ 1,000 ใบล่าสุด
   try { bookings = await listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc') } catch (e) {}
-  return bookings
+  return salesRowsFromBookings(bookings)
+}
+
+// (v1.0.1159) แปลงใบจอง → แถวยอดขายกลาง (ฟังก์ชันล้วน ทดสอบได้)
+export function salesRowsFromBookings(bookings = []) {
+  return (bookings || [])
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออกตรงนี้ ใบจองที่ "ลบ" ไปแล้วจะยัง
     // ปนอยู่ใน Dashboard/คอมมิชชั่น/รายงานการเงินทุกหน้าที่เรียกใช้ฟังก์ชันกลางนี้
-    .filter(b => !b.deleted && b.status !== 'ถอนจอง')
+    // (v1.0.1159) ใช้นิยามกลางจาก bookingStatus.js — เดิมกรองแค่ 'ถอนจอง' (หลุด 'ยกเลิก' ข้อมูลเก่า)
+    .filter(b => !b.deleted && !isCancelled(b))
     .map(b => ({
       id: b.id, bookingNo: b.bookingNo,
       // b.createdAt คือ Firestore serverTimestamp() object เสมอ (ไม่ใช่ string) — .slice() ตรงๆ จะพัง
@@ -515,7 +522,9 @@ export async function getSalesData() {
       // (v1.0.945) ช่องทางที่ลูกค้ามา — เดิมไม่ได้ส่งต่อ หน้า ROI การตลาด / ภาพรวมการตลาด / ข้อมูลเชิงลึกลูกค้า
       // เลยเห็นทุกใบเป็น "อื่นๆ" หรือ "ยังไม่มีข้อมูลช่องทาง" ทั้งที่ฟอร์มจองมีช่องให้กรอก
       source: b.source || b.leadSource || b.channel || '',
-      delivered: b.status === 'ส่งมอบแล้ว',
+      // (v1.0.1159) "ขายแล้ว" = ส่งมอบแล้ว หรือ ตัดตัวเลขรอส่งมอบ — นิยามเดียวกับรายงาน LINE 18:00 และหน้ารายได้/ค่าคอม
+      // เดิมนับแค่ 'ส่งมอบแล้ว' ทำให้แดชบอร์ด/KPI/จอทีวี/คอมมิชชั่นกลาง นับคันที่ตัดตัวเลขแล้วน้อยกว่ารายงาน
+      delivered: isDelivered(b),
       createdAt: b.createdAt,
     }))
 }
