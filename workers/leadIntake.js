@@ -494,7 +494,7 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   const token = await getToken()
   if (!token) return { status: 503, body: { ok: false, error: 'ระบบยังไม่พร้อม กรุณาลองใหม่' } }
   const inbox = await readInboxAuto(env, token, fetchImpl)
-  if (!inbox.publicForm) return { status: 403, body: { ok: false, error: 'ฟอร์มนี้ปิดรับอยู่' } }
+  if (!inbox.publicForm) return { status: 403, body: { ok: false, error: 'ขณะนี้ยังไม่เปิดรับข้อมูลทางฟอร์ม กรุณาติดต่อพนักงานโดยตรง ขออภัยในความไม่สะดวก' } }
   const accId = clip(String(b.a || ''), 60).replace(/[^A-Za-z0-9_-]/g, '')
   const ref = cleanRefCode(b.ref)
   const utm = cleanUtm(b.utm)

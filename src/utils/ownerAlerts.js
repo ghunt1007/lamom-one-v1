@@ -9,7 +9,7 @@ export const ALERT_IDS = ['report_morning', 'report_evening', 'backup']
 const TITLES = { report_morning: 'รายงานเช้า 09:00', report_evening: 'รายงานเย็น 18:00', backup: 'สำรองข้อมูลอัตโนมัติ' }
 
 // (v1.0.1181) ฟอร์มฝากชื่อปิดอยู่ แต่มีลิงก์/QR ที่แจกออกไปแล้ว (แนะนำเพื่อน, หน้าแคมเปญ, UTM, QR ติดรถ, งานบูธที่ยังไม่จบ)
-// → ลูกค้าที่สแกน/กดเข้ามาจะเจอ "ฟอร์มนี้ปิดรับอยู่" ลีดหายเงียบ · links = { referrers, landing, utm, showroom, events } (จำนวน)
+// → ลูกค้าที่สแกน/กดเข้ามาจะเจอข้อความว่ายังไม่เปิดรับ ลีดหายเงียบ · links = { referrers, landing, utm, showroom, events } (จำนวน)
 export function formOffItem(publicForm, links = {}) {
   if (publicForm !== false) return null
   const LABEL = { referrers: 'ลิงก์แนะนำเพื่อน', landing: 'หน้าเว็บแคมเปญ', utm: 'ลิงก์ UTM', showroom: 'QR ติดรถ', events: 'งานบูธที่ยังไม่จบ' }
