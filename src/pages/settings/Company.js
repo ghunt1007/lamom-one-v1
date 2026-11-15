@@ -5,22 +5,8 @@ import { validateTaxId } from '../../utils/thaiId.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { COMPANY_DEFAULTS, cleanCompany, missingCompanyFields } from './companyProfile.js'
 
-const COMPANY_DEFAULTS = {
-  name: 'LAMOM ออโต้ จำกัด',
-  nameTh: 'บริษัท ลาม่อม ออโต้ จำกัด',
-  taxId: '0-1055-12345-67-1',
-  phone: '02-123-4567',
-  email: 'info@lamom.co.th',
-  address: '123 ถนนพระราม 9 แขวงห้วยขวาง เขตห้วยขวาง กรุงเทพฯ 10310',
-  website: 'www.lamom.co.th',
-  lineOA: '@lamomauto',
-  facebook: 'LamoMAuto',
-  brand: 'BYD, MG, DEEPAL, NETA',
-  logoText: 'LAMOM',
-  logoColor: '#2563eb',
-  footerNote: 'ขอบคุณที่ไว้วางใจ LAMOM AUTO — บริการด้วยใจ',
-}
 
 // เก็บใน Firestore collection เดียว doc เดียว ('company_profile') → sync ข้ามอุปกรณ์จริง
 // (เดิมเก็บใน localStorage เครื่องเดียว ทำให้พนักงาน 2 เครื่องเห็นข้อมูลไม่ตรงกัน)
@@ -34,9 +20,9 @@ async function loadCompany() {
     const docs = await listDocs('company_profile', [], 'createdAt', 'asc', 10)
     if (docs.length > 0) {
       _docId = docs[0].id
-      return { ...COMPANY_DEFAULTS, ...docs[0] }
+      return cleanCompany(docs[0])
     }
-    _docId = await createDoc('company_profile', COMPANY_DEFAULTS)
+    // ไม่เขียนค่าเริ่มต้นลงฐานข้อมูลตอนเปิดหน้า — สร้างเอกสารเมื่อกดบันทึกครั้งแรกเท่านั้น
     return { ...COMPANY_DEFAULTS }
   } catch (e) {
     return { ...COMPANY_DEFAULTS }
@@ -127,12 +113,13 @@ export default async function CompanyPage(container) {
           <!-- Summary card -->
           <div class="card" style="padding:18px;border-left:3px solid var(--primary)">
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 สรุป</div>
-            <div style="font-size:0.84rem;font-weight:700">${escHtml(data.nameTh)}</div>
+            <div style="font-size:0.84rem;font-weight:700">${escHtml(data.nameTh || data.name || 'ยังไม่ได้ใส่ชื่อบริษัท')}</div>
             <div style="font-size:0.75rem;color:var(--text-muted);margin:3px 0">${escHtml(data.taxId)}</div>
             <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(data.address)}</div>
             <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
-              ${data.brand.split(',').map(b => `<span class="badge badge-primary" style="font-size:0.65rem">${escHtml(b.trim())}</span>`).join('')}
+              ${String(data.brand || '').split(',').filter(b => b.trim()).map(b => `<span class="badge badge-primary" style="font-size:0.65rem">${escHtml(b.trim())}</span>`).join('')}
             </div>
+            ${missingCompanyFields(data).length ? `<div style="margin-top:10px;font-size:0.75rem;color:var(--warning)">⚠️ ยังไม่ได้กรอก: ${missingCompanyFields(data).map(escHtml).join(', ')}</div>` : ''}
             ${canManage ? `<div style="margin-top:12px">
               <button class="btn btn-primary" id="save-info-btn" style="width:100%">💾 บันทึกข้อมูลบริษัท</button>
             </div>` : ''}
