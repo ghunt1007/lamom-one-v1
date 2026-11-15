@@ -62,3 +62,11 @@ describe('utmKey / showroom (v1.0.1180)', async () => {
     expect(utmLeadCounts([{ utmSource: 'walk-in', utmCampaign: 'Deepal S07' }])[showroomKey('Deepal S07')]).toBe(1)
   })
 })
+
+describe('sellerCardUrl (v1.0.1188)', async () => {
+  const { sellerCardUrl } = await import('./publicLinks.js')
+  it('carries the user id and tags walk-in/namecard', () => {
+    const u = new URL(sellerCardUrl('abcUID1', 'นภา'))
+    expect(u.searchParams.get('s')).toBe('abcUID1'); expect(u.searchParams.get('utm_source')).toBe('walk-in'); expect(u.searchParams.get('utm_medium')).toBe('namecard')
+  })
+})

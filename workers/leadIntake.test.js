@@ -249,6 +249,21 @@ describe('v1.0.1140 public lead form', () => {
     const f = created(w.calls)
     expect(f.notes.stringValue).toContain('แนะนำโดย คุณเอ ลูกค้าเก่า (รหัส RAB12)'); expect(f.companyId.stringValue).toBe('co5')
   })
+  it('a salesperson name-card QR assigns the lead to that active user only (v1.0.1188)', async () => {
+    const run = async (userFields, uid = 'u1') => {
+      __resetFormHits()
+      const w = world(), base = w.f
+      w.f = async (url, init = {}) => url.includes('/users/') ? (userFields ? { ok: true, json: async () => ({ fields: userFields }) } : { ok: false, status: 404, json: async () => ({}) }) : base(url, init)
+      await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', s: uid, utm: { s: 'walk-in', m: 'namecard', c: 'นภา' } }), env, async () => 't', { fetch: w.f })
+      return created(w.calls)
+    }
+    const f = await run({ displayName: { stringValue: 'นภา' }, role: { stringValue: 'sales' }, companyId: { stringValue: 'co2' } })
+    expect(f.assignedTo.stringValue).toBe('นภา'); expect(f.companyId.stringValue).toBe('co2'); expect(f.source.stringValue).toBe('walk-in')
+    expect(f.notes.stringValue).toContain('📇 ฝากชื่อผ่าน QR นามบัตรของ นภา')
+    expect((await run({ displayName: { stringValue: 'นภา' }, role: { stringValue: 'sales' }, active: { booleanValue: false } })).assignedTo?.stringValue || '').toBe('')
+    expect((await run({ displayName: { stringValue: 'ใหม่' }, role: { stringValue: 'pending' } })).assignedTo?.stringValue || '').toBe('')
+    expect((await run(null)).assignedTo?.stringValue || '').toBe('')
+  })
   it('UTM from an ad link is stored and sets the source', async () => {
     const w = world()
     await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', utm: { s: 'Facebook', m: 'paid', c: 'nov_promo<b>' } }), env, async () => 't', { fetch: w.f })

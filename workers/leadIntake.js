@@ -431,6 +431,18 @@ export async function readReferrer(env, token, code, fetchImpl) {
   return { name: clip(String(f.name?.stringValue || '').replace(/[<>\u0000-\u001f]/g, ' ').trim(), 60), companyId: f.companyId?.stringValue || '' }
 }
 
+// (v1.0.1188) QR นามบัตรเซลส์ (?s=uid) — อ่าน users/{uid} ต้องเป็นผู้ใช้ที่ยังใช้งานอยู่ (ไม่ถูกระงับ/ไม่ใช่สมัครใหม่รออนุมัติ) ถึงจะมอบลีดให้
+export async function readSeller(env, token, uid, fetchImpl) {
+  const id = String(uid || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60)
+  if (!id) return null
+  const r = await call(fetchImpl, `${fsBase(env)}/users/${encodeURIComponent(id)}`, { headers: { Authorization: `Bearer ${token}` } })
+  if (!r?.ok) return null
+  const f = (await r.json().catch(() => null))?.fields
+  if (!f || f.active?.booleanValue === false || f.deleted?.booleanValue || f.role?.stringValue === 'pending') return null
+  const name = clip(String(f.displayName?.stringValue || '').replace(/[<>\u0000-\u001f]/g, ' ').trim(), 60)
+  return name ? { name, companyId: f.companyId?.stringValue || '' } : null
+}
+
 // (v1.0.1179) QR ฟอร์มประจำบูธ (?ev=รหัสงาน) — ลีดติดป้าย eventId ให้หน้าตารางออกบูธ/รายงาน 18:00 นับเป็นลีดของงานนั้น
 export function cleanEventId(v) {
   return String(v || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60)
@@ -488,6 +500,7 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   const utm = cleanUtm(b.utm)
   const ev = await readEventTag(env, token, cleanEventId(b.ev), fetchImpl).catch(() => null)
   const referrer = ref ? await readReferrer(env, token, ref, fetchImpl).catch(() => null) : null
+  const seller = b.s ? await readSeller(env, token, b.s, fetchImpl).catch(() => null) : null
   // ลิงก์ทั่วไป (โพสต์/ไบโอ/โฆษณา) ยังจำกัด 5 ครั้ง/10 นาที/IP เหมือนเดิม · QR หน้างาน (งานบูธที่มีอยู่จริง หรือ QR ติดรถ) ใช้เพดานหลวม
   const onsite = !!ev || (utm?.source === 'walk-in' && utm?.medium === 'qr')
   if (!onsite && !formRateOk('s:' + ip, nowMs)) return tooMany
@@ -499,11 +512,12 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   const parts = name.split(' ')
   const clean = (v, n) => clip(String(v || '').replace(/[<>\u0000-\u001f]/g, ' ').trim(), n)
   const lead = { first: parts[0], last: parts.slice(1).join(' '), phone, email: '', lineId: clean(b.line, 60), model: clean(b.model, 80), note: [td ? `ขอนัดทดลองขับ ${td.label}` : '', clean(b.note, 300)].filter(Boolean).join(' · '),
-    source: acc?.source || (ref ? 'referral' : ev ? 'event' : (utm?.source && normSource(utm.source) !== 'other' ? normSource(utm.source) : 'website')), account: acc?.id || '', assignedTo: acc?.assignedTo || '', companyId: acc?.companyId || ev?.companyId || referrer?.companyId || '' }
+    source: acc?.source || (ref ? 'referral' : ev ? 'event' : (utm?.source && normSource(utm.source) !== 'other' ? normSource(utm.source) : 'website')), account: acc?.id || '', assignedTo: acc?.assignedTo || seller?.name || '', companyId: acc?.companyId || seller?.companyId || ev?.companyId || referrer?.companyId || '' }
   if (ref) lead.note = [referrer?.name ? `แนะนำโดย ${referrer.name} (รหัส ${ref})` : `แนะนำโดยรหัส ${ref}`, lead.note].filter(Boolean).join(' · ')
   // (v1.0.1182) สแกน QR หน้างาน = ลูกค้าอาจยังยืนอยู่ตรงนั้น — บอกเซลส์ในแจ้งเตือนให้รีบเดินไปหา/โทรทันที
   const where = ev ? `📍 สแกน QR ที่บูธ ${ev.title || ''}`.trim() : (utm?.source === 'walk-in' && utm?.medium === 'qr' ? `📍 สแกน QR ที่รถโชว์${utm.campaign ? ' ' + utm.campaign : ''} — ลูกค้าอาจอยู่ในโชว์รูมตอนนี้` : '')
   if (where) lead.note = [where, lead.note].filter(Boolean).join(' · ')
+  if (seller) lead.note = [`📇 ฝากชื่อผ่าน QR นามบัตรของ ${seller.name}`, lead.note].filter(Boolean).join(' · ')
   const extra = { ...(acc ? { sourceAccountName: acc.name, sourceAccountLevel: acc.level } : {}), ...(ref ? { referralCode: ref } : {}), ...(utm ? { utmSource: utm.source, utmMedium: utm.medium, utmCampaign: utm.campaign } : {}), ...(ev ? { eventId: ev.id, eventName: ev.title } : {}) }
   const r = await createLead(env, token, lead, { tags: ['ฟอร์มรับลีด', ...(acc?.name ? [acc.name] : []), ...(ref ? [`แนะนำ ${ref}`] : []), ...(ev ? [`บูธ ${ev.title}`.trim()] : [])], extra, fetchImpl })
   if (r.error) return { status: 500, body: { ok: false, error: 'บันทึกไม่สำเร็จ กรุณาลองใหม่' } }
