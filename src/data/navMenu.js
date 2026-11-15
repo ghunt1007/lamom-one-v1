@@ -391,6 +391,7 @@ export const NAV = [
     group: 'ระบบ', groupEn: 'System', groupZh: '系统',
     items: [
       { icon: '⚙️', label: 'ตั้งค่า', labelEn: 'Settings', labelZh: '设置', path: '/settings' },
+      { icon: '🏢', label: 'ข้อมูลบริษัท (ชื่อ เบอร์ ที่อยู่)', labelEn: 'Company Profile', path: '/settings/company', programOwnerOnly: true },
       { icon: '🔔', label: 'ตั้งค่าการแจ้งเตือน', labelEn: 'Notification Settings', path: '/settings/notifications' },
       { icon: '📨', label: 'รายงานส่ง LINE', labelEn: 'Daily Report (Telegram/LINE)', labelZh: '每日报告 (Telegram/LINE)', path: '/settings/daily-report' },
       { icon: '🏢', label: 'หลายสาขา', labelEn: 'Multi-Branch', path: '/settings/branches' },
