@@ -18,6 +18,17 @@
 
 const MODEL = 'gemini-2.5-flash'
 const TTS_MODEL = 'gemini-2.5-flash-preview-tts'
+// (v1.0.1162) ถ้า Google ปลดรุ่นหลัก (ตอบ 404) ลองรุ่นสำรองที่ชี้รุ่นล่าสุดเสมอ — AI ในแอปจะไม่ใช้ไม่ได้ทั้งระบบ
+export const FALLBACK_MODEL = 'gemini-flash-latest'
+export async function geminiWithFallback(fetchImpl, env, action, body, extra = '') {
+  let res = null
+  for (const model of [MODEL, FALLBACK_MODEL]) {
+    res = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${model}:${action}?key=${env.GEMINI_API_KEY}${extra}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    if (res.status !== 404) return res
+  }
+  return res
+}
 // เดิมไม่มีการจำกัดขนาด request หรือความถี่การเรียกต่อบัญชีเลย — ต่อให้ตรวจ role พนักงานแล้ว (แก้ไปแล้วรอบก่อน)
 // บัญชีเดียวที่ถูกขโมย/ใช้สคริปต์เรียกซ้ำๆ ก็ยังส่ง prompt ขนาดใหญ่รัว ๆ ได้ไม่จำกัด ทำให้ค่าใช้จ่าย Gemini
 // (คิดตาม token) พุ่งจนควบคุมไม่ได้ แก้ให้จำกัดทั้งขนาด request และความถี่ต่อบัญชี
@@ -97,10 +108,7 @@ export default {
 
     try {
       if (url.pathname === '/generate') {
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
-          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-        )
+        const geminiRes = await geminiWithFallback(fetch, env, 'generateContent', body)
         const data = await geminiRes.text()
         return new Response(data, { status: geminiRes.status, headers: { 'Content-Type': 'application/json', ...cors } })
       }
@@ -150,10 +158,7 @@ export default {
       }
 
       if (url.pathname === '/generate-stream') {
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:streamGenerateContent?key=${env.GEMINI_API_KEY}&alt=sse`,
-          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-        )
+        const geminiRes = await geminiWithFallback(fetch, env, 'streamGenerateContent', body, '&alt=sse')
         // ส่งต่อ SSE stream ตรงๆ ไม่ต้อง buffer ทั้งหมด — ให้ client เห็น token แบบ real-time เหมือนเดิม
         return new Response(geminiRes.body, {
           status: geminiRes.status,

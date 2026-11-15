@@ -121,3 +121,19 @@ describe('v1.0.1135 aiReplyTest (preview, never sends)', () => {
     await expect(aiReplyTest(env, null, { text: '  ' })).rejects.toThrow('พิมพ์คำถาม')
   })
 })
+
+describe('geminiReply model fallback (v1.0.1162)', () => {
+  it('retries once with the -latest alias when the main model is gone (404)', async () => {
+    const { geminiReply, AI_MODEL, AI_FALLBACK_MODEL } = await import('./inboxAuto.js')
+    const urls = []
+    const f = async u => { urls.push(u); return u.includes(AI_MODEL + ':') ? { ok: false, status: 404, json: async () => ({}) } : { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'สวัสดีค่ะ' }] } }] }) } }
+    expect(await geminiReply({ GEMINI_API_KEY: 'k' }, { contents: [{ role: 'user', parts: [{ text: 'hi' }] }] }, f)).toBe('สวัสดีค่ะ')
+    expect(urls[1]).toContain(AI_FALLBACK_MODEL)
+  })
+  it('does not retry on other errors', async () => {
+    const { geminiReply } = await import('./inboxAuto.js')
+    let n = 0
+    expect(await geminiReply({ GEMINI_API_KEY: 'k' }, { contents: [{}] }, async () => { n++; return { ok: false, status: 429 } })).toBe('')
+    expect(n).toBe(1)
+  })
+})

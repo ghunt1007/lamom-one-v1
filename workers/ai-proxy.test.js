@@ -251,3 +251,15 @@ describe('ai-proxy worker — unknown routes', () => {
     expect(res.status).toBe(404)
   })
 })
+
+describe('geminiWithFallback (v1.0.1162)', () => {
+  it('uses the -latest alias only when the main model returns 404', async () => {
+    const { geminiWithFallback, FALLBACK_MODEL } = await import('./ai-proxy.js')
+    const urls = []
+    const r = await geminiWithFallback(async u => { urls.push(u); return { status: urls.length === 1 ? 404 : 200 } }, { GEMINI_API_KEY: 'k' }, 'streamGenerateContent', {}, '&alt=sse')
+    expect(r.status).toBe(200); expect(urls[1]).toContain(FALLBACK_MODEL + ':streamGenerateContent'); expect(urls[1]).toContain('&alt=sse')
+    const one = []
+    await geminiWithFallback(async u => { one.push(u); return { status: 429 } }, { GEMINI_API_KEY: 'k' }, 'generateContent', {})
+    expect(one).toHaveLength(1)
+  })
+})
