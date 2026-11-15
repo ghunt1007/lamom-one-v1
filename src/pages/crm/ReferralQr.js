@@ -10,6 +10,7 @@ import { sendSms } from '../../utils/comms.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
 import { referralUrl, newReferralCode, referralStats } from '../../utils/publicLinks.js'
+import { qrSvg, qrDownloadLink } from '../../utils/qr.js'
 
 const COMMISSION_RATE = 5000 // บาทต่อคันที่ขายได้
 const PAY_ROLES = ['finance', 'manager', 'owner', 'admin']
@@ -89,7 +90,9 @@ export default async function ReferralQrPage(container) {
                 <div style="font-size:1.6rem;font-weight:900;letter-spacing:0.08em;color:var(--primary)">${escHtml(sel.code)}</div>
               </div>
               <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:6px;line-height:1.5">เพื่อนที่เปิดลิงก์นี้จะเจอฟอร์มฝากชื่อ-เบอร์ ลีดเข้าระบบพร้อมรหัสนี้ทันที (ฟอร์มต้องเปิดรับอยู่)</div>
+              <div style="display:flex;justify-content:center;margin-bottom:6px"><div style="width:min(180px,100%);background:#fff;border-radius:8px;line-height:0">${qrSvg(sel.qrUrl, { size: '100%' })}</div></div>
               <div style="font-size:0.7rem;text-align:center;color:var(--primary);margin-bottom:10px;overflow-wrap:anywhere">${escHtml(sel.qrUrl)}</div>
+              <div style="text-align:center;margin-bottom:8px">${qrDownloadLink(sel.qrUrl, 'QR-แนะนำเพื่อน-' + sel.code)}</div>
               <div style="display:flex;gap:6px">
                 <button class="btn btn-secondary" id="copy-link" style="flex:1;font-size:0.74rem">📋 คัดลอกลิงก์</button>
                 <button class="btn btn-primary" id="print-qr" style="flex:1;font-size:0.74rem">🖨 พิมพ์การ์ด</button>
@@ -139,8 +142,8 @@ export default async function ReferralQrPage(container) {
     })
     document.getElementById('print-qr')?.addEventListener('click', () => {
       if (!sel) { showToast('เลือก Referrer ก่อน', 'warning'); return }
-      const win = window.open('', '_blank', 'width=400,height=500')
-      win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>แนะนำเพื่อน ${escHtml(sel.name)}</title><style>body{font-family:sans-serif;text-align:center;padding:30px}h2{margin:0 0 8px}p{color:#444;font-size:15px}.code{font-size:40px;font-weight:900;letter-spacing:4px;margin:18px 0}.url{font-size:13px;word-break:break-all;color:#1d4ed8}</style></head><body><h2>แนะนำเพื่อนซื้อรถ</h2><p>โดยคุณ ${escHtml(sel.name)}</p><div class="code">${escHtml(sel.code)}</div><p>ให้เพื่อนเปิดลิงก์นี้ ฝากชื่อและเบอร์ไว้</p><p class="url">${escHtml(sel.qrUrl)}</p><script>window.print()<\/script></body></html>`)
+      const win = window.open('', '_blank', 'width=420,height=680')
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>แนะนำเพื่อน ${escHtml(sel.name)}</title><style>body{font-family:sans-serif;text-align:center;padding:30px}h2{margin:0 0 8px}p{color:#444;font-size:15px}.code{font-size:40px;font-weight:900;letter-spacing:4px;margin:18px 0}.url{font-size:13px;word-break:break-all;color:#1d4ed8}.qr{margin:8px auto}</style></head><body><h2>แนะนำเพื่อนซื้อรถ</h2><p>โดยคุณ ${escHtml(sel.name)}</p><div class="code">${escHtml(sel.code)}</div><div class="qr">${qrSvg(sel.qrUrl, { size: 260 })}</div><p>สแกน QR หรือเปิดลิงก์นี้ ฝากชื่อและเบอร์ไว้</p><p class="url">${escHtml(sel.qrUrl)}</p><script>window.print()<\/script></body></html>`)
       win.document.close()
       showToast(`🖨 เปิดหน้าพิมพ์ของ ${sel.name} แล้ว`, 'success')
     })
