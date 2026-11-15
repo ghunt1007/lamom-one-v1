@@ -150,7 +150,7 @@ describe('v1.0.1139 phone from chat', () => {
   })
 })
 
-import { handleLeadForm, formRateOk, accountLeadInfo, __resetFormHits, cleanTestDrive, cleanRefCode, cleanUtm, ON_SITE_MAX } from './leadIntake.js'
+import { lineBasicId, __resetLineIdCache, handleLeadForm, formRateOk, accountLeadInfo, __resetFormHits, cleanTestDrive, cleanRefCode, cleanUtm, ON_SITE_MAX } from './leadIntake.js'
 import { beforeEach } from 'vitest'
 describe('v1.0.1140 public lead form', () => {
   beforeEach(() => { __resetInboxCache(); __resetFormHits() })
@@ -229,6 +229,18 @@ describe('v1.0.1140 public lead form', () => {
     __resetFormHits()
     for (let i = 0; i < ON_SITE_MAX; i++) await send({ utm: { s: 'walk-in', m: 'qr', c: 'S07' } }, '7.7.7.7')
     expect((await send({ utm: { s: 'walk-in', m: 'qr', c: 'S07' } }, '7.7.7.7')).status).toBe(429)
+  })
+  it('after sending, offers the shop LINE OA (basicId from LINE, cached; nothing without a token)', async () => {
+    __resetLineIdCache()
+    const w = world(), base = w.f
+    let infoCalls = 0
+    w.f = async (url, init = {}) => url === 'https://api.line.me/v2/bot/info' ? (infoCalls++, { ok: true, json: async () => ({ basicId: '@lamom' }) }) : base(url, init)
+    const r = await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678' }), { ...env, LINE_CHANNEL_ACCESS_TOKEN: 'x' }, async () => 't', { fetch: w.f })
+    expect(r.body).toEqual({ ok: true, line: '@lamom' })
+    expect(await lineBasicId({ LINE_CHANNEL_ACCESS_TOKEN: 'x' }, w.f)).toBe('@lamom'); expect(infoCalls).toBe(1)
+    expect(await lineBasicId({}, w.f)).toBe('')
+    __resetLineIdCache()
+    expect(await lineBasicId({ LINE_CHANNEL_ACCESS_TOKEN: 'x' }, async () => ({ ok: true, json: async () => ({ basicId: '<script>' }) }))).toBe('')
   })
   it('UTM from an ad link is stored and sets the source', async () => {
     const w = world()
