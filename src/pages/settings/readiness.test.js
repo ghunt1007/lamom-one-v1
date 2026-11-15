@@ -7,7 +7,7 @@ const by = (items, id) => items.find(i => i.id === id)
 
 describe('readinessItems', () => {
   it('ทุกอย่างพร้อม → ok ทั้งหมด', () => {
-    const it2 = readinessItems({ status: full, auto: { publicForm: true, aiReply: true, leadAlert: true }, lastBackupMs: NOW - 3600e3, sheet: { ok: true }, now: NOW })
+    const it2 = readinessItems({ status: full, auto: { publicForm: true, aiReply: true, leadAlert: true }, lastBackupMs: NOW - 3600e3, sheet: { ok: true }, reports: { morningAt: new Date(NOW - 3600e3).toISOString(), morningOk: true, eveningAt: new Date(NOW - 7200e3).toISOString(), eveningOk: true }, now: NOW })
     expect(readinessSummary(it2)).toEqual({ ok: it2.length, todo: 0, unknown: 0, total: it2.length })
   })
   it('ไม่มีสถานะจาก worker → unknown ไม่เดาว่าผ่าน', () => {
@@ -47,5 +47,20 @@ describe('LINE quota readiness (v1.0.1160)', () => {
     expect(t.state).toBe('todo'); expect(t.hint).toContain('เหลือ 10')
     expect(by(readinessItems({ status: st(null), auto: {}, now: NOW }), 'linequota').state).toBe('unknown')
     expect(by(readinessItems({ status: { line: { configured: false } }, auto: {}, now: NOW }), 'linequota')).toBeUndefined()
+  })
+})
+
+describe('report readiness (v1.0.1161)', () => {
+  const by = (items, id) => items.find(i => i.id === id)
+  const NOW = Date.UTC(2026, 10, 16, 12, 0, 0)
+  const st = { line: { configured: false }, meta: { configured: false } }
+  it('ok / failed with reason / stale / unknown', () => {
+    const fresh = new Date(NOW - 3600e3).toISOString()
+    expect(by(readinessItems({ status: st, auto: {}, reports: { eveningAt: fresh, eveningOk: true, eveningError: '' }, now: NOW }), 'report_evening').state).toBe('ok')
+    const bad = by(readinessItems({ status: st, auto: {}, reports: { eveningAt: fresh, eveningOk: false, eveningError: 'LINE: monthly limit' }, now: NOW }), 'report_evening')
+    expect(bad.state).toBe('todo'); expect(bad.hint).toContain('monthly limit')
+    const old = by(readinessItems({ status: st, auto: {}, reports: { morningAt: '2026-11-14T02:00:05.000Z', morningOk: true }, now: NOW }), 'report_morning')
+    expect(old.state).toBe('todo'); expect(old.hint).toContain('14/11/2026 09:00')
+    expect(by(readinessItems({ status: st, auto: {}, now: NOW }), 'report_morning').state).toBe('unknown')
   })
 })

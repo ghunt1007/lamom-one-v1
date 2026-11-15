@@ -35,6 +35,7 @@ import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser, 
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
 import { metaAds, handleSocial, recordLineInbound, handleExtraLineWebhook, lineThreadId } from './social.js'
 import { fetchLineQuota, lineQuotaLine } from './lineQuota.js'
+import { saveReportStatus } from './reportStatus.js'
 import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
 import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFromChat, handleLeadForm } from './leadIntake.js'
 import { handleNotify } from './notify.js'
@@ -186,16 +187,16 @@ export default {
       ctx.waitUntil((async () => {
         const e2 = await withStoredSecrets(env, () => getFirestoreAccessToken(env))
         const tok = await getFirestoreAccessToken(env)
-        await runScheduledSends(e2, tok)
+        await runScheduledSends(e2, tok).catch(() => null)
         await runScheduledPosts(e2, tok).catch(() => null)
         await runLeadNudgeJob(e2, tok).catch(() => null)
         await runChatNudgeJob(e2, tok).catch(() => null)
       })())
       return
     }
-    if (event.cron === MORNING_CRON) { ctx.waitUntil(runDailyReport(env, true)); return }
+    if (event.cron === MORNING_CRON) { ctx.waitUntil(runReportAndRecord(env, 'morning')); return }
     // รายงานเย็นส่งเฉพาะ cron 18:00 เท่านั้น — cron ที่ไม่รู้จักจะไม่ทำอะไร (กันส่งรายงานซ้ำถ้ามีการเพิ่ม cron ใหม่ในอนาคต)
-    if (event.cron === EVENING_CRON) ctx.waitUntil(runDailyReport(env))
+    if (event.cron === EVENING_CRON) ctx.waitUntil(runReportAndRecord(env, 'evening'))
   },
 }
 
@@ -264,6 +265,14 @@ function backupDeps(env) {
 }
 
 // ── รายงานหลัก — ใช้ร่วมกันทั้ง scheduled() และ /test-send ─────────────────────
+// (v1.0.1161) ส่งรายงานตาม cron แล้วบันทึกผลล่าสุดไว้ให้การ์ดความพร้อมใช้งาน — บันทึกพลาดต้องไม่กระทบการส่ง
+export async function runReportAndRecord(env, kind, { run = runDailyReport, getToken = getFirestoreAccessToken, save = saveReportStatus } = {}) {
+  let res
+  try { res = await run(env, kind === 'morning') } catch (e) { res = { error: e?.message || String(e) } }
+  try { await save(env, await getToken(env), kind, res) } catch { /* ไม่ให้ cron ล้ม */ }
+  return res
+}
+
 async function runDailyReport(env, morning = false) {
   const accessToken = await getFirestoreAccessToken(env)
   if (!accessToken) return { error: 'อ่าน Firestore ไม่ได้ — ตรวจสอบ secret FIRESTORE_SERVICE_ACCOUNT_JSON' }
