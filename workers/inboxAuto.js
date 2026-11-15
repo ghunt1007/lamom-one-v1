@@ -11,6 +11,7 @@
 // - ลูกค้าขอคุยกับคน / เรื่องที่ AI ไม่รู้ → AI บอกว่าจะให้พนักงานติดต่อกลับ และติดธง needsHuman ให้ทีมเห็น
 // - ห้าม AI แต่งราคา/โปรที่ไม่มีในข้อมูล (บอกในคำสั่ง) และไม่ใส่ข้อมูลภายใน (มาร์จิ้น ค่าคอม)
 
+import { shopInfo } from './leadIntake.js'
 import { normalizeProgram, isActiveOn, CUSTOMER_TYPES } from '../src/utils/salesPrograms.js'
 
 export const INBOX_AUTO_DOC = 'system_integrations/inbox_auto'
@@ -108,7 +109,13 @@ export function promoLines(programs = [], today = '') {
     })
 }
 
-export function buildAiReplyPrompt({ settings, history = [], promos = [], customerName = '', platform = 'LINE' }) {
+export function shopFacts(shop) {
+  if (!shop) return ''
+  const bits = [shop.name && `ชื่อ: ${shop.name}`, shop.phone && `โทร: ${shop.phone.length === 10 ? shop.phone.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3') : shop.phone.replace(/(\d{2})(\d{3})(\d{4})/, '$1-$2-$3')}`, shop.address && `ที่อยู่: ${shop.address}`].filter(Boolean)
+  return bits.length ? `ข้อมูลบริษัท (ใช้ตามนี้เท่านั้น ห้ามแต่งเบอร์/ที่อยู่อื่น):\n${bits.join('\n')}` : ''
+}
+
+export function buildAiReplyPrompt({ settings, history = [], promos = [], customerName = '', platform = 'LINE', shop = null }) {
   const sys = [
     `คุณคือ "${settings.aiName}" ผู้ช่วยตอบแชตลูกค้าของโชว์รูมรถยนต์ ตอบภาษาไทย สุภาพ เป็นกันเอง สั้น 1–4 บรรทัด ใช้ "ค่ะ"`,
     'เป้าหมาย: ตอบคำถามเบื้องต้น แล้วชวนลูกค้าให้ชื่อและเบอร์โทร หรือนัดเข้าโชว์รูม/ทดลองขับ ให้เซลส์ติดต่อกลับ',
@@ -116,6 +123,8 @@ export function buildAiReplyPrompt({ settings, history = [], promos = [], custom
     'ห้ามบอกข้อมูลภายใน (ต้นทุน มาร์จิ้น ค่าคอม) ห้ามขอเลขบัตรประชาชนหรือข้อมูลการเงิน',
     `ถ้าลูกค้าขอคุยกับพนักงาน ไม่พอใจ ร้องเรียน หรือถามเรื่องที่ต้องให้คนตัดสินใจ ให้ตอบว่าจะให้พนักงานติดต่อกลับโดยเร็ว แล้วพิมพ์ ${HANDOFF_TAG} ไว้ท้ายข้อความ`,
     'เวลาให้ใช้รูปแบบ 24 ชั่วโมง (เช่น 09:00, 18:30) และวันที่แบบ วว/ดด/ปปปป',
+    // (v1.0.1194) ชื่อ/เบอร์/ที่อยู่จริงจากหน้า "ข้อมูลบริษัท" — AI จะได้ไม่แต่งเบอร์หรือที่อยู่เอง
+    shopFacts(shop),
     settings.aiInfo ? `ข้อมูลโชว์รูม:\n${settings.aiInfo}` : '',
     promos.length ? `โปรโมชันที่ใช้ได้ตอนนี้:\n${promos.join('\n')}` : 'ตอนนี้ไม่มีข้อมูลโปรโมชันในระบบ — ถ้าลูกค้าถามโปร ให้บอกว่าเซลส์จะแจ้งโปรล่าสุดให้',
     customerName ? `ชื่อลูกค้าในแชต: ${customerName} (ช่องทาง ${platform})` : `ช่องทาง ${platform}`,
@@ -242,8 +251,8 @@ export async function aiAutoReply(env, token, { threadId, channel = 'main', plat
     const thread = await getThread(env, token, threadId, fetchImpl)
     const gate = shouldAiReply(s, { channel, now, hasKey: true, isText, thread })
     if (!gate.ok) return { replied: false, why: gate.why }
-    const [history, programs] = await Promise.all([threadHistory(env, token, threadId, fetchImpl), activePrograms(env, token, fetchImpl)])
-    const prompt = buildAiReplyPrompt({ settings: s, history, promos: promoLines(programs, todayBkk(now)), customerName: customerName || thread.name || '', platform: platform === 'line' ? 'LINE' : platform === 'instagram' ? 'Instagram' : 'Facebook Messenger' })
+    const [history, programs, shop] = await Promise.all([threadHistory(env, token, threadId, fetchImpl), activePrograms(env, token, fetchImpl), shopInfo(env, token, fetchImpl).catch(() => null)])
+    const prompt = buildAiReplyPrompt({ settings: s, history, shop, promos: promoLines(programs, todayBkk(now)), customerName: customerName || thread.name || '', platform: platform === 'line' ? 'LINE' : platform === 'instagram' ? 'Instagram' : 'Facebook Messenger' })
     const raw = await geminiReply(env, prompt, fetchImpl)
     const { text, handoff } = cleanAiReply(raw)
     if (!text) return { replied: false, why: 'empty' }
@@ -278,7 +287,8 @@ export async function aiReplyTest(env, token, body = {}, deps = {}) {
   // ใช้ค่าที่ยังไม่ได้กดบันทึกจากหน้าจอ (ถ้าส่งมา) ทับค่าที่บันทึกไว้
   const settings = normalizeInboxAuto({ ...(raw || {}), ...(body.draft && typeof body.draft === 'object' ? body.draft : {}) }, env)
   const programs = token ? await activePrograms(env, token, fetchImpl).catch(() => []) : []
-  const prompt = buildAiReplyPrompt({ settings, history: [{ direction: 'in', text: question }], promos: promoLines(programs, todayBkk()), customerName: 'ลูกค้าทดสอบ', platform: 'LINE' })
+  const shop = token ? await shopInfo(env, token, fetchImpl).catch(() => null) : null
+  const prompt = buildAiReplyPrompt({ settings, shop, history: [{ direction: 'in', text: question }], promos: promoLines(programs, todayBkk()), customerName: 'ลูกค้าทดสอบ', platform: 'LINE' })
   const out = cleanAiReply(await geminiReply(env, prompt, fetchImpl))
   if (!out.text) return { ok: false, reason: 'empty' }
   return { ok: true, text: out.text, handoff: out.handoff }

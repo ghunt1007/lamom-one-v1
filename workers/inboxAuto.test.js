@@ -137,3 +137,17 @@ describe('geminiReply model fallback (v1.0.1162)', () => {
     expect(n).toBe(1)
   })
 })
+
+import { shopFacts as _shopFacts, buildAiReplyPrompt as _bp } from './inboxAuto.js'
+describe('v1.0.1194 AI reply knows the real company name/phone/address', () => {
+  it('formats only what is filled in; nothing when empty', () => {
+    expect(_shopFacts(null)).toBe(''); expect(_shopFacts({ name: '', phone: '', address: '' })).toBe('')
+    const t = _shopFacts({ name: 'บริษัท ทดสอบ', phone: '0812345678', address: '' })
+    expect(t).toContain('ชื่อ: บริษัท ทดสอบ'); expect(t).toContain('โทร: 081-234-5678'); expect(t).not.toContain('ที่อยู่:')
+  })
+  it('goes into the system prompt', () => {
+    const p = _bp({ settings: { aiName: 'น้องลามอม', aiInfo: '' }, history: [{ direction: 'in', text: 'เบอร์โชว์รูม?' }], shop: { name: 'บ.ทดสอบ', phone: '021234567', address: 'ถนนหนึ่ง' } })
+    const sys = JSON.stringify(p)
+    expect(sys).toContain('โทร: 02-123-4567'); expect(sys).toContain('ที่อยู่: ถนนหนึ่ง')
+  })
+})
