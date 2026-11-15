@@ -16,13 +16,13 @@ const PROVIDERS = [
 ]
 
 const OTP_DEFAULTS = {
-  enabled2fa:   true,
+  enabled2fa:   false,
   otpLength:    6,
   expireMin:    5,
   maxAttempts:  3,
   cooldownMin:  1,
-  requireOnLogin: true,
-  requireOnPayment: true,
+  requireOnLogin: false,
+  requireOnPayment: false,
   requireOnExport: false,
   senderName:   'LAMOM',
   template:     'รหัส OTP LAMOM ของคุณคือ {otp} หมดอายุใน {exp} นาที ห้ามบอกผู้อื่น',
@@ -43,7 +43,7 @@ async function loadSettings() {
       _docId = docs[0].id
       return { ...OTP_DEFAULTS, ...docs[0] }
     }
-    _docId = await createDoc('sms_otp_settings', OTP_DEFAULTS)
+    // (v1.0.1169) ไม่สร้างเอกสารตอนเปิดหน้า — บันทึกเมื่อกด 💾 เท่านั้น
     return { ...OTP_DEFAULTS }
   } catch (e) {
     return { ...OTP_DEFAULTS }
@@ -80,6 +80,11 @@ export default async function SmsOtpPage(container) {
         </div>
 
         ${!canManage ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">🔒 บันทึกการตั้งค่า/เปลี่ยน Provider ได้เฉพาะเจ้าของโปรแกรมเท่านั้น — ดูค่าปัจจุบันได้ตามปกติ</div>` : ''}
+
+        <div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--danger);font-size:0.8rem;line-height:1.6">
+          ⚠️ <strong>ยังไม่มีผลจริง</strong> — ยังไม่ได้เชื่อมผู้ให้บริการ SMS ระบบล็อกอินจึงยังไม่ถาม OTP ใคร
+          สวิตช์ในหน้านี้เป็นการตั้งค่าล่วงหน้าเท่านั้น ความปลอดภัยตอนนี้มาจากรหัสผ่าน + ออกจากระบบเองเมื่อไม่ใช้งาน
+        </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
           <!-- Left col -->
