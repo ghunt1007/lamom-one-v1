@@ -1376,3 +1376,14 @@ describe('metaAdsLine (v1.0.1154)', () => {
     expect(metaAdsLine(null)).toBe(''); expect(metaAdsLine({ accounts: [] })).toBe(''); expect(metaAdsLine({ accounts: [{ campaigns: [{ spend: 0, leads: 0 }] }] })).toBe('')
   })
 })
+
+describe('LINE quota line in evening report (v1.0.1160)', () => {
+  const base = { bookings: [], customers: [], followups: [], testDrives: [] }
+  it('shows a warning near the end only from 80%', () => {
+    const t = buildReport({ ...base, lineQuota: { limited: true, limit: 300, used: 270, left: 30, pct: 90 } }, { today: '2026-11-16' })
+    expect(t).toContain('เหลือ 30 ข้อความ')
+    expect(t.indexOf('โควตาข้อความ')).toBeLessThan(t.indexOf('LAMOM ONE Auto Report'))
+    expect(buildReport({ ...base, lineQuota: { limited: true, limit: 300, used: 30, left: 270, pct: 10 } }, { today: '2026-11-16' })).not.toContain('โควตา')
+    expect(buildReport(base, { today: '2026-11-16' })).not.toContain('โควตา')
+  })
+})

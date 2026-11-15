@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readinessItems, readinessSummary } from './readiness.js'
 
 const NOW = Date.UTC(2026, 10, 15, 6, 0, 0)
-const full = { line: { configured: true }, meta: { configured: true, pages: [{ id: '1' }] }, ai: { configured: true }, leadHook: { configured: true } }
+const full = { line: { configured: true, quota: { limited: true, limit: 300, used: 10, left: 290, pct: 3 } }, meta: { configured: true, pages: [{ id: '1' }] }, ai: { configured: true }, leadHook: { configured: true } }
 const by = (items, id) => items.find(i => i.id === id)
 
 describe('readinessItems', () => {
@@ -33,5 +33,19 @@ describe('readinessItems', () => {
     const t = by(readinessItems({ status: full, auto: {}, sheet: { code: 'not_shared', shareWith: 'bot@demo.iam.gserviceaccount.com' }, now: NOW }), 'sheet')
     expect(t.state).toBe('todo'); expect(t.hint).toContain('bot@demo.iam.gserviceaccount.com')
     expect(by(readinessItems({ status: full, auto: {}, now: NOW }), 'sheet').state).toBe('unknown')
+  })
+})
+
+describe('LINE quota readiness (v1.0.1160)', () => {
+  const by = (items, id) => items.find(i => i.id === id)
+  const NOW = Date.UTC(2026, 10, 16, 6, 0, 0)
+  const st = quota => ({ line: { configured: true, quota }, meta: { configured: true, pages: [{ id: '1' }] }, ai: { configured: true }, leadHook: { configured: true } })
+  it('ok under 80%, todo from 80%, unknown when unreadable, absent without LINE', () => {
+    expect(by(readinessItems({ status: st({ limited: true, limit: 300, used: 30, left: 270, pct: 10 }), auto: {}, now: NOW }), 'linequota').state).toBe('ok')
+    expect(by(readinessItems({ status: st({ limited: false, used: 5000 }), auto: {}, now: NOW }), 'linequota').state).toBe('ok')
+    const t = by(readinessItems({ status: st({ limited: true, limit: 300, used: 290, left: 10, pct: 97 }), auto: {}, now: NOW }), 'linequota')
+    expect(t.state).toBe('todo'); expect(t.hint).toContain('เหลือ 10')
+    expect(by(readinessItems({ status: st(null), auto: {}, now: NOW }), 'linequota').state).toBe('unknown')
+    expect(by(readinessItems({ status: { line: { configured: false } }, auto: {}, now: NOW }), 'linequota')).toBeUndefined()
   })
 })

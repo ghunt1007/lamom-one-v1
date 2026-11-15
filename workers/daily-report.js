@@ -34,6 +34,7 @@
 import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser, backupDecodeValue } from './nightly-backup.js'
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
 import { metaAds, handleSocial, recordLineInbound, handleExtraLineWebhook, lineThreadId } from './social.js'
+import { fetchLineQuota, lineQuotaLine } from './lineQuota.js'
 import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
 import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFromChat, handleLeadForm } from './leadIntake.js'
 import { handleNotify } from './notify.js'
@@ -600,8 +601,11 @@ async function buildReportText(env, accessToken) {
     runQuery(env, accessToken, 'appointments', 'date', 'DESCENDING', 500, ['date', 'status', 'deleted']).catch(() => []),
   ])
   const followups = [...fuPending, ...fuDone]
-  const metaAdsData = await fetchMetaAdsForReport(env)
-  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts, appointments, metaAds: metaAdsData }, {
+  const [metaAdsData, lineQuota] = await Promise.all([
+    fetchMetaAdsForReport(env),
+    Promise.race([fetchLineQuota(env.LINE_CHANNEL_ACCESS_TOKEN), new Promise(r => setTimeout(() => r(null), 5000))]).catch(() => null),
+  ])
+  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts, appointments, metaAds: metaAdsData, lineQuota }, {
     today: todayBangkok(),
     time: new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()),
     defaultTarget: parseInt(env.MONTHLY_DELIVERY_TARGET) || 0,
@@ -833,6 +837,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   if (sellerLines.length) lines.push('', '👤 ทีมขาย (เดือนนี้)', ...sellerLines)
   lines.push('', `❌ ถอนจองเดือนนี้: ${cancelMonth} คัน | ปีนี้: ${cancelYear} คัน`,
     ...(cancelTodayList.length ? [`  วันนี้ ${cancelTodayList.length} คัน:`, ...cancelTodayList.slice(0, 5).map(b => `  • ${b.custName || 'ลูกค้า'}${b.model ? ` (${b.model})` : ''} · ${(b.salesName || '').trim() || '(ไม่ระบุ)'}${b.cancelReason ? ` — ${String(b.cancelReason).trim().slice(0, 60)}` : ''}`)] : []),
+    ...(lineQuotaLine(data.lineQuota) ? ['', lineQuotaLine(data.lineQuota)] : []),
     '', '─────────────────────', '🤖 LAMOM ONE Auto Report')
   return lines.filter(l => l !== null).join('\n')
 }

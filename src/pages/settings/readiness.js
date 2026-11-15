@@ -15,6 +15,13 @@ export function readinessItems({ status, auto, lastBackupMs, sheet, now = Date.n
   const st = (ok, hint) => noStatus ? 'unknown' : (ok ? 'ok' : 'todo')
 
   add('line', 'LINE เชื่อมต่อแล้ว', st(status?.line?.configured, 'ใส่ LINE token ในหน้าช่องทางโซเชียล → 🔑'), 'ใส่คีย์ LINE ในหน้า 🔑 คีย์เชื่อมต่อ', '/marketing/channels')
+  // (v1.0.1160) โควตาข้อความ LINE OA — ถ้าหมด รายงาน/แจ้งเตือนทาง LINE หยุดเงียบ
+  if (status?.line?.configured) {
+    const q = status.line.quota
+    if (!q) add('linequota', 'โควตาข้อความ LINE เดือนนี้ยังพอ', 'unknown', 'อ่านโควตาจาก LINE ไม่ได้ตอนนี้ ลองใหม่ภายหลัง')
+    else if (!q.limited || q.pct < 80) add('linequota', `โควตาข้อความ LINE เดือนนี้ยังพอ${q.limited ? ` (ใช้ ${q.used}/${q.limit})` : ' (ไม่จำกัด)'}`, 'ok', '')
+    else add('linequota', `โควตาข้อความ LINE เดือนนี้ใช้ไป ${q.pct}%`, 'todo', q.left > 0 ? `เหลือ ${q.left} ข้อความ ถ้าหมด รายงานและแจ้งเตือนทาง LINE จะหยุดจนถึงต้นเดือนหน้า — อัปแพ็กเกจได้ใน LINE OA Manager` : 'หมดแล้ว รายงานและแจ้งเตือนทาง LINE หยุดส่งจนถึงต้นเดือนหน้า — อัปแพ็กเกจได้ใน LINE OA Manager')
+  }
   const pages = (status?.meta?.pages || []).length
   add('meta', 'Facebook / Instagram เชื่อมต่อแล้ว', st(status?.meta?.configured && pages > 0), 'ใส่โทเคนผู้ใช้ระบบ Meta ในหน้า 🔑 คีย์เชื่อมต่อ', '/marketing/channels')
   add('ai', 'คีย์ AI (Gemini) พร้อม', st(status?.ai?.configured), 'ใส่ GEMINI_API_KEY ในหน้า 🔑 คีย์เชื่อมต่อ', '/marketing/channels')
