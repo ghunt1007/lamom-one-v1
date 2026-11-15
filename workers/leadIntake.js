@@ -505,6 +505,26 @@ export async function shopPhone(env, token, fetchImpl, now = Date.now()) {
   return (await shopInfo(env, token, fetchImpl, now)).phone
 }
 
+// (v1.0.1202) รุ่นรถจากหน้า "QR ประจำรุ่นรถ" (digital_showroom) ให้ลูกค้าเลือกในช่อง "รุ่นที่สนใจ" (พิมพ์เองก็ได้) · จำไว้ 6 ชม.
+let modelsCache = { at: 0, list: [] }
+export function __resetModelsCache() { modelsCache = { at: 0, list: [] } }
+export async function showroomModels(env, token, fetchImpl, now = Date.now()) {
+  if (modelsCache.at && now - modelsCache.at < 6 * 3600e3) return modelsCache.list
+  if (!token) return []
+  const r = await call(fetchImpl, `${fsBase(env)}/digital_showroom?pageSize=100`, { headers: { Authorization: `Bearer ${token}` } })
+  if (!r?.ok) return []
+  const docs = (await r.json().catch(() => null))?.documents || []
+  const seen = new Set(), list = []
+  docs.map(d => d.fields || {}).filter(f => !f.deleted?.booleanValue)
+    .sort((a, b) => Number(!!b.featured?.booleanValue) - Number(!!a.featured?.booleanValue))
+    .forEach(f => {
+      const m = clip(String(f.model?.stringValue || '').replace(/[<>\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim(), 80)
+      if (m && !seen.has(m.toLowerCase()) && list.length < 30) { seen.add(m.toLowerCase()); list.push(m) }
+    })
+  modelsCache = { at: now, list }
+  return list
+}
+
 // (v1.0.1193) GET /lead/info — หน้าฟอร์มถามก่อนว่าเปิดรับอยู่ไหม + ชื่อโชว์รูม/เบอร์โทร
 // ฟอร์มปิด → ลูกค้าเห็นทันทีพร้อมปุ่มโทร ไม่ต้องกรอกจนจบแล้วค่อยรู้ · ไม่มีข้อมูลลูกค้าใดๆ ในคำตอบ
 export async function handleLeadInfo(env, getToken, deps = {}) {
@@ -512,8 +532,8 @@ export async function handleLeadInfo(env, getToken, deps = {}) {
   const nowMs = deps.now || Date.now()
   const token = await getToken()
   if (!token) return { status: 503, body: { ok: false } }
-  const [inbox, info] = await Promise.all([readInboxAuto(env, token, fetchImpl), shopInfo(env, token, fetchImpl, nowMs).catch(() => ({}))])
-  return { status: 200, body: { ok: true, open: !!inbox.publicForm, ...(info.name ? { shop: info.name } : {}), ...(info.phone ? { tel: info.phone } : {}) } }
+  const [inbox, info, models] = await Promise.all([readInboxAuto(env, token, fetchImpl), shopInfo(env, token, fetchImpl, nowMs).catch(() => ({})), showroomModels(env, token, fetchImpl, nowMs).catch(() => [])])
+  return { status: 200, body: { ok: true, open: !!inbox.publicForm, ...(info.name ? { shop: info.name } : {}), ...(info.phone ? { tel: info.phone } : {}), ...(models.length ? { models } : {}) } }
 }
 
 export async function handleLeadForm(request, env, getToken, deps = {}) {

@@ -393,7 +393,7 @@ describe('v1.0.1191 showroom phone on the lead form', () => {
   })
 })
 
-import { handleLeadInfo } from './leadIntake.js'
+import { handleLeadInfo, showroomModels, __resetModelsCache } from './leadIntake.js'
 describe('v1.0.1193 GET /lead/info', () => {
   const env = { FIREBASE_PROJECT_ID: 'p' }
   const fx = ({ on = true, fields = { nameTh: { stringValue: 'บริษัท <b>ทดสอบ</b> จำกัด' }, phone: { stringValue: '02-123-4567' } } } = {}) => async url => {
@@ -401,7 +401,7 @@ describe('v1.0.1193 GET /lead/info', () => {
     if (url.includes('/company_profile')) return { ok: true, json: async () => ({ documents: [{ fields }] }) }
     return { ok: true, json: async () => ({}) }
   }
-  beforeEach(() => { __resetInboxCache(); __resetShopPhoneCache() })
+  beforeEach(() => { __resetInboxCache(); __resetShopPhoneCache(); __resetModelsCache() })
   it('tells the page whether the form is open, with the shop name (cleaned) and phone', async () => {
     expect(await handleLeadInfo(env, async () => 't', { fetch: fx() })).toEqual({ status: 200, body: { ok: true, open: true, shop: 'บริษัท b ทดสอบ /b จำกัด', tel: '021234567' } })
     __resetInboxCache(); __resetShopPhoneCache()
@@ -409,5 +409,18 @@ describe('v1.0.1193 GET /lead/info', () => {
   })
   it('no token → 503 without details', async () => {
     expect(await handleLeadInfo(env, async () => null, { fetch: fx() })).toEqual({ status: 503, body: { ok: false } })
+  })
+})
+
+describe('v1.0.1202 showroom models for the form', () => {
+  it('featured first, deduped, cleaned, deleted skipped, cached', async () => {
+    __resetModelsCache()
+    let n = 0
+    const f = async url => { n++; return url.includes('/digital_showroom') ? { ok: true, json: async () => ({ documents: [
+      { fields: { model: { stringValue: 'Seal' } } }, { fields: { model: { stringValue: 'S07<x>' }, featured: { booleanValue: true } } },
+      { fields: { model: { stringValue: 'seal' } } }, { fields: { model: { stringValue: 'Old' }, deleted: { booleanValue: true } } },
+    ] }) } : { ok: false } }
+    expect(await showroomModels({ FIREBASE_PROJECT_ID: 'p' }, 't', f, 1000)).toEqual(['S07 x', 'Seal'])
+    expect(await showroomModels({ FIREBASE_PROJECT_ID: 'p' }, 't', f, 2000)).toEqual(['S07 x', 'Seal']); expect(n).toBe(1)
   })
 })
