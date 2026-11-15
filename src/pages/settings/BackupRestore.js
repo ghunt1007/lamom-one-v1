@@ -18,7 +18,7 @@
  */
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, dmy } from '../../utils/format.js'
 import { listDocs, createDoc, setDocData, seedDemoData } from '../../core/db.js'
 import { runCloudBackup, downloadLatestCloudBackup } from '../../utils/dailyReport.js'
 import { ALL_COLLECTIONS, exportAllData, downloadBackupFile, summarizeBackupData, restoreFromBackupData } from '../../core/backup.js'
@@ -160,7 +160,7 @@ export default async function BackupRestorePage(container) {
     document.getElementById('cloud-latest-btn')?.addEventListener('click', async () => {
       try {
         const date = await downloadLatestCloudBackup()
-        showToast(`⬇️ ดาวน์โหลดไฟล์สำรองวันที่ ${date} แล้ว`, 'success')
+        showToast(`⬇️ ดาวน์โหลดไฟล์สำรองวันที่ ${dmy(date) || date} แล้ว`, 'success')
       } catch (e) { showToast('❌ ' + (e.message || 'ดาวน์โหลดไม่สำเร็จ'), 'error', 6000) }
     })
   }
