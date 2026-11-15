@@ -1,6 +1,6 @@
 {
   "name": "lamom-one-v1",
-  "version": "1.0.1170",
+  "version": "1.0.1171",
   "private": true,
   "type": "module",
   "scripts": {
@@ -22,9 +22,9 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "@capacitor/android": "^8.4.1",
-    "@capacitor/cli": "^8.4.1",
-    "@capacitor/core": "^8.4.1",
+    "@capacitor/android": "^8.4.3",
+    "@capacitor/cli": "^8.4.3",
+    "@capacitor/core": "^8.4.3",
     "exceljs": "^4.4.0",
     "firebase": "^12.14.0"
   },
