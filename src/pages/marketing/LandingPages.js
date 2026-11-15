@@ -9,6 +9,7 @@ import { todayBangkok } from '../../utils/format.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { withUtm, utmLeadCounts, utmKey, leadFormUrl } from '../../utils/publicLinks.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { qrSvg, qrDownloadLink } from '../../utils/qr.js'
 
 // ป้องกัน XSS — ชื่อหน้า/Campaign เป็นข้อมูลที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 
@@ -140,7 +141,11 @@ export default async function LandingPagesPage(container) {
         <div style="font-size:0.82rem">
           <div style="margin-bottom:12px;line-height:1.6">ลูกค้าที่เปิดลิงก์นี้จะเห็นฟอร์มฝากชื่อ-เบอร์ของเรา และลีดจะติดแคมเปญ <b>${esc(p.campaign)}</b></div>
           <div style="font-size:0.74rem;color:var(--primary);overflow-wrap:anywhere;margin-bottom:10px">${esc(p.link)}</div>
-          <a class="btn btn-primary btn-sm" href="${esc(p.link)}" target="_blank" rel="noopener" style="margin-bottom:14px">👁 เปิดดูหน้าจริง</a>
+          <div style="display:flex;justify-content:center;margin-bottom:8px"><div style="width:min(200px,100%);background:#fff;border-radius:8px;line-height:0">${qrSvg(p.link, { size: '100%' })}</div></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px">
+            <a class="btn btn-primary btn-sm" href="${esc(p.link)}" target="_blank" rel="noopener">👁 เปิดดูหน้าจริง</a>
+            ${qrDownloadLink(p.link, 'QR-' + (p.campaign || p.title || 'แคมเปญ'), '💾 บันทึกรูป QR', 'btn btn-secondary btn-sm')}
+          </div>
           <div style="background:var(--surface-2);border-radius:8px;padding:10px;text-align:center">
             <div style="font-size:1rem;font-weight:700;color:var(--success)">${p.leads}</div>
             <div style="font-size:0.68rem;color:var(--text-muted)">ลีดจากหน้านี้</div>
