@@ -34,6 +34,10 @@ describe('customerGrid', () => {
     expect(rows[0]._quiet).toBe(5)
     expect(Object.keys({ ...rows[0] })).toEqual(['stage', 'createdAt'])
     expect(col('_added').ro && col('_quiet').ro).toBe(true)
+    const r2 = withGridFields([{ stage: 'pp', reEnquiredAt: '2026-11-15T18:30:00.000Z' }], '2026-11-16')
+    expect(r2[0]._back).toBe('2026-11-16')
+    expect(col('_back').ro).toBe(true)
+    expect(withGridFields([{ stage: 'pp' }])[0]._back).toBe('')
   })
   it('paste from Sheet fills name, phone and stage label across columns', () => {
     const rows = [{ firstName: '', lastName: '', phone: '', lineId: '', stage: 'lead' }]
