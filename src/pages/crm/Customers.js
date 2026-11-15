@@ -2,6 +2,7 @@ import { carOf } from '../../utils/carLabel.js'
 // Unified Customer Workspace — merges the old Customers.js + Leads.js into one page/collection.
 // Route: /crm/customers (also aliased from /crm/leads — see router.js)
 // Collection: `customers` — single source of truth, stage-based pipeline (lead → pp → booking → delivered)
+import { ENTRY_INFO, entryPointOf } from '../../utils/entryPoints.js'
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, readDoc, seedDemoData } from '../../core/db.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
@@ -264,7 +265,8 @@ export default async function CustomersPage(container) {
       const matchLost = !lostOnly || c.isLost
       // '__none' = ลูกค้าที่ยังไม่มีผู้ดูแล (เช่น ทัก LINE OA เข้ามาเอง) — มอบให้เซลส์ได้ที่หน้า "งานของฉันวันนี้"
       const matchSales = !salesFilter || (salesFilter === '__none' ? !String(c.assignedTo || '').trim() : c.assignedTo === salesFilter)
-      const matchSource = !sourceFilter || (sourceFilter === 'other' ? !SOURCE[c.source] || c.source === 'other' : c.source === sourceFilter)
+      // (v1.0.1205) 'qr:*' / 'qr:booth' … = ลีดจากลิงก์/QR ของเราเอง (ดู utils/entryPoints.js)
+      const matchSource = !sourceFilter || (sourceFilter.startsWith('qr:') ? (sourceFilter === 'qr:*' ? !!entryPointOf(c) : entryPointOf(c) === sourceFilter.slice(3)) : sourceFilter === 'other' ? !SOURCE[c.source] || c.source === 'other' : c.source === sourceFilter)
       const matchOwn = inBase(c)
       const matchFu = matchFollowupFilter(c, fuFilter, fuStatus, today)
       return matchSearch && matchStage && matchLost && matchSales && matchSource && matchOwn && matchFu
@@ -1393,6 +1395,7 @@ export default async function CustomersPage(container) {
           <select class="input" id="cust-source-filter" style="width:auto;min-width:120px" title="กรองตามที่มา">
             <option value="">📌 ที่มา</option>
             ${Object.entries(SOURCE).map(([k, v]) => `<option value="${__escA(k)}">${v}</option>`).join('')}
+            <optgroup label="🔳 ลิงก์/QR ของเรา"><option value="qr:*">🔳 ทุกลิงก์/QR ของเรา</option>${Object.entries(ENTRY_INFO).map(([k, [i, l]]) => `<option value="qr:${__escA(k)}">${i} ${l}</option>`).join('')}</optgroup>
           </select>
           <select class="input" id="cust-sort" style="width:auto;min-width:120px" title="เรียงลำดับ">
             <option value="urgent">↕️ ด่วนก่อน</option>
