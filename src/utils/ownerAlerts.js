@@ -5,8 +5,8 @@
 import { readinessItems } from '../pages/settings/readiness.js'
 import { escHtml as esc } from './escape.js'
 
-export const ALERT_IDS = ['report_morning', 'report_evening', 'backup']
-const TITLES = { report_morning: 'รายงานเช้า 09:00', report_evening: 'รายงานเย็น 18:00', backup: 'สำรองข้อมูลอัตโนมัติ' }
+export const ALERT_IDS = ['report_morning', 'report_evening', 'backup', 'company']
+const TITLES = { report_morning: 'รายงานเช้า 09:00', report_evening: 'รายงานเย็น 18:00', backup: 'สำรองข้อมูลอัตโนมัติ', company: 'ข้อมูลบริษัทยังไม่ครบ' }
 
 // (v1.0.1181) ฟอร์มฝากชื่อปิดอยู่ แต่มีลิงก์/QR ที่แจกออกไปแล้ว (แนะนำเพื่อน, หน้าแคมเปญ, UTM, QR ติดรถ, งานบูธที่ยังไม่จบ)
 // → ลูกค้าที่สแกน/กดเข้ามาจะเจอข้อความว่ายังไม่เปิดรับ ลีดหายเงียบ · links = { referrers, landing, utm, showroom, events } (จำนวน)
@@ -18,8 +18,10 @@ export function formOffItem(publicForm, links = {}) {
   return { id: 'publicform', state: 'todo', title: 'ฟอร์มฝากชื่อปิดอยู่', hint: `มีลิงก์/QR ที่แจกออกไปแล้ว (${used.join(', ')}) ลูกค้าที่กดเข้ามาจะส่งข้อมูลไม่ได้ — เปิดที่ 🔗 ช่องทางโซเชียล › 🤖 ตอบอัตโนมัติ`, nav: '/marketing/channels?tab=auto' }
 }
 
-export function ownerAlertItems({ reports = null, lastBackupMs = null, now = Date.now(), publicForm, links } = {}) {
-  const out = readinessItems({ status: null, auto: { _noAccess: true }, reports, lastBackupMs, now })
+// (v1.0.1206) company: เอกสาร company_profile (null = ยังไม่เคยกรอก) · undefined = ไม่ตรวจ — ชื่อ/เบอร์ใช้บนฟอร์มลูกค้า ป้าย QR และ AI ตอบแชต
+export function ownerAlertItems({ reports = null, lastBackupMs = null, now = Date.now(), publicForm, links, company } = {}) {
+  const out = readinessItems({ status: null, auto: { _noAccess: true }, reports, lastBackupMs, now, company })
+    .filter(i => i.id !== 'company' || company !== undefined)
     .filter(i => ALERT_IDS.includes(i.id) && i.state === 'todo')
     .map(i => ({ ...i, title: TITLES[i.id] }))
   const f = formOffItem(publicForm, links)
@@ -56,7 +58,9 @@ export async function mountOwnerAlerts(el, { now = Date.now() } = {}) {
       links = { referrers, landing, utm, showroom, events }
     }
   } catch { /* อ่านสวิตช์ไม่ได้ — ไม่เตือนเรื่องนี้ */ }
-  const items = ownerAlertItems({ reports, lastBackupMs, now, publicForm, links })
+  let company
+  try { const cp = await listDocs('company_profile', [], 'createdAt', 'asc', 10); company = cp.find(x => !x.deleted) || null } catch { /* อ่านไม่ได้ — ไม่เตือนเรื่องนี้ */ }
+  const items = ownerAlertItems({ reports, lastBackupMs, now, publicForm, links, company })
   if (!items.length || !el.isConnected) return
   el.innerHTML = `<div class="card" role="status" style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;margin-bottom:12px;border-left:4px solid var(--warning)">
     <div style="font-size:1.2rem;line-height:1">⚠️</div>
@@ -65,7 +69,8 @@ export async function mountOwnerAlerts(el, { now = Date.now() } = {}) {
       ${items.map(i => `<div style="font-size:0.78rem;color:var(--text-muted);line-height:1.5;overflow-wrap:anywhere">• <b>${esc(i.title)}</b>: ${esc(i.hint)}</div>`).join('')}
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
         ${items.some(i => i.id === 'publicform') ? '<button class="btn btn-primary btn-xs" data-nav="/marketing/channels?tab=auto">🔗 ไปเปิดฟอร์ม</button>' : ''}
-        ${items.some(i => i.id !== 'publicform') ? '<button class="btn btn-primary btn-xs" data-nav="/settings/health">ดูหน้าสถานะระบบ</button>' : ''}
+        ${items.some(i => i.id === 'company') ? '<button class="btn btn-primary btn-xs" data-nav="/settings/company">🏢 กรอกข้อมูลบริษัท</button>' : ''}
+        ${items.some(i => !['publicform', 'company'].includes(i.id)) ? '<button class="btn btn-primary btn-xs" data-nav="/settings/health">ดูหน้าสถานะระบบ</button>' : ''}
         <button class="btn btn-ghost btn-xs" id="owner-alerts-hide">ซ่อนวันนี้</button>
       </div>
     </div>
