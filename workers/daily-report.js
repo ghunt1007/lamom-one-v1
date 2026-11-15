@@ -35,6 +35,8 @@ import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser, 
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
 import { metaAds, handleSocial, recordLineInbound, handleExtraLineWebhook, lineThreadId } from './social.js'
 import { fetchLineQuota, lineQuotaLine } from './lineQuota.js'
+import { bookingDataIssues } from '../src/utils/bookingDataCheck.js'
+import { isDelivered, isCancelled } from '../src/utils/bookingStatus.js'
 import { saveReportStatus } from './reportStatus.js'
 import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
 import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFromChat, handleLeadForm } from './leadIntake.js'
@@ -596,7 +598,7 @@ async function buildReportText(env, accessToken) {
   // select เฉพาะ field ที่รายงานใช้ — ใบจองหลายพันใบทั้งเอกสารใหญ่เกินจน parse JSON เกินโควตา CPU ของ cron
   const fuFields = ['dueDate', 'status', 'customerId', 'updatedAt', 'deleted']
   const [bookings, customers, fuPending, fuDone, testDrives, teamTargets] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deliveryDate', 'deliveryTime', 'custName', 'model', 'cancelReason', 'deleted']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deliveryDate', 'deliveryTime', 'custName', 'model', 'cancelReason', 'deleted', 'bookingNo']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'assignedTo', 'temperature', 'isLost', 'lostAt', 'lostReason', 'lastContactAt', 'eventId', 'deleted']),
     // แยกดึงนัดค้าง/นัดที่ทำแล้ว — ถ้าดึงรวมแบบจำกัดจำนวน พอนัดอัตโนมัติสะสมเยอะจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, fuFields, ['status', 'pending']),
@@ -654,6 +656,22 @@ export function marketingSpendLine(accounts, events, today, bookedMonth) {
   if (!ad && !ev) return ''
   const b = v => '฿' + Math.round(v).toLocaleString('en-US')
   return `  • 💸 ค่าการตลาดเดือนนี้: ${b(ad + ev)}${ad && ev ? ` (โฆษณา ${b(ad)} + ออกบูธ ${b(ev)})` : ''}${bookedMonth ? ` · ต่อใบจอง ${b((ad + ev) / bookedMonth)}` : ''}`
+}
+
+// (v1.0.1165) ใบจองที่ข้อมูลใน Sheet ขาดจนรายงานนับพลาด — เฉพาะข้อที่ตรวจได้จากฟิลด์ที่รายงานดึงมา (ไม่รวมราคา/เบอร์)
+export const REPORT_DATA_CHECKS = ['noDeliveredDate', 'noSales', 'noBookingDate', 'badStatus', 'futureDate', 'dupNo']
+export function dataCheckLine(bookings, today) {
+  // เฉพาะใบที่ยังเกี่ยวกับตัวเลขปีนี้ (ใบเก่าหลายปีก่อนไม่ต้องเตือนทุกวัน): ยังเปิดอยู่ หรือมีวันที่ใดๆ ในปีนี้ หรือไม่มีวันที่เลย
+  const year = String(today).slice(0, 4)
+  const recent = (bookings || []).filter(b => {
+    const ds = [b.bookingDate, b.cutDate, b.actualDeliveryDate].map(v => String(v || '').slice(0, 10)).filter(Boolean)
+    return !ds.length || ds.some(d => d.slice(0, 4) >= year) || (!isDelivered(b) && !isCancelled(b))
+  })
+  const issues = bookingDataIssues(recent, { today }).filter(i => REPORT_DATA_CHECKS.includes(i.key))
+  const n = new Set(issues.flatMap(i => i.rows.map(r => r.id || r.bookingNo))).size
+  if (!n) return ''
+  const top = issues.slice(0, 2).map(i => `${i.title} ${i.rows.length}`).join(', ')
+  return `🧹 ใบจองข้อมูลไม่ครบ ${n} ใบ (${top}) — ตัวเลขข้างบนอาจนับพลาด แก้ใน Sheet ได้ ดูรายการที่ปุ่ม 🧹 หน้าใบจอง`
 }
 
 // (v1.0.1154) ยอดโฆษณา Meta จริงของเดือนนี้ (ดึงจากบัญชีโฆษณาที่เชื่อมไว้) — ไม่มีโทเค็น/ยังไม่ใช้เงิน = ไม่แสดง
@@ -846,6 +864,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   if (sellerLines.length) lines.push('', '👤 ทีมขาย (เดือนนี้)', ...sellerLines)
   lines.push('', `❌ ถอนจองเดือนนี้: ${cancelMonth} คัน | ปีนี้: ${cancelYear} คัน`,
     ...(cancelTodayList.length ? [`  วันนี้ ${cancelTodayList.length} คัน:`, ...cancelTodayList.slice(0, 5).map(b => `  • ${b.custName || 'ลูกค้า'}${b.model ? ` (${b.model})` : ''} · ${(b.salesName || '').trim() || '(ไม่ระบุ)'}${b.cancelReason ? ` — ${String(b.cancelReason).trim().slice(0, 60)}` : ''}`)] : []),
+    ...(dataCheckLine(bookings, today) ? ['', dataCheckLine(bookings, today)] : []),
     ...(lineQuotaLine(data.lineQuota) ? ['', lineQuotaLine(data.lineQuota)] : []),
     '', '─────────────────────', '🤖 LAMOM ONE Auto Report')
   return lines.filter(l => l !== null).join('\n')

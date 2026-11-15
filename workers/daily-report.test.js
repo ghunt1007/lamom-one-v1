@@ -1401,3 +1401,24 @@ describe('runReportAndRecord (v1.0.1161)', () => {
     expect(r).toEqual({ ok: 1 })
   })
 })
+
+describe('data check line in evening report (v1.0.1165)', () => {
+  it('flags delivered rows without a date, quiet when clean', async () => {
+    const { dataCheckLine } = await import('./daily-report.js')
+    const ok = { id: 'a', bookingNo: 'B1', status: 'รอรถ', salesName: 'แอน', bookingDate: '2026-11-01' }
+    expect(dataCheckLine([ok], '2026-11-16')).toBe('')
+    const line = dataCheckLine([ok, { ...ok, id: 'b', bookingNo: 'B2', status: 'ส่งมอบแล้ว', salesName: '' }], '2026-11-16')
+    expect(line).toContain('ใบจองข้อมูลไม่ครบ 1 ใบ')
+    expect(line).toContain('ส่งมอบ/ตัดตัวเลขแล้ว แต่ไม่มีวันที่ 1')
+    const t = buildReport({ bookings: [{ ...ok, status: 'ส่งมอบแล้ว' }], customers: [], followups: [], testDrives: [] }, { today: '2026-11-16' })
+    expect(t).toContain('🧹 ใบจองข้อมูลไม่ครบ 1 ใบ')
+  })
+})
+
+describe('data check line skips old closed bookings (v1.0.1165)', () => {
+  it('a 2024 delivered row without salesperson is not reported; an open one is', async () => {
+    const { dataCheckLine } = await import('./daily-report.js')
+    expect(dataCheckLine([{ id: 'o', status: 'ส่งมอบแล้ว', bookingDate: '2024-03-01', actualDeliveryDate: '2024-04-01', salesName: '' }], '2026-11-16')).toBe('')
+    expect(dataCheckLine([{ id: 'p', status: 'รอรถ', bookingDate: '2024-03-01', salesName: '' }], '2026-11-16')).toContain('1 ใบ')
+  })
+})
