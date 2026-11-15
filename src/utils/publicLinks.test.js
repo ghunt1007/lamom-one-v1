@@ -48,3 +48,17 @@ describe('UTM helpers', async () => {
     expect(r).toEqual({ [utmKey('facebook', 'nov')]: 2 })
   })
 })
+
+describe('utmKey / showroom (v1.0.1180)', async () => {
+  const { utmKey, utmLeadCounts, showroomUrl, showroomKey } = await import('./publicLinks.js')
+  it('campaign names with special characters still match what the worker stored', () => {
+    // worker cleanUtm ตัด ! ( ) ออก → เก็บเป็น "โปร 11.11"
+    expect(utmKey('Facebook', 'โปร 11.11!')).toBe(utmKey('facebook', 'โปร 11.11'))
+    expect(utmLeadCounts([{ utmSource: 'facebook', utmCampaign: 'โปร 11.11' }])[utmKey('facebook', 'โปร 11.11!')]).toBe(1)
+  })
+  it('showroom link pre-selects the model and counts as walk-in for that model', () => {
+    const u = new URL(showroomUrl('Deepal S07'))
+    expect(u.searchParams.get('m')).toBe('Deepal S07'); expect(u.searchParams.get('utm_source')).toBe('walk-in')
+    expect(utmLeadCounts([{ utmSource: 'walk-in', utmCampaign: 'Deepal S07' }])[showroomKey('Deepal S07')]).toBe(1)
+  })
+})

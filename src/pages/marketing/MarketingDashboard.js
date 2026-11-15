@@ -13,7 +13,7 @@ const QUICK_LINKS = [
   { icon:'🎪', label:'Promotions', sub:'โปรโมชันและส่วนลด', path:'/marketing/promotions', color:'warning' },
   { icon:'⭐', label:'Reviews', sub:'รีวิวและ Rating', path:'/marketing/reviews', color:'success' },
   { icon:'💚', label:'LINE OA', sub:'ส่งข้อความ Line', path:'/marketing/line-oa', color:'success' },
-  { icon:'🌐', label:'Digital Showroom', sub:'โชว์รูมออนไลน์', path:'/marketing/digital-showroom', color:'primary' },
+  { icon:'🚗', label:'QR ประจำรุ่นรถ', sub:'ป้ายสแกนที่รถโชว์', path:'/marketing/digital-showroom', color:'primary' },
   { icon:'🔗', label:'UTM Tracker', sub:'ติดตาม Link', path:'/marketing/utm-tracker', color:'accent' },
   { icon:'✨', label:'AI Content', sub:'สร้างคอนเทนต์ด้วย AI', path:'/marketing/ai-content', color:'warning' },
 ]

@@ -68,7 +68,13 @@ export function withUtm(url, { source = '', medium = '', campaign = '' } = {}) {
 }
 
 // ลีดที่เข้าฟอร์มของเราผ่านลิงก์ UTM — นับตาม source|campaign (ตัวพิมพ์เล็ก)
-export const utmKey = (source, campaign) => `${String(source || '').trim().toLowerCase()}|${String(campaign || '').trim().toLowerCase()}`
+// ทำความสะอาดแบบเดียวกับ cleanUtm ใน workers/leadIntake.js (ตัดอักขระพิเศษ เช่น ! ( ) ทิ้ง) — ไม่งั้นชื่อแคมเปญที่มีอักขระพิเศษจะนับไม่เจอ
+const utmClean = v => String(v || '').replace(/[^\w\u0E01-\u0E59 .-]/g, '').trim().slice(0, 60).toLowerCase()
+export const utmKey = (source, campaign) => `${utmClean(source)}|${utmClean(campaign)}`
+
+// (v1.0.1180) QR ประจำรุ่นรถในโชว์รูม: ฟอร์มเลือกรุ่นไว้ให้ + นับเป็นลีด walk-in ของรุ่นนั้น
+export const showroomUrl = model => withUtm(leadFormUrl({ model }), { source: 'walk-in', medium: 'qr', campaign: String(model || '').trim() })
+export const showroomKey = model => utmKey('walk-in', model)
 export function utmLeadCounts(customers = []) {
   const out = {}
   for (const c of customers) {

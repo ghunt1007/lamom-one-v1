@@ -1,62 +1,63 @@
 /**
- * Digital Showroom 360° — โชว์รถออนไลน์ด้วย 360° / Video / Color Picker
+ * Digital Showroom — QR ประจำรุ่นรถ (v1.0.1180)
  * Route: /marketing/digital-showroom
+ * ติดป้าย QR ที่รถโชว์/โบรชัวร์ ลูกค้าสแกน → ฟอร์มฝากชื่อ-เบอร์ (เลือกรุ่นไว้ให้) → ลีด walk-in ของรุ่นนั้น แจ้งเซลส์ทันที
+ * นับลีดจากลูกค้าจริงที่เข้าผ่านลิงก์ของรุ่นนั้น (เดิมแสดงยอดเข้าชม/Conversion ที่ไม่มีที่มา — เอาออกแล้ว)
  */
 import { openModal } from '../../utils/modal.js'
-import { leadFormUrl } from '../../utils/publicLinks.js'
+import { showroomUrl, showroomKey, utmLeadCounts } from '../../utils/publicLinks.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
+import { escHtml as esc } from '../../utils/escape.js'
+import { copyText } from '../../utils/copyText.js'
+import { qrSvg, qrDownloadLink } from '../../utils/qr.js'
+
+const BADGES = ['EV', 'PHEV', 'HEV', 'NEW']
+const safeColor = c => /^#[0-9a-f]{3,8}$/i.test(String(c || '').trim()) ? String(c).trim() : ''
 
 export default async function DigitalShowroomPage(container) {
   const myGen = container.__routerGen
-  seedDemoData()
-
-  let SHOWROOM_CARS = []
+  let CARS = []
+  let counts = null
   let filterBadge = 'all'
   let loading = true
 
   async function loadData() {
     loading = true
-    try { SHOWROOM_CARS = await listDocs('digital_showroom', [], 'views', 'desc', 500) } catch (e) { SHOWROOM_CARS = [] }
+    const [cars, customers] = await Promise.all([
+      listDocs('digital_showroom', [], 'model', 'asc', 500).catch(() => []),
+      listDocs('customers', [...companyScopeFilters(), ['autoLead', '==', true]], 'createdAt', 'desc', 2000).catch(() => null),
+    ])
+    counts = customers ? utmLeadCounts(customers) : null
+    CARS = cars.filter(c => !c.deleted && c.model).map(c => ({ ...c, link: showroomUrl(c.model), leads: counts ? (counts[showroomKey(c.model)] || 0) : null }))
+      .sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0) || String(a.model).localeCompare(String(b.model), 'th'))
     loading = false
     if (container.__routerGen === myGen) render()
   }
 
-  function colorDots(colors) {
-    return colors.map(c => {
-      const border = c === '#f5f5f5' ? 'border:1.5px solid var(--border)' : 'border:1.5px solid transparent'
-      return '<div style="width:14px;height:14px;border-radius:50%;background:' + c + ';' + border + ';display:inline-block;margin-right:3px"></div>'
-    }).join('')
-  }
+  const dots = (colors, px = 14) => (Array.isArray(colors) ? colors : []).map(safeColor).filter(Boolean)
+    .map(c => `<span style="width:${px}px;height:${px}px;border-radius:50%;background:${c};border:1.5px solid var(--border);display:inline-block"></span>`).join('')
 
   function carCard(car) {
-    const v360  = car.views360 ? '<span style="font-size:0.62rem;background:#1976d2;color:#fff;padding:1px 7px;border-radius:8px">360°</span>' : ''
-    const vVid  = car.video    ? '<span style="font-size:0.62rem;background:#e53935;color:#fff;padding:1px 7px;border-radius:8px">VIDEO</span>' : ''
-    const featR = car.featured ? '<div style="position:absolute;top:8px;right:8px;font-size:0.62rem;background:var(--warning);color:#000;padding:1px 8px;border-radius:8px;font-weight:700">⭐ แนะนำ</div>' : ''
-    const badge = '<span style="font-size:0.62rem;background:var(--success);color:#fff;padding:1px 7px;border-radius:8px">' + car.badge + '</span>'
-    const dots  = colorDots(car.colors)
-    return '<div class="card" style="padding:14px;position:relative">' +
-      featR +
-      '<div style="display:flex;align-items:flex-start;gap:12px">' +
-        '<div style="font-size:2rem;flex-shrink:0">🚗</div>' +
-        '<div style="flex:1">' +
-          '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">' +
-            '<span style="font-weight:700;font-size:0.9rem">' + car.model + '</span>' +
-            badge + v360 + vVid +
-          '</div>' +
-          '<div style="display:flex;align-items:center;gap:4px;margin-bottom:8px">' + dots + '</div>' +
-          '<div style="display:flex;gap:14px;font-size:0.74rem">' +
-            '<span>👁 ' + car.views.toLocaleString() + ' views</span>' +
-            '<span>🎯 ' + car.leads + ' leads</span>' +
-            '<span style="color:var(--success);font-weight:700">🔄 ' + car.conv + '%</span>' +
-          '</div>' +
-        '</div>' +
-        '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">' +
-          '<button class="btn btn-xs btn-primary view-btn" data-id="' + car.id + '" style="font-size:0.68rem">👁 ดูตัวอย่าง</button>' +
-          '<button class="btn btn-xs btn-secondary feat-btn" data-id="' + car.id + '" style="font-size:0.68rem">' + (car.featured ? '⭐ Unfeature' : '⭐ Feature') + '</button>' +
-        '</div>' +
-      '</div>' +
-    '</div>'
+    return `<div class="card" style="padding:14px">
+      <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div style="font-size:2rem;line-height:1">🚗</div>
+        <div style="flex:1 1 160px;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+            <span style="font-weight:700;font-size:0.9rem;overflow-wrap:anywhere">${esc(car.model)}</span>
+            ${car.badge ? `<span style="font-size:0.62rem;background:var(--success);color:#fff;padding:1px 7px;border-radius:8px">${esc(car.badge)}</span>` : ''}
+            ${car.featured ? '<span style="font-size:0.62rem;background:var(--warning);color:#000;padding:1px 7px;border-radius:8px;font-weight:700">⭐ แนะนำ</span>' : ''}
+          </div>
+          <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">${dots(car.colors)}</div>
+          <div style="font-size:0.76rem">🎯 ${car.leads == null ? '—' : car.leads + ' ลีดจาก QR'}</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:100%">
+          <button class="btn btn-xs btn-primary qr-btn" data-id="${esc(car.id)}" style="font-size:0.68rem">🔳 QR ติดรถ</button>
+          <button class="btn btn-xs btn-secondary feat-btn" data-id="${esc(car.id)}" style="font-size:0.68rem">${car.featured ? '⭐ เลิกแนะนำ' : '⭐ แนะนำ'}</button>
+        </div>
+      </div>
+    </div>`
   }
 
   function render() {
@@ -64,161 +65,116 @@ export default async function DigitalShowroomPage(container) {
       container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
       return
     }
-    let rows = filterBadge === 'all' ? SHOWROOM_CARS : SHOWROOM_CARS.filter(c=>c.badge===filterBadge)
-
-    const totViews  = SHOWROOM_CARS.reduce((s,c)=>s+c.views,0)
-    const totLeads  = SHOWROOM_CARS.reduce((s,c)=>s+c.leads,0)
-    const feat      = SHOWROOM_CARS.filter(c=>c.featured).length
-    const avgConv   = totViews ? (totLeads/totViews*100).toFixed(1) : '0.0'
-
-    const badges = ['all','EV','NEW']
-    const filterBtns = badges.map(b=>{
-      const lbl = b==='all'?'ทั้งหมด':b
-      return '<button class="btn btn-xs ' + (filterBadge===b?'btn-primary':'btn-secondary') + ' badge-btn" data-b="' + b + '">' + lbl + '</button>'
-    }).join('')
+    const rows = filterBadge === 'all' ? CARS : CARS.filter(c => c.badge === filterBadge)
+    const totLeads = counts ? CARS.reduce((s, c) => s + (c.leads || 0), 0) : null
+    const usedBadges = BADGES.filter(b => CARS.some(c => c.badge === b))
 
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">🌐 Digital Showroom 360°</div>
-            <div class="page-subtitle">โชว์รถออนไลน์ · ${SHOWROOM_CARS.length} รุ่น</div>
+            <div class="page-title">🚗 QR ประจำรุ่นรถ</div>
+            <div class="page-subtitle">ติดป้าย QR ที่รถโชว์/โบรชัวร์ · ${CARS.length} รุ่น</div>
           </div>
-          <div class="page-actions">
-            <button class="btn btn-primary" id="add-car-btn">+ เพิ่มรุ่น</button>
-          </div>
+          <div class="page-actions"><button class="btn btn-primary" id="add-car-btn">+ เพิ่มรุ่น</button></div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-          ${sc('👁 รวม Views', totViews.toLocaleString(), 'var(--primary)')}
-          ${sc('🎯 รวม Leads', totLeads+' ราย', 'var(--success)')}
-          ${sc('⭐ Featured', feat+' รุ่น', 'var(--warning)')}
-          ${sc('🔄 Avg Conv.', avgConv+'%', 'var(--success)')}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:12px;margin-bottom:12px">
+          ${sc('🚗 รุ่นที่มี QR', CARS.length + ' รุ่น', 'var(--primary)')}
+          ${sc('🎯 ลีดจาก QR รวม', totLeads == null ? '—' : totLeads + ' ราย', 'var(--success)')}
+          ${sc('⭐ รุ่นแนะนำ', CARS.filter(c => c.featured).length + ' รุ่น', 'var(--warning)')}
         </div>
+        <div style="font-size:0.74rem;color:var(--text-muted);line-height:1.6;margin-bottom:12px">ลูกค้าสแกน QR ที่รถ → เจอฟอร์มฝากชื่อ-เบอร์ที่เลือกรุ่นนี้ไว้ให้ → เข้าเป็นลีด Walk-in ในโปรแกรมและแจ้งเซลส์ทันที (ฟอร์มต้องเปิดรับอยู่ ตั้งค่าที่ 🔗 ช่องทางโซเชียล › 🤖 ตอบอัตโนมัติ)</div>
 
-        <div style="display:flex;gap:6px;margin-bottom:14px">${filterBtns}</div>
+        ${usedBadges.length > 1 ? `<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">${['all', ...usedBadges].map(b => `<button class="btn btn-xs ${filterBadge === b ? 'btn-primary' : 'btn-secondary'} badge-btn" data-b="${b}">${b === 'all' ? 'ทั้งหมด' : b}</button>`).join('')}</div>` : ''}
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px, 100%),1fr));gap:10px">
-          ${rows.map(c=>carCard(c)).join('')}
-          ${rows.length===0?'<div style="text-align:center;padding:30px;color:var(--text-muted);grid-column:1/-1">ไม่พบรายการ</div>':''}
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));gap:10px">
+          ${rows.map(carCard).join('')}
+          ${rows.length === 0 ? '<div style="text-align:center;padding:30px;color:var(--text-muted);grid-column:1/-1">ยังไม่มีรุ่น — กด “+ เพิ่มรุ่น” เพื่อสร้าง QR ติดรถคันแรก</div>' : ''}
         </div>
       </div>`
 
-    container.querySelectorAll('.badge-btn').forEach(b=>b.addEventListener('click',()=>{filterBadge=b.dataset.b;render()}))
-    container.querySelectorAll('.view-btn').forEach(b=>b.addEventListener('click',()=>{
-      const car=SHOWROOM_CARS.find(c=>c.id===b.dataset.id)
-      if(car) openDetailModal(car)
+    container.querySelectorAll('.badge-btn').forEach(b => b.addEventListener('click', () => { filterBadge = b.dataset.b; render() }))
+    container.querySelectorAll('.qr-btn').forEach(b => b.addEventListener('click', () => {
+      const car = CARS.find(c => c.id === b.dataset.id)
+      if (car) openQrModal(car)
     }))
-    container.querySelectorAll('.feat-btn').forEach(b=>b.addEventListener('click',async ()=>{
-      const car=SHOWROOM_CARS.find(c=>c.id===b.dataset.id)
-      if(!car) return
-      car.featured=!car.featured
-      render()
-      showToast((car.featured?'⭐ Featured: ':'⭐ Unfeatured: ')+car.model,'success')
-      try { await updateDocData('digital_showroom', car.id, { featured: car.featured }) } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    container.querySelectorAll('.feat-btn').forEach(b => b.addEventListener('click', async () => {
+      const car = CARS.find(c => c.id === b.dataset.id)
+      if (!car) return
+      const next = !car.featured
+      try {
+        await updateDocData('digital_showroom', car.id, { featured: next })
+        car.featured = next
+        showToast((next ? '⭐ แนะนำ: ' : 'เลิกแนะนำ: ') + car.model, 'success')
+        render()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-car-btn')?.addEventListener('click', openAddCarModal)
   }
 
+  function openQrModal(car) {
+    const { el } = openModal({
+      title: '🔳 QR ติดรถ — ' + esc(car.model), size: 'sm',
+      body: `<div style="text-align:center">
+        <div style="width:min(240px,100%);margin:0 auto 8px;background:#fff;border-radius:8px;line-height:0">${qrSvg(car.link, { size: '100%' })}</div>
+        <div style="font-size:0.68rem;color:var(--text-muted);overflow-wrap:anywhere;margin-bottom:10px">${esc(car.link)}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
+          <button type="button" class="btn btn-primary btn-sm" id="sq-print">🖨 พิมพ์ป้ายติดรถ</button>
+          ${qrDownloadLink(car.link, 'QR-' + car.model, '💾 บันทึกรูป QR', 'btn btn-secondary btn-sm')}
+          <button type="button" class="btn btn-secondary btn-sm" id="sq-copy">📋 คัดลอกลิงก์</button>
+        </div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:10px">🎯 ลีดจาก QR นี้: ${car.leads == null ? '—' : car.leads + ' ราย'}</div>
+      </div>`,
+    })
+    el.querySelector('#sq-copy').addEventListener('click', () => copyText(car.link, '📋 คัดลอกลิงก์ของรุ่นนี้แล้ว'))
+    el.querySelector('#sq-print').addEventListener('click', () => {
+      const w = window.open('', '_blank', 'width=600,height=800')
+      if (!w) { showToast('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาต pop-up แล้วลองใหม่', 'warning'); return }
+      w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR ${esc(car.model)}</title><style>body{font-family:sans-serif;text-align:center;padding:40px 24px}h1{font-size:40px;margin:0 0 4px}p{font-size:20px;color:#333;margin:6px 0}.qr{margin:24px auto}</style></head><body><h1>${esc(car.model)}</h1><p>สนใจรุ่นนี้? สแกนฝากชื่อ-เบอร์</p><p>เจ้าหน้าที่จะติดต่อกลับพร้อมราคาและโปรโมชั่น</p><div class="qr">${qrSvg(car.link, { size: 380 })}</div><script>window.print()<\/script></body></html>`)
+      w.document.close()
+    })
+  }
+
   function openAddCarModal() {
-    openModal({
-      title: '📝 เพิ่มรุ่นใหม่ใน Digital Showroom',
-      size: 'md',
+    const { el, close } = openModal({
+      title: '📝 เพิ่มรุ่นสำหรับ QR ติดรถ', size: 'md',
       body: `
         <div style="display:flex;flex-direction:column;gap:12px;font-size:0.82rem">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:10px">
             <div><label style="font-size:0.74rem;color:var(--text-muted)">ชื่อรุ่น *</label>
-              <input id="ds-model" class="input" placeholder="BYD Atto 3 Pro..."></div>
-            <div><label style="font-size:0.74rem;color:var(--text-muted)">Badge</label>
-              <select id="ds-badge" class="input"><option value="EV">EV</option><option value="NEW">NEW</option><option value="PHEV">PHEV</option></select></div>
+              <input id="ds-model" class="input" maxlength="80" placeholder="เช่น Deepal S07"></div>
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">ประเภท</label>
+              <select id="ds-badge" class="input">${BADGES.map(b => `<option value="${b}">${b}</option>`).join('')}</select></div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div><label style="font-size:0.74rem;color:var(--text-muted)">มี 360° View</label>
-              <select id="ds-360" class="input"><option value="true">ใช่</option><option value="false">ไม่มี</option></select></div>
-            <div><label style="font-size:0.74rem;color:var(--text-muted)">มี Video</label>
-              <select id="ds-vid" class="input"><option value="true">ใช่</option><option value="false">ไม่มี</option></select></div>
-          </div>
-          <div><label style="font-size:0.74rem;color:var(--text-muted)">สีที่มีจำหน่าย (HEX คั่นจุลภาค)</label>
-            <input id="ds-colors" class="input" placeholder="#1565c0, #212121, #f5f5f5..."></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div><label style="font-size:0.74rem;color:var(--text-muted)">Featured</label>
-              <select id="ds-feat" class="input"><option value="false">ปกติ</option><option value="true">⭐ Featured</option></select></div>
-            <div><label style="font-size:0.74rem;color:var(--text-muted)">Conversion % เริ่มต้น</label>
-              <input id="ds-conv" type="number" step="0.1" class="input" value="2.5"></div>
-          </div>
-        </div>
-      `,
-      footer: `
-        <span></span>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-secondary btn-sm" onclick="this.closest('.modal-overlay').remove()">ยกเลิก</button>
-          <button class="btn btn-primary btn-sm" id="ds-save">💾 เพิ่มรุ่น</button>
-        </div>
-      `
+          <div><label style="font-size:0.74rem;color:var(--text-muted)">สีที่มีจำหน่าย (รหัสสี HEX คั่นด้วยจุลภาค ไม่ใส่ก็ได้)</label>
+            <input id="ds-colors" class="input" placeholder="#1565c0, #212121, #f5f5f5"></div>
+          <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="ds-feat"> ⭐ รุ่นแนะนำ (ขึ้นก่อน)</label>
+        </div>`,
+      footer: `<button class="btn btn-secondary btn-sm" id="ds-cancel">ยกเลิก</button><button class="btn btn-primary btn-sm" id="ds-save">💾 เพิ่มรุ่น</button>`,
     })
-    document.getElementById('ds-save')?.addEventListener('click', async () => {
-      const model = document.getElementById('ds-model')?.value.trim()
+    el.querySelector('#ds-cancel').addEventListener('click', close)
+    el.querySelector('#ds-save').addEventListener('click', async () => {
+      const model = el.querySelector('#ds-model').value.trim()
       if (!model) { showToast('⚠️ กรุณากรอกชื่อรุ่น', 'warning'); return }
-      const colorsRaw = document.getElementById('ds-colors')?.value.trim()
+      if (CARS.some(c => String(c.model).trim().toLowerCase() === model.toLowerCase())) { showToast('มีรุ่นนี้อยู่แล้ว', 'warning'); return }
+      const colors = el.querySelector('#ds-colors').value.split(',').map(safeColor).filter(Boolean)
       try {
-        await createDoc('digital_showroom', {
-          model,
-          badge:    document.getElementById('ds-badge')?.value || 'EV',
-          colors:   colorsRaw ? colorsRaw.split(',').map(s=>s.trim()).filter(Boolean) : ['#212121'],
-          views360: document.getElementById('ds-360')?.value === 'true',
-          video:    document.getElementById('ds-vid')?.value === 'true',
-          views: 0, leads: 0,
-          conv:     parseFloat(document.getElementById('ds-conv')?.value) || 2.5,
-          featured: document.getElementById('ds-feat')?.value === 'true',
-        })
-        document.querySelector('.modal-overlay')?.remove()
-        showToast('✅ เพิ่ม ' + model + ' ใน Showroom แล้ว', 'success')
+        await createDoc('digital_showroom', { model, badge: el.querySelector('#ds-badge').value, colors, featured: el.querySelector('#ds-feat').checked })
+        close()
+        showToast('✅ เพิ่ม ' + model + ' แล้ว กด 🔳 QR ติดรถ เพื่อพิมพ์ป้าย', 'success')
         await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
-  function openDetailModal(car) {
-    const dots = car.colors.map(c=>{
-      const border = c==='#f5f5f5'?'border:2px solid var(--border)':'border:2px solid transparent'
-      return '<div style="width:32px;height:32px;border-radius:50%;background:' + c + ';' + border + ';cursor:pointer;transition:transform .15s" onmouseover="this.style.transform=\'scale(1.2)\'" onmouseout="this.style.transform=\'scale(1)\'"></div>'
-    }).join('')
-    openModal({
-      title: '🌐 ' + car.model + ' — Digital Showroom', size:'sm',
-      body: `<div style="font-size:0.8rem">
-        <div style="text-align:center;font-size:3rem;margin-bottom:12px">🚗</div>
-        <div style="display:flex;justify-content:center;gap:10px;margin-bottom:14px">${dots}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-          <div style="text-align:center;background:var(--surface-2);border-radius:8px;padding:10px">
-            <div style="font-size:1.2rem;font-weight:900;color:var(--primary)">${car.views.toLocaleString()}</div>
-            <div style="font-size:0.68rem;color:var(--text-muted)">Total Views</div>
-          </div>
-          <div style="text-align:center;background:var(--surface-2);border-radius:8px;padding:10px">
-            <div style="font-size:1.2rem;font-weight:900;color:var(--success)">${car.leads}</div>
-            <div style="font-size:0.68rem;color:var(--text-muted)">Total Leads</div>
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:center">
-          ${car.views360?'<span style="background:#1976d2;color:#fff;padding:4px 12px;border-radius:8px;font-size:0.74rem">✅ 360° View</span>':'<span style="background:var(--surface-2);padding:4px 12px;border-radius:8px;font-size:0.74rem;color:var(--text-muted)">❌ ไม่มี 360°</span>'}
-          ${car.video?'<span style="background:#e53935;color:#fff;padding:4px 12px;border-radius:8px;font-size:0.74rem">✅ Video</span>':'<span style="background:var(--surface-2);padding:4px 12px;border-radius:8px;font-size:0.74rem;color:var(--text-muted)">❌ ไม่มี Video</span>'}
-        </div>
-      </div>`,
-      confirmText: '🔗 Copy Showroom Link',
-      onConfirm() {
-        const url = leadFormUrl({ model: [car.brand, car.model].filter(Boolean).join(' ') || car.name || '' })
-        navigator.clipboard?.writeText(url)
-          .then(() => showToast('🔗 คัดลอกลิงก์ฟอร์มรับลีด (เติมรุ่นนี้ให้แล้ว) · ' + url, 'success'))
-          .catch(() => showToast('🔗 Link: ' + url, 'success'))
-      }
-    })
-  }
-
-  function sc(l,v,c) {
+  function sc(l, v, c) {
     return `<div class="card" style="padding:14px 16px">
       <div style="font-size:0.72rem;color:var(--text-muted)">${l}</div>
       <div style="font-size:1.1rem;font-weight:900;color:${c};margin-top:2px">${v}</div>
     </div>`
   }
 
+  render()
   await loadData()
 }

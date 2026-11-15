@@ -1202,6 +1202,7 @@ export const PAGE_COLLECTIONS = {
   "utm_links"
  ],
  "/marketing/digital-showroom": [
+  "customers",
   "digital_showroom"
  ],
  "/finance/receipt-auto": [
