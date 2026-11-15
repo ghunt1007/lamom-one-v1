@@ -13,7 +13,7 @@ import { listDocs, listAllDocs } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { todayBangkok } from '../../utils/format.js'
-import { summarizeSources, periodRange } from '../../utils/sourcePerformance.js'
+import { summarizeSources, periodRange, summarizeEntryPoints } from '../../utils/sourcePerformance.js'
 import { escHtml } from '../../utils/escape.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 
@@ -72,6 +72,20 @@ export default async function LeadSourcesPage(container) {
     </div>`
   }
 
+  // (v1.0.1189) ลีดจากลิงก์/QR ของเรา แยกตามจุดที่ลูกค้าสแกน/กด (ช่วงเวลาเดียวกับตารางบน)
+  function entrySection() {
+    const { rows, total } = summarizeEntryPoints({ customers, bookings }, periodRange(period, todayBangkok()))
+    if (!rows.length) return ''
+    return `<div class="card" style="padding:14px;margin-bottom:16px">
+      <div style="font-weight:800;margin-bottom:4px">🔳 ลีดจากลิงก์/QR ของเรา <span style="font-size:0.72rem;font-weight:400;color:var(--text-muted)">(${total.leads} ราย ในช่วงเดียวกับตารางบน)</span></div>
+      <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">ดูว่า QR/ลิงก์แบบไหนได้ลูกค้าจริงและปิดเป็นใบจองได้ ก่อนพิมพ์ป้ายเพิ่ม</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ลิงก์/QR</th><th style="text-align:right">ลูกค้าเข้า</th><th style="text-align:right">จอง</th><th style="text-align:right">% จอง</th><th style="text-align:right">ส่งมอบ</th><th style="text-align:right">ยังคุยอยู่</th></tr></thead>
+        <tbody>${rows.map(r => `<tr><td style="font-weight:700">${r.icon} ${escHtml(r.label)}</td><td style="text-align:right">${r.leads}</td><td style="text-align:right">${r.booked}</td><td style="text-align:right;font-weight:800">${r.bookRate}%</td><td style="text-align:right">${r.delivered}</td><td style="text-align:right">${r.open}</td></tr>`).join('')}</tbody>
+      </table></div>
+    </div>`
+  }
+
   function aggregateByChannel() {
     const map = {}
     campaigns.forEach(c => {
@@ -112,6 +126,7 @@ export default async function LeadSourcesPage(container) {
         </div>
 
         ${realSection()}
+        ${entrySection()}
         <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin:4px 0 10px">📣 ตัวเลขจากแคมเปญ (กรอกเองในหน้า Lead Generation)</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px">
           ${sc('🧲 Leads รวม', totalLeads + ' คน', 'var(--primary)')}
