@@ -49,7 +49,8 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
     const created = bangkokDate(c.createdAt)
     if (created === today) { out.newLeads.push({ ...c, name: custName(c) }); return }
     // (v1.0.1195) ลีดที่เข้ามาเมื่อวาน/เมื่อวานซืน (เช่นสแกน QR ตอนกลางคืน) และยังไม่มีใครติดต่อเลย — เดิมหายจากหน้านี้จนครบ 3 วันถึงขึ้น "เงียบ"
-    const waitDays = created && !c.lastContactAt ? daysBetween(created, today) : 0
+    // เฉพาะลีดที่เข้ามาเอง (autoLead: ฟอร์ม/QR/แชต/webhook) — ลีดที่เซลส์กรอกเองแปลว่าคุยกับลูกค้ามาแล้ว
+    const waitDays = c.autoLead === true && created && !c.lastContactAt ? daysBetween(created, today) : 0
     if (waitDays >= 1 && waitDays < STALE_LEAD_DAYS) { out.newLeads.push({ ...c, name: custName(c), waitDays }); return }
     const last = [c.lastContactAt, c.updatedAt, c.stageChangedAt, c.createdAt].map(bangkokDate).filter(Boolean).sort().pop()
     if (last && daysBetween(last, today) >= STALE_LEAD_DAYS) out.stale.push({ ...c, name: custName(c), days: daysBetween(last, today) })

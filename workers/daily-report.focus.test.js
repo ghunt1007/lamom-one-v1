@@ -43,3 +43,21 @@ describe('promo leads in the morning reminder (v1.0.982)', () => {
     expect(s.focus[0]).toContain('บอกโปร มานี')
   })
 })
+
+describe('v1.0.1196 morning report: auto leads nobody has called yet', () => {
+  it('lists overnight/yesterday form leads with no contact, first in focus; manual or contacted leads are not listed', async () => {
+    const { buildMorningSections } = await import('./daily-report.js')
+    const customers = [
+      { id: 'a', stage: 'lead', firstName: 'กลางคืน', createdAt: '2026-11-15T18:00:00Z', assignedTo: 'นภา', autoLead: true, interestedModel: 'S07' },
+      { id: 'b', stage: 'lead', firstName: 'เมื่อวาน', createdAt: '2026-11-15T04:00:00Z', assignedTo: 'นภา', autoLead: true },
+      { id: 'c', stage: 'lead', firstName: 'โทรแล้ว', createdAt: '2026-11-15T04:00:00Z', lastContactAt: '2026-11-15T05:00:00Z', assignedTo: 'นภา', autoLead: true },
+      { id: 'd', stage: 'lead', firstName: 'กรอกเอง', createdAt: '2026-11-15T04:00:00Z', assignedTo: 'นภา' },
+    ]
+    const [sec] = buildMorningSections({ customers, bookings: [], followups: [] }, { today: '2026-11-16' })
+    expect(sec.text).toContain('🆕 Lead ใหม่ที่ยังไม่มีใครโทร: 2 ราย')
+    expect(sec.text).toContain('กลางคืน (S07) · เข้ามาเมื่อคืน/เช้านี้')
+    expect(sec.text).toContain('เมื่อวาน · เข้ามาเมื่อวาน')
+    expect(sec.text).not.toContain('โทรแล้ว'); expect(sec.text).not.toContain('กรอกเอง')
+    expect(sec.focus[0]).toContain('โทรหา Lead ใหม่ เมื่อวาน')
+  })
+})
