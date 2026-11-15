@@ -76,6 +76,7 @@ export function createAutoTab({ getStatus, rerender }) {
           <label class="input-label" for="au-name">ชื่อผู้ช่วย</label>
           <input class="input" id="au-name" maxlength="40" value="${esc(cfg.aiName)}" ${owner ? '' : 'disabled'}>
           <label class="input-label" for="au-info">ข้อมูลโชว์รูมที่ให้ AI ใช้ตอบ</label>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin:-2px 0 4px">ชื่อ เบอร์ และที่อยู่จากหน้า ⚙️ ข้อมูลบริษัท ใส่ให้ AI อัตโนมัติแล้ว ช่องนี้ใส่เพิ่ม เช่น เวลาเปิด รุ่นที่ขาย</div>
           <textarea class="input" id="au-info" rows="6" maxlength="3000" placeholder="เช่น ที่อยู่โชว์รูม เวลาเปิด 08:30–18:00 ทุกวัน เบอร์ 0x-xxx-xxxx รุ่นที่ขาย จุดเด่น ทดลองขับได้ทุกวัน" ${owner ? '' : 'disabled'}>${esc(cfg.aiInfo)}</textarea>
           ${owner ? `<button type="button" class="btn btn-secondary btn-sm" id="au-fill" style="margin:6px 0">✨ เติมข้อมูลจากระบบให้</button>` : ''}
           <small class="ch-muted">AI ใช้โปรจากหน้า "แคมเปญ & ดอกเบี้ยเดือนนี้" ให้อัตโนมัติ (เฉพาะโปรที่ลูกค้าเห็นได้) และไม่เคยแต่งราคาเอง</small>

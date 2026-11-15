@@ -480,24 +480,26 @@ export function pickShopPhone(v) {
   if (d.startsWith('66')) d = '0' + d.slice(2)
   return /^0\d{8,9}$/.test(d) ? d : ''
 }
-let shopCache = { at: 0, phone: '', name: '' }
-export function __resetShopPhoneCache() { shopCache = { at: 0, phone: '', name: '' } }
-// { phone, name } จาก company_profile (ชื่อไทยก่อน) · อ่านไม่ได้ = ค่าว่าง (ไม่จำ)
+let shopCache = { at: 0, phone: '', name: '', address: '' }
+export function __resetShopPhoneCache() { shopCache = { at: 0, phone: '', name: '', address: '' } }
+// { phone, name, address } จาก company_profile (ชื่อไทยก่อน) · อ่านไม่ได้ = ค่าว่าง (ไม่จำ)
 export async function shopInfo(env, token, fetchImpl, now = Date.now()) {
-  if (shopCache.at && now - shopCache.at < 6 * 3600e3) return { phone: shopCache.phone, name: shopCache.name }
-  let phone = '', name = ''
+  if (shopCache.at && now - shopCache.at < 6 * 3600e3) return { phone: shopCache.phone, name: shopCache.name, address: shopCache.address }
+  let phone = '', name = '', address = ''
   if (token) {
     const r = await call(fetchImpl, `${fsBase(env)}/company_profile?pageSize=10`, { headers: { Authorization: `Bearer ${token}` } })
-    if (!r?.ok) return { phone: '', name: '' } // อ่านไม่ได้ชั่วคราว — ไม่จำค่าว่าง
+    if (!r?.ok) return { phone: '', name: '', address: '' } // อ่านไม่ได้ชั่วคราว — ไม่จำค่าว่าง
     const docs = (await r.json().catch(() => null))?.documents || []
     const ts = f => String(f.createdAt?.stringValue || f.createdAt?.timestampValue || '')
     const live = docs.map(d => d.fields || {}).filter(f => !f.deleted?.booleanValue).sort((a, b) => ts(a).localeCompare(ts(b)))
     for (const f of live) { phone = pickShopPhone(f.phone?.stringValue); if (phone) break }
     const nf = live.find(f => String(f.nameTh?.stringValue || f.name?.stringValue || '').trim())
     if (nf) name = clip(String(nf.nameTh?.stringValue || nf.name?.stringValue).replace(/[<>\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim(), 80)
+    const af = live.find(f => String(f.address?.stringValue || '').trim())
+    if (af) address = clip(String(af.address.stringValue).replace(/[<>\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim(), 200)
   }
-  shopCache = { at: now, phone, name }
-  return { phone, name }
+  shopCache = { at: now, phone, name, address }
+  return { phone, name, address }
 }
 export async function shopPhone(env, token, fetchImpl, now = Date.now()) {
   return (await shopInfo(env, token, fetchImpl, now)).phone
