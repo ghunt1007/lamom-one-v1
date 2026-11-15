@@ -958,7 +958,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
   const alive = rows => (rows || []).filter(r => r && !r.deleted)
   const dayNum = d => { const [y, m, dd] = d.split('-').map(Number); return Date.UTC(y, m - 1, dd) / 86400000 }
   const people = {}
-  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { deliver: [], unsched: [], td: [], appt: [], fin: [], stale: [], fu: [], income: [], stuck: [], promo: [], booth: [], line: [], fresh: [] })
+  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { deliver: [], unsched: [], td: [], appt: [], fin: [], stale: [], fu: [], income: [], stuck: [], promo: [], booth: [], line: [], fresh: [], back: [] })
 
   alive(data.customers)
     .filter(c => (c.stage === 'lead' || c.stage === 'pp') && !c.isLost)
@@ -970,8 +970,19 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
       // เฉพาะลีดที่เข้ามาเอง (autoLead: ฟอร์ม/QR/แชต/webhook) — ลีดที่เซลส์กรอกเองคุยกับลูกค้ามาแล้ว
       const born = toBangkokDate(c.createdAt)
       if (c.autoLead === true && !c.lastContactAt && born && dayNum(today) - dayNum(born) < staleDays) { person(c.assignedTo).fresh.push({ name: [c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ', days: dayNum(today) - dayNum(born), model: c.interestedModel }); return }
-      if (days >= staleDays) person(c.assignedTo).stale.push({ name: [c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ', days, model: c.interestedModel, hot: c.temperature === 'hot' })
+      if (days >= staleDays) person(c.assignedTo).stale.push({ name: [c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ', days, model: c.interestedModel, hot: c.temperature === 'hot', id: c.id })
     })
+  // 📣 (v1.0.1208) ลูกค้าเดิมกรอกฟอร์ม/สแกน QR เข้ามาอีกครั้ง (reEnquiredAt จาก workers/leadIntake.js) ภายใน 3 วัน ยังไม่มีใครโทรหลังจากนั้น
+  // เกณฑ์เดียวกับ buildMyDay().returning — รวมลูกค้าที่เสียดีลไปแล้วด้วย
+  alive(data.customers).forEach(c => {
+    const at = toBangkokDate(c.reEnquiredAt)
+    if (!at || at > today || dayNum(today) - dayNum(at) > 2) return
+    const ms = v => { const d = v?.toDate ? v.toDate() : v ? new Date(v) : null; return d && !isNaN(d) ? d.getTime() : 0 }
+    if (ms(c.lastContactAt) > ms(c.reEnquiredAt)) return
+    person(c.assignedTo).back.push({ name: [c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ', days: dayNum(today) - dayNum(at), model: c.reEnquiredModel || c.interestedModel, lost: !!c.isLost, id: c.id })
+  })
+  // คนที่ทักกลับมาแล้ว ไม่ต้องขึ้นซ้ำใน "Lead ไม่ได้ติดตาม"
+  Object.values(people).forEach(p => { if (p.back.length) { const ids = new Set(p.back.map(x => x.id)); p.stale = p.stale.filter(x => !ids.has(x.id)) } })
   // 🗓 (v1.0.987) เวรออกบูธ/อีเวนต์วันนี้ (จัดเวรที่หน้า "ออกบูธ & อีเวนต์")
   alive(data.events).filter(e => e.status !== 'cancelled' && e.shifts && Array.isArray(e.shifts[today]))
     .forEach(e => e.shifts[today].forEach(n => person(n).booth.push({ title: e.title || 'งานออกบูธ', venue: e.venue || '', time: e.startTime || '' })))
@@ -1053,7 +1064,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
     return shown
   }
   return Object.entries(people)
-    .map(([n, p]) => ({ n, p, total: p.deliver.length + p.unsched.length + p.td.length + p.appt.length + p.fin.length + p.stale.length + p.fu.length + p.income.length + p.stuck.length + p.promo.length + p.booth.length + p.line.length + p.fresh.length }))
+    .map(([n, p]) => ({ n, p, total: p.deliver.length + p.unsched.length + p.td.length + p.appt.length + p.fin.length + p.stale.length + p.fu.length + p.income.length + p.stuck.length + p.promo.length + p.booth.length + p.line.length + p.fresh.length + p.back.length }))
     .filter(x => x.total)
     .sort((a, b) => b.total - a.total || a.n.localeCompare(b.n))
     .map(({ n, p }) => {
@@ -1078,6 +1089,10 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
       if (p.fin.length) {
         p.fin.sort((a, b) => Number(b.rejected) - Number(a.rejected) || b.days - a.days)
         out.push(`  🏦 ไฟแนนซ์รอผลนาน/ไม่ผ่าน: ${p.fin.length} ราย`, ...list(p.fin.map(f => `${f.name}${f.co ? ` (${f.co})` : ''} · ${f.rejected ? 'ไม่ผ่าน ❗' : `รอ ${f.days} วัน`}`)))
+      }
+      if (p.back.length) {
+        p.back.sort((a, b) => a.days - b.days)
+        out.push(`  📣 ลูกค้าเดิมทักกลับมา รอโทรกลับ: ${p.back.length} ราย`, ...list(p.back.map(x => `${x.name}${x.model ? ` (${x.model})` : ''} · ${x.days === 0 ? 'ทักมาเมื่อคืน/เช้านี้' : x.days === 1 ? 'ทักมาเมื่อวาน' : `ทักมา ${x.days} วันก่อน`}${x.lost ? ' · เคยเสียดีล' : ''}`)))
       }
       if (p.fresh.length) {
         p.fresh.sort((a, b) => b.days - a.days)
@@ -1108,6 +1123,7 @@ export function focusLines(p, limit = 3) {
   const push = (score, text, who) => out.push({ score, text, who })
   ;(p.booth || []).forEach(x => push(97, `ไปเวรบูธ ${x.title}${x.venue ? ` @ ${x.venue}` : ''}${x.time ? ` ${x.time}` : ''}`, '__booth:' + x.title))
   p.deliver.filter(d => !d.inDays).forEach(d => push(95, `ส่งมอบรถ ${d.name}${d.time ? ` เวลา ${d.time}` : ''} วันนี้`, d.name))
+  ;(p.back || []).forEach(x => push(96 - Math.min(4, x.days * 2), `โทรกลับ ${x.name} (ลูกค้าเดิมทักมาอีกครั้ง${x.days === 0 ? '' : x.days === 1 ? ' เมื่อวาน' : ` ${x.days} วันก่อน`})`, x.name))
   ;(p.fresh || []).forEach(x => push(90 + Math.min(5, x.days), `โทรหา Lead ใหม่ ${x.name} (${x.days === 0 ? 'เข้ามาเมื่อคืน' : x.days === 1 ? 'เข้ามาเมื่อวาน' : `เข้ามา ${x.days} วันก่อน`} ยังไม่มีใครโทร)`, x.name))
   p.stale.filter(s => s.hot).forEach(s => push(85 + Math.min(10, s.days), `ทักลูกค้า Hot ${s.name} (เงียบมา ${s.days} วัน)`, s.name))
   p.fu.forEach(f => push(f.late ? 82 : 78, `ติดต่อ ${f.name}${f.late ? ' (เลยกำหนดแล้ว)' : ' ตามนัดวันนี้'}`, f.name))
