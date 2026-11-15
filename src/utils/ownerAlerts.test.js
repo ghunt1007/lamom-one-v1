@@ -30,3 +30,12 @@ describe('public form off but links handed out (v1.0.1181)', async () => {
     expect(r.map(i => i.id)).toEqual(['publicform', 'backup'])
   })
 })
+
+describe('owner alert: company profile (v1.0.1206)', () => {
+  it('warns when name or showroom phone is missing; silent when complete or not checked', () => {
+    expect(ownerAlertItems({ now: NOW, company: null }).map(i => i.id)).toEqual(['company'])
+    expect(ownerAlertItems({ now: NOW, company: { nameTh: 'บ.ทดสอบ', phone: '' } })[0].hint).toContain('เบอร์โทรโชว์รูม')
+    expect(ownerAlertItems({ now: NOW, company: { nameTh: 'บ.ทดสอบ', phone: '02-123-4567' } })).toEqual([])
+    expect(ownerAlertItems({ now: NOW })).toEqual([])
+  })
+})
