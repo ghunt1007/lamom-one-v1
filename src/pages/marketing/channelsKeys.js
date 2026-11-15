@@ -1,5 +1,6 @@
 // (v1.0.1141) การ์ด "🔑 กุญแจเชื่อมต่อ" ในแท็บ 🧭 วิธีเชื่อม — เจ้าของโปรแกรมวางกุญแจจากในแอปได้เลย ไม่ต้องเข้า Cloudflare
 // ค่าถูกส่งไปที่ตัวรับ (worker) ซึ่งเข้ารหัสก่อนเก็บ — หน้าเว็บไม่มีทางอ่านค่ากลับมา เห็นแค่ว่า "ใส่แล้ว/ยังไม่ใส่"
+import { publicOrigin } from '../../utils/publicLinks.js'
 import { showToast } from '../../core/store.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
@@ -99,7 +100,7 @@ export function createKeysCard({ rerender, onChanged }) {
         <div class="ch-key" data-key-row="META_LINKS">
           <div class="ch-key-h"><b>📄 ลิงก์ที่ Meta ขอตอนเปิดใช้แอปจริง</b></div>
           <small class="ch-muted">วางใน developers.facebook.com → แอปของคุณ → การตั้งค่าแอพ → ข้อมูลพื้นฐาน · ไม่ใช่ความลับ คัดลอกได้เลย</small>
-          ${copyRows(metaLinks(location.origin))}
+          ${copyRows(metaLinks(publicOrigin()))}
         </div>
         <div class="ch-key" data-key-row="LINE">
           <div class="ch-key-h"><b>💚 LINE OA เพิ่ม (ของทีม / โชว์รูม / เซลส์)</b><span class="ch-st ${st.lineExtra?.length ? 'on' : ''}">${st.lineExtra?.length ? `✅ ${st.lineExtra.length} บัญชี` : '⚪ ยังไม่มี'}</span></div>

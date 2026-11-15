@@ -1,3 +1,4 @@
+import { publicOrigin } from '../../utils/publicLinks.js'
 // (v1.0.1128) แท็บ "🤖 ตอบอัตโนมัติ" ในหน้าเชื่อมช่องทาง — เปิด/ปิด AI ตอบลูกค้า + สร้างลีดเองจากแชต
 // ค่าเก็บที่ system_integrations/inbox_auto (เจ้าของโปรแกรมแก้ได้คนเดียว) worker อ่านค่านี้ทุก 1 นาที (workers/inboxAuto.js)
 import { readDoc, setDocData, listDocs } from '../../core/db.js'
@@ -10,7 +11,7 @@ import { isManagerRole } from '../../utils/managerRole.js'
 export const AUTO_DEFAULTS = { autoLead: false, autoAssign: false, aiReply: false, aiMode: 'always', aiStart: '08:30', aiEnd: '18:00', aiChannels: 'all', aiName: 'น้องลามิ', aiInfo: '', publicForm: false, leadAlert: true }
 
 // (v1.0.1140) ลิงก์ฟอร์มรับลีดสาธารณะ — accountId = บัญชีโซเชียลที่บันทึกไว้ (ลีดจะติดที่มา/ผู้ดูแลของบัญชีนั้น)
-export function leadFormLink(accountId = '', origin = typeof location !== 'undefined' ? location.origin : '') {
+export function leadFormLink(accountId = '', origin = publicOrigin()) {
   const a = String(accountId || '').replace(/[^A-Za-z0-9_-]/g, '')
   return `${origin}/lead.html${a ? '?a=' + a : ''}`
 }
