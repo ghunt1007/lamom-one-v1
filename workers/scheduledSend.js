@@ -20,6 +20,23 @@ export async function call(fetchImpl, url, init) { try { return await fetchImpl(
 export const bad = (msg, status = 400) => Object.assign(new Error(msg), { status })
 export const auth = token => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' })
 
+// (v1.0.1157) อ่านเอกสารทั้ง collection แบบหลายหน้า — เดิมอ่านหน้าเดียว (200 รายการ) ถ้าใน system_integrations
+// มีผลโพสต์ (postlog_…) และค่าตั้งอื่นๆ เยอะขึ้น คิว sched_… ที่เรียงชื่ออยู่หลังจะหลุดหน้าแรก แล้วไม่ถูกส่งเลย
+// คืน null ถ้าอ่านหน้าแรกไม่สำเร็จ (ให้ผู้เรียกถือว่า "ไม่รู้" ไม่ใช่ "ว่าง")
+export async function listCollection(fetchImpl, env, token, col, { pageSize = 300, maxPages = 20 } = {}) {
+  const docs = []
+  let pageToken = ''
+  for (let i = 0; i < maxPages; i++) {
+    const url = `${fsBase(env)}/${col}?pageSize=${pageSize}` + (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '')
+    const r = await call(fetchImpl, url, { headers: auth(token) })
+    if (!r?.ok) return i === 0 ? null : docs
+    const data = await r.json().catch(() => ({}))
+    docs.push(...(data.documents || []))
+    if (!data.nextPageToken) break
+    pageToken = data.nextPageToken
+  }
+  return docs
+}
 export const queueId = id => QUEUE_PREFIX + String(id || '').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 120)
 const isLineUser = v => /^U[0-9a-f]{10,40}$/i.test(String(v || ''))
 
@@ -97,9 +114,9 @@ async function patchBroadcast(env, token, id, data, fetchImpl) {
 export async function runScheduledSends(env, token, { fetchImpl = fetch, now = Date.now(), send = null } = {}) {
   const out = { checked: 0, sent: 0, failed: 0, missed: 0 }
   if (!token) return out
-  const r = await call(fetchImpl, `${fsBase(env)}/system_integrations?pageSize=200`, { headers: auth(token) })
-  if (!r?.ok) return out
-  const docs = ((await r.json().catch(() => ({}))).documents || []).filter(d => String(d.name || '').split('/').pop().startsWith(QUEUE_PREFIX))
+  const all = await listCollection(fetchImpl, env, token, 'system_integrations')
+  if (!all) return out
+  const docs = all.filter(d => String(d.name || '').split('/').pop().startsWith(QUEUE_PREFIX))
   const items = docs.map(d => ({ ...decDoc(d), name: d.name, updateTime: d.updateTime })).filter(i => i.kind === 'line-broadcast')
   out.checked = items.length
   const { due, missed } = splitQueue(items, now)

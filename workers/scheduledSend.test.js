@@ -112,4 +112,17 @@ describe('runScheduledSends', () => {
     expect((await runScheduledSends(env, '', { fetchImpl: h.fetchImpl, now: NOW })).checked).toBe(0)
     expect((await runScheduledSends(env, 'tok', { fetchImpl: async () => null, now: NOW })).checked).toBe(0)
   })
+  it('finds queue items on later pages (system_integrations has more than one page of docs)', async () => {
+    const calls = []
+    const page1 = Array.from({ length: 300 }, (_, i) => ({ name: `projects/p/databases/(default)/documents/system_integrations/postlog_${i}`, fields: { kind: sv('meta-post-log') } }))
+    const fetchImpl = async (u, i = {}) => {
+      calls.push(u)
+      if (!i.method) return u.includes('pageToken=') ? ok({ documents: [qdoc('BC-7', new Date(NOW - 60e3).toISOString())] }) : ok({ documents: page1, nextPageToken: 'p2' })
+      return ok()
+    }
+    const sent = []
+    const out = await runScheduledSends(env, 'tok', { fetchImpl, now: NOW, send: async it => { sent.push(it.broadcastId); return {} } })
+    expect(sent).toEqual(['BC-7']); expect(out.sent).toBe(1)
+    expect(calls.filter(u => u.includes('pageSize')).length).toBe(2)
+  })
 })
