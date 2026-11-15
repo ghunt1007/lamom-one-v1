@@ -8,6 +8,7 @@ import { classifyLostReason } from './lostReason.js'
 import { isFinancePassed } from './finance.js'
 
 export const STALE_LEAD_DAYS = 3
+export const RETURNING_DAYS = 3 // ลูกค้าเดิมทักกลับมา: แสดงในหน้างานวันนี้กี่วัน
 export const STUCK_BOOKING_DAYS = 14
 export const UPCOMING_DELIVERY_DAYS = 7
 export const FINANCE_WAIT_DAYS = 3
@@ -55,6 +56,23 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
     const last = [c.lastContactAt, c.updatedAt, c.stageChangedAt, c.createdAt].map(bangkokDate).filter(Boolean).sort().pop()
     if (last && daysBetween(last, today) >= STALE_LEAD_DAYS) out.stale.push({ ...c, name: custName(c), days: daysBetween(last, today) })
   })
+
+  // (v1.0.1208) ลูกค้าเดิมที่กรอกฟอร์ม/สแกน QR/ส่งลีดเข้ามาอีกครั้ง (worker ติด reEnquiredAt) ภายใน 3 วัน และยังไม่มีใครติดต่อหลังจากนั้น
+  // ลูกค้าที่กลับมาเองคือคนที่พร้อมคุยที่สุด — รวมลูกค้าที่เสียดีลไปแล้วด้วย (ทักกลับมา = เปลี่ยนใจได้)
+  out.returning = alive(customers).filter(c => {
+    const at = toDate(c.reEnquiredAt)
+    if (!at || !mine(c.assignedTo, c)) return false
+    const day = bangkokDate(at)
+    if (!day || daysBetween(day, today) > RETURNING_DAYS - 1 || day > today) return false
+    const contacted = toDate(c.lastContactAt)
+    return !(contacted && contacted.getTime() > at.getTime())
+  }).map(c => ({ ...c, name: custName(c), backDays: daysBetween(bangkokDate(c.reEnquiredAt), today) }))
+    .sort((a, b) => String(toDate(b.reEnquiredAt)?.toISOString()).localeCompare(String(toDate(a.reEnquiredAt)?.toISOString())))
+  const back = new Set(out.returning.map(c => c.id))
+  if (back.size) {
+    out.newLeads = out.newLeads.filter(c => !back.has(c.id))
+    out.stale = out.stale.filter(c => !back.has(c.id))
+  }
 
   const thisMonth = today.slice(0, 7)
   alive(bookings).filter(b => mine(b.salesName, b)).forEach(b => {
@@ -118,7 +136,7 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
     .map(c => ({ ...c, name: custName(c) }))
 
   // ลองติดต่อใหม่ (ไม่นับเป็นงานค้าง — เป็นโอกาสเพิ่ม)
-  out.revisit = alive(customers).filter(c => c.isLost && mine(c.assignedTo, c)).map(c => {
+  out.revisit = alive(customers).filter(c => c.isLost && !back.has(c.id) && mine(c.assignedTo, c)).map(c => {
     const lost = bangkokDate(c.lostAt)
     if (!lost) return null
     const days = daysBetween(lost, today)
@@ -165,6 +183,7 @@ export function topPriorities(d, limit = 3, { short = false } = {}) {
   }
   const car = b => carOf(b)
   ;(d.newLeads || []).forEach(c => add({ key: 'new:' + c.id, icon: '🧲', title: `โทรหา Lead ใหม่ ${nm(c)}`, why: `${c.waitDays ? `เข้ามา${c.waitDays === 1 ? 'เมื่อวาน' : ` ${c.waitDays} วันก่อน`} ยังไม่มีใครติดต่อ` : `เข้ามาวันนี้${leadWait(c) ? ` (${leadWait(c).label})` : ''}`}${c.interestedModel ? ` สนใจ ${c.interestedModel}` : ''} · โทรภายในชั่วโมงแรกโอกาสปิดสูงสุด`, score: c.lastContactAt && bangkokDate(c.lastContactAt) === bangkokDate(c.createdAt) ? 20 : 100, customerId: c.id, phone: c.phone }))
+  ;(d.returning || []).forEach(c => add({ key: 'back:' + c.id, icon: '📣', title: `โทรกลับ ${nm(c)} (ลูกค้าเดิมทักมาอีกครั้ง)`, why: `${c.backDays ? (c.backDays === 1 ? 'ทักมาเมื่อวาน' : `ทักมา ${c.backDays} วันก่อน`) : 'ทักมาวันนี้'}${c.reEnquiredModel || c.interestedModel ? ` สนใจ ${c.reEnquiredModel || c.interestedModel}` : ''} · ลูกค้าที่กลับมาเองพร้อมคุยที่สุด`, score: 98 - Math.min(6, (c.backDays || 0) * 3), customerId: c.id, phone: c.phone }))
   ;(d.lineWaiting || []).forEach(w => add({ key: 'line:' + w.id, icon: '💬', title: `ตอบ LINE ${nm(w)}`, why: `ทักมายังไม่มีใครตอบ${w.text ? `: "${String(w.text).slice(0, 40)}"` : ''}`, score: 88, customerId: w.customerId, lineThread: w.id }))
   ;(d.deliveries || []).filter(b => b.inDays === 0).forEach(b => add({ key: 'dlv:' + b.id, icon: '🚗', title: `ส่งมอบรถ ${nm(b)} วันนี้`, why: `${car(b) || 'รถ'}${b.deliveryTime ? ` เวลา ${b.deliveryTime}` : ''} · เช็กรถและเอกสารให้พร้อม`, score: 95, bookingId: b.id, phone: b.phone || b.custPhone }))
   ;(d.hotNoPlan || []).forEach(c => add({ key: 'hot:' + c.id, icon: '🔴', title: `นัดลูกค้า Hot ${nm(c)}`, why: 'สนใจมากแต่ยังไม่มีนัดครั้งถัดไป', score: 90, customerId: c.id, phone: c.phone }))
@@ -213,6 +232,7 @@ export function myDayDigest(d) {
     ...(d.testDrives || []).map(t => ({ time: t.time, text: `ทดลองขับ ${t.customerName || 'ลูกค้า'}${t.model ? ` (${t.model})` : ''}` })),
     ...(d.appts || []).map(a => ({ time: a.time, text: `เข้าโชว์รูม ${a.custName || 'ลูกค้า'}${a.interestedIn ? ` (${a.interestedIn})` : ''}` })),
   ].sort((x, y) => String(x.time || '').localeCompare(String(y.time || '')))
+  if ((d.returning || []).length) lines.push(`ลูกค้าเดิมทักกลับมา รอโทรกลับ ${d.returning.length} ราย: ${d.returning.slice(0, 5).map(c => String(c.name || 'ลูกค้า').split(/\s+/)[0]).join(', ')}`)
   if ((d.lineWaiting || []).length) lines.push(`ลูกค้าทัก LINE รอตอบ ${d.lineWaiting.length} ราย: ${d.lineWaiting.slice(0, 5).map(w => String(w.name || 'ลูกค้า').split(/\s+/)[0]).join(', ')}`)
   if (appts.length) lines.push(`นัดลูกค้าวันนี้ ${appts.length} ราย: ${appts.slice(0, 6).map(x => `${x.time ? x.time + ' ' : ''}${x.text}`).join(' · ')}`)
   const top = topPriorities(d, 5, { short: true })

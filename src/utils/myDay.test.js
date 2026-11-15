@@ -238,3 +238,26 @@ describe('v1.0.1195 yesterday\'s uncontacted leads stay on My Day', () => {
     expect(leadWait({ createdAt: '2026-11-15T00:00:00Z' }, Date.parse('2026-11-16T06:00:00Z')).label).toBe('รอ 1 วัน 6 ชม.')
   })
 })
+
+describe('buildMyDay returning customers (v1.0.1208)', () => {
+  const base = { followups: [], bookings: [], testDrives: [], appointments: [], lineThreads: [] }
+  it('lists customers who re-enquired in the last 3 days and nobody called since', () => {
+    const customers = [
+      { id: 'r1', firstName: 'กลับ', stage: 'pp', assignedTo: 'A', createdAt: '2026-09-01T02:00:00Z', lastContactAt: '2026-09-20T02:00:00Z', reEnquiredAt: '2026-10-25T01:00:00Z', reEnquiredVia: 'website', reEnquiredModel: 'Seal' },
+      { id: 'r2', firstName: 'โทรแล้ว', stage: 'lead', assignedTo: 'A', createdAt: '2026-09-01T02:00:00Z', reEnquiredAt: '2026-10-24T01:00:00Z', lastContactAt: '2026-10-24T05:00:00Z' },
+      { id: 'r3', firstName: 'นานแล้ว', stage: 'lead', assignedTo: 'A', createdAt: '2026-09-01T02:00:00Z', reEnquiredAt: '2026-10-20T01:00:00Z' },
+      { id: 'r4', firstName: 'เสียดีล', stage: 'lead', isLost: true, lostAt: '2026-09-01T00:00:00Z', lostReason: 'ไฟแนนซ์ไม่ผ่าน', assignedTo: 'A', createdAt: '2026-08-01T02:00:00Z', reEnquiredAt: '2026-10-23T03:00:00Z' },
+      { id: 'r5', firstName: 'คนอื่น', stage: 'lead', assignedTo: 'B', createdAt: '2026-09-01T02:00:00Z', reEnquiredAt: '2026-10-25T01:00:00Z' },
+    ]
+    const d = buildMyDay({ ...base, customers }, { today, mine: n => n === 'A' })
+    expect(d.returning.map(c => c.id)).toEqual(['r1', 'r4'])
+    expect(d.returning[0].backDays).toBe(0)
+    expect(d.returning[1].backDays).toBe(2)
+    // ไม่ขึ้นซ้ำใน "เงียบเกิน 3 วัน" / "ลองติดต่อใหม่"
+    expect(d.stale.some(c => c.id === 'r1')).toBe(false)
+    expect(d.revisit.some(c => c.id === 'r4')).toBe(false)
+    const top = topPriorities(d, 2)
+    expect(top[0]).toMatchObject({ key: 'back:r1', customerId: 'r1' })
+    expect(top[0].why).toContain('Seal')
+  })
+})

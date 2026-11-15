@@ -104,6 +104,15 @@ async function addNote(env, token, customerId, text, fetchImpl) {
   })
 }
 
+// ลูกค้าเดิมกรอกฟอร์ม/สแกน QR/ส่งลีดเข้ามาซ้ำ → reEnquiredAt (+ ช่องทาง/รุ่นที่สนใจล่าสุด) · currentDocument.exists กันสร้างเอกสารใหม่
+export async function markReEnquiry(env, token, id, lead = {}, now = new Date().toISOString(), fetchImpl = fetch) {
+  const data = { reEnquiredAt: new Date(now), reEnquiredVia: clip(lead.source || '', 60) }
+  if (lead.model) data.reEnquiredModel = clip(lead.model, 80)
+  const fields = fsFields(data)
+  const mask = Object.keys(fields).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&')
+  return call(fetchImpl, `${fsBase(env)}/customers/${encodeURIComponent(id)}?${mask}&currentDocument.exists=true`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }) })
+}
+
 /**
  * สร้างลูกค้าจากลีด — คืน { created, duplicate, id }
  * docId ตายตัว (เช่น fblead_<id>) กันสร้างซ้ำเมื่อช่องทางส่งซ้ำ · เบอร์/อีเมลซ้ำ = ไม่สร้าง แต่เพิ่มโน้ตให้ลูกค้าเดิม
@@ -113,6 +122,8 @@ export async function createLead(env, token, lead, { docId = '', tags = [], extr
   const dupId = (await findByField(env, token, 'phone', lead.phone, fetchImpl)) || (await findByField(env, token, 'email', lead.email, fetchImpl))
   if (dupId) {
     await addNote(env, token, dupId, `ทักเข้ามาอีกครั้งทาง ${lead.source}${lead.model ? ` (สนใจ ${lead.model})` : ''}${lead.note ? `: ${lead.note}` : ''}`, fetchImpl)
+    // (v1.0.1208) ติดป้าย "ทักกลับมา" ให้หน้างานวันนี้/รายงาน 09:00 ยกขึ้นมาให้เซลส์โทรกลับ — พังก็ไม่กระทบการรับลีด
+    await markReEnquiry(env, token, dupId, lead, now, fetchImpl).catch(() => null)
     return { created: false, duplicate: true, id: dupId }
   }
   const fields = buildLeadFields(lead, { now, tags, companyId: lead.companyId || env.LINE_LEAD_COMPANY_ID || null, extra })

@@ -60,6 +60,9 @@ describe('lead webhook', () => {
     const r2 = await handleLeadWebhook(req({ name: 'สมชาย', phone: '081-234-5678' }), env, async () => 't', { fetch })
     expect(r2.body).toMatchObject({ ok: true, created: false, duplicate: true, id: 'c9' })
     expect(calls.some(c => c[0].includes('/customer_notes'))).toBe(true)
+    const patch = calls.find(c => c[1] === 'PATCH' && c[0].includes('/customers/c9?'))
+    expect(patch && patch[0]).toContain('updateMask.fieldPaths=reEnquiredAt')
+    expect(patch[0]).toContain('currentDocument.exists=true')
   })
 })
 
