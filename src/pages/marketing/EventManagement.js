@@ -2,6 +2,7 @@
 // วางแผนงาน (วัน เวลา สถานที่ ทีมที่ไป รุ่นที่เอาไป งบ เป้า Lead/ใบจอง) → ขึ้นปฏิทินงานอัตโนมัติ (วันละ 1 รายการ)
 // วัดผลจากข้อมูลจริง: ลูกค้าที่เพิ่มผ่าน "➕ Lead" ระหว่างงานติดป้ายงานให้เอง → นับ Lead / ทดลองขับ / ใบจอง / ส่งมอบ
 // ต้นทุนต่อ Lead และต่อใบจอง · ROI จากราคาในใบจองจริง (เดิมนับยอดขายทั้งโชว์รูมช่วงวันงานเป็นของงาน = เกินจริง)
+import { posterFooter, prefetchCompanyLine } from '../../utils/companyFooter.js'
 import './events.css'
 import { watchDocs, listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
@@ -31,6 +32,7 @@ const TABS = { upcoming: 'กำลังจะมา', ongoing: 'กำลั�
 
 // (v1.0.1179) QR ประจำบูธ: ลูกค้าสแกน → ฟอร์มฝากชื่อ-เบอร์ → ลีดติดป้ายงานนี้ (นับในหน้านี้และรายงาน 18:00) แจ้งเซลส์ทันที
 function openBoothQr(e) {
+  prefetchCompanyLine()
   const url = leadFormUrl({ event: e.id })
   const { el } = openModal({
     title: '🔳 QR ฟอร์มบูธ — ' + esc(e.title || ''), size: 'sm',
@@ -49,7 +51,7 @@ function openBoothQr(e) {
   el.querySelector('#bq-print').addEventListener('click', () => {
     const w = window.open('', '_blank', 'width=600,height=800')
     if (!w) { showToast('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาต pop-up แล้วลองใหม่', 'warning'); return }
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR บูธ ${esc(e.title || '')}</title><style>body{font-family:sans-serif;text-align:center;padding:40px 24px}h1{font-size:34px;margin:0 0 6px}p{font-size:20px;color:#333;margin:6px 0}.qr{margin:24px auto}.ev{font-size:16px;color:#666}</style></head><body><h1>สแกนฝากชื่อ-เบอร์</h1><p>รับข้อมูลรถและข้อเสนอจากเจ้าหน้าที่</p><div class="qr">${qrSvg(url, { size: 380 })}</div><p class="ev">${esc(e.title || '')}</p><script>window.print()<\/script></body></html>`)
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR บูธ ${esc(e.title || '')}</title><style>body{font-family:sans-serif;text-align:center;padding:40px 24px}h1{font-size:34px;margin:0 0 6px}p{font-size:20px;color:#333;margin:6px 0}.qr{margin:24px auto}.ev{font-size:16px;color:#666}</style></head><body><h1>สแกนฝากชื่อ-เบอร์</h1><p>รับข้อมูลรถและข้อเสนอจากเจ้าหน้าที่</p><div class="qr">${qrSvg(url, { size: 380 })}</div><p class="ev">${esc(e.title || '')}</p>${posterFooter()}<script>window.print()<\/script></body></html>`)
     w.document.close()
   })
 }

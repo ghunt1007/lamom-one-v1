@@ -4,6 +4,7 @@
  * ติดป้าย QR ที่รถโชว์/โบรชัวร์ ลูกค้าสแกน → ฟอร์มฝากชื่อ-เบอร์ (เลือกรุ่นไว้ให้) → ลีด walk-in ของรุ่นนั้น แจ้งเซลส์ทันที
  * นับลีดจากลูกค้าจริงที่เข้าผ่านลิงก์ของรุ่นนั้น (เดิมแสดงยอดเข้าชม/Conversion ที่ไม่มีที่มา — เอาออกแล้ว)
  */
+import { posterFooter, prefetchCompanyLine } from '../../utils/companyFooter.js'
 import { openModal } from '../../utils/modal.js'
 import { showroomUrl, showroomKey, utmLeadCounts } from '../../utils/publicLinks.js'
 import { showToast } from '../../core/store.js'
@@ -17,6 +18,7 @@ const BADGES = ['EV', 'PHEV', 'HEV', 'NEW']
 const safeColor = c => /^#[0-9a-f]{3,8}$/i.test(String(c || '').trim()) ? String(c).trim() : ''
 
 export default async function DigitalShowroomPage(container) {
+  prefetchCompanyLine()
   const myGen = container.__routerGen
   let CARS = []
   let counts = null
@@ -131,7 +133,7 @@ export default async function DigitalShowroomPage(container) {
     el.querySelector('#sq-print').addEventListener('click', () => {
       const w = window.open('', '_blank', 'width=600,height=800')
       if (!w) { showToast('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาต pop-up แล้วลองใหม่', 'warning'); return }
-      w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR ${esc(car.model)}</title><style>body{font-family:sans-serif;text-align:center;padding:40px 24px}h1{font-size:40px;margin:0 0 4px}p{font-size:20px;color:#333;margin:6px 0}.qr{margin:24px auto}</style></head><body><h1>${esc(car.model)}</h1><p>สนใจรุ่นนี้? สแกนฝากชื่อ-เบอร์</p><p>เจ้าหน้าที่จะติดต่อกลับพร้อมราคาและโปรโมชั่น</p><div class="qr">${qrSvg(car.link, { size: 380 })}</div><script>window.print()<\/script></body></html>`)
+      w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR ${esc(car.model)}</title><style>body{font-family:sans-serif;text-align:center;padding:40px 24px}h1{font-size:40px;margin:0 0 4px}p{font-size:20px;color:#333;margin:6px 0}.qr{margin:24px auto}</style></head><body><h1>${esc(car.model)}</h1><p>สนใจรุ่นนี้? สแกนฝากชื่อ-เบอร์</p><p>เจ้าหน้าที่จะติดต่อกลับพร้อมราคาและโปรโมชั่น</p><div class="qr">${qrSvg(car.link, { size: 380 })}</div>${posterFooter()}<script>window.print()<\/script></body></html>`)
       w.document.close()
     })
   }
