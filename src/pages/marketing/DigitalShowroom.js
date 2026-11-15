@@ -6,8 +6,9 @@
  */
 import { posterFooter, prefetchCompanyLine } from '../../utils/companyFooter.js'
 import { openModal } from '../../utils/modal.js'
-import { showroomUrl, showroomKey, utmLeadCounts } from '../../utils/publicLinks.js'
+import { showroomUrl, showroomKey, utmLeadCounts, soldModelsMissing } from '../../utils/publicLinks.js'
 import { showToast } from '../../core/store.js'
+import { todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml as esc } from '../../utils/escape.js'
@@ -24,16 +25,19 @@ export default async function DigitalShowroomPage(container) {
   let counts = null
   let filterBadge = 'all'
   let loading = true
+  let missing = []
 
   async function loadData() {
     loading = true
-    const [cars, customers] = await Promise.all([
+    const [cars, customers, bookings] = await Promise.all([
       listDocs('digital_showroom', [], 'model', 'asc', 500).catch(() => []),
       listDocs('customers', [...companyScopeFilters(), ['autoLead', '==', true]], 'createdAt', 'desc', 2000).catch(() => null),
+      listDocs('bookings', companyScopeFilters(), 'bookingDate', 'desc', 3000).catch(() => []),
     ])
     counts = customers ? utmLeadCounts(customers) : null
     CARS = cars.filter(c => !c.deleted && c.model).map(c => ({ ...c, link: showroomUrl(c.model), leads: counts ? (counts[showroomKey(c.model)] || 0) : null }))
       .sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0) || String(a.model).localeCompare(String(b.model), 'th'))
+    missing = soldModelsMissing(bookings, CARS.map(c => c.model), { today: todayBangkok() })
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -78,7 +82,7 @@ export default async function DigitalShowroomPage(container) {
             <div class="page-title">🚗 QR ประจำรุ่นรถ</div>
             <div class="page-subtitle">ติดป้าย QR ที่รถโชว์/โบรชัวร์ · ${CARS.length} รุ่น</div>
           </div>
-          <div class="page-actions"><button class="btn btn-primary" id="add-car-btn">+ เพิ่มรุ่น</button></div>
+          <div class="page-actions">${missing.length ? `<button class="btn btn-success" id="add-sold-btn" title="${esc(missing.map(m => m.model).join(', '))}">⚡ เพิ่มรุ่นที่ขายจริง ${missing.length} รุ่น</button>` : ''}<button class="btn btn-primary" id="add-car-btn">+ เพิ่มรุ่น</button></div>
         </div>
 
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:12px;margin-bottom:12px">
@@ -92,7 +96,7 @@ export default async function DigitalShowroomPage(container) {
 
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));gap:10px">
           ${rows.map(carCard).join('')}
-          ${rows.length === 0 ? '<div style="text-align:center;padding:30px;color:var(--text-muted);grid-column:1/-1">ยังไม่มีรุ่น — กด “+ เพิ่มรุ่น” เพื่อสร้าง QR ติดรถคันแรก</div>' : ''}
+          ${rows.length === 0 ? `<div style="text-align:center;padding:30px;color:var(--text-muted);grid-column:1/-1">ยังไม่มีรุ่น — กด ${missing.length ? '“⚡ เพิ่มรุ่นที่ขายจริง” หรือ ' : ''}“+ เพิ่มรุ่น” เพื่อสร้าง QR ติดรถคันแรก</div>` : ''}
         </div>
       </div>`
 
@@ -113,6 +117,15 @@ export default async function DigitalShowroomPage(container) {
       } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-car-btn')?.addEventListener('click', openAddCarModal)
+    document.getElementById('add-sold-btn')?.addEventListener('click', async e => {
+      const btn = e.currentTarget
+      if (btn.disabled) return
+      btn.disabled = true; btn.textContent = '⏳ กำลังเพิ่ม…'
+      let ok = 0
+      for (const m of missing) { try { await createDoc('digital_showroom', { model: m.model, badge: '', colors: [], featured: false }); ok++ } catch { /* ข้ามรุ่นที่บันทึกไม่ได้ */ } }
+      showToast(ok ? `✅ เพิ่ม ${ok} รุ่นจากใบจองแล้ว กด 🔳 QR ติดรถ เพื่อพิมพ์ป้าย` : 'บันทึกไม่สำเร็จ', ok ? 'success' : 'error')
+      await loadData()
+    })
   }
 
   function openQrModal(car) {

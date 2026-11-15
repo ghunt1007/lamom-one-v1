@@ -70,3 +70,22 @@ describe('sellerCardUrl (v1.0.1188)', async () => {
     expect(u.searchParams.get('s')).toBe('abcUID1'); expect(u.searchParams.get('utm_source')).toBe('walk-in'); expect(u.searchParams.get('utm_medium')).toBe('namecard')
   })
 })
+
+import { soldModelsMissing } from './publicLinks.js'
+describe('soldModelsMissing (v1.0.1200)', () => {
+  it('models sold in the last 12 months, not cancelled, not already on the QR page, most sold first', () => {
+    const bookings = [
+      { model: 'Deepal S07', bookingDate: '2026-10-01', status: 'ส่งมอบแล้ว' },
+      { model: 'deepal  s07', bookingDate: '2026-09-01', status: 'รอรถ' },
+      { model: 'Seal', bookingDate: '2026-08-01', status: 'รอรถ' },
+      { model: 'Seal', bookingDate: '2026-08-02', status: 'รอรถ' },
+      { model: 'Seal', bookingDate: '2026-08-03', status: 'รอรถ' },
+      { model: 'Old', bookingDate: '2025-01-01', status: 'ส่งมอบแล้ว' },
+      { model: 'Gone', bookingDate: '2026-10-01', status: 'ถอนจอง' },
+      { model: 'Del', bookingDate: '2026-10-01', status: 'รอรถ', deleted: true },
+      { model: 'Dolphin', bookingDate: '2026-10-01', status: 'รอรถ' },
+    ]
+    expect(soldModelsMissing(bookings, ['dolphin'], { today: '2026-11-16' })).toEqual([{ model: 'Seal', n: 3 }, { model: 'Deepal S07', n: 2 }])
+    expect(soldModelsMissing([], [], { today: '2026-11-16' })).toEqual([])
+  })
+})

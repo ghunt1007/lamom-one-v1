@@ -104,3 +104,22 @@ export function utmLeadCounts(customers = []) {
   }
   return out
 }
+
+// (v1.0.1200) รุ่นที่ขายจริง (ใบจองไม่ถอน ใน 12 เดือนล่าสุด) ที่ยังไม่มี QR ติดรถ — กดเพิ่มทีเดียวทุกรุ่น ไม่ต้องพิมพ์ทีละรุ่น
+// คืน [{ model, n }] เรียงจากขายมากสุด · ไม่สนตัวพิมพ์เล็ก/ใหญ่และช่องว่าง
+export function soldModelsMissing(bookings = [], existing = [], { today = '', max = 30 } = {}) {
+  const key = m => String(m || '').trim().replace(/\s+/g, ' ').toLowerCase()
+  const have = new Set((existing || []).map(key))
+  const from = today ? `${Number(today.slice(0, 4)) - 1}${today.slice(4, 10)}` : ''
+  const n = new Map()
+  ;(bookings || []).forEach(b => {
+    if (!b || b.deleted || /ถอน|ยกเลิก/.test(String(b.status || ''))) return
+    const model = String(b.model || '').trim().replace(/\s+/g, ' ')
+    if (!model || have.has(key(model))) return
+    if (from && String(b.bookingDate || '').slice(0, 10) < from) return
+    const k = key(model)
+    const r = n.get(k) || { model, n: 0 }
+    r.n++; n.set(k, r)
+  })
+  return [...n.values()].sort((a, b) => b.n - a.n || a.model.localeCompare(b.model)).slice(0, max)
+}

@@ -1203,6 +1203,7 @@ export const PAGE_COLLECTIONS = {
   "utm_links"
  ],
  "/marketing/digital-showroom": [
+  "bookings",
   "customers",
   "digital_showroom"
  ],
