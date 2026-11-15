@@ -291,6 +291,15 @@ describe('v1.0.1140 public lead form', () => {
     expect(f).toMatchObject({ date: { stringValue: '2026-11-20' }, time: { stringValue: '10:00' }, status: { stringValue: 'scheduled' }, customerId: { stringValue: 'new1' }, phone: { stringValue: '0812345678' }, model: { stringValue: 'S07' } })
     expect(told).toEqual([['ขอนัดทดลองขับ 20/11/2026 10:00 · โทรช่วงเย็น', 'new1']])
   })
+  it('a returning customer\'s test drive goes to their current owner (v1.0.1212)', async () => {
+    const w = world(), base = w.f
+    w.f = async (url, init = {}) => String(url).endsWith(':runQuery') && String(init.body || '').includes('"phone"')
+      ? { ok: true, json: async () => [{ document: { name: 'x/customers/old1', fields: { assignedTo: { stringValue: 'เซลส์บี' } } } }] }
+      : base(url, init)
+    await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', td: true, tdDate: '2026-11-20', tdTime: '10:00' }), env, async () => 't', { fetch: w.f, now: NOW })
+    const td = w.calls.find(x => x.url.endsWith('/test_drives') && x.method === 'POST')
+    expect(JSON.parse(td.body).fields).toMatchObject({ staff: { stringValue: 'เซลส์บี' }, customerId: { stringValue: 'old1' } })
+  })
   it('without the tick no test drive is booked; a bad date is refused before anything is saved', async () => {
     const w = world()
     await handleLeadForm(req({ name: 'มานี', phone: '0912345678', tdDate: '2026-11-20', tdTime: '10:00' }), env, async () => 't', { fetch: w.f, now: NOW })
