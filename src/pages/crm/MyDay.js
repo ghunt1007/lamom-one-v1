@@ -302,6 +302,7 @@ export default async function MyDayPage(container) {
           <div><div class="page-title">☀️ งานของฉันวันนี้</div><div class="page-subtitle">${hello} · ${formatDate(today)} · ${d.total ? `มีงานค้าง ${d.total} รายการ` : 'ไม่มีงานค้าง 🎉'}${d.testDrives.length + d.appts.length ? ` · วันนี้มีนัดลูกค้า ${d.testDrives.length + d.appts.length} ราย` : ''}${d.tomorrow ? ` · พรุ่งนี้มีนัด ${d.tomorrow} ราย` : ''}${d.contactedToday ? ` · วันนี้ติดต่อแล้ว ${d.contactedToday} ราย 💪` : ''}</div></div>
           <div class="page-actions">
             ${canPick ? `<select class="input" id="md-seller" style="width:auto"><option value="all">ทุกคน</option>${sellerNames().map(n => `<option value="${escHtml(n)}" ${n === seller ? 'selected' : ''}>${escHtml(n)}</option>`).join('')}</select>` : ''}
+            ${me.uid && me.displayName ? '<button class="btn btn-secondary btn-sm" id="md-card" title="QR ให้ลูกค้าสแกนฝากชื่อ-เบอร์ ลีดเข้าชื่อคุณทันที (พิมพ์ติดนามบัตร/ส่งทาง LINE)">📇 QR ของฉัน</button>' : ''}
             <button class="btn btn-secondary btn-sm" id="md-programs" title="แคมเปญ ดอกเบี้ย มาร์จิ้น ค่าบริหาร เงินรางวัล">🎯 โปร & เงินพิเศษ</button>
             <button class="btn btn-secondary btn-sm" id="md-speak" title="ให้ LAMI อ่านงานวันนี้ให้ฟัง (ฟังตอนขับรถได้)">🔊 ฟังงานวันนี้</button>
             <button class="btn btn-secondary btn-sm" id="md-reload">🔄 รีเฟรช</button>
@@ -416,6 +417,12 @@ export default async function MyDayPage(container) {
     container.querySelector('#md-seller')?.addEventListener('change', e => { seller = e.target.value; render() })
     $$('.md-more').forEach(b => b.addEventListener('click', () => { expanded.add(b.dataset.key); const y = window.scrollY; render(); window.scrollTo(0, y) }))
     container.querySelector('#md-programs')?.addEventListener('click', () => navigate('/crm/programs'))
+    container.querySelector('#md-card')?.addEventListener('click', async () => {
+      const [{ openQrModal }, { sellerCardUrl }] = await Promise.all([import('../../utils/qrModal.js'), import('../../utils/publicLinks.js')])
+      openQrModal({ title: 'QR ของ ' + me.displayName, url: sellerCardUrl(me.uid, me.displayName), filename: 'QR-' + me.displayName,
+        note: 'ลูกค้าสแกนแล้วฝากชื่อ-เบอร์ ลีดเข้าเป็นลูกค้าของคุณทันทีและแจ้งเตือนทาง LINE (ฟอร์มต้องเปิดรับอยู่) · บันทึกรูปไปใส่นามบัตร/ส่งในแชตได้',
+        poster: { heading: 'สแกนฝากชื่อ-เบอร์', lines: ['ติดต่อ ' + me.displayName, 'รับข้อมูลรถและข้อเสนอพิเศษ'] } })
+    })
     container.querySelector('#md-bonus-more')?.addEventListener('click', () => navigate('/crm/programs'))
     container.querySelectorAll('[data-nav-ev]').forEach(b => b.addEventListener('click', () => navigate('/marketing/events')))
     container.querySelector('#md-nextmonth')?.addEventListener('click', e => navigate('/crm/programs?month=' + e.currentTarget.dataset.month))

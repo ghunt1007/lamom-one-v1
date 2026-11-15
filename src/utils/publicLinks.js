@@ -14,8 +14,9 @@ export function publicOrigin(loc = typeof location !== 'undefined' ? location : 
 }
 
 // ฟอร์มรับลีดสาธารณะ (public/lead.html) — ref = รหัสผู้แนะนำ, model = เติมรุ่นที่สนใจให้ก่อน
-export function leadFormUrl({ ref = '', model = '', account = '', event = '' } = {}) {
+export function leadFormUrl({ ref = '', model = '', account = '', event = '', seller = '' } = {}) {
   const q = new URLSearchParams()
+  if (seller) q.set('s', String(seller))
   if (event) q.set('ev', String(event))
   if (ref) q.set('ref', String(ref))
   if (model) q.set('m', String(model).slice(0, 80))
@@ -92,6 +93,8 @@ export const utmKey = (source, campaign) => `${utmClean(source)}|${utmClean(camp
 // (v1.0.1180) QR ประจำรุ่นรถในโชว์รูม: ฟอร์มเลือกรุ่นไว้ให้ + นับเป็นลีด walk-in ของรุ่นนั้น
 export const showroomUrl = model => withUtm(leadFormUrl({ model }), { source: 'walk-in', medium: 'qr', campaign: String(model || '').trim() })
 export const showroomKey = model => utmKey('walk-in', model)
+// (v1.0.1188) QR นามบัตรเซลส์: ลีดเข้าชื่อเซลส์คนนั้นทันที (worker ตรวจว่าเป็นผู้ใช้จริงที่ยังใช้งานอยู่)
+export const sellerCardUrl = (uid, name = '') => withUtm(leadFormUrl({ seller: uid }), { source: 'walk-in', medium: 'namecard', campaign: String(name || '').trim() })
 export function utmLeadCounts(customers = []) {
   const out = {}
   for (const c of customers) {
