@@ -3,6 +3,7 @@
  * Route: /marketing/digital-showroom
  */
 import { openModal } from '../../utils/modal.js'
+import { leadFormUrl } from '../../utils/publicLinks.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
@@ -204,9 +205,9 @@ export default async function DigitalShowroomPage(container) {
       </div>`,
       confirmText: '🔗 Copy Showroom Link',
       onConfirm() {
-        const url = 'https://lamom.app/showroom/' + car.id
+        const url = leadFormUrl({ model: [car.brand, car.model].filter(Boolean).join(' ') || car.name || '' })
         navigator.clipboard?.writeText(url)
-          .then(() => showToast('🔗 Copy Link แล้ว · ' + url, 'success'))
+          .then(() => showToast('🔗 คัดลอกลิงก์ฟอร์มรับลีด (เติมรุ่นนี้ให้แล้ว) · ' + url, 'success'))
           .catch(() => showToast('🔗 Link: ' + url, 'success'))
       }
     })

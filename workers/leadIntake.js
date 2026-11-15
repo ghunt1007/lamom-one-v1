@@ -70,7 +70,7 @@ export function parseLeadPayload(body = {}, query = {}) {
 
 export function buildLeadFields(lead, { now, tags = [], companyId = null, extra = {} } = {}) {
   const str = v => ({ stringValue: String(v ?? '') })
-  const src = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', line: 'LINE', website: 'เว็บไซต์', email: 'อีเมล', google: 'Google' }[lead.source] || 'ช่องทางออนไลน์'
+  const src = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', line: 'LINE', website: 'เว็บไซต์', email: 'อีเมล', google: 'Google', referral: 'เพื่อนแนะนำ' }[lead.source] || 'ช่องทางออนไลน์'
   const notes = [`ลีดเข้ามาเองจาก ${src}`, lead.model ? `สนใจ ${lead.model}` : '', lead.note ? `"${clip(lead.note, 300)}"` : ''].filter(Boolean).join(' · ')
   const f = {
     firstName: str(lead.first || `ลูกค้า ${src}`), lastName: str(lead.last), phone: str(lead.phone), email: str(lead.email),
@@ -404,6 +404,11 @@ export function accountLeadInfo(doc) {
   return { id: String(doc.name || '').split('/').pop(), source: normSource(g('platform')), name: clip(g('name') || g('handle'), 80), level, assignedTo: level === 'sales' ? clip(g('owner'), 80) : '', companyId: g('companyId') }
 }
 
+// (v1.0.1172) รหัสผู้แนะนำจากลิงก์ ?ref= ของหน้า "QR แนะนำเพื่อน" — ตัวอักษร/ตัวเลขเท่านั้น สูงสุด 20 ตัว
+export function cleanRefCode(v) {
+  return String(v || '').toUpperCase().replace(/[^A-Z0-9ก-๙]/g, '').slice(0, 20)
+}
+
 export async function handleLeadForm(request, env, getToken, deps = {}) {
   const fetchImpl = deps.fetch || fetch
   const raw = await request.text()
@@ -426,6 +431,7 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   const inbox = await readInboxAuto(env, token, fetchImpl)
   if (!inbox.publicForm) return { status: 403, body: { ok: false, error: 'ฟอร์มนี้ปิดรับอยู่' } }
   const accId = clip(String(b.a || ''), 60).replace(/[^A-Za-z0-9_-]/g, '')
+  const ref = cleanRefCode(b.ref)
   let acc = null
   if (accId) {
     const r = await call(fetchImpl, `${fsBase(env)}/social_channels/${encodeURIComponent(accId)}`, { headers: { Authorization: `Bearer ${token}` } })
@@ -434,8 +440,10 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   const parts = name.split(' ')
   const clean = (v, n) => clip(String(v || '').replace(/[<>\u0000-\u001f]/g, ' ').trim(), n)
   const lead = { first: parts[0], last: parts.slice(1).join(' '), phone, email: '', lineId: clean(b.line, 60), model: clean(b.model, 80), note: [td ? `ขอนัดทดลองขับ ${td.label}` : '', clean(b.note, 300)].filter(Boolean).join(' · '),
-    source: acc?.source || 'website', account: acc?.id || '', assignedTo: acc?.assignedTo || '', companyId: acc?.companyId || '' }
-  const r = await createLead(env, token, lead, { tags: ['ฟอร์มรับลีด', ...(acc?.name ? [acc.name] : [])], extra: acc ? { sourceAccountName: acc.name, sourceAccountLevel: acc.level } : {}, fetchImpl })
+    source: acc?.source || (ref ? 'referral' : 'website'), account: acc?.id || '', assignedTo: acc?.assignedTo || '', companyId: acc?.companyId || '' }
+  if (ref) lead.note = [`แนะนำโดยรหัส ${ref}`, lead.note].filter(Boolean).join(' · ')
+  const extra = { ...(acc ? { sourceAccountName: acc.name, sourceAccountLevel: acc.level } : {}), ...(ref ? { referralCode: ref } : {}) }
+  const r = await createLead(env, token, lead, { tags: ['ฟอร์มรับลีด', ...(acc?.name ? [acc.name] : []), ...(ref ? [`แนะนำ ${ref}`] : [])], extra, fetchImpl })
   if (r.error) return { status: 500, body: { ok: false, error: 'บันทึกไม่สำเร็จ กรุณาลองใหม่' } }
   // นัดทดลองขับลงตารางเดียวกับหน้า Test Drive (สถานะ "นัดแล้ว" พร้อมหมายเหตุให้โทรยืนยัน) — พลาดก็ยังมีข้อความในโน้ตลูกค้าและแจ้งเตือน
   if (td) await createTestDrive(env, token, { lead, customerId: r.id, td, companyId: lead.companyId || env.LINE_LEAD_COMPANY_ID || null, now: new Date(deps.now || Date.now()).toISOString() }, fetchImpl).catch(() => false)

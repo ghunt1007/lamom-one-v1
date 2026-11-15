@@ -1269,6 +1269,7 @@ export const PAGE_COLLECTIONS = {
   "price_history"
  ],
  "/crm/referral-qr": [
+  "customers",
   "referrers",
   "staff"
  ],
