@@ -416,6 +416,20 @@ export function cleanUtm(u) {
   return o.source || o.campaign ? o : null
 }
 
+// (v1.0.1179) QR ฟอร์มประจำบูธ (?ev=รหัสงาน) — ลีดติดป้าย eventId ให้หน้าตารางออกบูธ/รายงาน 18:00 นับเป็นลีดของงานนั้น
+export function cleanEventId(v) {
+  return String(v || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60)
+}
+// อ่านงานจริงก่อนติดป้าย (กันรหัสมั่ว) — คืน { id, title, companyId } หรือ null
+export async function readEventTag(env, token, id, fetchImpl) {
+  if (!id) return null
+  const r = await call(fetchImpl, `${fsBase(env)}/marketing_events/${encodeURIComponent(id)}`, { headers: { Authorization: `Bearer ${token}` } })
+  if (!r?.ok) return null
+  const f = (await r.json().catch(() => null))?.fields
+  if (!f || f.deleted?.booleanValue) return null
+  return { id, title: f.title?.stringValue || '', companyId: f.companyId?.stringValue || '' }
+}
+
 export async function handleLeadForm(request, env, getToken, deps = {}) {
   const fetchImpl = deps.fetch || fetch
   const raw = await request.text()
@@ -440,6 +454,7 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   const accId = clip(String(b.a || ''), 60).replace(/[^A-Za-z0-9_-]/g, '')
   const ref = cleanRefCode(b.ref)
   const utm = cleanUtm(b.utm)
+  const ev = await readEventTag(env, token, cleanEventId(b.ev), fetchImpl).catch(() => null)
   let acc = null
   if (accId) {
     const r = await call(fetchImpl, `${fsBase(env)}/social_channels/${encodeURIComponent(accId)}`, { headers: { Authorization: `Bearer ${token}` } })
@@ -448,10 +463,10 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   const parts = name.split(' ')
   const clean = (v, n) => clip(String(v || '').replace(/[<>\u0000-\u001f]/g, ' ').trim(), n)
   const lead = { first: parts[0], last: parts.slice(1).join(' '), phone, email: '', lineId: clean(b.line, 60), model: clean(b.model, 80), note: [td ? `ขอนัดทดลองขับ ${td.label}` : '', clean(b.note, 300)].filter(Boolean).join(' · '),
-    source: acc?.source || (ref ? 'referral' : (utm?.source && normSource(utm.source) !== 'other' ? normSource(utm.source) : 'website')), account: acc?.id || '', assignedTo: acc?.assignedTo || '', companyId: acc?.companyId || '' }
+    source: acc?.source || (ref ? 'referral' : ev ? 'event' : (utm?.source && normSource(utm.source) !== 'other' ? normSource(utm.source) : 'website')), account: acc?.id || '', assignedTo: acc?.assignedTo || '', companyId: acc?.companyId || ev?.companyId || '' }
   if (ref) lead.note = [`แนะนำโดยรหัส ${ref}`, lead.note].filter(Boolean).join(' · ')
-  const extra = { ...(acc ? { sourceAccountName: acc.name, sourceAccountLevel: acc.level } : {}), ...(ref ? { referralCode: ref } : {}), ...(utm ? { utmSource: utm.source, utmMedium: utm.medium, utmCampaign: utm.campaign } : {}) }
-  const r = await createLead(env, token, lead, { tags: ['ฟอร์มรับลีด', ...(acc?.name ? [acc.name] : []), ...(ref ? [`แนะนำ ${ref}`] : [])], extra, fetchImpl })
+  const extra = { ...(acc ? { sourceAccountName: acc.name, sourceAccountLevel: acc.level } : {}), ...(ref ? { referralCode: ref } : {}), ...(utm ? { utmSource: utm.source, utmMedium: utm.medium, utmCampaign: utm.campaign } : {}), ...(ev ? { eventId: ev.id, eventName: ev.title } : {}) }
+  const r = await createLead(env, token, lead, { tags: ['ฟอร์มรับลีด', ...(acc?.name ? [acc.name] : []), ...(ref ? [`แนะนำ ${ref}`] : []), ...(ev ? [`บูธ ${ev.title}`.trim()] : [])], extra, fetchImpl })
   if (r.error) return { status: 500, body: { ok: false, error: 'บันทึกไม่สำเร็จ กรุณาลองใหม่' } }
   // นัดทดลองขับลงตารางเดียวกับหน้า Test Drive (สถานะ "นัดแล้ว" พร้อมหมายเหตุให้โทรยืนยัน) — พลาดก็ยังมีข้อความในโน้ตลูกค้าและแจ้งเตือน
   if (td) await createTestDrive(env, token, { lead, customerId: r.id, td, companyId: lead.companyId || env.LINE_LEAD_COMPANY_ID || null, now: new Date(deps.now || Date.now()).toISOString() }, fetchImpl).catch(() => false)
