@@ -32,3 +32,18 @@ describe('bookingDataIssues (v1.0.1164)', () => {
     expect(rowLabel({})).toBe('ใบจองไม่มีเลข')
   })
 })
+
+describe('unknown salesperson names (v1.0.1166)', () => {
+  it('flags open bookings whose salesName matches no staff/user; ignores prefixes, spaces and case', async () => {
+    const { bookingDataIssues, knownPeopleNames } = await import('./bookingDataCheck.js')
+    const known = knownPeopleNames([{ firstName: 'สมใจ', lastName: 'ดีมาก', nickname: 'แอน' }, { firstName: 'X', deleted: true, nickname: 'โบ' }], [{ displayName: 'Golf Admin' }])
+    const base = { bookingNo: 'B', status: 'รอรถ', bookingDate: '2026-11-01', price: 1, phone: '0812345678' }
+    const r = bookingDataIssues([
+      { ...base, id: '1', salesName: 'คุณแอน' }, { ...base, id: '2', salesName: 'สมใจ  ดีมาก', bookingNo: 'C' }, { ...base, id: '3', salesName: 'golf admin', bookingNo: 'D' },
+      { ...base, id: '4', salesName: 'โบ', bookingNo: 'E' }, { ...base, id: '5', salesName: 'โบ', bookingNo: 'F', status: 'ส่งมอบแล้ว', cutDate: '2026-11-02' },
+    ], { today: '2026-11-16', knownNames: known })
+    expect(r.map(i => i.key)).toEqual(['unknownSales'])
+    expect(r[0].rows.map(b => b.id)).toEqual(['4'])
+    expect(bookingDataIssues([{ ...base, salesName: 'ใครก็ได้' }], { today: '2026-11-16' })).toEqual([])
+  })
+})
