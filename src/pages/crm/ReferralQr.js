@@ -2,6 +2,7 @@
  * Referral QR Generator — QR แนะนำเพื่อน ได้ Commission อัตโนมัติ
  * Route: /crm/referral-qr
  */
+import { posterFooter, prefetchCompanyLine } from '../../utils/companyFooter.js'
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
@@ -16,6 +17,7 @@ const COMMISSION_RATE = REFERRAL_RATE // บาทต่อคันที่ข
 const PAY_ROLES = ['finance', 'manager', 'owner', 'admin']
 
 export default async function ReferralQrPage(container) {
+  prefetchCompanyLine()
   const myGen = container.__routerGen
   seedDemoData()
   const me = getState('user') || {}
@@ -143,7 +145,7 @@ export default async function ReferralQrPage(container) {
     document.getElementById('print-qr')?.addEventListener('click', () => {
       if (!sel) { showToast('เลือก Referrer ก่อน', 'warning'); return }
       const win = window.open('', '_blank', 'width=420,height=680')
-      win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>แนะนำเพื่อน ${escHtml(sel.name)}</title><style>body{font-family:sans-serif;text-align:center;padding:30px}h2{margin:0 0 8px}p{color:#444;font-size:15px}.code{font-size:40px;font-weight:900;letter-spacing:4px;margin:18px 0}.url{font-size:13px;word-break:break-all;color:#1d4ed8}.qr{margin:8px auto}</style></head><body><h2>แนะนำเพื่อนซื้อรถ</h2><p>โดยคุณ ${escHtml(sel.name)}</p><div class="code">${escHtml(sel.code)}</div><div class="qr">${qrSvg(sel.qrUrl, { size: 260 })}</div><p>สแกน QR หรือเปิดลิงก์นี้ ฝากชื่อและเบอร์ไว้</p><p class="url">${escHtml(sel.qrUrl)}</p><script>window.print()<\/script></body></html>`)
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>แนะนำเพื่อน ${escHtml(sel.name)}</title><style>body{font-family:sans-serif;text-align:center;padding:30px}h2{margin:0 0 8px}p{color:#444;font-size:15px}.code{font-size:40px;font-weight:900;letter-spacing:4px;margin:18px 0}.url{font-size:13px;word-break:break-all;color:#1d4ed8}.qr{margin:8px auto}</style></head><body><h2>แนะนำเพื่อนซื้อรถ</h2><p>โดยคุณ ${escHtml(sel.name)}</p><div class="code">${escHtml(sel.code)}</div><div class="qr">${qrSvg(sel.qrUrl, { size: 260 })}</div><p>สแกน QR หรือเปิดลิงก์นี้ ฝากชื่อและเบอร์ไว้</p><p class="url">${escHtml(sel.qrUrl)}</p>${posterFooter()}<script>window.print()<\/script></body></html>`)
       win.document.close()
       showToast(`🖨 เปิดหน้าพิมพ์ของ ${sel.name} แล้ว`, 'success')
     })

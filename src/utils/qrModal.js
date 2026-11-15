@@ -1,4 +1,5 @@
 // (v1.0.1183) หน้าต่าง QR ใช้ร่วมกัน: QR + ลิงก์ + บันทึกรูป + คัดลอก + (ถ้าส่ง poster) พิมพ์ป้าย
+import { posterFooter, prefetchCompanyLine } from './companyFooter.js'
 import { openModal } from './modal.js'
 import { escHtml as esc } from './escape.js'
 import { copyText } from './copyText.js'
@@ -6,6 +7,7 @@ import { qrSvg, qrDownloadLink } from './qr.js'
 
 export function openQrModal({ title = 'QR', url = '', filename = 'QR', note = '', poster = null } = {}) {
   if (!url) return null
+  if (poster) prefetchCompanyLine()
   const { el, close } = openModal({
     title: '🔳 ' + esc(title), size: 'sm',
     body: `<div style="text-align:center">
@@ -24,7 +26,7 @@ export function openQrModal({ title = 'QR', url = '', filename = 'QR', note = ''
     const w = window.open('', '_blank', 'width=600,height=800')
     if (!w) return
     const lines = (poster.lines || []).map(l => `<p>${esc(l)}</p>`).join('')
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(poster.heading || title)}</title><style>body{font-family:sans-serif;text-align:center;padding:40px 24px}h1{font-size:36px;margin:0 0 6px}p{font-size:20px;color:#333;margin:6px 0}.qr{margin:24px auto}</style></head><body><h1>${esc(poster.heading || title)}</h1>${lines}<div class="qr">${qrSvg(url, { size: 380 })}</div><script>window.print()<\/script></body></html>`)
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(poster.heading || title)}</title><style>body{font-family:sans-serif;text-align:center;padding:40px 24px}h1{font-size:36px;margin:0 0 6px}p{font-size:20px;color:#333;margin:6px 0}.qr{margin:24px auto}</style></head><body><h1>${esc(poster.heading || title)}</h1>${lines}<div class="qr">${qrSvg(url, { size: 380 })}</div>${posterFooter()}<script>window.print()<\/script></body></html>`)
     w.document.close()
   })
   return { el, close }
