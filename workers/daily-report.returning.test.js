@@ -44,3 +44,21 @@ describe('18:00 customer query fields', () => {
     expect([...used].filter(f => !EVENING_CUSTOMER_FIELDS.includes(f))).toEqual([])
   })
 })
+
+describe('18:00 returning customers line (v1.0.1215)', () => {
+  it('counts today\'s re-enquiries and call-backs; every c.<field> in buildReport is fetched', async () => {
+    const { buildReport, EVENING_CUSTOMER_FIELDS } = await import('./daily-report.js')
+    const customers = [
+      { id: 'a', stage: 'pp', reEnquiredAt: '2026-11-16T03:00:00Z', lastContactAt: '2026-11-16T04:00:00Z', createdAt: '2026-09-01T00:00:00Z' },
+      { id: 'b', stage: 'lead', reEnquiredAt: '2026-11-16T05:00:00Z', createdAt: '2026-09-01T00:00:00Z' },
+      { id: 'c', stage: 'lead', reEnquiredAt: '2026-11-14T05:00:00Z', createdAt: '2026-09-01T00:00:00Z' },
+    ]
+    const text = buildReport({ bookings: [], customers, followups: [], testDrives: [], teamTargets: [] }, { today: '2026-11-16', time: '18:00' })
+    expect(text).toContain('📣 ลูกค้าเดิมทักกลับมาวันนี้: 2 ราย · โทรกลับแล้ว 1 ⚠️')
+    const fs = await import('node:fs')
+    const src = fs.readFileSync(new URL('./daily-report.js', import.meta.url), 'utf8')
+    const i = src.indexOf('export function buildReport'); const body = src.slice(i, src.indexOf('\n}\n', i))
+    const used = [...new Set([...body.matchAll(/\bc\.([a-zA-Z]+)/g)].map(m => m[1]))].filter(f => f !== 'id')
+    expect(used.filter(f => !EVENING_CUSTOMER_FIELDS.includes(f))).toEqual([])
+  })
+})

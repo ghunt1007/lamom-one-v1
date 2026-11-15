@@ -840,6 +840,14 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     // (v1.0.1199) ลีดที่สแกน/กดจากลิงก์-QR ของเราเอง (บูธ ติดรถ นามบัตร แนะนำเพื่อน …) — ดูว่า QR ไหนได้ผล
     entryPointLine(newLeadsTodayList) ? `    ผ่านลิงก์/QR ของเรา: ${entryPointLine(newLeadsTodayList)}` : null,
     newLeadsToday ? `    ติดต่อแล้ว ${contactedToday}/${newLeadsToday} ราย${contactedToday < newLeadsToday ? ' ⚠️ ที่เหลือควรโทรก่อนพรุ่งนี้' : ' 👍'}` : null,
+    // (v1.0.1215) ลูกค้าเดิมกรอกฟอร์ม/สแกน QR เข้ามาอีกครั้งวันนี้ — โทรกลับแล้วกี่ราย
+    ...(() => {
+      const ms = v => { const t = new Date(v || '').getTime(); return Number.isFinite(t) ? t : 0 }
+      const back = customers.filter(c => toBangkokDate(c.reEnquiredAt) === today)
+      if (!back.length) return []
+      const called = back.filter(c => ms(c.lastContactAt) > ms(c.reEnquiredAt)).length
+      return [`  • 📣 ลูกค้าเดิมทักกลับมาวันนี้: ${back.length} ราย · โทรกลับแล้ว ${called}${called < back.length ? ' ⚠️' : ' 👍'}`]
+    })(),
     `  • Lead ที่ดูแลอยู่: ${leads.length} ราย`,
     unassigned ? `  • ⚠️ ยังไม่มีผู้ดูแล: ${unassigned} ราย (มอบให้เซลส์ได้ที่หน้า "งานของฉันวันนี้")` : null,
     `  • ติดต่อลูกค้าวันนี้: ${contactedAll.length} ราย${contactLine ? ` (${contactLine})` : ''}`,
@@ -897,7 +905,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 
 // ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
 // ช่องของลูกค้าที่รายงาน 18:00 อ่าน (รวมที่ entryPointOf ใช้แยกลิงก์/QR: autoLead/utm*/tags — v1.0.1211 เดิมขาด ลีดจากลิงก์แคมเปญ/ติดรถไม่ถูกนับ)
-export const EVENING_CUSTOMER_FIELDS = ['stage', 'createdAt', 'source', 'assignedTo', 'temperature', 'isLost', 'lostAt', 'lostReason', 'lastContactAt', 'eventId', 'referralCode', 'deleted', 'autoLead', 'utmMedium', 'utmSource', 'utmCampaign', 'tags']
+export const EVENING_CUSTOMER_FIELDS = ['stage', 'createdAt', 'source', 'assignedTo', 'temperature', 'isLost', 'lostAt', 'lostReason', 'lastContactAt', 'eventId', 'referralCode', 'deleted', 'autoLead', 'utmMedium', 'utmSource', 'utmCampaign', 'tags', 'reEnquiredAt']
 // ช่องของลูกค้าที่ buildMorningSections อ่าน — ขาดช่องไหน หัวข้อนั้นจะเงียบหายในรายงานจริง (เทสต์เช็กไว้)
 // (v1.0.1211) เดิมไม่มี autoLead → หัวข้อ "🆕 Lead ใหม่ที่ยังไม่มีใครโทร" ไม่เคยขึ้นในรายงานจริง
 export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel']
