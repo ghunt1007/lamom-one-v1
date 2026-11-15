@@ -1376,3 +1376,28 @@ describe('metaAdsLine (v1.0.1154)', () => {
     expect(metaAdsLine(null)).toBe(''); expect(metaAdsLine({ accounts: [] })).toBe(''); expect(metaAdsLine({ accounts: [{ campaigns: [{ spend: 0, leads: 0 }] }] })).toBe('')
   })
 })
+
+describe('LINE quota line in evening report (v1.0.1160)', () => {
+  const base = { bookings: [], customers: [], followups: [], testDrives: [] }
+  it('shows a warning near the end only from 80%', () => {
+    const t = buildReport({ ...base, lineQuota: { limited: true, limit: 300, used: 270, left: 30, pct: 90 } }, { today: '2026-11-16' })
+    expect(t).toContain('เหลือ 30 ข้อความ')
+    expect(t.indexOf('โควตาข้อความ')).toBeLessThan(t.indexOf('LAMOM ONE Auto Report'))
+    expect(buildReport({ ...base, lineQuota: { limited: true, limit: 300, used: 30, left: 270, pct: 10 } }, { today: '2026-11-16' })).not.toContain('โควตา')
+    expect(buildReport(base, { today: '2026-11-16' })).not.toContain('โควตา')
+  })
+})
+
+describe('runReportAndRecord (v1.0.1161)', () => {
+  it('records the result and still records when the run throws', async () => {
+    const { runReportAndRecord } = await import('./daily-report.js')
+    const saved = []
+    const save = async (env, tok, kind, res) => { saved.push([tok, kind, res]) }
+    await runReportAndRecord({}, 'evening', { run: async () => ({ line: { sent: true } }), getToken: async () => 'T', save })
+    await runReportAndRecord({}, 'morning', { run: async () => { throw new Error('boom') }, getToken: async () => 'T', save })
+    expect(saved[0]).toEqual(['T', 'evening', { line: { sent: true } }])
+    expect(saved[1][2]).toEqual({ error: 'boom' })
+    const r = await runReportAndRecord({}, 'evening', { run: async () => ({ ok: 1 }), getToken: async () => { throw new Error('no token') }, save })
+    expect(r).toEqual({ ok: 1 })
+  })
+})

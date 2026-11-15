@@ -20,6 +20,7 @@
  *   GOOGLE_MAPS_API_KEY     (ไม่บังคับ, v1.0.977) คีย์ Places API (New) — ดึงคะแนน/จำนวนรีวิว/รีวิวล่าสุดบน Google Maps
  */
 import { aiReplyTest } from './inboxAuto.js'
+import { fetchLineQuota } from './lineQuota.js'
 
 export const GRAPH = 'https://graph.facebook.com/v21.0'
 export const MANAGER_ROLES = ['owner', 'admin', 'manager']
@@ -172,6 +173,8 @@ export async function socialStatus(env) {
     ai: { configured: !!env.GEMINI_API_KEY },
     leadHook: { configured: !!env.LEAD_WEBHOOK_KEY },
   }
+  // (v1.0.1160) โควตาข้อความ LINE OA เดือนนี้ (null = อ่านไม่ได้)
+  if (out.line.configured) out.line.quota = await Promise.race([fetchLineQuota(env.LINE_CHANNEL_ACCESS_TOKEN), new Promise(r => setTimeout(() => r(null), 5000))]).catch(() => null)
   if (out.meta.configured) {
     try { out.meta.pages = (await metaPages(env, { fresh: true })).map(publicPage) } catch (e) { out.meta.error = e.message }
   }

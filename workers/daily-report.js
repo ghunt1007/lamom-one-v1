@@ -34,6 +34,8 @@
 import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser, backupDecodeValue } from './nightly-backup.js'
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
 import { metaAds, handleSocial, recordLineInbound, handleExtraLineWebhook, lineThreadId } from './social.js'
+import { fetchLineQuota, lineQuotaLine } from './lineQuota.js'
+import { saveReportStatus } from './reportStatus.js'
 import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
 import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFromChat, handleLeadForm } from './leadIntake.js'
 import { handleNotify } from './notify.js'
@@ -185,16 +187,16 @@ export default {
       ctx.waitUntil((async () => {
         const e2 = await withStoredSecrets(env, () => getFirestoreAccessToken(env))
         const tok = await getFirestoreAccessToken(env)
-        await runScheduledSends(e2, tok)
+        await runScheduledSends(e2, tok).catch(() => null)
         await runScheduledPosts(e2, tok).catch(() => null)
         await runLeadNudgeJob(e2, tok).catch(() => null)
         await runChatNudgeJob(e2, tok).catch(() => null)
       })())
       return
     }
-    if (event.cron === MORNING_CRON) { ctx.waitUntil(runDailyReport(env, true)); return }
+    if (event.cron === MORNING_CRON) { ctx.waitUntil(runReportAndRecord(env, 'morning')); return }
     // รายงานเย็นส่งเฉพาะ cron 18:00 เท่านั้น — cron ที่ไม่รู้จักจะไม่ทำอะไร (กันส่งรายงานซ้ำถ้ามีการเพิ่ม cron ใหม่ในอนาคต)
-    if (event.cron === EVENING_CRON) ctx.waitUntil(runDailyReport(env))
+    if (event.cron === EVENING_CRON) ctx.waitUntil(runReportAndRecord(env, 'evening'))
   },
 }
 
@@ -263,6 +265,14 @@ function backupDeps(env) {
 }
 
 // ── รายงานหลัก — ใช้ร่วมกันทั้ง scheduled() และ /test-send ─────────────────────
+// (v1.0.1161) ส่งรายงานตาม cron แล้วบันทึกผลล่าสุดไว้ให้การ์ดความพร้อมใช้งาน — บันทึกพลาดต้องไม่กระทบการส่ง
+export async function runReportAndRecord(env, kind, { run = runDailyReport, getToken = getFirestoreAccessToken, save = saveReportStatus } = {}) {
+  let res
+  try { res = await run(env, kind === 'morning') } catch (e) { res = { error: e?.message || String(e) } }
+  try { await save(env, await getToken(env), kind, res) } catch { /* ไม่ให้ cron ล้ม */ }
+  return res
+}
+
 async function runDailyReport(env, morning = false) {
   const accessToken = await getFirestoreAccessToken(env)
   if (!accessToken) return { error: 'อ่าน Firestore ไม่ได้ — ตรวจสอบ secret FIRESTORE_SERVICE_ACCOUNT_JSON' }
@@ -600,8 +610,11 @@ async function buildReportText(env, accessToken) {
     runQuery(env, accessToken, 'appointments', 'date', 'DESCENDING', 500, ['date', 'status', 'deleted']).catch(() => []),
   ])
   const followups = [...fuPending, ...fuDone]
-  const metaAdsData = await fetchMetaAdsForReport(env)
-  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts, appointments, metaAds: metaAdsData }, {
+  const [metaAdsData, lineQuota] = await Promise.all([
+    fetchMetaAdsForReport(env),
+    Promise.race([fetchLineQuota(env.LINE_CHANNEL_ACCESS_TOKEN), new Promise(r => setTimeout(() => r(null), 5000))]).catch(() => null),
+  ])
+  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts, appointments, metaAds: metaAdsData, lineQuota }, {
     today: todayBangkok(),
     time: new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()),
     defaultTarget: parseInt(env.MONTHLY_DELIVERY_TARGET) || 0,
@@ -833,6 +846,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   if (sellerLines.length) lines.push('', '👤 ทีมขาย (เดือนนี้)', ...sellerLines)
   lines.push('', `❌ ถอนจองเดือนนี้: ${cancelMonth} คัน | ปีนี้: ${cancelYear} คัน`,
     ...(cancelTodayList.length ? [`  วันนี้ ${cancelTodayList.length} คัน:`, ...cancelTodayList.slice(0, 5).map(b => `  • ${b.custName || 'ลูกค้า'}${b.model ? ` (${b.model})` : ''} · ${(b.salesName || '').trim() || '(ไม่ระบุ)'}${b.cancelReason ? ` — ${String(b.cancelReason).trim().slice(0, 60)}` : ''}`)] : []),
+    ...(lineQuotaLine(data.lineQuota) ? ['', lineQuotaLine(data.lineQuota)] : []),
     '', '─────────────────────', '🤖 LAMOM ONE Auto Report')
   return lines.filter(l => l !== null).join('\n')
 }

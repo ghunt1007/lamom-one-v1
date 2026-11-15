@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { readinessItems, readinessSummary } from './readiness.js'
 
 const NOW = Date.UTC(2026, 10, 15, 6, 0, 0)
-const full = { line: { configured: true }, meta: { configured: true, pages: [{ id: '1' }] }, ai: { configured: true }, leadHook: { configured: true } }
+const full = { line: { configured: true, quota: { limited: true, limit: 300, used: 10, left: 290, pct: 3 } }, meta: { configured: true, pages: [{ id: '1' }] }, ai: { configured: true }, leadHook: { configured: true } }
 const by = (items, id) => items.find(i => i.id === id)
 
 describe('readinessItems', () => {
   it('ทุกอย่างพร้อม → ok ทั้งหมด', () => {
-    const it2 = readinessItems({ status: full, auto: { publicForm: true, aiReply: true, leadAlert: true }, lastBackupMs: NOW - 3600e3, sheet: { ok: true }, now: NOW })
+    const it2 = readinessItems({ status: full, auto: { publicForm: true, aiReply: true, leadAlert: true }, lastBackupMs: NOW - 3600e3, sheet: { ok: true }, reports: { morningAt: new Date(NOW - 3600e3).toISOString(), morningOk: true, eveningAt: new Date(NOW - 7200e3).toISOString(), eveningOk: true }, now: NOW })
     expect(readinessSummary(it2)).toEqual({ ok: it2.length, todo: 0, unknown: 0, total: it2.length })
   })
   it('ไม่มีสถานะจาก worker → unknown ไม่เดาว่าผ่าน', () => {
@@ -33,5 +33,34 @@ describe('readinessItems', () => {
     const t = by(readinessItems({ status: full, auto: {}, sheet: { code: 'not_shared', shareWith: 'bot@demo.iam.gserviceaccount.com' }, now: NOW }), 'sheet')
     expect(t.state).toBe('todo'); expect(t.hint).toContain('bot@demo.iam.gserviceaccount.com')
     expect(by(readinessItems({ status: full, auto: {}, now: NOW }), 'sheet').state).toBe('unknown')
+  })
+})
+
+describe('LINE quota readiness (v1.0.1160)', () => {
+  const by = (items, id) => items.find(i => i.id === id)
+  const NOW = Date.UTC(2026, 10, 16, 6, 0, 0)
+  const st = quota => ({ line: { configured: true, quota }, meta: { configured: true, pages: [{ id: '1' }] }, ai: { configured: true }, leadHook: { configured: true } })
+  it('ok under 80%, todo from 80%, unknown when unreadable, absent without LINE', () => {
+    expect(by(readinessItems({ status: st({ limited: true, limit: 300, used: 30, left: 270, pct: 10 }), auto: {}, now: NOW }), 'linequota').state).toBe('ok')
+    expect(by(readinessItems({ status: st({ limited: false, used: 5000 }), auto: {}, now: NOW }), 'linequota').state).toBe('ok')
+    const t = by(readinessItems({ status: st({ limited: true, limit: 300, used: 290, left: 10, pct: 97 }), auto: {}, now: NOW }), 'linequota')
+    expect(t.state).toBe('todo'); expect(t.hint).toContain('เหลือ 10')
+    expect(by(readinessItems({ status: st(null), auto: {}, now: NOW }), 'linequota').state).toBe('unknown')
+    expect(by(readinessItems({ status: { line: { configured: false } }, auto: {}, now: NOW }), 'linequota')).toBeUndefined()
+  })
+})
+
+describe('report readiness (v1.0.1161)', () => {
+  const by = (items, id) => items.find(i => i.id === id)
+  const NOW = Date.UTC(2026, 10, 16, 12, 0, 0)
+  const st = { line: { configured: false }, meta: { configured: false } }
+  it('ok / failed with reason / stale / unknown', () => {
+    const fresh = new Date(NOW - 3600e3).toISOString()
+    expect(by(readinessItems({ status: st, auto: {}, reports: { eveningAt: fresh, eveningOk: true, eveningError: '' }, now: NOW }), 'report_evening').state).toBe('ok')
+    const bad = by(readinessItems({ status: st, auto: {}, reports: { eveningAt: fresh, eveningOk: false, eveningError: 'LINE: monthly limit' }, now: NOW }), 'report_evening')
+    expect(bad.state).toBe('todo'); expect(bad.hint).toContain('monthly limit')
+    const old = by(readinessItems({ status: st, auto: {}, reports: { morningAt: '2026-11-14T02:00:05.000Z', morningOk: true }, now: NOW }), 'report_morning')
+    expect(old.state).toBe('todo'); expect(old.hint).toContain('14/11/2026 09:00')
+    expect(by(readinessItems({ status: st, auto: {}, now: NOW }), 'report_morning').state).toBe('unknown')
   })
 })

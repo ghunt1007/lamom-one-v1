@@ -50,7 +50,9 @@ export default async function SystemHealthPage(container) {
         const r = await getSheetStatus()
         sheet = r && r.modifiedTime ? { ok: true } : null
       } catch (e) { sheet = e?.code === 'not_shared' ? { code: 'not_shared', shareWith: e.shareWith || '' } : null }
-      ready = readinessItems({ status, auto, lastBackupMs, sheet })
+      let reports = null
+      try { reports = await readDoc('system_integrations', 'report_status') } catch (e) {}
+      ready = readinessItems({ status, auto, lastBackupMs, sheet, reports })
     }
 
     return { firestoreOk, firestoreLatency, integrations, errors, todayAudit, activeUsersToday, errorsToday, ready }
