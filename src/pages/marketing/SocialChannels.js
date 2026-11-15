@@ -3,6 +3,7 @@
  * แชตรวม (LINE OA + Messenger + IG) · โพสต์ลงเพจ/IG · โฆษณา Meta · บัญชีของทีม/โชว์รูม/เซลส์ · วิธีเชื่อม
  * token ทุกตัวอยู่ฝั่งเซิร์ฟเวอร์ (workers/social.js) — หน้านี้ไม่เห็นและไม่เก็บ token เลย
  */
+import { publicOrigin } from '../../utils/publicLinks.js'
 import './channels.css'
 import { watchDocs, createDoc, updateDocData, softDelete, listDocs } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
@@ -617,7 +618,7 @@ export default async function SocialChannelsPage(container) {
     return `
       <div class="ch-guide">
         ${keysCard.html()}
-        ${ok.meta && isProgramOwner() ? goLiveHtml(esc, location.origin) : ''}
+        ${ok.meta && isProgramOwner() ? goLiveHtml(esc, publicOrigin()) : ''}
         ${PLATFORM_GUIDE.map(g => `
           <details class="ch-card ch-g" id="g-${g.key}" ${!ok[g.statusKey] ? '' : ''}>
             <summary><span>${g.icon} <b>${esc(g.name)}</b></span><span class="ch-st ${ok[g.statusKey] ? 'on' : ''}">${ok[g.statusKey] ? '✅ ใช้ได้แล้ว' : '⚪ ยังไม่เชื่อม'}</span></summary>

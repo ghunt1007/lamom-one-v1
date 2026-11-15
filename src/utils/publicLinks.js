@@ -3,6 +3,16 @@
 // ใช้ origin ตายตัว เพราะในแอป Android location.origin เป็น https://localhost
 export const PUBLIC_ORIGIN = 'https://lamom-one.pages.dev'
 
+// origin ที่ใช้ทำลิงก์ให้คนภายนอก: เว็บจริงที่เปิดอยู่ (เช่นโดเมนของบริษัทในอนาคต) ถ้าเป็น https และไม่ใช่เครื่องตัวเอง
+// ไม่งั้น (แอป Android = https://localhost, เครื่องนักพัฒนา, ตัวอย่าง PR) ใช้เว็บจริงเสมอ
+export function publicOrigin(loc = typeof location !== 'undefined' ? location : null) {
+  try {
+    const host = String(loc?.hostname || '')
+    if (loc?.protocol === 'https:' && host && host !== 'localhost' && !/^(127\.|\[::1\])/.test(host) && !/\.lamom-one\.pages\.dev$/.test(host)) return loc.origin
+  } catch (e) {}
+  return PUBLIC_ORIGIN
+}
+
 // ฟอร์มรับลีดสาธารณะ (public/lead.html) — ref = รหัสผู้แนะนำ, model = เติมรุ่นที่สนใจให้ก่อน
 export function leadFormUrl({ ref = '', model = '', account = '' } = {}) {
   const q = new URLSearchParams()
