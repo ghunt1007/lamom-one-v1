@@ -33,6 +33,15 @@ export function todayStats({ customers = [], followups = [], bookings = [], toda
     newLeads: active.filter(c => bkkDate(c.createdAt) === today).length,
     hotNoFu: active.filter(c => c.temperature === 'hot' && !pendIds.has(c.id)).length,
     noDate: bks.filter(b => ['รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status) && !isDate(b.deliveryDate)).length,
+    // (v1.0.1219) ลูกค้าเดิมทักกลับมาใน 3 วัน ยังไม่มีใครโทรกลับ (เกณฑ์เดียวกับหน้างานวันนี้)
+    back: [...vis.values()].filter(c => {
+      const at = c.reEnquiredAt?.toDate ? c.reEnquiredAt.toDate() : c.reEnquiredAt ? new Date(c.reEnquiredAt) : null
+      if (!at || isNaN(at)) return false
+      const d = bkkDate(at)
+      if (!d || d > today || (Date.parse(today) - Date.parse(d)) / 86400000 > 2) return false
+      const lc = c.lastContactAt?.toDate ? c.lastContactAt.toDate() : c.lastContactAt ? new Date(c.lastContactAt) : null
+      return !(lc && !isNaN(lc) && lc > at)
+    }).length,
   }
 }
 
@@ -42,9 +51,10 @@ export function todayBriefText(s, dateLabel = '') {
   if (s.delivToday) lines.push(`🚗 ส่งมอบวันนี้ ${s.delivToday} คัน — ${s.delivTodayNames}`)
   if (s.delivTomorrow) lines.push(`🚗 ส่งมอบพรุ่งนี้ ${s.delivTomorrow} คัน — ${s.delivTomorrowNames}`)
   if (s.noDate) lines.push(`📭 รถพร้อมส่งยังไม่นัดวัน ${s.noDate} คัน`)
+  if (s.back) lines.push(`📣 ลูกค้าเดิมทักกลับมา รอโทรกลับ ${s.back} คน`)
   if (s.newLeads) lines.push(`🧲 ลีดใหม่วันนี้ ${s.newLeads} คน`)
   if (s.hotNoFu) lines.push(`🔥 ลูกค้า HOT ที่ยังไม่มีนัด ${s.hotNoFu} คน`)
-  const first = s.overdue ? 'เคลียร์นัดที่เลยกำหนดก่อน' : s.delivToday ? 'เตรียมส่งมอบวันนี้ให้พร้อม' : s.dueToday ? 'โทรตามนัดวันนี้' : s.hotNoFu ? 'นัดลูกค้า HOT ที่ยังไม่มีนัด' : s.noDate ? 'โทรนัดวันส่งมอบ' : ''
+  const first = s.back ? 'โทรกลับลูกค้าเดิมที่ทักมา' : s.overdue ? 'เคลียร์นัดที่เลยกำหนดก่อน' : s.delivToday ? 'เตรียมส่งมอบวันนี้ให้พร้อม' : s.dueToday ? 'โทรตามนัดวันนี้' : s.hotNoFu ? 'นัดลูกค้า HOT ที่ยังไม่มีนัด' : s.noDate ? 'โทรนัดวันส่งมอบ' : ''
   lines.push(first ? `💡 เริ่มจาก: ${first}` : '✅ วันนี้ไม่มีงานค้าง — ใช้เวลาหาลีดใหม่ได้เลย')
   return lines.join('\n')
 }
@@ -56,6 +66,7 @@ export function todayFollowUps(s) {
     s.delivToday ? 'ส่งมอบวันนี้มีใครบ้าง' : '',
     s.delivTomorrow ? 'ส่งมอบพรุ่งนี้มีใครบ้าง' : '',
     s.noDate ? 'ใครยังไม่นัดส่งมอบ' : '',
+    s.back ? 'ใครทักกลับมาบ้าง' : '',
     s.newLeads ? 'ลีดใหม่วันนี้มีใครบ้าง' : '',
     s.hotNoFu ? 'ลูกค้า hot ที่ยังไม่มีนัดมีใครบ้าง' : '',
     'พรุ่งนี้มีอะไรบ้าง',
