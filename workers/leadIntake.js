@@ -480,21 +480,38 @@ export function pickShopPhone(v) {
   if (d.startsWith('66')) d = '0' + d.slice(2)
   return /^0\d{8,9}$/.test(d) ? d : ''
 }
-let shopPhoneCache = { at: 0, phone: '' }
-export function __resetShopPhoneCache() { shopPhoneCache = { at: 0, phone: '' } }
-export async function shopPhone(env, token, fetchImpl, now = Date.now()) {
-  if (shopPhoneCache.at && now - shopPhoneCache.at < 6 * 3600e3) return shopPhoneCache.phone
-  let phone = ''
+let shopCache = { at: 0, phone: '', name: '' }
+export function __resetShopPhoneCache() { shopCache = { at: 0, phone: '', name: '' } }
+// { phone, name } จาก company_profile (ชื่อไทยก่อน) · อ่านไม่ได้ = ค่าว่าง (ไม่จำ)
+export async function shopInfo(env, token, fetchImpl, now = Date.now()) {
+  if (shopCache.at && now - shopCache.at < 6 * 3600e3) return { phone: shopCache.phone, name: shopCache.name }
+  let phone = '', name = ''
   if (token) {
     const r = await call(fetchImpl, `${fsBase(env)}/company_profile?pageSize=10`, { headers: { Authorization: `Bearer ${token}` } })
-    const docs = r?.ok ? ((await r.json().catch(() => null))?.documents || []) : []
-    const live = docs.map(d => d.fields || {}).filter(f => !f.deleted?.booleanValue)
-      .sort((a, b) => String(a.createdAt?.stringValue || a.createdAt?.timestampValue || '').localeCompare(String(b.createdAt?.stringValue || b.createdAt?.timestampValue || '')))
+    if (!r?.ok) return { phone: '', name: '' } // อ่านไม่ได้ชั่วคราว — ไม่จำค่าว่าง
+    const docs = (await r.json().catch(() => null))?.documents || []
+    const ts = f => String(f.createdAt?.stringValue || f.createdAt?.timestampValue || '')
+    const live = docs.map(d => d.fields || {}).filter(f => !f.deleted?.booleanValue).sort((a, b) => ts(a).localeCompare(ts(b)))
     for (const f of live) { phone = pickShopPhone(f.phone?.stringValue); if (phone) break }
-    if (!r?.ok) return '' // อ่านไม่ได้ชั่วคราว — ไม่จำค่าว่าง
+    const nf = live.find(f => String(f.nameTh?.stringValue || f.name?.stringValue || '').trim())
+    if (nf) name = clip(String(nf.nameTh?.stringValue || nf.name?.stringValue).replace(/[<>\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim(), 80)
   }
-  shopPhoneCache = { at: now, phone }
-  return phone
+  shopCache = { at: now, phone, name }
+  return { phone, name }
+}
+export async function shopPhone(env, token, fetchImpl, now = Date.now()) {
+  return (await shopInfo(env, token, fetchImpl, now)).phone
+}
+
+// (v1.0.1193) GET /lead/info — หน้าฟอร์มถามก่อนว่าเปิดรับอยู่ไหม + ชื่อโชว์รูม/เบอร์โทร
+// ฟอร์มปิด → ลูกค้าเห็นทันทีพร้อมปุ่มโทร ไม่ต้องกรอกจนจบแล้วค่อยรู้ · ไม่มีข้อมูลลูกค้าใดๆ ในคำตอบ
+export async function handleLeadInfo(env, getToken, deps = {}) {
+  const fetchImpl = deps.fetch || fetch
+  const nowMs = deps.now || Date.now()
+  const token = await getToken()
+  if (!token) return { status: 503, body: { ok: false } }
+  const [inbox, info] = await Promise.all([readInboxAuto(env, token, fetchImpl), shopInfo(env, token, fetchImpl, nowMs).catch(() => ({}))])
+  return { status: 200, body: { ok: true, open: !!inbox.publicForm, ...(info.name ? { shop: info.name } : {}), ...(info.phone ? { tel: info.phone } : {}) } }
 }
 
 export async function handleLeadForm(request, env, getToken, deps = {}) {
