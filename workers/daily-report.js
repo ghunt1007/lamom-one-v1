@@ -840,6 +840,17 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     // (v1.0.1199) ลีดที่สแกน/กดจากลิงก์-QR ของเราเอง (บูธ ติดรถ นามบัตร แนะนำเพื่อน …) — ดูว่า QR ไหนได้ผล
     entryPointLine(newLeadsTodayList) ? `    ผ่านลิงก์/QR ของเรา: ${entryPointLine(newLeadsTodayList)}` : null,
     newLeadsToday ? `    ติดต่อแล้ว ${contactedToday}/${newLeadsToday} ราย${contactedToday < newLeadsToday ? ' ⚠️ ที่เหลือควรโทรก่อนพรุ่งนี้' : ' 👍'}` : null,
+    // (v1.0.1217) ความเร็วโทรหาลีดที่เข้ามาเอง (ฟอร์ม/QR/แชต) วันนี้ — ค่ากลางเป็นนาที + กี่รายโทรภายใน 30 นาที
+    ...(() => {
+      const ms = v => { const t = new Date(v || '').getTime(); return Number.isFinite(t) ? t : 0 }
+      const auto = newLeadsTodayList.filter(c => c.autoLead === true)
+      const mins = auto.map(c => ms(c.firstContactAt) && ms(c.createdAt) ? Math.max(0, Math.round((ms(c.firstContactAt) - ms(c.createdAt)) / 60000)) : null).filter(v => v != null).sort((a, b) => a - b)
+      if (!auto.length || !mins.length) return []
+      const med = mins[Math.floor((mins.length - 1) / 2)]
+      const fast = mins.filter(m => m <= 30).length
+      const fmt = m => m >= 120 ? `${Math.floor(m / 60)} ชม.` : `${m} นาที`
+      return [`    ⚡ ลีดฟอร์ม/QR/แชต ${auto.length} ราย · โทรหาแล้ว ${mins.length} · ใช้เวลาประมาณ ${fmt(med)} · ภายใน 30 นาที ${fast} ราย${med > 30 ? ' ⚠️ ยิ่งช้ายิ่งปิดยาก' : ' 👍'}`]
+    })(),
     // (v1.0.1215) ลูกค้าเดิมกรอกฟอร์ม/สแกน QR เข้ามาอีกครั้งวันนี้ — โทรกลับแล้วกี่ราย
     ...(() => {
       const ms = v => { const t = new Date(v || '').getTime(); return Number.isFinite(t) ? t : 0 }
@@ -905,7 +916,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 
 // ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
 // ช่องของลูกค้าที่รายงาน 18:00 อ่าน (รวมที่ entryPointOf ใช้แยกลิงก์/QR: autoLead/utm*/tags — v1.0.1211 เดิมขาด ลีดจากลิงก์แคมเปญ/ติดรถไม่ถูกนับ)
-export const EVENING_CUSTOMER_FIELDS = ['stage', 'createdAt', 'source', 'assignedTo', 'temperature', 'isLost', 'lostAt', 'lostReason', 'lastContactAt', 'eventId', 'referralCode', 'deleted', 'autoLead', 'utmMedium', 'utmSource', 'utmCampaign', 'tags', 'reEnquiredAt']
+export const EVENING_CUSTOMER_FIELDS = ['stage', 'createdAt', 'source', 'assignedTo', 'temperature', 'isLost', 'lostAt', 'lostReason', 'lastContactAt', 'eventId', 'referralCode', 'deleted', 'autoLead', 'utmMedium', 'utmSource', 'utmCampaign', 'tags', 'reEnquiredAt', 'firstContactAt']
 // ช่องของลูกค้าที่ buildMorningSections อ่าน — ขาดช่องไหน หัวข้อนั้นจะเงียบหายในรายงานจริง (เทสต์เช็กไว้)
 // (v1.0.1211) เดิมไม่มี autoLead → หัวข้อ "🆕 Lead ใหม่ที่ยังไม่มีใครโทร" ไม่เคยขึ้นในรายงานจริง
 export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel']

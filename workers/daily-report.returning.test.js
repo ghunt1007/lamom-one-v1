@@ -62,3 +62,21 @@ describe('18:00 returning customers line (v1.0.1215)', () => {
     expect(used.filter(f => !EVENING_CUSTOMER_FIELDS.includes(f))).toEqual([])
   })
 })
+
+describe('18:00 speed-to-lead line (v1.0.1217)', () => {
+  it('reports median minutes to first contact for auto leads today', async () => {
+    const { buildReport } = await import('./daily-report.js')
+    const L = (id, created, first) => ({ id, stage: 'lead', autoLead: true, createdAt: created, ...(first ? { firstContactAt: first, lastContactAt: first } : {}) })
+    const customers = [
+      L('a', '2026-11-16T02:00:00Z', '2026-11-16T02:05:00Z'),
+      L('b', '2026-11-16T03:00:00Z', '2026-11-16T03:20:00Z'),
+      L('c', '2026-11-16T04:00:00Z', '2026-11-16T06:00:00Z'),
+      L('d', '2026-11-16T05:00:00Z'),
+      { id: 'm', stage: 'lead', createdAt: '2026-11-16T05:00:00Z' },
+    ]
+    const text = buildReport({ bookings: [], customers, followups: [], testDrives: [], teamTargets: [] }, { today: '2026-11-16', time: '18:00' })
+    expect(text).toContain('⚡ ลีดฟอร์ม/QR/แชต 4 ราย · โทรหาแล้ว 3 · ใช้เวลาประมาณ 20 นาที · ภายใน 30 นาที 2 ราย 👍')
+    const none = buildReport({ bookings: [], customers: [L('d', '2026-11-16T05:00:00Z')], followups: [], testDrives: [], teamTargets: [] }, { today: '2026-11-16', time: '18:00' })
+    expect(none).not.toContain('⚡')
+  })
+})
