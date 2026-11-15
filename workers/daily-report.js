@@ -38,6 +38,7 @@ import { fetchLineQuota, lineQuotaLine } from './lineQuota.js'
 import { bookingDataIssues } from '../src/utils/bookingDataCheck.js'
 import { isDelivered, isCancelled } from '../src/utils/bookingStatus.js'
 import { referralOwed } from '../src/utils/publicLinks.js'
+import { entryPointLine } from '../src/utils/entryPoints.js'
 import { saveReportStatus } from './reportStatus.js'
 import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
 import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFromChat, handleLeadForm, handleLeadInfo } from './leadIntake.js'
@@ -828,6 +829,8 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     '👥 LEADS',
     `  • Lead ใหม่วันนี้: ${newLeadsToday} ราย`,
     srcLine ? `    มาจาก: ${srcLine}` : null,
+    // (v1.0.1199) ลีดที่สแกน/กดจากลิงก์-QR ของเราเอง (บูธ ติดรถ นามบัตร แนะนำเพื่อน …) — ดูว่า QR ไหนได้ผล
+    entryPointLine(newLeadsTodayList) ? `    ผ่านลิงก์/QR ของเรา: ${entryPointLine(newLeadsTodayList)}` : null,
     newLeadsToday ? `    ติดต่อแล้ว ${contactedToday}/${newLeadsToday} ราย${contactedToday < newLeadsToday ? ' ⚠️ ที่เหลือควรโทรก่อนพรุ่งนี้' : ' 👍'}` : null,
     `  • Lead ที่ดูแลอยู่: ${leads.length} ราย`,
     unassigned ? `  • ⚠️ ยังไม่มีผู้ดูแล: ${unassigned} ราย (มอบให้เซลส์ได้ที่หน้า "งานของฉันวันนี้")` : null,
