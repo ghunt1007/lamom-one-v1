@@ -7,39 +7,45 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { todayBangkok } from '../../utils/format.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { withUtm, utmLeadCounts, utmKey, leadFormUrl } from '../../utils/publicLinks.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 export default async function UtmTrackerPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
   let UTM_LINKS = []
+  let liveCounts = false
   let filterSrc = 'all'
   let loading = true
 
   async function loadData() {
     loading = true
     try { UTM_LINKS = await listDocs('utm_links', [], 'created', 'desc', 500) } catch (e) { UTM_LINKS = [] }
+    // (v1.0.1176) นับลีดจริงที่เข้าฟอร์มของเราผ่านลิงก์ UTM (ลีดอัตโนมัติที่มี utmCampaign) — อ่านไม่ได้ = ใช้ตัวเลขที่บันทึกไว้
+    let counts = null
+    try { counts = utmLeadCounts(await listDocs('customers', [...companyScopeFilters(), ['autoLead', '==', true]], 'createdAt', 'desc', 2000)) } catch (e) { counts = null }
+    liveCounts = !!counts
+    UTM_LINKS = UTM_LINKS.map(u => ({ ...u, clicks: Number(u.clicks) || 0, leads: counts ? (counts[utmKey(u.source, u.campaign)] || 0) : (Number(u.leads) || 0), link: withUtm(u.url, u) }))
     loading = false
     if (container.__routerGen === myGen) render()
   }
 
   function linkRow(u) {
-    const convColor = u.conv >= 7 ? 'var(--success)' : u.conv >= 4 ? 'var(--warning)' : 'var(--danger)'
-    const utmUrl = u.url + '?utm_source=' + u.source + '&utm_medium=' + u.medium + '&utm_campaign=' + u.campaign
+    const utmUrl = u.link
     return `<div class="card" style="padding:14px">
       <div style="display:flex;align-items:flex-start;gap:12px">
         <div style="font-size:1.5rem">🔗</div>
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
             <span style="font-weight:700;font-size:0.88rem">${esc(u.name)}</span>
-            <span style="font-size:0.62rem;background:var(--surface-2);padding:1px 8px;border-radius:8px">${u.source}</span>
-            <span style="font-size:0.62rem;background:var(--surface-2);padding:1px 8px;border-radius:8px">${u.medium}</span>
+            <span style="font-size:0.62rem;background:var(--surface-2);padding:1px 8px;border-radius:8px">${esc(u.source)}</span>
+            <span style="font-size:0.62rem;background:var(--surface-2);padding:1px 8px;border-radius:8px">${esc(u.medium)}</span>
           </div>
           <div style="font-size:0.64rem;color:var(--text-muted);margin-bottom:8px;word-break:break-all">${esc(utmUrl)}</div>
           <div style="display:flex;gap:14px;font-size:0.74rem">
-            <span>👆 ${u.clicks.toLocaleString()} clicks</span>
-            <span>🎯 ${u.leads} leads</span>
-            <span style="color:${convColor};font-weight:700">🔄 ${u.conv}%</span>
+            <span>🎯 ${u.leads} ลีด</span>
+            <span style="color:var(--text-muted)">${esc(u.campaign)}</span>
           </div>
         </div>
         <button class="btn btn-xs btn-secondary copy-btn" data-id="${u.id}" style="font-size:0.68rem;flex-shrink:0">📋 คัดลอก</button>
@@ -55,10 +61,8 @@ export default async function UtmTrackerPage(container) {
     const sources = [...new Set(UTM_LINKS.map(u=>u.source))]
     let rows = filterSrc === 'all' ? UTM_LINKS : UTM_LINKS.filter(u=>u.source===filterSrc)
 
-    const totClicks = UTM_LINKS.reduce((s,u)=>s+u.clicks,0)
     const totLeads  = UTM_LINKS.reduce((s,u)=>s+u.leads,0)
-    const avgConv   = totClicks > 0 ? (totLeads/totClicks*100).toFixed(1) : '0.0'
-    const bestSrc   = [...UTM_LINKS].sort((a,b)=>b.conv-a.conv)[0] || null
+    const best      = [...UTM_LINKS].sort((a,b)=>b.leads-a.leads)[0] || null
 
     const srcBtns = ['all',...sources].map(s=>{
       const label = s==='all' ? 'ทั้งหมด' : s
@@ -77,14 +81,14 @@ export default async function UtmTrackerPage(container) {
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-          ${sc('👆 รวม Clicks', totClicks.toLocaleString(), 'var(--primary)')}
-          ${sc('🎯 รวม Leads', totLeads+' ราย', 'var(--success)')}
-          ${sc('🔄 Avg Conv.', avgConv+'%', 'var(--warning)')}
-          ${sc('🏆 Best Source', bestSrc ? esc(bestSrc.source)+' ('+bestSrc.conv+'%)' : '—', 'var(--success)')}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:12px;margin-bottom:12px">
+          ${sc('🔗 ลิงก์', UTM_LINKS.length+' ลิงก์', 'var(--primary)')}
+          ${sc('🎯 ลีดรวม', totLeads+' ราย', 'var(--success)')}
+          ${sc('🏆 ได้ลีดมากสุด', best && best.leads ? esc(best.name)+' ('+best.leads+')' : '—', 'var(--success)')}
         </div>
+        <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:14px;line-height:1.6">${liveCounts ? '🎯 นับลีดจริงจากคนที่กรอกฟอร์มของเราผ่านลิงก์นั้น (ลิงก์ต้องชี้ไปฟอร์มของเรา ลิงก์ไปเว็บอื่นนับไม่ได้) · ระบบนับจำนวนคลิกไม่ได้' : 'อ่านข้อมูลลูกค้าไม่ได้ จึงแสดงตัวเลขที่บันทึกไว้'}</div>
 
-        <div style="display:flex;gap:6px;margin-bottom:14px">${srcBtns}</div>
+        <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">${srcBtns}</div>
 
         <div style="display:flex;flex-direction:column;gap:8px">
           ${rows.map(u=>linkRow(u)).join('')}
@@ -96,8 +100,7 @@ export default async function UtmTrackerPage(container) {
     container.querySelectorAll('.copy-btn').forEach(b=>b.addEventListener('click',()=>{
       const u=UTM_LINKS.find(x=>x.id===b.dataset.id)
       if(u){
-        const url=u.url+'?utm_source='+u.source+'&utm_medium='+u.medium+'&utm_campaign='+u.campaign
-        navigator.clipboard?.writeText(url).catch(()=>{})
+        navigator.clipboard?.writeText(u.link).catch(()=>{})
         showToast('📋 Copy URL: '+u.name,'success')
       }
     }))
@@ -109,7 +112,7 @@ export default async function UtmTrackerPage(container) {
       title:'🔗 สร้าง UTM Link', size:'sm',
       body:`<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:8px">
         <div><label style="font-size:0.72rem;color:var(--text-muted)">ชื่อ Campaign</label><input class="input" id="utm-name" style="width:100%;margin-top:3px" placeholder="Facebook June Promo..."></div>
-        <div><label style="font-size:0.72rem;color:var(--text-muted)">Landing Page URL</label><input class="input" id="utm-url" style="width:100%;margin-top:3px" placeholder="https://..."></div>
+        <div><label style="font-size:0.72rem;color:var(--text-muted)">Landing Page URL</label><input class="input" id="utm-url" style="width:100%;margin-top:3px" placeholder="https://..." value="${esc(leadFormUrl())}"><div style="font-size:0.66rem;color:var(--text-muted);margin-top:3px">ค่าเริ่มต้น = ฟอร์มฝากชื่อ-เบอร์ของเรา (นับลีดให้อัตโนมัติ)</div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div><label style="font-size:0.72rem;color:var(--text-muted)">utm_source</label>
             <select class="input" id="utm-src" style="width:100%;margin-top:3px">
@@ -131,7 +134,7 @@ export default async function UtmTrackerPage(container) {
         const src=document.getElementById('utm-src')?.value||'facebook'
         const med=document.getElementById('utm-med')?.value||'paid'
         try {
-          await createDoc('utm_links', { name, url, source:src, medium:med, campaign:camp, clicks:0, leads:0, conv:0, created:todayBangkok() })
+          await createDoc('utm_links', { name, url, source:src, medium:med, campaign:camp, leads:0, created:todayBangkok() })
           showToast('🔗 สร้าง UTM Link: '+name,'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

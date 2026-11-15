@@ -1198,6 +1198,7 @@ export const PAGE_COLLECTIONS = {
   "model_configs"
  ],
  "/marketing/utm-tracker": [
+  "customers",
   "utm_links"
  ],
  "/marketing/digital-showroom": [

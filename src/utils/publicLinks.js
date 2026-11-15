@@ -54,3 +54,26 @@ export function referralStats(customers = []) {
   }
   return out
 }
+
+// (v1.0.1176) ใส่ UTM ต่อท้ายลิงก์ (รองรับลิงก์ที่มี ?... อยู่แล้ว)
+export function withUtm(url, { source = '', medium = '', campaign = '' } = {}) {
+  try {
+    const u = new URL(String(url || ''), PUBLIC_ORIGIN)
+    if (source) u.searchParams.set('utm_source', source)
+    if (medium) u.searchParams.set('utm_medium', medium)
+    if (campaign) u.searchParams.set('utm_campaign', campaign)
+    return u.href
+  } catch (e) { return String(url || '') }
+}
+
+// ลีดที่เข้าฟอร์มของเราผ่านลิงก์ UTM — นับตาม source|campaign (ตัวพิมพ์เล็ก)
+export const utmKey = (source, campaign) => `${String(source || '').trim().toLowerCase()}|${String(campaign || '').trim().toLowerCase()}`
+export function utmLeadCounts(customers = []) {
+  const out = {}
+  for (const c of customers) {
+    if (!c || c.deleted || !c.utmCampaign) continue
+    const k = utmKey(c.utmSource, c.utmCampaign)
+    out[k] = (out[k] || 0) + 1
+  }
+  return out
+}
