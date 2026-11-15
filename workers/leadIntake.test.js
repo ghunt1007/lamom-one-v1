@@ -242,6 +242,13 @@ describe('v1.0.1140 public lead form', () => {
     __resetLineIdCache()
     expect(await lineBasicId({ LINE_CHANNEL_ACCESS_TOKEN: 'x' }, async () => ({ ok: true, json: async () => ({ basicId: '<script>' }) }))).toBe('')
   })
+  it('a referral lead names the referrer when the code is known (v1.0.1187)', async () => {
+    const w = world(), base = w.f
+    w.f = async (url, init = {}) => (url.endsWith(':runQuery') && String(init.body).includes('"referrers"')) ? { ok: true, json: async () => [{ document: { name: 'x/referrers/r1', fields: { name: { stringValue: 'คุณเอ ลูกค้าเก่า' }, code: { stringValue: 'RAB12' }, companyId: { stringValue: 'co5' } } } }] } : base(url, init)
+    await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', ref: 'RAB12' }), env, async () => 't', { fetch: w.f })
+    const f = created(w.calls)
+    expect(f.notes.stringValue).toContain('แนะนำโดย คุณเอ ลูกค้าเก่า (รหัส RAB12)'); expect(f.companyId.stringValue).toBe('co5')
+  })
   it('UTM from an ad link is stored and sets the source', async () => {
     const w = world()
     await handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', utm: { s: 'Facebook', m: 'paid', c: 'nov_promo<b>' } }), env, async () => 't', { fetch: w.f })

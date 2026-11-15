@@ -417,6 +417,20 @@ export function cleanUtm(u) {
   return o.source || o.campaign ? o : null
 }
 
+// (v1.0.1187) ชื่อผู้แนะนำจากรหัส (หน้า "ลิงก์แนะนำเพื่อน") — เซลส์จะได้รู้ว่าใครแนะนำมา ใช้เปิดบทสนทนาได้ · หาไม่เจอ = null
+export async function readReferrer(env, token, code, fetchImpl) {
+  if (!code) return null
+  const r = await call(fetchImpl, `${fsBase(env)}:runQuery`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'referrers' }], where: { fieldFilter: { field: { fieldPath: 'code' }, op: 'EQUAL', value: { stringValue: code } } }, limit: 1 } }),
+  })
+  if (!r?.ok) return null
+  const rows = await r.json().catch(() => [])
+  const f = (Array.isArray(rows) ? rows : []).find(x => x.document)?.document?.fields
+  if (!f || f.deleted?.booleanValue) return null
+  return { name: clip(String(f.name?.stringValue || '').replace(/[<>\u0000-\u001f]/g, ' ').trim(), 60), companyId: f.companyId?.stringValue || '' }
+}
+
 // (v1.0.1179) QR ฟอร์มประจำบูธ (?ev=รหัสงาน) — ลีดติดป้าย eventId ให้หน้าตารางออกบูธ/รายงาน 18:00 นับเป็นลีดของงานนั้น
 export function cleanEventId(v) {
   return String(v || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60)
@@ -473,6 +487,7 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   const ref = cleanRefCode(b.ref)
   const utm = cleanUtm(b.utm)
   const ev = await readEventTag(env, token, cleanEventId(b.ev), fetchImpl).catch(() => null)
+  const referrer = ref ? await readReferrer(env, token, ref, fetchImpl).catch(() => null) : null
   // ลิงก์ทั่วไป (โพสต์/ไบโอ/โฆษณา) ยังจำกัด 5 ครั้ง/10 นาที/IP เหมือนเดิม · QR หน้างาน (งานบูธที่มีอยู่จริง หรือ QR ติดรถ) ใช้เพดานหลวม
   const onsite = !!ev || (utm?.source === 'walk-in' && utm?.medium === 'qr')
   if (!onsite && !formRateOk('s:' + ip, nowMs)) return tooMany
@@ -484,8 +499,8 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   const parts = name.split(' ')
   const clean = (v, n) => clip(String(v || '').replace(/[<>\u0000-\u001f]/g, ' ').trim(), n)
   const lead = { first: parts[0], last: parts.slice(1).join(' '), phone, email: '', lineId: clean(b.line, 60), model: clean(b.model, 80), note: [td ? `ขอนัดทดลองขับ ${td.label}` : '', clean(b.note, 300)].filter(Boolean).join(' · '),
-    source: acc?.source || (ref ? 'referral' : ev ? 'event' : (utm?.source && normSource(utm.source) !== 'other' ? normSource(utm.source) : 'website')), account: acc?.id || '', assignedTo: acc?.assignedTo || '', companyId: acc?.companyId || ev?.companyId || '' }
-  if (ref) lead.note = [`แนะนำโดยรหัส ${ref}`, lead.note].filter(Boolean).join(' · ')
+    source: acc?.source || (ref ? 'referral' : ev ? 'event' : (utm?.source && normSource(utm.source) !== 'other' ? normSource(utm.source) : 'website')), account: acc?.id || '', assignedTo: acc?.assignedTo || '', companyId: acc?.companyId || ev?.companyId || referrer?.companyId || '' }
+  if (ref) lead.note = [referrer?.name ? `แนะนำโดย ${referrer.name} (รหัส ${ref})` : `แนะนำโดยรหัส ${ref}`, lead.note].filter(Boolean).join(' · ')
   // (v1.0.1182) สแกน QR หน้างาน = ลูกค้าอาจยังยืนอยู่ตรงนั้น — บอกเซลส์ในแจ้งเตือนให้รีบเดินไปหา/โทรทันที
   const where = ev ? `📍 สแกน QR ที่บูธ ${ev.title || ''}`.trim() : (utm?.source === 'walk-in' && utm?.medium === 'qr' ? `📍 สแกน QR ที่รถโชว์${utm.campaign ? ' ' + utm.campaign : ''} — ลูกค้าอาจอยู่ในโชว์รูมตอนนี้` : '')
   if (where) lead.note = [where, lead.note].filter(Boolean).join(' · ')
