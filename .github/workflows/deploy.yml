@@ -66,6 +66,16 @@ jobs:
           accountId: 8e526fad63ca65975137a980925e409f
           command: deploy --config wrangler-daily-report.toml
 
+      # (v1.0.1162) ตัวกลาง AI (lamom-ai-proxy) อัปเองทุกครั้งที่ merge เหมือนตัวส่งรายงาน — เดิมต้องสั่ง deploy เองที่ Surface
+      # คีย์ GEMINI_API_KEY เป็น secret ใน Cloudflare อยู่แล้ว deploy ไม่แตะ · ถ้าขั้นนี้พลาดไม่กระทบเว็บและรายงาน
+      - name: Deploy AI proxy worker
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 8e526fad63ca65975137a980925e409f
+          command: deploy --config wrangler-ai-proxy.toml
+
       # (v1.0.1127) อัปกฎความปลอดภัยฐานข้อมูล (firestore.rules) ให้เองทุกครั้งที่ merge — เดิมต้องไปพิมพ์คำสั่งเองที่ Surface
       # ถ้าลืม กฎใหม่ที่ปิดช่องโหว่จะยังไม่ทำงาน · ขั้นนี้ทำงานเมื่อตั้ง GitHub secret FIREBASE_SERVICE_ACCOUNT แล้วเท่านั้น
       # (ไฟล์ JSON ของบัญชีระบบที่มีสิทธิ์ "Firebase Rules Admin") ยังไม่ตั้ง = ข้ามขั้นนี้ ไม่ทำให้ deploy ล้ม

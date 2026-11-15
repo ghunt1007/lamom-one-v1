@@ -134,16 +134,22 @@ export function cleanAiReply(text = '') {
   return { text: t, handoff }
 }
 
+// (v1.0.1162) ถ้า Google ปลดรุ่นหลัก (ตอบ 404) ลองรุ่นสำรองที่ชี้รุ่นล่าสุดเสมอ — AI ตอบแชตจะไม่เงียบไปเฉยๆ
+export const AI_FALLBACK_MODEL = 'gemini-flash-latest'
 export async function geminiReply(env, prompt, fetchImpl = fetch) {
   if (!env.GEMINI_API_KEY || !prompt.contents.length) return ''
-  const res = await call(fetchImpl, `https://generativelanguage.googleapis.com/v1beta/models/${AI_MODEL}:generateContent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-    body: JSON.stringify({ ...prompt, generationConfig: { temperature: 0.4, maxOutputTokens: 500, thinkingConfig: { thinkingBudget: 0 } } }),
-  })
-  if (!res?.ok) return ''
-  const d = await res.json().catch(() => ({}))
-  return (d.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim()
+  for (const model of [AI_MODEL, AI_FALLBACK_MODEL]) {
+    const res = await call(fetchImpl, `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+      body: JSON.stringify({ ...prompt, generationConfig: { temperature: 0.4, maxOutputTokens: 500, ...(model === AI_MODEL ? { thinkingConfig: { thinkingBudget: 0 } } : {}) } }),
+    })
+    if (res?.status === 404) continue
+    if (!res?.ok) return ''
+    const d = await res.json().catch(() => ({}))
+    return (d.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim()
+  }
+  return ''
 }
 
 // ── Firestore REST helpers (ไม่พึ่ง daily-report.js กัน import วน) ──
