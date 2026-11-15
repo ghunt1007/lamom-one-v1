@@ -448,13 +448,24 @@ export function cleanEventId(v) {
   return String(v || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60)
 }
 // อ่านงานจริงก่อนติดป้าย (กันรหัสมั่ว) — คืน { id, title, companyId } หรือ null
-export async function readEventTag(env, token, id, fetchImpl) {
+// (v1.0.1203) onShift = ชื่อคนที่เข้าเวรบูธนี้วันนี้ (shifts[วันที่ไทย] จากหน้า ตารางออกบูธ) — ใช้ส่งลีดให้คนที่ยืนอยู่บูธทันที
+export async function readEventTag(env, token, id, fetchImpl, now = Date.now()) {
   if (!id) return null
   const r = await call(fetchImpl, `${fsBase(env)}/marketing_events/${encodeURIComponent(id)}`, { headers: { Authorization: `Bearer ${token}` } })
   if (!r?.ok) return null
   const f = (await r.json().catch(() => null))?.fields
   if (!f || f.deleted?.booleanValue) return null
-  return { id, title: f.title?.stringValue || '', companyId: f.companyId?.stringValue || '' }
+  const today = new Date(now + 7 * 3600e3).toISOString().slice(0, 10)
+  const onShift = [...new Set((f.shifts?.mapValue?.fields?.[today]?.arrayValue?.values || [])
+    .map(v => clip(String(v.stringValue || '').replace(/[<>\u0000-\u001f]/g, ' ').trim(), 60)).filter(Boolean))].slice(0, 10)
+  return { id, title: f.title?.stringValue || '', companyId: f.companyId?.stringValue || '', onShift }
+}
+// ลีดจาก QR บูธที่ยังไม่มีผู้ดูแล: เวรวันนี้คนเดียว → มอบให้เลย · หลายคน → แจ้งทุกคนในเวร ใครว่างกดรับ
+export function boothRouting(lead, ev) {
+  const names = ev?.onShift || []
+  if (!names.length || lead.assignedTo) return lead
+  if (names.length === 1) return { ...lead, assignedTo: names[0] }
+  return { ...lead, alsoNotify: names, note: [`👥 เวรบูธวันนี้: ${names.join(', ')} — ใครว่างกดรับลีดนี้`, lead.note].filter(Boolean).join(' · ') }
 }
 
 // (v1.0.1185) หลังส่งฟอร์ม ชวนลูกค้าเพิ่มเพื่อน LINE OA ของร้าน (คุยต่อ/รับโปรทาง LINE ได้ และแชตที่ทักมาผูกเข้าระบบเอง)
@@ -563,7 +574,7 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   const accId = clip(String(b.a || ''), 60).replace(/[^A-Za-z0-9_-]/g, '')
   const ref = cleanRefCode(b.ref)
   const utm = cleanUtm(b.utm)
-  const ev = await readEventTag(env, token, cleanEventId(b.ev), fetchImpl).catch(() => null)
+  const ev = await readEventTag(env, token, cleanEventId(b.ev), fetchImpl, nowMs).catch(() => null)
   const referrer = ref ? await readReferrer(env, token, ref, fetchImpl).catch(() => null) : null
   const seller = b.s ? await readSeller(env, token, b.s, fetchImpl).catch(() => null) : null
   // ลิงก์ทั่วไป (โพสต์/ไบโอ/โฆษณา) ยังจำกัด 5 ครั้ง/10 นาที/IP เหมือนเดิม · QR หน้างาน (งานบูธที่มีอยู่จริง หรือ QR ติดรถ) ใช้เพดานหลวม
@@ -576,13 +587,14 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   }
   const parts = name.split(' ')
   const clean = (v, n) => clip(String(v || '').replace(/[<>\u0000-\u001f]/g, ' ').trim(), n)
-  const lead = { first: parts[0], last: parts.slice(1).join(' '), phone, email: '', lineId: clean(b.line, 60), model: clean(b.model, 80), note: [td ? `ขอนัดทดลองขับ ${td.label}` : '', clean(b.note, 300)].filter(Boolean).join(' · '),
+  let lead = { first: parts[0], last: parts.slice(1).join(' '), phone, email: '', lineId: clean(b.line, 60), model: clean(b.model, 80), note: [td ? `ขอนัดทดลองขับ ${td.label}` : '', clean(b.note, 300)].filter(Boolean).join(' · '),
     source: acc?.source || (ref ? 'referral' : ev ? 'event' : (utm?.source && normSource(utm.source) !== 'other' ? normSource(utm.source) : 'website')), account: acc?.id || '', assignedTo: acc?.assignedTo || seller?.name || '', companyId: acc?.companyId || seller?.companyId || ev?.companyId || referrer?.companyId || '' }
   if (ref) lead.note = [referrer?.name ? `แนะนำโดย ${referrer.name} (รหัส ${ref})` : `แนะนำโดยรหัส ${ref}`, lead.note].filter(Boolean).join(' · ')
   // (v1.0.1182) สแกน QR หน้างาน = ลูกค้าอาจยังยืนอยู่ตรงนั้น — บอกเซลส์ในแจ้งเตือนให้รีบเดินไปหา/โทรทันที
   const where = ev ? `📍 สแกน QR ที่บูธ ${ev.title || ''}`.trim() : (utm?.source === 'walk-in' && utm?.medium === 'qr' ? `📍 สแกน QR ที่รถโชว์${utm.campaign ? ' ' + utm.campaign : ''} — ลูกค้าอาจอยู่ในโชว์รูมตอนนี้` : '')
   if (where) lead.note = [where, lead.note].filter(Boolean).join(' · ')
   if (seller) lead.note = [`📇 ฝากชื่อผ่าน QR นามบัตรของ ${seller.name}`, lead.note].filter(Boolean).join(' · ')
+  lead = boothRouting(lead, ev)
   const extra = { ...(acc ? { sourceAccountName: acc.name, sourceAccountLevel: acc.level } : {}), ...(ref ? { referralCode: ref } : {}), ...(utm ? { utmSource: utm.source, utmMedium: utm.medium, utmCampaign: utm.campaign } : {}), ...(ev ? { eventId: ev.id, eventName: ev.title } : {}) }
   const r = await createLead(env, token, lead, { tags: ['ฟอร์มรับลีด', ...(acc?.name ? [acc.name] : []), ...(ref ? [`แนะนำ ${ref}`] : []), ...(ev ? [`บูธ ${ev.title}`.trim()] : [])], extra, fetchImpl })
   if (r.error) { const tel = await shopPhone(env, token, fetchImpl, nowMs).catch(() => ''); return { status: 500, body: { ok: false, error: tel ? 'บันทึกไม่สำเร็จ กรุณาลองใหม่ หรือโทรหาโชว์รูม' : 'บันทึกไม่สำเร็จ กรุณาลองใหม่', ...(tel ? { tel } : {}) } } }
