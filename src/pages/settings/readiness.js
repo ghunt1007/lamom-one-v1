@@ -31,7 +31,7 @@ export function readinessItems({ status, auto, lastBackupMs, sheet, reports, now
 
   const noAuto = !auto || auto._noAccess
   const sw = (id, label, on, hint) => add(id, label, noAuto ? 'unknown' : (on ? 'ok' : 'todo'), hint, '/marketing/channels')
-  sw('publicform', 'เปิดฟอร์มรับลูกค้าสาธารณะ', auto?.publicForm, 'เจ้าของเปิดเองที่หน้าช่องทางโซเชียล → ตอบอัตโนมัติ')
+  sw('publicform', 'เปิดฟอร์มรับลูกค้าสาธารณะ', auto?.publicForm, 'เจ้าของเปิดเองที่หน้าช่องทางโซเชียล → ตอบอัตโนมัติ · ลิงก์แนะนำเพื่อน, หน้าแคมเปญ, ลิงก์ UTM และ QR ทุกอัน (บูธ/ติดรถ) ใช้ฟอร์มนี้')
   sw('aireply', 'เปิด AI ตอบแชตอัตโนมัติ', auto?.aiReply, 'เจ้าของเปิดเองเมื่อพร้อม (ทดสอบข้อความก่อน)')
   sw('leadalert', 'แจ้งเตือนลีดใหม่ทาง LINE', auto?.leadAlert !== false, 'เปิดสวิตช์ "แจ้งเตือนทันที" ที่หน้าช่องทางโซเชียล')
 

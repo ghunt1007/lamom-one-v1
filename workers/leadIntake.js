@@ -357,6 +357,7 @@ export async function fillPhoneFromChat(env, token, { field, value, text, channe
 // ── (v1.0.1140) ฟอร์มรับลีดสาธารณะ — ลูกค้ากรอกชื่อ-เบอร์เองจากลิงก์/QR (ใส่ในไบโอ TikTok/เพจส่วนตัว/บูธ) ──
 // ไม่มีรหัส จึงกันสแปมด้วย: ต้องเปิดสวิตช์ในแท็บตอบอัตโนมัติ · ช่องล่อบอต · เบอร์มือถือไทยที่ถูกต้อง · จำกัดจำนวนต่อ IP · เบอร์ซ้ำไม่สร้างคนใหม่
 const formHits = new Map()
+export const ON_SITE_MAX = 40
 export function __resetFormHits() { formHits.clear() }
 export function formRateOk(ip, now = Date.now(), { max = 5, windowMs = 10 * 60_000 } = {}) {
   const k = String(ip || 'x')
@@ -446,7 +447,10 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   const td = cleanTestDrive(b, deps.now || Date.now())
   if (td?.error) return { status: 400, body: { ok: false, error: td.error } }
   const ip = request.headers.get('CF-Connecting-IP') || ''
-  if (!formRateOk(ip, deps.now || Date.now())) return { status: 429, body: { ok: false, error: 'ส่งถี่เกินไป กรุณาลองใหม่ภายหลัง' } }
+  const nowMs = deps.now || Date.now()
+  const tooMany = { status: 429, body: { ok: false, error: 'ส่งถี่เกินไป กรุณาลองใหม่ภายหลัง' } }
+  // (v1.0.1184) เพดานรวมต่อ IP — ที่บูธ/โชว์รูม ลูกค้าหลายคนใช้ Wi-Fi เดียวกัน (IP เดียว) จึงตั้งเพดานหลวมไว้ก่อน
+  if (!formRateOk(ip, nowMs, { max: ON_SITE_MAX })) return tooMany
   const token = await getToken()
   if (!token) return { status: 503, body: { ok: false, error: 'ระบบยังไม่พร้อม กรุณาลองใหม่' } }
   const inbox = await readInboxAuto(env, token, fetchImpl)
@@ -455,6 +459,9 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   const ref = cleanRefCode(b.ref)
   const utm = cleanUtm(b.utm)
   const ev = await readEventTag(env, token, cleanEventId(b.ev), fetchImpl).catch(() => null)
+  // ลิงก์ทั่วไป (โพสต์/ไบโอ/โฆษณา) ยังจำกัด 5 ครั้ง/10 นาที/IP เหมือนเดิม · QR หน้างาน (งานบูธที่มีอยู่จริง หรือ QR ติดรถ) ใช้เพดานหลวม
+  const onsite = !!ev || (utm?.source === 'walk-in' && utm?.medium === 'qr')
+  if (!onsite && !formRateOk('s:' + ip, nowMs)) return tooMany
   let acc = null
   if (accId) {
     const r = await call(fetchImpl, `${fsBase(env)}/social_channels/${encodeURIComponent(accId)}`, { headers: { Authorization: `Bearer ${token}` } })

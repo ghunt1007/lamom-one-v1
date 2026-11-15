@@ -150,7 +150,7 @@ describe('v1.0.1139 phone from chat', () => {
   })
 })
 
-import { handleLeadForm, formRateOk, accountLeadInfo, __resetFormHits, cleanTestDrive, cleanRefCode, cleanUtm } from './leadIntake.js'
+import { handleLeadForm, formRateOk, accountLeadInfo, __resetFormHits, cleanTestDrive, cleanRefCode, cleanUtm, ON_SITE_MAX } from './leadIntake.js'
 import { beforeEach } from 'vitest'
 describe('v1.0.1140 public lead form', () => {
   beforeEach(() => { __resetInboxCache(); __resetFormHits() })
@@ -219,6 +219,16 @@ describe('v1.0.1140 public lead form', () => {
     const f = created(w.calls)
     expect(f.source.stringValue).toBe('walk-in'); expect(f.utmCampaign.stringValue).toBe('Deepal S07')
     expect(f.notes.stringValue).toContain('ลูกค้าอาจอยู่ในโชว์รูมตอนนี้')
+  })
+  it('rate limit: 5 per IP for normal links, but many people on one booth/showroom Wi-Fi can all send', async () => {
+    const send = (body, ip) => { const w = world(); return handleLeadForm(req({ name: 'สมชาย ใจดี', phone: '0812345678', ...body }, ip), env, async () => 't', { fetch: w.f, now: 1000 }) }
+    for (let i = 0; i < 5; i++) expect((await send({}, '5.5.5.5')).status).toBe(200)
+    expect((await send({}, '5.5.5.5')).status).toBe(429)
+    __resetFormHits()
+    for (let i = 0; i < 12; i++) expect((await send({ utm: { s: 'walk-in', m: 'qr', c: 'S07' } }, '6.6.6.6')).status).toBe(200)
+    __resetFormHits()
+    for (let i = 0; i < ON_SITE_MAX; i++) await send({ utm: { s: 'walk-in', m: 'qr', c: 'S07' } }, '7.7.7.7')
+    expect((await send({ utm: { s: 'walk-in', m: 'qr', c: 'S07' } }, '7.7.7.7')).status).toBe(429)
   })
   it('UTM from an ad link is stored and sets the source', async () => {
     const w = world()
