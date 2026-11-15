@@ -1224,6 +1224,7 @@ export const PAGE_COLLECTIONS = {
   "customers"
  ],
  "/marketing/landing-pages": [
+  "customers",
   "landing_pages"
  ],
  "/finance/refund": [
