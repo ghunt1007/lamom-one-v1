@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { leadFormUrl, referralUrl, newReferralCode, referralLeadCounts, PUBLIC_ORIGIN, publicOrigin } from './publicLinks.js'
+import { leadFormUrl, referralUrl, newReferralCode, referralLeadCounts, referralStats, PUBLIC_ORIGIN, publicOrigin } from './publicLinks.js'
 
 describe('public links', () => {
   it('points to the real site, never lamom.app', () => {
@@ -26,5 +26,12 @@ describe('publicOrigin', () => {
   it('keeps a real https site (e.g. a future company domain)', () => {
     expect(publicOrigin({ protocol: 'https:', hostname: 'lamom-one.pages.dev', origin: 'https://lamom-one.pages.dev' })).toBe('https://lamom-one.pages.dev')
     expect(publicOrigin({ protocol: 'https:', hostname: 'crm.example.co.th', origin: 'https://crm.example.co.th' })).toBe('https://crm.example.co.th')
+  })
+})
+
+describe('referralStats', () => {
+  it('counts leads, bookings and deliveries per code', () => {
+    const r = referralStats([{ referralCode: 'R1', stage: 'pp' }, { referralCode: 'R1', stage: 'booking' }, { referralCode: 'r1', stage: 'delivered' }, { referralCode: 'R1', stage: 'delivered', deleted: true }])
+    expect(r).toEqual({ R1: { leads: 3, booked: 2, sold: 1 } })
   })
 })
