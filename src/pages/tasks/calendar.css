@@ -158,3 +158,13 @@
 .ws-n { font-size: 0.8rem; padding: 7px 10px; border-radius: 8px; background: var(--surface-2); line-height: 1.45; }
 .ws-n span { display: block; font-size: 0.7rem; color: var(--text-3); margin-top: 2px; }
 .ws-empty { font-size: 0.78rem; color: var(--text-3); padding: 6px 2px; }
+
+/* (v1.0.1153) จอ 320px: แถบเลื่อนเดือนและตัวเลือกมุมมองล้นขอบ 5px */
+@media (max-width: 360px) {
+  .wc-nav { gap: 3px; }
+  .wc-nav .btn-secondary { min-width: 32px; padding-inline: 8px; }
+  .wc-nav .btn-ghost { padding-inline: 6px; }
+  .wc-label { font-size: 0.82rem; padding: 0; }
+  .wc-who { min-width: 0; }
+  .wc-views button { padding: 5px 8px; }
+}

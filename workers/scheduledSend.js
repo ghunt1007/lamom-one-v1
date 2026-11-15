@@ -15,15 +15,15 @@ export const MAX_LATE_MS = 6 * 3600 * 1000
 export const MAX_AHEAD_MS = 60 * 24 * 3600 * 1000
 const MAX_TEXT = 4500
 
-const fsBase = env => `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`
-async function call(fetchImpl, url, init) { try { return await fetchImpl(url, init) } catch { return null } }
-const bad = (msg, status = 400) => Object.assign(new Error(msg), { status })
-const auth = token => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' })
+export const fsBase = env => `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`
+export async function call(fetchImpl, url, init) { try { return await fetchImpl(url, init) } catch { return null } }
+export const bad = (msg, status = 400) => Object.assign(new Error(msg), { status })
+export const auth = token => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' })
 
 export const queueId = id => QUEUE_PREFIX + String(id || '').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 120)
 const isLineUser = v => /^U[0-9a-f]{10,40}$/i.test(String(v || ''))
 
-function enc(v) {
+export function enc(v) {
   if (v === null || v === undefined) return { nullValue: null }
   if (typeof v === 'boolean') return { booleanValue: v }
   if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v }
@@ -38,7 +38,7 @@ function dec(v = {}) {
   if ('arrayValue' in v) return (v.arrayValue.values || []).map(dec)
   return null
 }
-const decDoc = d => Object.fromEntries(Object.entries(d.fields || {}).map(([k, v]) => [k, dec(v)]))
+export const decDoc = d => Object.fromEntries(Object.entries(d.fields || {}).map(([k, v]) => [k, dec(v)]))
 
 /** ตรวจคำขอกำหนดเวลา → คืนข้อมูลคิวที่สะอาดแล้ว (throw ถ้าไม่ผ่าน) */
 export function cleanSchedule(body = {}, now = Date.now()) {

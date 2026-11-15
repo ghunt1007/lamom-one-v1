@@ -247,3 +247,14 @@ describe('v1.0.1140 public lead form', () => {
     expect(r.status).toBe(200)
   })
 })
+
+import { fbAdExtra } from './leadIntake.js'
+describe('fbAdExtra', () => {
+  it('keeps campaign and ad as fields', () => {
+    expect(fbAdExtra({ campaign_id: '120211', campaign_name: 'S05 พ.ย.', ad_id: '99', ad_name: 'รูป 1' })).toEqual({ fbCampaignId: '120211', fbCampaignName: 'S05 พ.ย.', fbAdId: '99', fbAdName: 'รูป 1' })
+  })
+  it('falls back to the webhook ad id and skips blanks', () => {
+    expect(fbAdExtra({}, { adId: '77' })).toEqual({ fbAdId: '77' })
+    expect(fbAdExtra()).toEqual({})
+  })
+})
