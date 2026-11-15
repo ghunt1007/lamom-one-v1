@@ -30,6 +30,34 @@ export function pickStaleLeads(customers = [], now = Date.now()) {
   })
 }
 
+// (v1.0.1214) ลูกค้าเดิมทักมาอีกครั้ง (reEnquiredAt จาก leadIntake) ยังไม่มีใครโทรกลับเกิน 30 นาที และยังไม่เคยเตือนรอบนี้
+const ms = v => { const t = new Date(v || '').getTime(); return Number.isFinite(t) ? t : 0 }
+export function pickStaleReturns(customers = [], now = Date.now()) {
+  return customers.filter(c => {
+    if (!c || c.deleted) return false
+    const at = ms(c.reEnquiredAt)
+    if (!at) return false
+    const age = now - at
+    if (age < NUDGE_AFTER_MS || age > NUDGE_MAX_AGE_MS) return false
+    return !(ms(c.lastContactAt) > at) && !(ms(c.backNudgedAt) >= at)
+  })
+}
+
+export function backNudgeText(c = {}, { appUrl = '', now = Date.now() } = {}) {
+  const name = clip(`${c.firstName || ''} ${c.lastName || ''}`, 80) || 'ไม่ระบุชื่อ'
+  const mins = Math.max(30, Math.round((now - ms(c.reEnquiredAt)) / 60000))
+  const waited = mins >= 120 ? `${Math.floor(mins / 60)} ชั่วโมง` : `${mins} นาที`
+  const lines = [`📣 ลูกค้าเดิมทักมาอีกครั้ง ${waited}แล้ว ยังไม่มีใครโทรกลับ`, `👤 ${name}`]
+  if (c.phone) lines.push(`📞 ${fmtPhone(c.phone)}`)
+  if (c.reEnquiredModel || c.interestedModel) lines.push(`🚗 สนใจ ${clip(c.reEnquiredModel || c.interestedModel, 80)}`)
+  if (c.isLost) lines.push('↩️ เคยเสียดีล — ลูกค้ากลับมาเอง โอกาสดี')
+  lines.push(c.assignedTo ? `🙋 ผู้ดูแล: ${clip(c.assignedTo, 60)}` : '🙋 ยังไม่มีผู้ดูแล')
+  lines.push('โทรแล้วกด "ติดต่อแล้ว" ในแอป ระบบจะหยุดเตือน')
+  const base = String(appUrl || '').replace(/\/+$/, '')
+  if (base && c.id) lines.push(`👉 ${base}/crm/customers?id=${encodeURIComponent(c.id)}`)
+  return lines.join('\n')
+}
+
 export function nudgeText(c = {}, { appUrl = '', now = Date.now() } = {}) {
   const name = clip(`${c.firstName || ''} ${c.lastName || ''}`, 80) || 'ไม่ระบุชื่อ'
   const onsite = isOnsiteLead(c)
@@ -56,8 +84,10 @@ export async function runLeadNudge(deps = {}) {
     const now = deps.now || Date.now()
     if (deps.enabled === false || !inNudgeHours(now)) return out
     const stale = pickStaleLeads(await deps.listRecent(), now).slice(0, 10)
+    const back = deps.listBack ? pickStaleReturns(await Promise.resolve(deps.listBack()).catch(() => []), now).filter(c => !stale.some(x => x.id === c.id)).slice(0, 10) : []
     out.stale = stale.length
-    if (!stale.length) return out
+    if (deps.listBack) out.back = back.length
+    if (!stale.length && !back.length) return out
     const targets = deps.salesTargets ? await Promise.resolve(deps.salesTargets()).catch(() => []) : []
     const owner = deps.ownerTarget ? await Promise.resolve(deps.ownerTarget()).catch(() => '') : ''
     for (const c of stale) {
@@ -72,6 +102,21 @@ export async function runLeadNudge(deps = {}) {
         await Promise.resolve(deps.notify({
           title: `⏰ ลีดยังไม่มีใครติดต่อ: ${name}`,
           body: [c.phone ? `โทร ${fmtPhone(c.phone)}` : '', c.assignedTo ? `ผู้ดูแล ${clip(c.assignedTo, 60)}` : 'ยังไม่มีผู้ดูแล', 'รอเกิน 30 นาทีแล้ว'].filter(Boolean).join(' · '),
+          link: `/crm/customers?id=${encodeURIComponent(c.id)}`, type: 'lead',
+          roles: c.assignedTo ? ['manager'] : ['manager', 'sales'], names: c.assignedTo ? [c.assignedTo] : [],
+        })).catch(() => {})
+      }
+    }
+    for (const c of back) {
+      if (!deps.markBack || !(await Promise.resolve(deps.markBack(c.id, new Date(now).toISOString())).catch(() => false))) continue
+      out.nudged++
+      const to = salesLineId(targets, c.assignedTo) || owner
+      if (to && deps.pushLine) await Promise.resolve(deps.pushLine(to, backNudgeText(c, { appUrl: deps.appUrl, now }))).catch(() => false)
+      if (deps.notify) {
+        const name = clip(`${c.firstName || ''} ${c.lastName || ''}`, 80) || 'ไม่ระบุชื่อ'
+        await Promise.resolve(deps.notify({
+          title: `📣 ลูกค้าเดิมรอโทรกลับ: ${name}`,
+          body: [c.phone ? `โทร ${fmtPhone(c.phone)}` : '', c.assignedTo ? `ผู้ดูแล ${clip(c.assignedTo, 60)}` : 'ยังไม่มีผู้ดูแล', 'ทักมาเกิน 30 นาทีแล้ว'].filter(Boolean).join(' · '),
           link: `/crm/customers?id=${encodeURIComponent(c.id)}`, type: 'lead',
           roles: c.assignedTo ? ['manager'] : ['manager', 'sales'], names: c.assignedTo ? [c.assignedTo] : [],
         })).catch(() => {})
