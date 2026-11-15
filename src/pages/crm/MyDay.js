@@ -355,7 +355,7 @@ export default async function MyDayPage(container) {
           `${escHtml(r.name)} <span class="badge badge-${r.reason === 'ending' ? 'danger' : 'success'}" style="font-size:0.62rem">${r.reason === 'ending' ? (r.left === 0 ? 'หมดวันนี้' : `หมดใน ${r.left} วัน`) : 'โปรใหม่'}</span>`,
           `${escHtml(r.model)} · ${escHtml(r.lines.join(' · '))}${ownerTag(r.c.assignedTo)}`,
           `${callBtn(r.c.phone, r.c.id)}<button class="btn btn-primary btn-xs md-promo" data-id="${escHtml(r.c.id)}">💬 ข้อความ</button><button class="btn btn-ghost btn-xs md-open" data-id="${escHtml(r.c.id)}">เปิด</button>`), 'warning') : ''}
-        ${section('🧲', 'Lead ใหม่วันนี้', 'โทรหาภายในวันนี้ โอกาสปิดสูงสุด', d.newLeads, c => line(
+        ${section('🧲', d.newLeads.some(c => c.waitDays) ? 'Lead ใหม่ + ค้างยังไม่มีใครโทร' : 'Lead ใหม่วันนี้', 'โทรหาภายในวันนี้ โอกาสปิดสูงสุด', d.newLeads, c => line(
           `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''}${waitTag(c)}`,
           `${escHtml(SOURCE_LABEL[c.source] || c.source || '')}${c.phone ? ` · ${escHtml(c.phone)}` : c.lineId ? ` · ${escHtml(c.lineId)}` : ''}${ownerTag(c.assignedTo)}`,
           `${callBtn(c.phone, c.id)}${takeBtns(c)}${bangkokDate(c.lastContactAt) === today ? '<span class="badge badge-success" style="font-size:0.62rem">ติดต่อแล้ว</span>' : `<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดต่อแล้ว</button>`}<button class="btn btn-secondary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'success')}
