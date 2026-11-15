@@ -899,6 +899,7 @@ export const PAGE_COLLECTIONS = {
   "customers"
  ],
  "/settings/health": [
+  "company_profile",
   "system_integrations"
  ],
  "/analytics/executive": [

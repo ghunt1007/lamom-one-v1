@@ -52,7 +52,9 @@ export default async function SystemHealthPage(container) {
       } catch (e) { sheet = e?.code === 'not_shared' ? { code: 'not_shared', shareWith: e.shareWith || '' } : null }
       let reports = null
       try { reports = await readDoc('system_integrations', 'report_status') } catch (e) {}
-      ready = readinessItems({ status, auto, lastBackupMs, sheet, reports })
+      let company
+      try { const cp = await listDocs('company_profile', [], 'createdAt', 'asc', 10); company = cp.find(x => !x.deleted) || null } catch (e) {}
+      ready = readinessItems({ status, auto, lastBackupMs, sheet, reports, company })
     }
 
     return { firestoreOk, firestoreLatency, integrations, errors, todayAudit, activeUsersToday, errorsToday, ready }
