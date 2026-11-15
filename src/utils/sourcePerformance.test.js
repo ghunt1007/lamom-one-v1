@@ -63,3 +63,31 @@ describe('summarizeSources', () => {
     expect(summarizeSources({}, {})).toEqual({ rows: [], total: { leads: 0, booked: 0, delivered: 0, lost: 0, open: 0, income: 0, spent: 0, bookRate: 0 }, best: null })
   })
 })
+
+describe('lead entry points: which of our links/QR brought the customer (v1.0.1189)', async () => {
+  const { entryPointOf, summarizeEntryPoints } = await import('./sourcePerformance.js')
+  it('classifies each kind once, most specific first', () => {
+    expect(entryPointOf({ referralCode: 'R1', utmSource: 'facebook' })).toBe('ref')
+    expect(entryPointOf({ eventId: 'e', autoLead: true })).toBe('booth')
+    expect(entryPointOf({ eventId: 'e' })).toBe(null) // ลีดที่เซลส์กด ➕ ที่บูธเอง ไม่ใช่ QR
+    expect(entryPointOf({ utmSource: 'walk-in', utmMedium: 'namecard' })).toBe('card')
+    expect(entryPointOf({ utmSource: 'walk-in', utmMedium: 'qr' })).toBe('car')
+    expect(entryPointOf({ utmSource: 'landing', utmCampaign: 'x' })).toBe('landing')
+    expect(entryPointOf({ utmSource: 'facebook', utmCampaign: 'nov' })).toBe('utm')
+    expect(entryPointOf({ autoLead: true, tags: ['ฟอร์มรับลีด'] })).toBe('form')
+    expect(entryPointOf({ source: 'line', autoLead: true })).toBe(null)
+  })
+  it('counts leads and bookings per entry point', () => {
+    const customers = [
+      { id: 'a', utmSource: 'walk-in', utmMedium: 'qr', createdAt: '2026-11-10T03:00:00Z', stage: 'booking' },
+      { id: 'b', utmSource: 'walk-in', utmMedium: 'qr', createdAt: '2026-11-11T03:00:00Z', stage: 'lead' },
+      { id: 'c', referralCode: 'R1', createdAt: '2026-11-11T03:00:00Z', stage: 'delivered' },
+      { id: 'd', source: 'facebook', createdAt: '2026-11-11T03:00:00Z' },
+    ]
+    const { rows, total } = summarizeEntryPoints({ customers, bookings: [] }, {})
+    expect(total.leads).toBe(3)
+    const car = rows.find(r => r.source === 'car')
+    expect(car).toMatchObject({ leads: 2, booked: 1, bookRate: 50, label: 'QR ติดรถโชว์' })
+    expect(rows.find(r => r.source === 'ref')).toMatchObject({ delivered: 1 })
+  })
+})
