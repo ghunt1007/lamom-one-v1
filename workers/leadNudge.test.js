@@ -11,6 +11,13 @@ describe('pickStaleLeads', () => {
       lead({ id: 'nudged', leadNudgedAt: ago(5) }), lead({ id: 'manual', autoLead: false }), lead({ id: 'lost', isLost: true }), lead({ id: 'booked', stage: 'booking' }), lead({ id: 'bad', createdAt: 'x' }), null]
     expect(pickStaleLeads(list, NOW).map(c => c.id)).toEqual(['c1'])
   })
+  it('on-site QR leads (booth / showroom car) are nudged after 10 minutes, with where they are', () => {
+    const list = [lead({ id: 'booth', eventId: 'e1', eventName: 'บูธเซ็นทรัล', createdAt: ago(12) }), lead({ id: 'car', utmSource: 'walk-in', utmMedium: 'qr', createdAt: ago(11) }), lead({ id: 'web', createdAt: ago(12) }), lead({ id: 'fresh', eventId: 'e1', createdAt: ago(5) })]
+    expect(pickStaleLeads(list, NOW).map(c => c.id)).toEqual(['booth', 'car'])
+    expect(nudgeText(list[0], { now: NOW })).toContain('📍 สแกน QR ที่บูธ บูธเซ็นทรัล')
+    expect(nudgeText(list[0], { now: NOW })).toContain('ลีดรอมา 12 นาที')
+    expect(nudgeText(list[1], { now: NOW })).toContain('รถโชว์')
+  })
   it('a lead from last night is still picked in the morning', () => expect(pickStaleLeads([lead({ createdAt: ago(10 * 60) })], NOW).length).toBe(1))
 })
 

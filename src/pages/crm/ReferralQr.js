@@ -9,10 +9,10 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { sendSms } from '../../utils/comms.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
-import { referralUrl, newReferralCode, referralStats } from '../../utils/publicLinks.js'
+import { referralUrl, newReferralCode, referralStats, referrerTotals, REFERRAL_RATE } from '../../utils/publicLinks.js'
 import { qrSvg, qrDownloadLink } from '../../utils/qr.js'
 
-const COMMISSION_RATE = 5000 // บาทต่อคันที่ขายได้
+const COMMISSION_RATE = REFERRAL_RATE // บาทต่อคันที่ขายได้ (ค่าเดียวกับรายงาน 18:00)
 const PAY_ROLES = ['finance', 'manager', 'owner', 'admin']
 
 export default async function ReferralQrPage(container) {
@@ -38,8 +38,8 @@ export default async function ReferralQrPage(container) {
     REFERRERS = REFERRERS.map(r => {
       const st = leadCounts ? (leadCounts[String(r.code || '').toUpperCase()] || { leads: 0, booked: 0, sold: 0 }) : null
       // ขายได้ = ลูกค้าที่มาจากลิงก์และส่งมอบแล้ว (ไม่ลดจากที่เคยบันทึก) — ค่าคอม = คันละ COMMISSION_RATE
-      const sales = st ? Math.max(st.sold, Number(r.sales) || 0) : (Number(r.sales) || 0)
-      return { ...r, qrUrl: referralUrl(r.code), leads: st ? st.leads : (r.leads || 0), booked: st ? st.booked : null, sales, commission: Math.max(Number(r.commission) || 0, sales * COMMISSION_RATE), paid: Number(r.paid) || 0 }
+      const t = referrerTotals(r, st)
+      return { ...r, qrUrl: referralUrl(r.code), leads: st ? st.leads : (r.leads || 0), booked: st ? st.booked : null, sales: t.sales, commission: t.commission, paid: t.paid }
     })
     loading = false
     if (container.__routerGen === myGen) render()

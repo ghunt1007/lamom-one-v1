@@ -433,6 +433,14 @@ describe('round 3 — stuck bookings and lead sources', () => {
     expect(text).toContain('Lead ใหม่วันนี้: 4 ราย')
     expect(text).toContain('มาจาก: Facebook 2 · Walk-in 1 · อื่นๆ 1')
   })
+  it('booth and Instagram leads get their own label instead of "อื่นๆ" (v1.0.1182)', () => {
+    const text = buildReport({ customers: [
+      { stage: 'lead', source: 'event', createdAt: '2026-10-24T03:00:00Z' },
+      { stage: 'lead', source: 'event', createdAt: '2026-10-24T03:10:00Z' },
+      { stage: 'lead', source: 'instagram', createdAt: '2026-10-24T04:00:00Z' },
+    ] }, { today: '2026-10-24', time: '18:00' })
+    expect(text).toContain('มาจาก: บูธ/อีเวนต์ 2 · Instagram 1')
+  })
 })
 
 describe('weekly summary (Monday mornings)', () => {
@@ -1420,5 +1428,26 @@ describe('data check line skips old closed bookings (v1.0.1165)', () => {
     const { dataCheckLine } = await import('./daily-report.js')
     expect(dataCheckLine([{ id: 'o', status: 'ส่งมอบแล้ว', bookingDate: '2024-03-01', actualDeliveryDate: '2024-04-01', salesName: '' }], '2026-11-16')).toBe('')
     expect(dataCheckLine([{ id: 'p', status: 'รอรถ', bookingDate: '2024-03-01', salesName: '' }], '2026-11-16')).toContain('1 ใบ')
+  })
+})
+
+describe('referral commission owed in the 18:00 report (v1.0.1182)', async () => {
+  const { referralOwedLine } = await import('./daily-report.js')
+  const referrers = [{ name: 'คุณเอ', code: 'RA1', paid: 0 }, { name: 'คุณบี', code: 'RB2', paid: 5000 }, { name: 'คุณซี', code: 'RC3' }]
+  const customers = [
+    { referralCode: 'ra1', stage: 'delivered' }, { referralCode: 'RA1', stage: 'delivered' },
+    { referralCode: 'RB2', stage: 'delivered' }, // จ่ายแล้ว
+    { referralCode: 'RC3', stage: 'booking' }, // ยังไม่ส่งมอบ
+  ]
+  it('shows only what is still owed, biggest first', () => {
+    expect(referralOwedLine(referrers, customers)).toBe('💸 ค่าแนะนำเพื่อนค้างจ่าย ฿10,000 (1 คน: คุณเอ ฿10,000) — กดจ่ายที่หน้า 🔗 ลิงก์แนะนำเพื่อน')
+  })
+  it('silent when nothing is owed', () => {
+    expect(referralOwedLine(referrers.map(r => ({ ...r, paid: 99999 })), customers)).toBe('')
+    expect(referralOwedLine([], customers)).toBe('')
+  })
+  it('appears in the evening report', () => {
+    const text = buildReport({ customers, referrers }, { today: '2026-11-16', time: '18:00' })
+    expect(text).toContain('💸 ค่าแนะนำเพื่อนค้างจ่าย ฿10,000')
   })
 })

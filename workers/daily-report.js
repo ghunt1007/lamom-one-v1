@@ -37,6 +37,7 @@ import { metaAds, handleSocial, recordLineInbound, handleExtraLineWebhook, lineT
 import { fetchLineQuota, lineQuotaLine } from './lineQuota.js'
 import { bookingDataIssues } from '../src/utils/bookingDataCheck.js'
 import { isDelivered, isCancelled } from '../src/utils/bookingStatus.js'
+import { referralOwed } from '../src/utils/publicLinks.js'
 import { saveReportStatus } from './reportStatus.js'
 import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
 import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFromChat, handleLeadForm } from './leadIntake.js'
@@ -67,7 +68,7 @@ const MORNING_CRON = '0 2 * * *'
 // 11:00 UTC = 18:00 เวลาไทย — รายงานประจำวัน
 const EVENING_CRON = '0 11 * * *'
 // ป้ายช่องทางที่มาของลูกค้า — key เดียวกับหน้าลูกค้า (Customers.js SOURCE)
-const SOURCE_LABELS = { facebook: 'Facebook', line: 'LINE', tiktok: 'TikTok', 'walk-in': 'Walk-in', referral: 'แนะนำ', google: 'Google', website: 'เว็บไซต์', phone: 'โทรเข้า', other: 'อื่นๆ' }
+const SOURCE_LABELS = { facebook: 'Facebook', line: 'LINE', tiktok: 'TikTok', instagram: 'Instagram', 'walk-in': 'Walk-in', referral: 'แนะนำ', event: 'บูธ/อีเวนต์', email: 'อีเมล', google: 'Google', website: 'เว็บไซต์', phone: 'โทรเข้า', other: 'อื่นๆ' }
 const STALE_LEAD_DAYS = 3
 const STUCK_BOOKING_DAYS = 14
 
@@ -232,7 +233,7 @@ async function runLeadNudgeJob(env, token) {
   if (!token) return { stale: 0, nudged: 0 }
   return runLeadNudge({
     ...(await leadTools(env, token)),
-    listRecent: () => runQuery(env, token, 'customers', 'createdAt', 'DESCENDING', 40, ['firstName', 'lastName', 'phone', 'interestedModel', 'assignedTo', 'stage', 'autoLead', 'isLost', 'deleted', 'lastContactAt', 'leadNudgedAt', 'createdAt']),
+    listRecent: () => runQuery(env, token, 'customers', 'createdAt', 'DESCENDING', 40, ['firstName', 'lastName', 'phone', 'interestedModel', 'assignedTo', 'stage', 'autoLead', 'isLost', 'deleted', 'lastContactAt', 'leadNudgedAt', 'createdAt', 'eventId', 'eventName', 'utmMedium', 'utmSource']),
     mark: async (id, iso) => {
       const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/customers/${encodeURIComponent(id)}?updateMask.fieldPaths=leadNudgedAt&currentDocument.exists=true`, {
         method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields: { leadNudgedAt: { stringValue: iso } } }),
@@ -599,24 +600,25 @@ async function buildReportText(env, accessToken) {
   const fuFields = ['dueDate', 'status', 'customerId', 'updatedAt', 'deleted']
   const [bookings, customers, fuPending, fuDone, testDrives, teamTargets] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deliveryDate', 'deliveryTime', 'custName', 'model', 'cancelReason', 'deleted', 'bookingNo']),
-    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'assignedTo', 'temperature', 'isLost', 'lostAt', 'lostReason', 'lastContactAt', 'eventId', 'deleted']),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'assignedTo', 'temperature', 'isLost', 'lostAt', 'lostReason', 'lastContactAt', 'eventId', 'referralCode', 'deleted']),
     // แยกดึงนัดค้าง/นัดที่ทำแล้ว — ถ้าดึงรวมแบบจำกัดจำนวน พอนัดอัตโนมัติสะสมเยอะจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, fuFields, ['status', 'pending']),
     runQuery(env, accessToken, 'followups', null, null, 5000, fuFields, ['status', 'done']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'deleted']),
     runQuery(env, accessToken, 'team_targets', null, null, 500, ['period', 'metric', 'target']),
   ])
-  const [events, socialAccounts, appointments] = await Promise.all([
+  const [events, socialAccounts, appointments, referrers] = await Promise.all([
     runQuery(env, accessToken, 'marketing_events', null, null, 300, ['title', 'venue', 'startDate', 'endDate', 'status', 'targetLeads', 'budget', 'spent', 'deleted']).catch(() => []),
     runQuery(env, accessToken, 'social_channels', null, null, 300, ['spend', 'deleted']).catch(() => []),
     runQuery(env, accessToken, 'appointments', 'date', 'DESCENDING', 500, ['date', 'status', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'referrers', null, null, 500, ['name', 'code', 'sales', 'commission', 'paid', 'deleted']).catch(() => []),
   ])
   const followups = [...fuPending, ...fuDone]
   const [metaAdsData, lineQuota] = await Promise.all([
     fetchMetaAdsForReport(env),
     Promise.race([fetchLineQuota(env.LINE_CHANNEL_ACCESS_TOKEN), new Promise(r => setTimeout(() => r(null), 5000))]).catch(() => null),
   ])
-  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts, appointments, metaAds: metaAdsData, lineQuota }, {
+  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts, appointments, referrers, metaAds: metaAdsData, lineQuota }, {
     today: todayBangkok(),
     time: new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()),
     defaultTarget: parseInt(env.MONTHLY_DELIVERY_TARGET) || 0,
@@ -672,6 +674,16 @@ export function dataCheckLine(bookings, today) {
   if (!n) return ''
   const top = issues.slice(0, 2).map(i => `${i.title} ${i.rows.length}`).join(', ')
   return `🧹 ใบจองข้อมูลไม่ครบ ${n} ใบ (${top}) — ตัวเลขข้างบนอาจนับพลาด แก้ใน Sheet ได้ ดูรายการที่ปุ่ม 🧹 หน้าใบจอง`
+}
+
+// (v1.0.1182) ค่าแนะนำเพื่อนที่ถึงเวลาจ่าย (เพื่อนที่แนะนำมาส่งมอบแล้ว แต่ยังไม่กด "จ่าย" ในหน้าลิงก์แนะนำเพื่อน)
+// จ่ายช้า = ลูกค้าเก่าไม่แนะนำต่อ · ไม่มียอดค้าง = ไม่แสดง
+export function referralOwedLine(referrers, customers) {
+  const { rows, total } = referralOwed(referrers || [], customers || [])
+  if (!total) return ''
+  const b = v => '฿' + Math.round(v).toLocaleString('en-US')
+  const names = rows.slice(0, 3).map(r => `${String(r.name).trim().slice(0, 30)} ${b(r.owed)}`).join(', ')
+  return `💸 ค่าแนะนำเพื่อนค้างจ่าย ${b(total)} (${rows.length} คน: ${names}${rows.length > 3 ? ' …' : ''}) — กดจ่ายที่หน้า 🔗 ลิงก์แนะนำเพื่อน`
 }
 
 // (v1.0.1154) ยอดโฆษณา Meta จริงของเดือนนี้ (ดึงจากบัญชีโฆษณาที่เชื่อมไว้) — ไม่มีโทเค็น/ยังไม่ใช้เงิน = ไม่แสดง
@@ -865,6 +877,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   lines.push('', `❌ ถอนจองเดือนนี้: ${cancelMonth} คัน | ปีนี้: ${cancelYear} คัน`,
     ...(cancelTodayList.length ? [`  วันนี้ ${cancelTodayList.length} คัน:`, ...cancelTodayList.slice(0, 5).map(b => `  • ${b.custName || 'ลูกค้า'}${b.model ? ` (${b.model})` : ''} · ${(b.salesName || '').trim() || '(ไม่ระบุ)'}${b.cancelReason ? ` — ${String(b.cancelReason).trim().slice(0, 60)}` : ''}`)] : []),
     ...(dataCheckLine(bookings, today) ? ['', dataCheckLine(bookings, today)] : []),
+    ...(referralOwedLine(data.referrers, customers) ? ['', referralOwedLine(data.referrers, customers)] : []),
     ...(lineQuotaLine(data.lineQuota) ? ['', lineQuotaLine(data.lineQuota)] : []),
     '', '─────────────────────', '🤖 LAMOM ONE Auto Report')
   return lines.filter(l => l !== null).join('\n')
