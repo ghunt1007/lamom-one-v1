@@ -392,3 +392,22 @@ describe('v1.0.1191 showroom phone on the lead form', () => {
     expect(await shopPhone(env, 't', fetchWith(), 1500)).toBe('021234567')
   })
 })
+
+import { handleLeadInfo } from './leadIntake.js'
+describe('v1.0.1193 GET /lead/info', () => {
+  const env = { FIREBASE_PROJECT_ID: 'p' }
+  const fx = ({ on = true, fields = { nameTh: { stringValue: 'บริษัท <b>ทดสอบ</b> จำกัด' }, phone: { stringValue: '02-123-4567' } } } = {}) => async url => {
+    if (url.includes('system_integrations/inbox_auto')) return { ok: true, json: async () => ({ fields: { publicForm: { booleanValue: on } } }) }
+    if (url.includes('/company_profile')) return { ok: true, json: async () => ({ documents: [{ fields }] }) }
+    return { ok: true, json: async () => ({}) }
+  }
+  beforeEach(() => { __resetInboxCache(); __resetShopPhoneCache() })
+  it('tells the page whether the form is open, with the shop name (cleaned) and phone', async () => {
+    expect(await handleLeadInfo(env, async () => 't', { fetch: fx() })).toEqual({ status: 200, body: { ok: true, open: true, shop: 'บริษัท b ทดสอบ /b จำกัด', tel: '021234567' } })
+    __resetInboxCache(); __resetShopPhoneCache()
+    expect(await handleLeadInfo(env, async () => 't', { fetch: fx({ on: false, fields: {} }) })).toEqual({ status: 200, body: { ok: true, open: false } })
+  })
+  it('no token → 503 without details', async () => {
+    expect(await handleLeadInfo(env, async () => null, { fetch: fx() })).toEqual({ status: 503, body: { ok: false } })
+  })
+})
