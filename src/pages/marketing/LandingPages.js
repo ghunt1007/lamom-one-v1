@@ -7,6 +7,8 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { todayBangkok } from '../../utils/format.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { withUtm, utmLeadCounts, utmKey, leadFormUrl } from '../../utils/publicLinks.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 // ป้องกัน XSS — ชื่อหน้า/Campaign เป็นข้อมูลที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 
@@ -16,6 +18,8 @@ const TEMPLATES =[
   { id:'t3', name:'Event Registration', icon:'🎪' },
   { id:'t4', name:'Lead Capture Basic', icon:'📋' },
 ]
+
+export const pageLink = p => withUtm(leadFormUrl(), { source: 'landing', medium: 'form', campaign: p.campaign || p.title || '' })
 
 export default async function LandingPagesPage(container) {
   const myGen = container.__routerGen
@@ -28,32 +32,33 @@ export default async function LandingPagesPage(container) {
   async function loadData() {
     loading = true
     try { PAGES = await listDocs('landing_pages', [], 'created', 'desc', 500) } catch (e) { PAGES = [] }
+    // (v1.0.1177) แต่ละหน้า = ลิงก์ฟอร์มฝากชื่อ-เบอร์ของเราที่ติดชื่อแคมเปญ (utm_source=landing) นับลีดจริงจากลูกค้า
+    let counts = null
+    try { counts = utmLeadCounts(await listDocs('customers', [...companyScopeFilters(), ['autoLead', '==', true]], 'createdAt', 'desc', 2000)) } catch (e) { counts = null }
+    PAGES = PAGES.map(p => ({ ...p, leads: counts ? (counts[utmKey('landing', p.campaign)] || 0) : (Number(p.leads) || 0), link: pageLink(p) }))
     loading = false
     if (container.__routerGen === myGen) render()
   }
 
   function pageRow(p) {
     const isActive  = p.status === 'active'
-    const convColor = p.conv >= 7 ? 'var(--success)' : p.conv >= 5 ? 'var(--warning)' : 'var(--danger)'
     const statusBg  = isActive ? 'var(--success)' : 'var(--text-muted)'
     const statusLabel = isActive ? '🟢 Active' : '⬛ Ended'
     const editBtn = isActive ? '<button class="btn btn-xs btn-secondary edit-btn" data-id="' + p.id + '" style="font-size:0.68rem">✏️ แก้ไข</button>' : ''
     return `<div class="card" style="padding:14px">
-      <div style="display:flex;align-items:flex-start;gap:12px">
+      <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
         <div style="font-size:1.5rem">🌐</div>
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <div style="flex:1 1 200px;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
             <span style="font-weight:700;font-size:0.88rem">${esc(p.title)}</span>
             <span style="font-size:0.62rem;background:${statusBg};color:#fff;padding:1px 8px;border-radius:8px">${statusLabel}</span>
           </div>
           <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:8px">📣 ${esc(p.campaign)} · สร้าง ${p.created}</div>
-          <div style="display:flex;gap:16px;font-size:0.74rem">
-            <span>👁 ${p.visits.toLocaleString()} visits</span>
-            <span>🎯 ${p.leads} leads</span>
-            <span style="color:${convColor};font-weight:700">🔄 ${p.conv}% conv.</span>
-          </div>
+          <div style="font-size:0.74rem">🎯 ${p.leads} ลีด</div>
+          <div style="font-size:0.7rem;color:var(--text-muted);overflow-wrap:anywhere;word-break:break-all">${esc(p.link)}</div>
         </div>
-        <div style="display:flex;gap:4px;flex-shrink:0">
+        <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:100%">
+          <button class="btn btn-xs btn-primary link-btn" data-id="${p.id}" style="font-size:0.68rem">🔗 คัดลอกลิงก์</button>
           <button class="btn btn-xs btn-secondary preview-btn" data-id="${p.id}" style="font-size:0.68rem">👁 ดูตัวอย่าง</button>
           ${editBtn}
           <button class="btn btn-xs btn-secondary dup-btn" data-id="${p.id}" style="font-size:0.68rem">📋 คัดลอก</button>
@@ -71,9 +76,7 @@ export default async function LandingPagesPage(container) {
     if (filterStatus !== 'all') rows = rows.filter(p=>p.status===filterStatus)
 
     const active  = PAGES.filter(p=>p.status==='active').length
-    const totVis  = PAGES.reduce((s,p)=>s+p.visits,0)
     const totLead = PAGES.reduce((s,p)=>s+p.leads,0)
-    const avgConv = totVis ? (totLead/totVis*100).toFixed(1) : '0.0'
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -87,12 +90,11 @@ export default async function LandingPagesPage(container) {
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-          ${sc('🌐 Active Pages', active+' หน้า', 'var(--primary)')}
-          ${sc('👁 รวม Visits', totVis.toLocaleString(), 'var(--primary)')}
-          ${sc('🎯 รวม Leads', totLead+' ราย', 'var(--success)')}
-          ${sc('🔄 Avg Conversion', avgConv+'%', 'var(--warning)')}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:12px;margin-bottom:12px">
+          ${sc('🌐 หน้าที่เปิดอยู่', active+' หน้า', 'var(--primary)')}
+          ${sc('🎯 ลีดรวม', totLead+' ราย', 'var(--success)')}
         </div>
+        <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:14px;line-height:1.6">แต่ละหน้าคือลิงก์ฟอร์มฝากชื่อ-เบอร์ของเราที่ติดชื่อแคมเปญไว้ เอาไปใส่โฆษณา/โพสต์ได้เลย ลีดที่กรอกเข้ามาจะนับให้หน้านั้นอัตโนมัติ (ฟอร์มต้องเปิดรับอยู่)</div>
 
         <div style="display:flex;gap:6px;margin-bottom:14px">
           ${['all','active','ended'].map(s=>`<button class="btn btn-xs ${filterStatus===s?'btn-primary':'btn-secondary'} stat-btn" data-s="${s}">${s==='all'?'ทั้งหมด':s==='active'?'🟢 Active':'⬛ Ended'}</button>`).join('')}
@@ -105,6 +107,11 @@ export default async function LandingPagesPage(container) {
       </div>`
 
     container.querySelectorAll('.stat-btn').forEach(b=>b.addEventListener('click',()=>{filterStatus=b.dataset.s;render()}))
+    container.querySelectorAll('.link-btn').forEach(b=>b.addEventListener('click',()=>{
+      const p=PAGES.find(x=>x.id===b.dataset.id)
+      if(!p) return
+      navigator.clipboard?.writeText(p.link).then(()=>showToast('🔗 คัดลอกลิงก์แล้ว · '+p.link,'success')).catch(()=>showToast('🔗 '+p.link,'success'))
+    }))
     container.querySelectorAll('.preview-btn').forEach(b=>b.addEventListener('click',()=>{
       const p=PAGES.find(x=>x.id===b.dataset.id)
       if(p) openPreviewModal(p)
@@ -117,7 +124,7 @@ export default async function LandingPagesPage(container) {
       const p=PAGES.find(x=>x.id===b.dataset.id)
       if(!p) return
       try {
-        await createDoc('landing_pages', { title:'[Copy] '+p.title, campaign:p.campaign, visits:0, leads:0, conv:0, status:'active', created:todayBangkok() })
+        await createDoc('landing_pages', { title:'[Copy] '+p.title, campaign:p.campaign, leads:0, status:'active', created:todayBangkok() })
         showToast('📋 Duplicate: '+p.title,'success')
         await loadData()
       } catch (e) { showToast('ทำสำเนาไม่สำเร็จ', 'error') }
@@ -126,43 +133,17 @@ export default async function LandingPagesPage(container) {
   }
 
   function openPreviewModal(p) {
-    const convColor = p.conv >= 7 ? 'var(--success)' : p.conv >= 5 ? 'var(--warning)' : 'var(--danger)'
     openModal({
       title: '👁 Preview — ' + esc(p.title),
       size: 'md',
       body: `
         <div style="font-size:0.82rem">
-          <!-- Mock landing page preview -->
-          <div style="background:linear-gradient(135deg,var(--primary)22,var(--accent)11);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px">
-            <div style="background:var(--primary);padding:16px 20px;color:#fff;text-align:center">
-              <div style="font-size:1.1rem;font-weight:700">${esc(p.title)}</div>
-              <div style="font-size:0.76rem;opacity:0.85;margin-top:4px">📣 ${esc(p.campaign)}</div>
-            </div>
-            <div style="padding:16px 20px">
-              <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px;text-align:center">กรอกข้อมูลเพื่อรับโปรโมชั่นพิเศษ</div>
-              <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
-                <input class="input" placeholder="ชื่อ-นามสกุล *" disabled style="opacity:0.6;font-size:0.78rem">
-                <input class="input" placeholder="เบอร์โทรศัพท์ *" disabled style="opacity:0.6;font-size:0.78rem">
-                <input class="input" placeholder="อีเมล" disabled style="opacity:0.6;font-size:0.78rem">
-                <select class="input" disabled style="opacity:0.6;font-size:0.78rem"><option>รุ่นที่สนใจ...</option></select>
-              </div>
-              <div style="background:var(--primary);color:#fff;padding:10px;border-radius:8px;text-align:center;font-size:0.84rem;font-weight:700">🎯 รับโปรโมชั่นเลย</div>
-            </div>
-          </div>
-          <!-- Stats -->
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
-            <div style="background:var(--surface-2);border-radius:8px;padding:10px">
-              <div style="font-size:1rem;font-weight:700;color:var(--primary)">${p.visits.toLocaleString()}</div>
-              <div style="font-size:0.68rem;color:var(--text-muted)">Visits</div>
-            </div>
-            <div style="background:var(--surface-2);border-radius:8px;padding:10px">
-              <div style="font-size:1rem;font-weight:700;color:var(--success)">${p.leads}</div>
-              <div style="font-size:0.68rem;color:var(--text-muted)">Leads</div>
-            </div>
-            <div style="background:var(--surface-2);border-radius:8px;padding:10px">
-              <div style="font-size:1rem;font-weight:700;color:${convColor}">${p.conv}%</div>
-              <div style="font-size:0.68rem;color:var(--text-muted)">Conversion</div>
-            </div>
+          <div style="margin-bottom:12px;line-height:1.6">ลูกค้าที่เปิดลิงก์นี้จะเห็นฟอร์มฝากชื่อ-เบอร์ของเรา และลีดจะติดแคมเปญ <b>${esc(p.campaign)}</b></div>
+          <div style="font-size:0.74rem;color:var(--primary);overflow-wrap:anywhere;margin-bottom:10px">${esc(p.link)}</div>
+          <a class="btn btn-primary btn-sm" href="${esc(p.link)}" target="_blank" rel="noopener" style="margin-bottom:14px">👁 เปิดดูหน้าจริง</a>
+          <div style="background:var(--surface-2);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:1rem;font-weight:700;color:var(--success)">${p.leads}</div>
+            <div style="font-size:0.68rem;color:var(--text-muted)">ลีดจากหน้านี้</div>
           </div>
         </div>
       `
@@ -226,7 +207,7 @@ export default async function LandingPagesPage(container) {
         const camp=document.getElementById('lp-camp')?.value?.trim()
         if(!title||!camp){showToast('ใส่ชื่อหน้าและ Campaign','warning');return false}
         try {
-          await createDoc('landing_pages', { title, campaign:camp, visits:0, leads:0, conv:0, status:'active', created:todayBangkok() })
+          await createDoc('landing_pages', { title, campaign:camp, leads:0, status:'active', created:todayBangkok() })
           showToast('🌐 สร้าง Landing Page: '+title,'success')
           await loadData()
         } catch (e) { showToast('สร้างไม่สำเร็จ', 'error') }
