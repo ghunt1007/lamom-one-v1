@@ -22,3 +22,25 @@ describe('returning customers in the 09:00 reminder (v1.0.1208)', () => {
     expect(sec.focus.join('\n')).toContain('โทรกลับ กลับมา')
   })
 })
+
+describe('09:00 customer query fields', () => {
+  it('fetches every customer field the morning sections read', async () => {
+    const { MORNING_CUSTOMER_FIELDS } = await import('./daily-report.js')
+    const fs = await import('node:fs')
+    const src = fs.readFileSync(new URL('./daily-report.js', import.meta.url), 'utf8')
+    const body = src.slice(src.indexOf('export function buildMorningSections'), src.indexOf('export function focusLines'))
+    const used = new Set([...body.matchAll(/\bc\.([a-zA-Z]+)/g)].map(m => m[1]))
+    const missing = [...used].filter(f => !MORNING_CUSTOMER_FIELDS.includes(f) && !['id'].includes(f))
+    expect(missing).toEqual([])
+  })
+})
+
+describe('18:00 customer query fields', () => {
+  it('includes every field entryPointOf reads', async () => {
+    const { EVENING_CUSTOMER_FIELDS } = await import('./daily-report.js')
+    const fs = await import('node:fs')
+    const src = fs.readFileSync(new URL('../src/utils/entryPoints.js', import.meta.url), 'utf8')
+    const used = new Set([...src.matchAll(/\bc\.([a-zA-Z]+)/g)].map(m => m[1]))
+    expect([...used].filter(f => !EVENING_CUSTOMER_FIELDS.includes(f))).toEqual([])
+  })
+})
