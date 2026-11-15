@@ -471,3 +471,38 @@ describe('returning customer alert goes to the existing owner (v1.0.1212)', () =
     expect(seen[0].res.owner).toBe('เซลส์บี')
   })
 })
+
+describe('round-robin for unowned form/webhook leads (v1.0.1221)', () => {
+  const env = { FIREBASE_PROJECT_ID: 'p', LEAD_WEBHOOK_KEY: 'k123' }
+  const mk = (dup = false) => {
+    const calls = []
+    const fetch = async (url, init = {}) => {
+      calls.push([String(url), init.method, init.body])
+      if (String(url).endsWith(':runQuery')) return { ok: true, json: async () => (dup ? [{ document: { name: 'x/customers/c9', fields: {} } }] : [{}]) }
+      return { ok: true, status: 200, json: async () => ({ name: 'x/customers/new1' }) }
+    }
+    return { calls, fetch }
+  }
+  const req = body => new Request('https://w/lead/webhook?key=k123&source=tiktok', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  it('assigns the next salesperson only when a new customer is created without an owner', async () => {
+    let asked = 0
+    const assign = async () => { asked++; return { name: 'นภา', companyId: 'co1' } }
+    const seen = []
+    const w = mk()
+    await handleLeadWebhook(req({ name: 'สมชาย', phone: '0812345678' }), env, async () => 't', { fetch: w.fetch, assign, onLead: l => seen.push(l) })
+    const post = w.calls.find(c => c[1] === 'POST' && c[0].includes('/customers') && !c[0].includes(':runQuery'))
+    const f = JSON.parse(post[2]).fields
+    expect(f.assignedTo.stringValue).toBe('นภา')
+    expect(JSON.stringify(f.tags)).toContain('แจกตามคิว')
+    expect(seen[0]).toMatchObject({ assignedTo: 'นภา', autoAssigned: true })
+    // ลูกค้าเดิม → ไม่กินคิว
+    const w2 = mk(true)
+    await handleLeadWebhook(req({ name: 'สมชาย', phone: '0812345678' }), env, async () => 't', { fetch: w2.fetch, assign })
+    expect(asked).toBe(1)
+    // switch off (assign returns null) → stays unassigned
+    const w3 = mk()
+    await handleLeadWebhook(req({ name: 'สมศรี', phone: '0899999999' }), env, async () => 't', { fetch: w3.fetch, assign: async () => null })
+    const f3 = JSON.parse(w3.calls.find(c => c[1] === 'POST' && c[0].includes('/customers'))[2]).fields
+    expect(f3.assignedTo?.stringValue || '').toBe('')
+  })
+})
