@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { escHtml } from '../../utils/escape.js'
+import { navigate } from '../../core/router.js'
 import { kpi } from '../../utils/kpiCard.js'
 
 // (v1.0.330) เดิมปุ่ม "เชื่อมต่อ" รับ API Key อะไรก็ได้ที่ไม่ว่างเปล่า แล้วขึ้น "✅ เชื่อมต่อสำเร็จ!" ทันที
@@ -40,7 +41,8 @@ export default async function IntegrationSettingsPage(container) {
 
   async function loadData() {
     loading = true
-    try { integrations = await listDocs('system_integrations', [], 'name', 'asc', 200) } catch (e) { integrations = [] }
+    // (v1.0.1170) collection นี้มีเอกสารภายในของระบบด้วย (คีย์เข้ารหัส, คิวส่ง, สถานะรายงาน) — แสดงเฉพาะรายการเชื่อมต่อที่มีหมวด
+    try { integrations = (await listDocs('system_integrations', [], 'name', 'asc', 200)).filter(i => i.cat && INTEGRATION_CATS[i.cat]) } catch (e) { integrations = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -78,6 +80,14 @@ export default async function IntegrationSettingsPage(container) {
           ${Object.entries(INTEGRATION_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-primary':'btn-secondary'} cf-btn" data-c="${k}">${v.icon} ${v.label}</button>`).join('')}
         </div>
 
+        ${!list.length ? `<div class="card" style="padding:18px;line-height:1.7;font-size:0.84rem">
+          <div style="font-weight:700;margin-bottom:6px">🔌 การเชื่อมต่อที่ใช้งานจริงอยู่ที่อื่น</div>
+          <div style="color:var(--text-muted)">LINE, Facebook/Instagram, AI และ Webhook รับ Lead ตั้งคีย์และดูสถานะได้ที่การ์ด 🔑 ในหน้า "ช่องทางลูกค้า" ส่วนภาพรวมว่าพร้อมใช้งานจริงหรือยังดูได้ที่ "สุขภาพระบบ"</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+            <button class="btn btn-primary btn-sm int-go" data-go="/marketing/channels">🔑 ไปตั้งคีย์</button>
+            <button class="btn btn-secondary btn-sm int-go" data-go="/settings/health">🚦 ดูความพร้อมใช้งาน</button>
+          </div>
+        </div>` : ''}
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px, 100%),1fr));gap:12px">
           ${list.map(int => {
             const cat = INTEGRATION_CATS[int.cat]
@@ -114,6 +124,7 @@ export default async function IntegrationSettingsPage(container) {
     `
 
     container.querySelectorAll('.cf-btn').forEach(b => b.addEventListener('click', () => { catFilter = b.dataset.c; renderPage() }))
+    container.querySelectorAll('.int-go').forEach(b => b.addEventListener('click', () => navigate(b.dataset.go)))
     container.querySelectorAll('.config-btn').forEach(b => b.addEventListener('click', () => {
       const int = integrations.find(x => x.id === b.dataset.id); if (int) openConfig(int)
     }))
@@ -173,7 +184,7 @@ export default async function IntegrationSettingsPage(container) {
         if (!apiKey) { showToast('❗ กรุณากรอก API Key', 'error'); return false }
         try {
           await updateDocData('system_integrations', int.id, { status: 'connected', lastSync: new Date().toISOString(), config: { apiKey: '****', clientId: document.getElementById('conn-clientid')?.value || '' } })
-          showToast(`🔑 บันทึก API Key ของ ${int.name} แล้ว — ยังไม่ได้ตรวจสอบกับผู้ให้บริการจริง`, 'success')
+          showToast(`📝 ทำเครื่องหมายว่า ${int.name} ตั้งค่าแล้ว — หน้านี้ไม่ได้เก็บตัว Key และไม่ได้ตรวจสอบกับผู้ให้บริการจริง`, 'warning', 6000)
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
