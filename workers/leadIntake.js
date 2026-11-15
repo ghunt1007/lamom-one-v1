@@ -431,6 +431,20 @@ export async function readEventTag(env, token, id, fetchImpl) {
   return { id, title: f.title?.stringValue || '', companyId: f.companyId?.stringValue || '' }
 }
 
+// (v1.0.1185) หลังส่งฟอร์ม ชวนลูกค้าเพิ่มเพื่อน LINE OA ของร้าน (คุยต่อ/รับโปรทาง LINE ได้ และแชตที่ทักมาผูกเข้าระบบเอง)
+// ดึง basicId (@xxxx) จาก LINE API ด้วยโทเค็นที่มีอยู่แล้ว · จำไว้ 6 ชม. · ไม่มีโทเค็น/ดึงไม่ได้ = ไม่แสดงปุ่ม
+let lineIdCache = { at: 0, id: '' }
+export function __resetLineIdCache() { lineIdCache = { at: 0, id: '' } }
+export async function lineBasicId(env, fetchImpl, now = Date.now()) {
+  if (!env?.LINE_CHANNEL_ACCESS_TOKEN) return ''
+  if (lineIdCache.at && now - lineIdCache.at < 6 * 3600e3) return lineIdCache.id
+  const r = await call(fetchImpl, 'https://api.line.me/v2/bot/info', { headers: { Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}` } })
+  const j = r?.ok ? await r.json().catch(() => null) : null
+  const id = /^@[A-Za-z0-9._-]{2,40}$/.test(String(j?.basicId || '')) ? j.basicId : ''
+  lineIdCache = { at: now, id }
+  return id
+}
+
 export async function handleLeadForm(request, env, getToken, deps = {}) {
   const fetchImpl = deps.fetch || fetch
   const raw = await request.text()
@@ -482,5 +496,6 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   if (td) await createTestDrive(env, token, { lead, customerId: r.id, td, companyId: lead.companyId || env.LINE_LEAD_COMPANY_ID || null, now: new Date(deps.now || Date.now()).toISOString() }, fetchImpl).catch(() => false)
   await tell(deps, lead, r)
   // ไม่บอกคนกรอกว่าเบอร์นี้เคยมีในระบบหรือไม่ (กันเดาข้อมูลลูกค้า)
-  return { status: 200, body: { ok: true } }
+  const line = await lineBasicId(env, fetchImpl, nowMs).catch(() => '')
+  return { status: 200, body: { ok: true, ...(line ? { line } : {}) } }
 }
