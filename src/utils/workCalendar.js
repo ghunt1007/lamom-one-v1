@@ -108,10 +108,10 @@ export function buildWorkItems(src = {}, today) {
     // ไฟแนนซ์ (เฉพาะใบจองที่ยังไม่ผ่านและไม่ใช่ซื้อสด)
     if (isCashBooking(b)) return
     const sign = day(b.signDate)
-    if (sign && (b.finStatus === 'รอเซ็นสัญญา' || (today && sign >= today))) {
+    if (sign && (b.finStatus === 'รอเซ็นสัญญา' || b.finStatus === 'รอเซ็นต์' || (today && sign >= today))) {
       add({ key: 'sign:' + b.id, kind: 'finance', date: sign, time: '', title: `นัดเซ็นสัญญา ${who}`,
         sub: [b.financeCo, car(b)].filter(Boolean).join(' · '), owner, phone,
-        done: isFinancePassed(b), canOverdue: b.finStatus === 'รอเซ็นสัญญา', nav, rec: b })
+        done: isFinancePassed(b), canOverdue: b.finStatus === 'รอเซ็นสัญญา' || b.finStatus === 'รอเซ็นต์', nav, rec: b })
     }
     if (isFinancePassed(b)) return
     const sent = day(b.submitDate)

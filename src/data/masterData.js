@@ -55,7 +55,8 @@ const DEFAULTS = {
   ],
   banks: ['ธนาคารกรุงศรี (Krungsri Auto)', 'ธนาคารทิสโก้ (TISCO)', 'ttb (ธนชาต)', 'SCB ไทยพาณิชย์', 'KBank Leasing', 'กรุงไทย (KTB)', 'เกียรตินาคินภัทร (KKP)', 'BAY Auto'],
   financeCompanies: ['BAY', 'TTB', 'KBANK', 'TISCO', 'SCB', 'ICBC', 'ORIX', 'KKP', 'นิสสันลีสซิ่ง', 'ซื้อสด'],
-  financeStatus: ['รอผล', 'รอเซ็นสัญญา', 'ผ่าน', 'ไม่ผ่าน', 'ซื้อสด', 'รอส่ง'],
+  // (v1.0.1222) ตรงกับตัวเลือก "สถานะเช่าซื้อ" ใน Sheet: ซื้อสด รอส่ง รอเซ็นต์ รอผล รอโยกหัว ผ่าน ถอนจอง (+ ของเดิมในแอป)
+  financeStatus: ['รอส่ง', 'รอผล', 'รอโยกหัว', 'รอเซ็นต์', 'รอเซ็นสัญญา', 'ผ่าน', 'ไม่ผ่าน', 'ซื้อสด', 'ถอนจอง'],
   campaigns: ['ดอกเบี้ยปกติ', 'ดอกเบี้ยพิเศษ', 'ฟรีดาวน์', 'ซื้อสด'],
   bookingStatus: [...BOOKING_STATUSES],
   insurers: ['เมืองไทยประกันภัย', 'วิริยะประกันภัย', 'กรุงเทพประกันภัย', 'ทิพยประกันภัย', 'สินมั่นคงประกันภัย', 'อาคเนย์ประกันภัย', 'MSIG', 'AXA'],
@@ -123,6 +124,12 @@ const DEFAULTS = {
 // ต้อง await loadMasterData() ให้เสร็จก่อน — ดู vehicleDatabase.js สำหรับ pattern เดียวกัน
 // ═══════════════════════════════════════════════════════════════════════════
 let _cache = Object.assign({}, DEFAULTS)
+// (v1.0.1222) สถานะที่มาจาก Sheet ต้องมีครบเสมอ — รายการที่บันทึกไว้ใน Firestore ตั้งแต่ก่อนจะไม่มีสถานะใหม่
+// เรียงตามค่าเริ่มต้น (ลำดับงานจริง) แล้วต่อด้วยค่าที่ผู้ใช้เพิ่มเอง
+export function mergeSheetList(defaults = [], saved) {
+  const extra = Array.isArray(saved) ? saved.filter(x => x && !defaults.includes(x)) : []
+  return [...defaults, ...extra]
+}
 let _docId = null
 let _loaded = false
 
@@ -133,6 +140,8 @@ export async function loadMasterData() {
       const d = docs[0]
       _docId = d.id
       _cache = Object.assign({}, DEFAULTS, d)
+      _cache.bookingStatus = mergeSheetList(DEFAULTS.bookingStatus, d.bookingStatus)
+      _cache.financeStatus = mergeSheetList(DEFAULTS.financeStatus, d.financeStatus)
     } else {
       // First run ของระบบ — ยังไม่มี doc ใน Firestore
       // Migration: ถ้ามีข้อมูลเดิมใน localStorage (ที่ผู้ใช้เคยแก้ไขไว้ก่อนย้ายมา Firestore) ให้ใช้เป็น seed

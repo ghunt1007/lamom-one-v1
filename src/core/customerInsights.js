@@ -150,6 +150,14 @@ export function getBookingDiagnosis(booking) {
     }
   }
 
+  if (booking.status === 'ได้รถแล้วรอสั่งแต่ง') {
+    return {
+      blockerType: 'awaiting_delivery_prep',
+      message: 'รถมาแล้ว รอสั่งแต่ง/ติดอุปกรณ์',
+      suggestedAction: 'สั่งแต่งและติดอุปกรณ์ให้ครบ แล้วนัด PDI และวันส่งมอบกับลูกค้า',
+    }
+  }
+
   if (booking.status === 'รอส่งมอบ' || booking.status === 'ตัดตัวเลขรอส่งมอบ') {
     return {
       blockerType: 'awaiting_delivery_prep',
