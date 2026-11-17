@@ -52,6 +52,7 @@ const BOOKING_STATUS_META = {
   'ซื้อสดรอเบิกรถ':       { label: 'ซื้อสดรอเบิกรถ', icon: '💵', color: 'accent' },
   'ผ่านไฟแนนซ์รอจอง':     { label: 'ผ่านไฟแนนซ์รอจอง', icon: '📄', color: 'primary' },
   'รอรถ':                { label: 'รอรถ', icon: '🚗', color: 'accent' },
+  'ได้รถแล้วรอสั่งแต่ง': { label: 'ได้รถแล้วรอสั่งแต่ง', icon: '🎨', color: 'accent' },
   'รอผลไฟแนนซ์':         { label: 'รอผลไฟแนนซ์', icon: '🏦', color: 'primary' },
   'จัดไฟแนนซ์ก่อนจอง':   { label: 'จัดไฟแนนซ์ก่อนจอง', icon: '📄', color: 'primary' },
   'ยอดจองคงค้าง':        { label: 'ยอดจองคงค้าง', icon: '⏳', color: 'secondary' },
@@ -76,6 +77,9 @@ const FIN_STATUS_META = {
   'ไม่ผ่าน':      { label: 'ไม่ผ่าน', color: 'danger' },
   'รอส่ง':        { label: 'รอส่ง', color: 'secondary' },
   'ซื้อสด':       { label: 'ซื้อสด', color: 'accent' },
+  'รอเซ็นต์':     { label: 'รอเซ็นต์', color: 'primary' },
+  'รอโยกหัว':     { label: 'รอโยกหัว', color: 'warning' },
+  'ถอนจอง':       { label: 'ถอนจอง', color: 'danger' },
 }
 
 const QUICK_LINKS = [

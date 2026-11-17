@@ -376,7 +376,7 @@ export function finBankAnswer(bookings, { today, months = 6 }) {
     const r = m.get(co) || { name: co, n: 0, pass: 0, fail: 0, wait: 0 }
     r.n++
     if (b.finStatus === 'ไม่ผ่าน') r.fail++
-    else if (b.finStatus === 'ผ่าน' || b.finStatus === 'รอเซ็นสัญญา' || (!FIN_WAIT.includes(b.status) && !CANCEL.test(b.status || '') && b.status !== 'รอรถ' && b.finStatus !== 'รอผล' && b.finStatus !== 'รอส่ง')) r.pass++
+    else if (b.finStatus === 'ผ่าน' || b.finStatus === 'รอเซ็นสัญญา' || b.finStatus === 'รอเซ็นต์' || (!FIN_WAIT.includes(b.status) && !CANCEL.test(b.status || '') && b.status !== 'รอรถ' && b.finStatus !== 'รอผล' && b.finStatus !== 'รอส่ง' && b.finStatus !== 'รอโยกหัว')) r.pass++
     else r.wait++
     m.set(co, r)
   })

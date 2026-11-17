@@ -28,6 +28,8 @@ export function bookingNextStep(b, today) {
     case 'ผ่านไฟแนนซ์รอเบิก':
     case 'ซื้อสดรอเบิกรถ':
       return { tone: 'info', text: b.vin ? 'เบิกรถคันนี้ แล้วนัด PDI และวันส่งมอบ' : 'ยังไม่ผูกเลขตัวถัง — เลือกรถจากสต็อกหรือสั่งรถ' }
+    case 'ได้รถแล้วรอสั่งแต่ง':
+      return { tone: 'warning', text: 'รถมาแล้ว — สั่งแต่ง/ติดอุปกรณ์ให้ครบ แล้วนัด PDI และวันส่งมอบกับลูกค้า' }
     case 'รอรถ':
       return age > 30 ? { tone: 'warning', text: `รอรถมา ${age} วัน — เช็กวันรถเข้ากับโรงงาน แล้วอัปเดตลูกค้า` } : { tone: 'info', text: 'เช็กวันรถเข้า แล้วอัปเดตลูกค้าเป็นระยะ' }
     case 'ยอดจองคงค้าง':
@@ -57,6 +59,8 @@ export function bookingNextAction(b, today) {
     case 'ผ่านไฟแนนซ์รอเบิก':
     case 'ซื้อสดรอเบิกรถ':
       return b.vin ? { key: 'print:joborder', label: '🎨 พิมพ์ใบสั่งแต่ง' } : { key: 'edit', label: '🚗 ใส่เลขตัวถัง' }
+    case 'ได้รถแล้วรอสั่งแต่ง':
+      return { key: 'print:joborder', label: '🎨 พิมพ์ใบสั่งแต่ง' }
     case 'ยอดจองคงค้าง':
       return { key: 'edit', label: '✏️ เลือกซื้อสด/ไฟแนนซ์' }
     default:

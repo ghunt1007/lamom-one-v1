@@ -58,11 +58,11 @@ import { officeDigestLines } from '../src/utils/aiAgents.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
-const PENDING_STATUSES = ['จัดไฟแนนซ์ก่อนจอง', 'ผ่านไฟแนนซ์รอจอง', 'รอผลไฟแนนซ์', 'ยอดจองคงค้าง', 'ผ่านไฟแนนซ์รอเบิก', 'ซื้อสดรอเบิกรถ', 'รอรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
+const PENDING_STATUSES = ['จัดไฟแนนซ์ก่อนจอง', 'ผ่านไฟแนนซ์รอจอง', 'รอผลไฟแนนซ์', 'ยอดจองคงค้าง', 'ผ่านไฟแนนซ์รอเบิก', 'ซื้อสดรอเบิกรถ', 'รอรถ', 'ได้รถแล้วรอสั่งแต่ง', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
 const PENDING_ALWAYS_SHOWN = ['รอผลไฟแนนซ์', 'ยอดจองคงค้าง', 'รอรถ', 'รอส่งมอบ']
 const CANCELLED_STATUSES = ['ถอนจอง', 'ยกเลิก']
 // รอรถ/รอส่งมอบ/ตัดตัวเลข/ส่งมอบแล้ว = ไฟแนนซ์ผ่านแล้วเสมอ (เจ้าของกำหนด) — ตรงกับ src/utils/finance.js
-const FIN_PASSED_STATUSES = ['ผ่านไฟแนนซ์รอจอง', 'ผ่านไฟแนนซ์รอเบิก', 'รอรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ', 'ส่งมอบแล้ว']
+const FIN_PASSED_STATUSES = ['ผ่านไฟแนนซ์รอจอง', 'ผ่านไฟแนนซ์รอเบิก', 'รอรถ', 'ได้รถแล้วรอสั่งแต่ง', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ', 'ส่งมอบแล้ว']
 const STAFF_ROLES = ['owner', 'admin', 'manager', 'sales', 'service', 'finance', 'hr', 'staff']
 // 02:00 UTC = 09:00 เวลาไทย — ต้องตรงกับบรรทัดใน [triggers] crons ของ wrangler-daily-report.toml
 const MORNING_CRON = '0 2 * * *'

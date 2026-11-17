@@ -16,6 +16,7 @@ const BOOKING_TO_DN = {
   'ถอนจอง': 'cancelled',
   'รอผลไฟแนนซ์': 'pending',
   'รอรถ': 'pending',
+  'ได้รถแล้วรอสั่งแต่ง': 'pending',
   'ผ่านไฟแนนซ์รอเบิก': 'pending',
   'ซื้อสดรอเบิกรถ': 'pending',
   'ผ่านไฟแนนซ์รอจอง': 'pending',
