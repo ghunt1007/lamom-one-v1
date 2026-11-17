@@ -20,14 +20,14 @@ const RESULTS_MGR = G('results', 'ผลงานและรายงาน', '
 export const ROLE_ESSENTIALS = {
   manager: [ESSENTIALS[0], ESSENTIALS[1], RESULTS_MGR, ESSENTIALS[3], ESSENTIALS[4]],
   owner: [
-    G('boss', 'ภาพรวมเจ้าของ', 'Owner overview', ['/', '/crm', '/crm/warroom', '/finance/pl', '/finance/margin', '/analytics/sales-metrics', '/finance/commission', '/dms/stock']),
+    G('boss', 'ภาพรวมเจ้าของ', 'Owner overview', ['/', '/crm', '/crm/warroom', '/finance/pl', '/finance/margin', '/analytics/sales-metrics', '/finance/commission', '/dms/stock', '/dms/color-matrix']),
     ESSENTIALS[0], ESSENTIALS[3],
     G('setup', 'ตั้งค่า', 'Settings', ['/settings', '/settings/daily-report', '/settings/page-usage', '/settings/backup']),
   ],
   admin: [
     G('office', 'งานธุรการ', 'Back office', ['/crm/bookings', '/crm/customers', '/dms/delivery-calendar', '/dms/delivery', '/finance/application', '/finance/tracker', '/finance/invoice', '/documents/library', '/calendar']),
     G('people', 'บุคคล & เบิกจ่าย', 'People & expenses', ['/hr/leave', '/hr/attendance', '/hr/expense', '/finance/payroll']),
-    G('cars', 'รถและส่งมอบ', 'Cars & delivery', ['/dms/stock', '/dms/receiving', '/crm/predelivery']),
+    G('cars', 'รถและส่งมอบ', 'Cars & delivery', ['/dms/stock', '/dms/color-matrix', '/dms/receiving', '/crm/predelivery']),
     ESSENTIALS[3], ESSENTIALS[4],
   ],
   service: [
@@ -49,6 +49,7 @@ export function essentialsFor(role) { return ROLE_ESSENTIALS[role] || ESSENTIALS
 // ชื่อเมนูหลักที่อ่านง่ายกว่าชื่อเดิมในเมนูเต็ม (เมนูเต็มยังใช้ชื่อเดิม)
 export const SIMPLE_LABELS = {
   '/': 'ภาพรวมบริษัท', '/crm': 'ภาพรวมการขาย', '/crm/customers': 'ลูกค้า / Lead', '/crm/followup': 'ติดตามลูกค้า',
+  '/dms/color-matrix': 'ต้องสั่งรถ (รุ่น/สี)',
   '/crm/testdrive': 'ทดลองขับ', '/crm/pipeline': 'Pipeline ดีล', '/dms/delivery-calendar': 'ปฏิทินส่งมอบ',
   '/finance/loan-calc': 'คำนวณค่างวด', '/finance/commission': 'ค่าคอมมิชชั่น', '/ai/ask': 'ถาม LAMI (AI)',
   '/tasks': 'งานที่ต้องทำ', '/calendar': 'ปฏิทินงาน', '/crm/programs': 'โปร ดอกเบี้ย & เงินพิเศษ', '/marketing/events': 'ออกบูธ & อีเวนต์', '/marketing/channels': 'แชต & โพสต์โซเชียล', '/analytics/sales-metrics': 'ตัวชี้วัดการขาย', '/notifications': 'การแจ้งเตือน', '/settings/daily-report': 'รายงานส่ง LINE',
