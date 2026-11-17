@@ -422,8 +422,8 @@ export async function loadOpsAnswer(q, customersPromise) {
     const [vs, ords] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listDocs('vehicle_orders', f, 'createdAt', 'desc', 500).catch(() => [])])
     res = oq.incomingAnswer(vs, ords, { today })
   } else if (spec.kind === 'lowstock') {
-    const [vs, bks] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])])
-    res = oq.lowStockAnswer(vs, bks)
+    const [vs, bks, ords] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('vehicle_orders', f, 'createdAt', 'desc', 500).catch(() => [])])
+    res = oq.lowStockAnswer(vs, bks, ords)
   } else if (spec.kind === 'noanswer') {
     const [customers, logs, fus] = await Promise.all([customersPromise || visibleCustomersForCommands(), listDocs('comm_logs', f, 'createdAt', 'desc', 1000).catch(() => []), listDocs('followups', f, 'dueDate', 'desc', 2000).catch(() => [])])
     res = oq.noAnswerAnswer((customers || []).filter(c => mine(c.assignedTo, c)), logs, fus, { today })

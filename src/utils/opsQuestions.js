@@ -2,6 +2,7 @@
 //   "นัดทดลองขับวันนี้มีใครบ้าง" · "พรุ่งนี้มีใครเข้าโชว์รูม" · "มีลูกค้าทัก LINE รอตอบไหม"
 //   "เรื่องร้องเรียนค้างอยู่ไหม" · "ลูกค้าใหม่เดือนนี้กี่คน" · "ใครเกิดวันนี้ / ครบรอบซื้อรถสัปดาห์นี้"
 // ฟังก์ชันล้วน ทดสอบได้ · ตัวโหลดข้อมูลอยู่ใน lamiCommandCard.js (loadOpsAnswer)
+import { orderNeeds, orderNeedsText } from './orderNeeds.js'
 import { dmy, toDate } from './format.js'
 import { plateRows, deliveredOn, PLATE_LATE_DAYS } from './plateList.js'
 import { carOf } from './carLabel.js'
@@ -148,7 +149,7 @@ export function parseOpsSpec(q) {
   if (has(s, /รถ(?:เข้า|มา)(?:ใหม่|แล้ว)|รถ(?:ที่)?เพิ่ง(?:เข้า|มา)|รับรถเข้า(?:สต็อก|สต๊อก)?|เข้าสต็อก|เข้าสต๊อก|รถล็อตใหม่/) && !has(s, /ลูกค้า|ศูนย์|ซ่อม|เมื่อไหร่|กำลัง/)) return { kind: 'arrived', days: /เดือน/.test(s) ? 'month' : /วันนี้/.test(s) ? 1 : 7 }
   if (has(s, /กำลัง(?:จะ)?มา(?:ถึง)?|กำลังขนส่ง|ระหว่างขนส่ง|รถ(?:ที่)?สั่ง(?:ไว้)?|รถจะเข้า|รถเข้าเมื่อไหร่|รถมาเมื่อไหร่|ใบสั่ง(?:ซื้อ)?รถ|สั่งรถ(?:ไป)?กี่คัน/) && !has(s, /ลูกค้า|ใคร(?:รอ|จอง)|อะไหล่/)) return { kind: 'incoming' }
   // (v1.0.1097) "รถรุ่นไหนเหลือน้อย" / "รุ่นไหนควรสั่งเพิ่ม"
-  if (has(s, /รุ่นไหน|รุ่นอะไร|คันไหน|ควรสั่ง|ต้องสั่ง/) && has(s, /เหลือน้อย|ใกล้หมด|หมดสต็อก|หมดสต๊อก|ขาดสต็อก|ขาดสต๊อก|สั่งเพิ่ม|ควรสั่ง|ต้องสั่ง|ไม่พอ/) && !has(s, /อะไหล่/)) return { kind: 'lowstock' }
+  if (has(s, /รุ่นไหน|รุ่นอะไร|คันไหน|สีไหน|สีอะไร|ควรสั่ง|ต้องสั่ง/) && has(s, /เหลือน้อย|ใกล้หมด|หมดสต็อก|หมดสต๊อก|ขาดสต็อก|ขาดสต๊อก|สั่งเพิ่ม|ควรสั่ง|ต้องสั่ง|ไม่พอ/) && !has(s, /อะไหล่/)) return { kind: 'lowstock' }
   // (v1.0.1097) "ลูกค้าที่ไม่ได้รับสายมีใครบ้าง" → โทรแล้วไม่รับสาย (14 วันล่าสุด) ที่ยังติดต่อไม่ได้
   if (has(s, /ไม่(?:ได้)?รับสาย|โทรไม่ติด|ติดต่อไม่ได้|ไม่รับโทรศัพท์/) && has(s, /ใคร|บ้าง|กี่|รายชื่อ|คนไหน/)) return { kind: 'noanswer' }
   // (v1.0.1097) "เซลส์คนไหนมีลูกค้า hot เยอะสุด" / "ลูกค้า hot แต่ละเซลส์"
@@ -774,7 +775,15 @@ export function incomingAnswer(vehicles, orders, { today }) {
 }
 
 // (v1.0.1097) รุ่นที่เหลือน้อย: เทียบรถพร้อมขาย + กำลังมา กับใบจองที่ยังรอรถ
-export function lowStockAnswer(vehicles, bookings) {
+// (v1.0.1224) ส่ง orders มาด้วย → ขึ้นต้นด้วย "ต้องสั่งรุ่นไหน สีอะไร กี่คัน" (ลูกค้าจองรอ เทียบ รถว่าง/กำลังมา/สั่งแล้ว)
+export function lowStockAnswer(vehicles, bookings, orders) {
+  const base = lowStockBase(vehicles, bookings)
+  if (!orders) return base
+  const needText = orderNeedsText(orderNeeds({ bookings, vehicles, orders }))
+  if (!needText) return base
+  return { n: Math.max(1, base.n), text: needText + '\n\n' + base.text }
+}
+function lowStockBase(vehicles, bookings) {
   const k = v => carOf(v) || String(v.model || '').trim()
   const m = new Map()
   const row = name => { if (!m.has(name)) m.set(name, { name, ready: 0, coming: 0, wait: 0 }); return m.get(name) }
