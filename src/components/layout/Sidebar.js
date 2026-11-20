@@ -35,11 +35,13 @@ export function Sidebar(container) {
   // ไม่มีอะไรให้แอดมิน/เจ้าของบริษัทอื่นดูจริงถ้าเปิดเข้าไป (permission-denied ทันที) จึงซ่อนออกจากเมนูไปเลย
   // ต่างจากเพจที่แค่ "บาง action" ถูกจำกัด (เช่น API Keys/Webhook Builder/Security ที่อ่านได้บางส่วน) — พวกนั้น
   // ยังโชว์เมนูตามปกติ แค่ปุ่มแก้ไขจะถูกซ่อน/มีข้อความอธิบายในหน้าเอง
-  function visibleNav(role, extraGrants) {
+  // (v1.0.1228) keepMerged: เมนูหลักแบบย่อต้องเห็นหน้าที่ถูกรวมเป็นแท็บของหน้าอื่นด้วย (เช่น ต้องสั่งรถ, โปรดอกเบี้ย,
+  // รายงานส่ง LINE) — เดิมกรองทิ้ง ทำให้เมนูที่ตั้งใจใส่ในเมนูหลักหายไปเงียบๆ
+  function visibleNav(role, extraGrants, { keepMerged = false } = {}) {
     const ownerOnlyOk = isProgramOwner()
     const hidden = hiddenMenuSet()
     return NAV
-      .map(g => ({ ...g, items: g.items.filter(i => !isMergedPath(i.path) && !hidden.has(i.path.split('?')[0]) && hasModuleAccess(role, getModuleForPath(i.path)?.key, extraGrants) && (!i.programOwnerOnly || ownerOnlyOk)) }))
+      .map(g => ({ ...g, items: g.items.filter(i => (keepMerged || !isMergedPath(i.path)) && !hidden.has(i.path.split('?')[0]) && hasModuleAccess(role, getModuleForPath(i.path)?.key, extraGrants) && (!i.programOwnerOnly || ownerOnlyOk)) }))
       .filter(g => g.items.length > 0)
   }
 
@@ -60,7 +62,7 @@ export function Sidebar(container) {
     const gLabel = g => (lang === 'en' ? g.groupEn : lang === 'zh' ? g.groupZh : null) || g.group
     const iLabel = i => (lang === 'en' ? i.labelEn : lang === 'zh' ? i.labelZh : null) || i.label
     const mode = readNavMode()
-    const simpleNav = buildSimpleNav(nav, visitsAtStart, { role: user?.role })
+    const simpleNav = buildSimpleNav(visibleNav(user?.role, user?.extraGrants, { keepMerged: true }), visitsAtStart, { role: user?.role })
     const groupsHtml = (groups, cls) => groups.map(group => {
       const isGroupCollapsed = !collapsed && !!grpState[group.group]
       const hasActive = group.items.some(i => i.path === route)
