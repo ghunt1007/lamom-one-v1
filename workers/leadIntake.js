@@ -121,7 +121,7 @@ export async function markReEnquiry(env, token, id, lead = {}, now = new Date().
  * สร้างลูกค้าจากลีด — คืน { created, duplicate, id }
  * docId ตายตัว (เช่น fblead_<id>) กันสร้างซ้ำเมื่อช่องทางส่งซ้ำ · เบอร์/อีเมลซ้ำ = ไม่สร้าง แต่เพิ่มโน้ตให้ลูกค้าเดิม
  */
-export async function createLead(env, token, lead, { docId = '', tags = [], extra = {}, fetchImpl = fetch, now = new Date().toISOString() } = {}) {
+export async function createLead(env, token, lead, { docId = '', tags = [], extra = {}, fetchImpl = fetch, now = new Date().toISOString(), assign = null } = {}) {
   if (!token) return { created: false, error: 'no-token' }
   const dup = (await findCustomer(env, token, 'phone', lead.phone, fetchImpl)) || (await findCustomer(env, token, 'email', lead.email, fetchImpl))
   const dupId = dup?.id
@@ -130,6 +130,16 @@ export async function createLead(env, token, lead, { docId = '', tags = [], extr
     // (v1.0.1208) ติดป้าย "ทักกลับมา" ให้หน้างานวันนี้/รายงาน 09:00 ยกขึ้นมาให้เซลส์โทรกลับ — พังก็ไม่กระทบการรับลีด
     await markReEnquiry(env, token, dupId, lead, now, fetchImpl).catch(() => null)
     return { created: false, duplicate: true, id: dupId, owner: dup.owner || '' }
+  }
+  // (v1.0.1221) ไม่มีผู้ดูแล และไม่มีคนเข้าเวรบูธรับแทน → แจกตามคิว (ถ้าเปิดสวิตช์) · แก้ lead ตรงๆ ให้การแจ้งเตือนไปถึงคนที่ได้รับ
+  if (assign && !String(lead.assignedTo || '').trim() && !(Array.isArray(lead.alsoNotify) && lead.alsoNotify.length)) {
+    const a = await Promise.resolve(assign()).catch(() => null)
+    if (a?.name) {
+      lead.assignedTo = a.name
+      if (!lead.companyId && a.companyId) lead.companyId = a.companyId
+      lead.autoAssigned = true
+      tags = [...tags, 'แจกตามคิว']
+    }
   }
   const fields = buildLeadFields(lead, { now, tags, companyId: lead.companyId || env.LINE_LEAD_COMPANY_ID || null, extra })
   const url = `${fsBase(env)}/customers${docId ? `?documentId=${encodeURIComponent(docId)}` : ''}`
@@ -175,7 +185,7 @@ export async function handleLeadWebhook(request, env, getToken, deps = {}) {
   const lead = parseLeadPayload(body, { source: url.searchParams.get('source'), account: url.searchParams.get('account') })
   if (!lead.phone && !lead.email && !lead.lineId && !lead.first) return { status: 400, body: { error: 'ไม่มีชื่อ เบอร์ อีเมล หรือไลน์ของลูกค้า' } }
   const token = await getToken()
-  const r = await createLead(env, token, lead, { fetchImpl: deps.fetch || fetch })
+  const r = await createLead(env, token, lead, { fetchImpl: deps.fetch || fetch, assign: deps.assign })
   if (r.error) return { status: 500, body: { ok: false, error: r.error } }
   await tell(deps, lead, r)
   return { status: 200, body: { ok: true, created: r.created, duplicate: !!r.duplicate, id: r.id } }
@@ -618,7 +628,7 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   if (seller) lead.note = [`📇 ฝากชื่อผ่าน QR นามบัตรของ ${seller.name}`, lead.note].filter(Boolean).join(' · ')
   lead = boothRouting(lead, ev)
   const extra = { ...(acc ? { sourceAccountName: acc.name, sourceAccountLevel: acc.level } : {}), ...(ref ? { referralCode: ref } : {}), ...(utm ? { utmSource: utm.source, utmMedium: utm.medium, utmCampaign: utm.campaign } : {}), ...(ev ? { eventId: ev.id, eventName: ev.title } : {}) }
-  const r = await createLead(env, token, lead, { tags: ['ฟอร์มรับลีด', ...(acc?.name ? [acc.name] : []), ...(ref ? [`แนะนำ ${ref}`] : []), ...(ev ? [`บูธ ${ev.title}`.trim()] : [])], extra, fetchImpl })
+  const r = await createLead(env, token, lead, { tags: ['ฟอร์มรับลีด', ...(acc?.name ? [acc.name] : []), ...(ref ? [`แนะนำ ${ref}`] : []), ...(ev ? [`บูธ ${ev.title}`.trim()] : [])], extra, fetchImpl, assign: deps.assign })
   if (r.error) { const tel = await shopPhone(env, token, fetchImpl, nowMs).catch(() => ''); return { status: 500, body: { ok: false, error: tel ? 'บันทึกไม่สำเร็จ กรุณาลองใหม่ หรือโทรหาโชว์รูม' : 'บันทึกไม่สำเร็จ กรุณาลองใหม่', ...(tel ? { tel } : {}) } } }
   // นัดทดลองขับลงตารางเดียวกับหน้า Test Drive (สถานะ "นัดแล้ว" พร้อมหมายเหตุให้โทรยืนยัน) — พลาดก็ยังมีข้อความในโน้ตลูกค้าและแจ้งเตือน
   if (td) await createTestDrive(env, token, { lead: r.duplicate && !r.created && r.owner ? { ...lead, assignedTo: r.owner } : lead, customerId: r.id, td, companyId: lead.companyId || env.LINE_LEAD_COMPANY_ID || null, now: new Date(deps.now || Date.now()).toISOString() }, fetchImpl).catch(() => false)

@@ -90,7 +90,7 @@ export function createAutoTab({ getStatus, rerender }) {
         <div class="ch-card">
           <div class="ch-card-h">📥 รับลีดจากแชตอัตโนมัติ</div>
           ${sw('au-lead', cfg.autoLead, 'ลูกค้าใหม่ที่ทักมา → สร้างเป็นลูกค้าให้เลย', 'ใช้กับ LINE OA ทุกบัญชี (และ Facebook/IG เมื่อเชื่อมแล้ว) ไม่ต้องกด "เป็น Lead" เอง (ลูกค้าเดิมที่ผูก LINE แล้วไม่สร้างซ้ำ)')}
-          ${sw('au-assign', cfg.autoAssign, 'แจกลีดใหม่ให้เซลส์แบบวนคิว', 'เซลส์ที่ลงทะเบียน LINE กับ OA หลักจะได้ลีดคนละราย พร้อมนัดติดตาม 3 ครั้ง และแจ้งเตือนทาง LINE')}
+          ${sw('au-assign', cfg.autoAssign, 'แจกลีดใหม่ให้เซลส์แบบวนคิว', 'ลีดใหม่จาก LINE / ฟอร์ม / QR ที่ยังไม่มีผู้ดูแล แจกให้เซลส์ที่ลงทะเบียน LINE กับ OA หลักคนละราย และแจ้งเตือนทาง LINE (QR นามบัตร/เวรบูธ เข้าคนนั้นเหมือนเดิม)')}
           ${sw('au-alert', cfg.leadAlert !== false, 'แจ้งเตือนทันทีเมื่อมีลีดใหม่ และเมื่อแชตรอตอบ', 'ลีดเข้าทางฟอร์ม TikTok อีเมล หรือ Facebook เมื่อไร ส่ง LINE หาเซลส์ที่ดูแลและเจ้าของ พร้อมแจ้งเตือนในแอป เพื่อโทรกลับได้ภายใน 5 นาที · ถ้าลูกค้าทักแชตแล้วไม่มีใครตอบเกิน 15 นาที (08:30–20:00) จะเตือนอีกครั้ง')}
           ${sw('au-form', cfg.publicForm, 'เปิดฟอร์มให้ลูกค้าฝากชื่อ-เบอร์เอง', 'ลิงก์หน้าเดียว ลูกค้ากรอกชื่อ เบอร์ รุ่นที่สนใจ แล้วเข้าเป็นลูกค้าในโปรแกรมทันที — ใช้กับช่องทางที่ดึงแชตไม่ได้ (TikTok, เพจ/LINE ส่วนตัว, ป้ายที่บูธ)')}
           <div class="ch-formlink"><code>${esc(leadFormLink())}</code><button type="button" class="btn btn-secondary btn-xs" data-copy-form="">📋 คัดลอกลิงก์</button><button type="button" class="btn btn-secondary btn-xs" data-qr-form="">🔳 QR</button><a class="btn btn-ghost btn-xs" href="${esc(leadFormLink())}" target="_blank" rel="noopener">ดูฟอร์ม ↗</a></div>

@@ -208,6 +208,15 @@ export default {
 // (v1.0.1144) ลีดใหม่เข้า → แจ้ง LINE (เซลส์ที่ดูแล + เจ้าของ) และแจ้งเตือนในแอป — ดู workers/leadAlert.js
 function leadDeps(env) {
   return {
+    // (v1.0.1221) ลีดจากฟอร์ม/QR/webhook ที่ไม่มีผู้ดูแล (ไม่ใช่ QR นามบัตร/เวรบูธ) → แจกตามคิวเมื่อเปิดสวิตช์ "แจกลีดใหม่ให้เซลส์แบบวนคิว"
+    // เรียกเฉพาะตอนสร้างลูกค้าใหม่จริง (ลูกค้าเดิมไม่กินคิว) — ดู createLead({ assign })
+    assign: async () => {
+      const token = await getFirestoreAccessToken(env)
+      if (!token) return null
+      const inbox = await readInboxAuto(env, token).catch(() => null)
+      if (!inbox?.autoAssign) return null
+      return nextSalesInQueue(env, token)
+    },
     onLead: async (lead, result) => {
       const token = await getFirestoreAccessToken(env)
       if (!token) return
@@ -1744,6 +1753,26 @@ async function afterCustomerLine(env, accessToken, ev, chan) {
   } catch { /* ไม่ให้ webhook ล้ม */ }
 }
 
+// คิวแจกลีด (สวิตช์ "แจกลีดใหม่ให้เซลส์แบบวนคิว") — เซลส์ที่ลงทะเบียน LINE กับ OA หลัก วนคนละราย ใช้คิวเดียวกันทุกช่องทาง
+// คืน { name, userId, companyId } หรือ null · บริษัทของเซลส์ใส่ให้ลูกค้า (ไม่งั้นกฎความปลอดภัยของฐานข้อมูลจะซ่อนลูกค้าจากเซลส์)
+async function nextSalesInQueue(env, accessToken) {
+  const base = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`
+  const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+  const targets = await runQuery(env, accessToken, 'line_sales_targets', null, null, 500, ['name', 'userId']).catch(() => [])
+  const rr = await fetch(`${base}/system_integrations/line_lead_rr`, { headers }).then(r => (r.ok ? r.json() : {})).catch(() => ({}))
+  const assignee = pickNextSales(targets, rr.fields?.lastName?.stringValue || '')
+  if (!assignee) return null
+  await fetch(`${base}/system_integrations/line_lead_rr`, {
+    method: 'PATCH', headers, body: JSON.stringify({ fields: { lastName: { stringValue: assignee.name }, at: { timestampValue: new Date().toISOString() } } }),
+  }).catch(() => {})
+  let companyId = null
+  if (!env.LINE_LEAD_COMPANY_ID) {
+    const staff = await runQuery(env, accessToken, 'staff', null, null, 1000, ['firstName', 'lastName', 'nickname', 'companyId', 'companyIds']).catch(() => [])
+    companyId = staffCompanyFor(staff, assignee.name)
+  }
+  return { ...assignee, companyId }
+}
+
 async function captureLineLead(env, accessToken, userId, firstText, opts = {}) {
   const autoAssign = opts.autoAssign ?? env.AUTO_ASSIGN_LINE_LEADS === '1'
   const chan = opts.chan || null
@@ -1766,19 +1795,8 @@ async function captureLineLead(env, accessToken, userId, firstText, opts = {}) {
   let assignee = null
   let companyId = env.LINE_LEAD_COMPANY_ID || null
   if (autoAssign) {
-    const targets = await runQuery(env, accessToken, 'line_sales_targets', null, null, 500, ['name', 'userId']).catch(() => [])
-    const rr = await fetch(`${base}/system_integrations/line_lead_rr`, { headers }).then(r => (r.ok ? r.json() : {})).catch(() => ({}))
-    assignee = pickNextSales(targets, rr.fields?.lastName?.stringValue || '')
-    if (assignee) {
-      await fetch(`${base}/system_integrations/line_lead_rr`, {
-        method: 'PATCH', headers, body: JSON.stringify({ fields: { lastName: { stringValue: assignee.name }, at: { timestampValue: new Date().toISOString() } } }),
-      }).catch(() => {})
-      // ใส่บริษัทของเซลส์คนนั้นให้ลูกค้า (ไม่งั้นกฎความปลอดภัยของฐานข้อมูลจะซ่อนลูกค้าจากเซลส์)
-      if (!companyId) {
-        const staff = await runQuery(env, accessToken, 'staff', null, null, 1000, ['firstName', 'lastName', 'nickname', 'companyId', 'companyIds']).catch(() => [])
-        companyId = staffCompanyFor(staff, assignee.name)
-      }
-    }
+    const a = await nextSalesInQueue(env, accessToken)
+    if (a) { assignee = a; companyId = companyId || a.companyId }
   }
 
   const now = new Date().toISOString()
