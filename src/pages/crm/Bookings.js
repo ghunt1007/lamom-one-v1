@@ -3,7 +3,7 @@ import { scanIdCard, idCardSummary } from '../../utils/idCardScan.js'
 import { carOf, carLabel } from '../../utils/carLabel.js'
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, readDoc } from '../../core/db.js'
 import { customerStatusMessage } from '../../utils/bookingNotify.js'
-import { needsBooking, etaForBookings, etaLabel } from '../../utils/orderNeeds.js'
+import { needsBooking, etaForBookings, etaLabel, orderNeeds, altColorText } from '../../utils/orderNeeds.js'
 import { openLineLinkQr, lineLinkState, needsLineLink } from '../../utils/lineLink.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
@@ -1514,7 +1514,12 @@ export default async function BookingsPage(container) {
     const e = etaForBookings({ bookings, vehicles: vs, orders: ords, today: todayBangkok() }).get(b.id)
     if (!e) { el.remove(); return }
     el.textContent = '🚚 ' + etaLabel(e, formatDate)
-    if (e.kind === 'none') el.style.color = 'var(--warning)'
+    if (e.kind === 'none') {
+      el.style.color = 'var(--warning)'
+      // (v1.0.1250) ยังไม่มีรถรองรับ → บอกสีอื่นของรุ่นเดียวกันที่ว่าง/กำลังมา เผื่อลูกค้ายอมเปลี่ยนสี
+      const alt = altColorText(orderNeeds({ bookings, vehicles: vs, orders: ords }), b)
+      if (alt) { const d = document.createElement('div'); d.style.cssText = 'margin-top:3px;color:var(--text-2)'; d.textContent = alt; el.appendChild(d) }
+    }
   }
 
   async function refreshFinAppPanel(b) {

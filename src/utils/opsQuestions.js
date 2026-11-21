@@ -2,7 +2,7 @@
 //   "นัดทดลองขับวันนี้มีใครบ้าง" · "พรุ่งนี้มีใครเข้าโชว์รูม" · "มีลูกค้าทัก LINE รอตอบไหม"
 //   "เรื่องร้องเรียนค้างอยู่ไหม" · "ลูกค้าใหม่เดือนนี้กี่คน" · "ใครเกิดวันนี้ / ครบรอบซื้อรถสัปดาห์นี้"
 // ฟังก์ชันล้วน ทดสอบได้ · ตัวโหลดข้อมูลอยู่ใน lamiCommandCard.js (loadOpsAnswer)
-import { orderNeeds, orderNeedsText, matchReadyCars, matchReadyText, etaForBookings, etaLabel, needsBooking } from './orderNeeds.js'
+import { orderNeeds, orderNeedsText, matchReadyCars, matchReadyText, etaForBookings, etaLabel, needsBooking, altColorText } from './orderNeeds.js'
 import { orderForecast, orderForecastText } from './orderForecast.js'
 import { dmy, toDate } from './format.js'
 import { plateRows, deliveredOn, PLATE_LATE_DAYS } from './plateList.js'
@@ -791,8 +791,10 @@ export function waitEtaAnswer(vehicles, bookings, orders, { today, mine = () => 
   if (!rows.length) return { n: 0, text: '✅ ตอนนี้ไม่มีลูกค้าที่จองแล้วรอรถ' }
   const fmt = d => dmy(d)
   const none = rows.filter(b => eta.get(b.id)?.kind === 'none').length
+  const needRows = none ? orderNeeds({ bookings, vehicles, orders }) : []
+  const alt = b => eta.get(b.id)?.kind === 'none' ? altColorText(needRows, b) : ''
   return { n: rows.length, text: [`🚚 ลูกค้าที่จองรอรถ ${rows.length} คน${none ? ` · ยังไม่มีรถรองรับ ${none} คน` : ''}`,
-    ...rows.slice(0, MAX).map(b => `• ${String(b.custName || '').trim() || 'ลูกค้า'} — ${carOf(b) || b.model || 'รถ'}${b.colorOut ? ' สี' + b.colorOut : ''}${b.bookingDate ? ` (จอง ${fmt(b.bookingDate)})` : ''}\n   ${etaLabel(eta.get(b.id), fmt) || '—'}`),
+    ...rows.slice(0, MAX).map(b => `• ${String(b.custName || '').trim() || 'ลูกค้า'} — ${carOf(b) || b.model || 'รถ'}${b.colorOut ? ' สี' + b.colorOut : ''}${b.bookingDate ? ` (จอง ${fmt(b.bookingDate)})` : ''}\n   ${etaLabel(eta.get(b.id), fmt) || '—'}${alt(b) ? `\n   ${alt(b)}` : ''}`),
     ...(rows.length > MAX ? [`…และอีก ${rows.length - MAX} คน`] : []),
     '💡 เปิดใบจองแต่ละใบจะเห็นบรรทัด 🚚 รถจะมาเมื่อไหร่ · รุ่นที่ยังไม่มีรถ ดูที่ เมนูรถ › ตารางสีรถ'].join('\n') }
 }

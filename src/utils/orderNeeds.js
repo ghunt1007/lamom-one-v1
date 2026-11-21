@@ -170,3 +170,12 @@ export function bookingForVehicle({ bookings = [], vehicles = [], orders = [], t
   const eta = etaForBookings({ bookings, vehicles, orders, today })
   return alive(bookings).find(b => b.id && eta.get(b.id)?.vehicleId === vehicleId) || null
 }
+
+// (v1.0.1250) ลูกค้าที่ยังไม่มีรถรองรับ: สีอื่นของรุ่นเดียวกันที่มีว่าง/กำลังมาและยังไม่มีคนจอง — เสนอเปลี่ยนสีให้ได้รถเร็วขึ้น
+// rows = ผลจาก orderNeeds · b = ใบจอง · คืนข้อความสั้นๆ หรือ '' ถ้าไม่มีสีอื่น
+export function altColorText(rows, b) {
+  const mine = norm(String(b?.colorOut || b?.color || '').trim() || NO_COLOR)
+  const list = stockForModel(rows, b).filter(r => norm(r.color) !== mine && r.color !== NO_COLOR)
+  if (!list.length) return ''
+  return '💡 ถ้าลูกค้ายอมเปลี่ยนสี ได้รถเร็วขึ้น: ' + list.slice(0, 4).map(r => `${r.color}${r.free ? ` ✅ ว่าง ${r.free}` : ''}${r.coming ? ` 🚢 กำลังมา ${r.coming}` : ''}`).join(' · ')
+}
