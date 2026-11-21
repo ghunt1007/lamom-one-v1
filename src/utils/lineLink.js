@@ -6,6 +6,7 @@ import { showToast } from '../core/store.js'
 import { openQrModal } from './qrModal.js'
 import { formatDate } from './format.js'
 import { smsHref } from './callLink.js'
+import { isOpenBooking } from './bookingStatus.js'
 
 const WORKER = import.meta.env.VITE_DAILY_REPORT_URL || 'https://lamom-daily-report.ghunt1007.workers.dev'
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -21,6 +22,9 @@ export function lineLinkUrl(basicId, code) {
   if (!/^@[A-Za-z0-9._-]{2,40}$/.test(String(basicId || '')) || !/^[A-Z0-9]{6}$/.test(String(code || ''))) return ''
   return `https://line.me/R/oaMessage/${encodeURIComponent(basicId)}/?${encodeURIComponent('ผูก ' + code)}`
 }
+
+// (v1.0.1236) ใบจองที่ยังไม่ส่งมอบ/ไม่ถอน และลูกค้ายังไม่ผูก LINE (ควรชวนผูก จะได้แจ้งสถานะรถเองได้)
+export const needsLineLink = b => !!b && !b.deleted && isOpenBooking(b) && !b.lineUserId
 
 // สถานะการผูกของลูกค้า/ใบจอง (ไว้โชว์ป้ายในแฟ้ม)
 export function lineLinkState(d) {

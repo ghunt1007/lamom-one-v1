@@ -969,7 +969,7 @@ export const EVENING_CUSTOMER_FIELDS = ['stage', 'createdAt', 'source', 'assigne
 export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel', 'phone', 'wakeSentAt', 'lineOptOut', 'lineBlockedAt', 'marketingConsent']
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly', 'colorOut', 'color', 'vin']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly', 'colorOut', 'color', 'vin', 'lineUserId']),
     runQuery(env, accessToken, 'customers', null, null, 5000, MORNING_CUSTOMER_FIELDS),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
@@ -1426,6 +1426,11 @@ export function buildWeeklyReport(data, { today }) {
     if (fc.total) fcLine = `📈 ควรสั่งรถ (รถมาใน 45 วัน): ~${fc.total} คัน — ${top} → เมนู "ตารางสีรถ"`
   }
 
+  // (v1.0.1236) ลูกค้าที่จองแล้วยังไม่ส่งมอบ ผูก LINE กี่คน — ผูกแล้วระบบแจ้งสถานะรถ/นัดส่งมอบเองได้
+  const openBk = bookings.filter(b => !isCancelled(b) && !DELIVERED_STATUSES.includes(b.status))
+  const linkedN = openBk.filter(b => b.lineUserId).length
+  const linkLine = openBk.length ? `🔗 ลูกค้าจองที่ผูก LINE แล้ว: ${linkedN}/${openBk.length} คน${linkedN < openBk.length ? ' → กด "🔗 ผูก LINE" ในใบจอง (ส่งลิงก์ทาง SMS ได้)' : ' ✅'}` : null
+
   // เสียดีลสัปดาห์ที่แล้ว แยกตามเหตุผล (ใช้คำหน้าเครื่องหมาย " - " เช่น "ราคา - คู่แข่งลดให้ 20,000" นับเป็น "ราคา")
   const lostBy = {}
   let lostN = 0
@@ -1462,6 +1467,7 @@ export function buildWeeklyReport(data, { today }) {
     ...quietLines,
     wakeLine,
     fcLine,
+    linkLine,
     ...lostLines,
     ...(convLines.length ? ['', '🎯 ช่องทางที่ปิดจองได้ดี (Lead 90 วันล่าสุด)', ...convLines] : []),
     '',

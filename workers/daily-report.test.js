@@ -1476,3 +1476,10 @@ describe('สรุปสัปดาห์: คาดการณ์สั่�
     expect(buildWeeklyReport({ bookings, customers: [] }, { today: '2026-10-26' })).not.toContain('📈')
   })
 })
+
+describe('สรุปสัปดาห์: ผูก LINE (v1.0.1236)', () => {
+  it('นับใบจองที่ยังไม่ส่งมอบ ที่ผูก LINE แล้ว', () => {
+    const bookings = [{ status: 'รอรถ', lineUserId: 'U1' }, { status: 'รอรถ' }, { status: 'ส่งมอบแล้ว' }, { status: 'ถอนจอง' }]
+    expect(buildWeeklyReport({ bookings, customers: [] }, { today: '2026-10-26' })).toContain('🔗 ลูกค้าจองที่ผูก LINE แล้ว: 1/2 คน')
+  })
+})

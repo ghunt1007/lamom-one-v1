@@ -34,3 +34,13 @@ describe('ลิงก์ผูก LINE ทาง SMS (v1.0.1235)', () => {
     expect(lineLinkInvite('https://line.me/R/oaMessage/@a/?x')).toContain('https://line.me/R/oaMessage/@a/?x')
   })
 })
+
+describe('needsLineLink', () => {
+  it('เฉพาะใบจองเปิดที่ยังไม่ผูก', async () => {
+    const { needsLineLink } = await import('./lineLink.js')
+    expect(needsLineLink({ status: 'รอรถ' })).toBe(true)
+    expect(needsLineLink({ status: 'รอรถ', lineUserId: 'U1' })).toBe(false)
+    expect(needsLineLink({ status: 'ส่งมอบแล้ว' })).toBe(false)
+    expect(needsLineLink({ status: 'ถอนจอง' })).toBe(false)
+  })
+})
