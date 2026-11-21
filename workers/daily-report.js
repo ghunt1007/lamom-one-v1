@@ -1337,6 +1337,8 @@ export function lateOrderLines(data, today) {
 // ต้องอ่านรถว่าง/ขนส่ง/ใบสั่งรถได้ครบ ไม่งั้นไม่บอก (กันบอกผิดว่าไม่มีรถ) · seller = เฉพาะลูกค้าของเซลส์คนนี้
 export function noSupplyLines(data, today, seller = '') {
   if (!Array.isArray(data?.vehicles) || !Array.isArray(data?.transit) || !Array.isArray(data?.orders)) return []
+  // ยังไม่ได้ใช้เมนูสต็อก/ใบสั่งรถเลย (ไม่มีรถว่าง รถขนส่ง หรือใบสั่ง) → ไม่บอก ไม่งั้นลูกค้ารอรถทุกคนจะขึ้นว่า "ไม่มีรถรองรับ" ทุกเช้า
+  if (!data.vehicles.length && !data.transit.length && !data.orders.length) return []
   const eta = etaForBookings({ bookings: data.bookings || [], vehicles: [...data.vehicles, ...data.transit], orders: data.orders, today })
   const age = b => { const d = String(b.bookingDate || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(d) ? Math.max(0, Math.round((Date.parse(today) - Date.parse(d)) / 864e5)) : null }
   let rows = (data.bookings || []).filter(b => b && !b.deleted && needsBooking(b) && eta.get(b.id)?.kind === 'none')
