@@ -102,6 +102,7 @@ export const PAGE_COLLECTIONS = {
   "job_cards",
   "pdi",
   "reservations",
+  "vehicle_orders",
   "vehicle_reservations",
   "vehicles",
   "warranty_claims"
