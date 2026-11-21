@@ -74,3 +74,31 @@ export function orderNeedsText(rows, max = 10) {
     ...short.slice(0, max).map(r => `• ${r.car} สี${r.color} — ขาด ${r.short} คัน (จองรอ ${r.wait}${r.have ? ` · มี/กำลังมา/สั่งแล้ว ${r.have}` : ''}${r.draft ? ` · ร่างใบสั่ง ${r.draft}` : ''})`),
     short.length > max ? `…และอีก ${short.length - max} รายการ ดูครบที่ เมนูรถ › 🎨 ตารางสีรถ` : '💡 ดูรายชื่อลูกค้าที่รอ และกดสั่งได้ที่ เมนูรถ › 🎨 ตารางสีรถ'].join('\n')
 }
+
+// (v1.0.1238) รถว่างที่ตรงรุ่น+สีกับลูกค้าที่จองรอ — จับคู่ "ใครจองก่อนได้ก่อน" กับ "รถที่เข้าสต็อกก่อนออกก่อน"
+// แนะนำเท่านั้น (ไม่แก้ใบจอง) — ผู้ใช้ใส่เลขตัวถังในใบจอง/Sheet เอง
+export function matchReadyCars({ bookings = [], vehicles = [] } = {}) {
+  const open = alive(bookings).filter(isOpenBooking)
+  const taken = new Set(open.map(b => norm(b.vin)).filter(Boolean))
+  const key = (rec, color) => { const mk = modelKey(rec); return mk ? mk + '|' + norm(String(color || '').trim() || NO_COLOR) : '' }
+  const cars = new Map()
+  alive(vehicles).filter(v => v.status === 'available' && !taken.has(norm(v.vin)))
+    .sort((a, b) => String(a.arrivedAt || '9').localeCompare(String(b.arrivedAt || '9')))
+    .forEach(v => { const k = key(v, v.color); if (!k) return; if (!cars.has(k)) cars.set(k, []); cars.get(k).push(v) })
+  const pairs = []
+  alive(bookings).filter(needsBooking)
+    .sort((a, b) => String(a.bookingDate || a.createdAt || '9').localeCompare(String(b.bookingDate || b.createdAt || '9')))
+    .forEach(b => {
+      const list = cars.get(key(b, b.colorOut || b.color))
+      if (list?.length) pairs.push({ booking: b, vehicle: list.shift() })
+    })
+  return pairs
+}
+
+export function matchReadyText(pairs, max = 10) {
+  if (!pairs.length) return ''
+  return [`🔑 มีรถว่างตรงกับลูกค้าที่จองรอ ${pairs.length} คัน (จองก่อนได้ก่อน)`,
+    ...pairs.slice(0, max).map(({ booking: b, vehicle: v }) => `• ${String(b.custName || '').trim() || 'ลูกค้า'} — ${carOf(v) || v.model} สี${v.color || '-'}${v.vin ? ` · ตัวถัง ${v.vin}` : ''}`),
+    ...(pairs.length > max ? [`…และอีก ${pairs.length - max} คัน`] : []),
+    '💡 ใส่เลขตัวถังในใบจอง (หรือใน Sheet) แล้วแจ้งลูกค้าได้เลย'].join('\n')
+}

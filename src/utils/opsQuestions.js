@@ -2,7 +2,7 @@
 //   "นัดทดลองขับวันนี้มีใครบ้าง" · "พรุ่งนี้มีใครเข้าโชว์รูม" · "มีลูกค้าทัก LINE รอตอบไหม"
 //   "เรื่องร้องเรียนค้างอยู่ไหม" · "ลูกค้าใหม่เดือนนี้กี่คน" · "ใครเกิดวันนี้ / ครบรอบซื้อรถสัปดาห์นี้"
 // ฟังก์ชันล้วน ทดสอบได้ · ตัวโหลดข้อมูลอยู่ใน lamiCommandCard.js (loadOpsAnswer)
-import { orderNeeds, orderNeedsText } from './orderNeeds.js'
+import { orderNeeds, orderNeedsText, matchReadyCars, matchReadyText } from './orderNeeds.js'
 import { orderForecast, orderForecastText } from './orderForecast.js'
 import { dmy, toDate } from './format.js'
 import { plateRows, deliveredOn, PLATE_LATE_DAYS } from './plateList.js'
@@ -789,8 +789,10 @@ export function lowStockAnswer(vehicles, bookings, orders) {
   const base = lowStockBase(vehicles, bookings)
   if (!orders) return base
   const needText = orderNeedsText(orderNeeds({ bookings, vehicles, orders }))
-  if (!needText) return base
-  return { n: Math.max(1, base.n), text: needText + '\n\n' + base.text }
+  const pairText = matchReadyText(matchReadyCars({ bookings, vehicles }), 5)
+  const head = [pairText, needText].filter(Boolean).join('\n\n')
+  if (!head) return base
+  return { n: Math.max(1, base.n), text: head + '\n\n' + base.text }
 }
 function lowStockBase(vehicles, bookings) {
   const k = v => carOf(v) || String(v.model || '').trim()

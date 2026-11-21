@@ -62,3 +62,16 @@ describe('LAMI', () => {
     expect(res.text).toContain('DEEPAL S07 สีดำ — ขาด 1 คัน')
   })
 })
+
+describe('matchReadyCars (v1.0.1238)', () => {
+  it('จองก่อนได้ก่อน · รถเข้าก่อนออกก่อน · ไม่เอารถที่ผูกใบจองแล้ว · สีต้องตรง', async () => {
+    const { matchReadyCars, matchReadyText } = await import('./orderNeeds.js')
+    const pairs = matchReadyCars({
+      bookings: [bk({ custName: 'หลัง', bookingDate: '2026-11-10' }), bk({ custName: 'ก่อน', bookingDate: '2026-11-01' }), bk({ custName: 'ดำ', colorOut: 'ดำ' }), bk({ vin: 'V1', status: 'ผ่านไฟแนนซ์รอเบิก' })],
+      vehicles: [car({ vin: 'V2', arrivedAt: '2026-11-15' }), car({ vin: 'V3', arrivedAt: '2026-10-01' }), car({ vin: 'V1' })],
+    })
+    expect(pairs.map(p => [p.booking.custName, p.vehicle.vin])).toEqual([['ก่อน', 'V3'], ['หลัง', 'V2']])
+    expect(matchReadyText(pairs)).toContain('ก่อน — DEEPAL S07 สีขาว · ตัวถัง V3')
+    expect(matchReadyText([])).toBe('')
+  })
+})
