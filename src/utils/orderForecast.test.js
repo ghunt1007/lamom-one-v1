@@ -87,3 +87,23 @@ describe('สต็อกเกิน (v1.0.1240)', () => {
     expect(ok.models[0].overstock).toBe(false)
   })
 })
+
+describe('forecastOrderMessage (v1.0.1257)', () => {
+  it('แยกยี่ห้อ/รุ่น/สี ไม่มีชื่อลูกค้า · ไม่มีอะไรต้องสั่ง = ข้อความว่าง', async () => {
+    const { forecastOrderMessage } = await import('./orderForecast.js')
+    const fc = { leadDays: 45, models: [
+      { brand: 'DEEPAL', model: 'S07', car: 'DEEPAL S07', suggest: 3, unassigned: 1, colors: [
+        { color: 'ขาว', suggest: 2, waitNames: ['สมชาย'] }, { color: 'ไม่ระบุสี', suggest: 0 }, { color: 'ดำ', suggest: 0 }] },
+      { brand: '', model: '', car: 'L07', suggest: 1, unassigned: 0, colors: [{ color: 'ไม่ระบุสี', suggest: 1 }] },
+      { brand: 'DEEPAL', model: 'S05', car: 'DEEPAL S05', suggest: 0, colors: [] },
+    ] }
+    const t = forecastOrderMessage(fc, '22/11/2569')
+    expect(t).toContain('📦 ขอสั่งรถ (22/11/2569) — ต้องการรถภายใน ~45 วัน')
+    expect(t).toContain('【DEEPAL】\nS07 รวม 3 คัน\n  • สีขาว 2 คัน\n  • ยังไม่ระบุสี 1 คัน')
+    expect(t).toContain('【อื่นๆ】\nL07 รวม 1 คัน\n  • ยังไม่ระบุสี 1 คัน')
+    expect(t).toContain('รวมทั้งหมด 4 คัน')
+    expect(t).not.toContain('สมชาย')
+    expect(t).not.toContain('S05')
+    expect(forecastOrderMessage({ leadDays: 45, models: [fc.models[2]] })).toBe('')
+  })
+})
