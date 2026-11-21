@@ -424,6 +424,9 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'lowstock') {
     const [vs, bks, ords] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('vehicle_orders', f, 'createdAt', 'desc', 500).catch(() => [])])
     res = oq.lowStockAnswer(vs, bks, ords)
+  } else if (spec.kind === 'waiteta') {
+    const [vs, bks, ords] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('vehicle_orders', f, 'createdAt', 'desc', 500).catch(() => [])])
+    res = oq.waitEtaAnswer(vs, bks, ords, { today, mine: b => mine(b.salesName, b) })
   } else if (spec.kind === 'forecast') {
     const [vs, bks, ords, customers] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('vehicle_orders', f, 'createdAt', 'desc', 500).catch(() => []), customersPromise || visibleCustomersForCommands()])
     let leadDays = 45

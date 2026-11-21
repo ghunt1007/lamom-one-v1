@@ -101,3 +101,16 @@ describe('etaForBookings (v1.0.1241)', () => {
     expect(etaLabel(m.get('b4'))).toContain('ต้องสั่งเพิ่ม')
   })
 })
+
+describe('LAMI ลูกค้ารอรถ (v1.0.1241)', () => {
+  it('จับคำถาม และตอบพร้อมรถจะมาเมื่อไหร่', async () => {
+    const oq = await import('./opsQuestions.js')
+    expect(oq.parseOpsSpec('ลูกค้าที่รอรถจะได้รถเมื่อไหร่')?.kind).toBe('waiteta')
+    expect(oq.parseOpsSpec('ใครรอรถอยู่บ้าง')?.kind).toBe('waiteta')
+    expect(oq.parseOpsSpec('รถที่กำลังจะมาถึงมีกี่คัน')?.kind).toBe('incoming')
+    const r = oq.waitEtaAnswer([car({ vin: 'R1' })], [bk({ id: 'a', bookingDate: '2026-11-01', custName: 'สมชาย' }), bk({ id: 'b', bookingDate: '2026-11-05', custName: 'มานี' })], [], { today: '2026-11-22' })
+    expect(r.n).toBe(2)
+    expect(r.text).toContain('ยังไม่มีรถรองรับ 1 คน')
+    expect(r.text).toMatch(/สมชาย[\s\S]*มีรถว่างในสต็อก/)
+  })
+})
