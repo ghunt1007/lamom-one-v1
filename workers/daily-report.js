@@ -50,6 +50,7 @@ import { SEND_CRON, runScheduledSends, scheduleSend, unscheduleSend } from './sc
 import { runChatNudge } from './chatNudge.js'
 import { pickWakeLeads } from '../src/utils/wakeLeads.js'
 import { orderForecast } from '../src/utils/orderForecast.js'
+import { runApptRemind } from './apptRemind.js'
 import { matchReadyCars } from '../src/utils/orderNeeds.js'
 import { parseLinkCode, parseOptCommand, linkByCode, setOptOut, markFollow, runStatusLine, STATUS_BOOKING_FIELDS, STATUS_CUSTOMER_FIELDS } from './lineLink.js'
 import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } from './scheduledPost.js'
@@ -201,6 +202,7 @@ export default {
         await runLeadNudgeJob(e2, tok).catch(() => null)
         await runChatNudgeJob(e2, tok).catch(() => null)
         await runStatusLineJob(e2, tok).catch(() => null)
+        await runApptRemindJob(e2, tok).catch(() => null)
       })())
       return
     }
@@ -286,6 +288,30 @@ async function runStatusLineJob(env, token) {
     mark: async (id, fields) => {
       const mask = Object.keys(fields).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&')
       const res = await fetch(`${base}/bookings/${encodeURIComponent(id)}?${mask}&currentDocument.exists=true`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }),
+      }).catch(() => null)
+      return !!res?.ok
+    },
+  })
+}
+
+// (v1.0.1244) เตือนนัดพรุ่งนี้ทาง LINE (รับรถ/ทดลองขับ/เข้าโชว์รูม) ช่วง 17:00 — เฉพาะเมื่อเปิดสวิตช์ในแอป (workers/apptRemind.js)
+async function runApptRemindJob(env, token) {
+  if (!token) return null
+  const now = new Date(Date.now() + 7 * 3600e3)
+  const hour = now.getUTCHours()
+  if (hour !== 17) return null
+  const inbox = await readInboxAuto(env, token).catch(() => null)
+  if (!inbox?.apptLine) return null
+  const base = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`
+  const tomorrow = new Date(now.getTime() + 864e5).toISOString().slice(0, 10)
+  return runApptRemind({
+    enabled: true, hour, tomorrow,
+    list: (col, fields) => runQuery(env, token, col, null, null, 5000, fields).catch(() => []),
+    pushLine: env.LINE_CHANNEL_ACCESS_TOKEN ? async (to, text) => (await pushLine(env, to, text)).sent : null,
+    mark: async (col, id, fields) => {
+      const mask = Object.keys(fields).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&')
+      const res = await fetch(`${base}/${col}/${encodeURIComponent(id)}?${mask}&currentDocument.exists=true`, {
         method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }),
       }).catch(() => null)
       return !!res?.ok

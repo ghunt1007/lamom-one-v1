@@ -8,7 +8,7 @@ import { isProgramOwner } from '../../core/hierarchy.js'
 import { aiReplyTest } from '../../utils/socialApi.js'
 import { isManagerRole } from '../../utils/managerRole.js'
 
-export const AUTO_DEFAULTS = { autoLead: false, autoAssign: false, aiReply: false, aiMode: 'always', aiStart: '08:30', aiEnd: '18:00', aiChannels: 'all', aiName: 'น้องลามิ', aiInfo: '', publicForm: false, leadAlert: true, statusLine: false }
+export const AUTO_DEFAULTS = { autoLead: false, autoAssign: false, aiReply: false, aiMode: 'always', aiStart: '08:30', aiEnd: '18:00', aiChannels: 'all', aiName: 'น้องลามิ', aiInfo: '', publicForm: false, leadAlert: true, statusLine: false, apptLine: false }
 
 // (v1.0.1140) ลิงก์ฟอร์มรับลีดสาธารณะ — accountId = บัญชีโซเชียลที่บันทึกไว้ (ลีดจะติดที่มา/ผู้ดูแลของบัญชีนั้น)
 export function leadFormLink(accountId = '', origin = publicOrigin()) {
@@ -93,6 +93,7 @@ export function createAutoTab({ getStatus, rerender }) {
           ${sw('au-assign', cfg.autoAssign, 'แจกลีดใหม่ให้เซลส์แบบวนคิว', 'เซลส์ที่ลงทะเบียน LINE กับ OA หลักจะได้ลีดคนละราย พร้อมนัดติดตาม 3 ครั้ง และแจ้งเตือนทาง LINE')}
           ${sw('au-alert', cfg.leadAlert !== false, 'แจ้งเตือนทันทีเมื่อมีลีดใหม่ และเมื่อแชตรอตอบ', 'ลีดเข้าทางฟอร์ม TikTok อีเมล หรือ Facebook เมื่อไร ส่ง LINE หาเซลส์ที่ดูแลและเจ้าของ พร้อมแจ้งเตือนในแอป เพื่อโทรกลับได้ภายใน 5 นาที · ถ้าลูกค้าทักแชตแล้วไม่มีใครตอบเกิน 15 นาที (08:30–20:00) จะเตือนอีกครั้ง')}
           ${sw('au-status', cfg.statusLine === true, 'แจ้งสถานะรถให้ลูกค้าทาง LINE อัตโนมัติ', 'เมื่อสถานะใบจองเปลี่ยน (ไฟแนนซ์อนุมัติ รถถึง นัดส่งมอบ ส่งมอบแล้ว) ระบบส่งข้อความให้ลูกค้าเอง ภายใน 10 นาที · ส่งเฉพาะลูกค้าที่สแกน QR "🔗 ผูก LINE" แล้ว และไม่ได้พิมพ์ "เลิกรับ" · ไม่ส่งย้อนหลังสถานะเดิม')}
+          ${sw('au-appt', cfg.apptLine === true, 'เตือนนัดพรุ่งนี้ให้ลูกค้าทาง LINE', 'ทุกวันราว 17:00 น. ระบบส่งข้อความเตือนลูกค้าที่มีนัดพรุ่งนี้ — นัดรับรถ (วันนัดส่งมอบในใบจอง) นัดทดลองขับ และนัดเข้าโชว์รูม · ส่งเฉพาะลูกค้าที่ผูก LINE แล้ว ไม่เลิกรับ · คนละ 1 ข้อความต่อวัน · ช่วยลดลูกค้าลืมนัด')}
           ${sw('au-form', cfg.publicForm, 'เปิดฟอร์มให้ลูกค้าฝากชื่อ-เบอร์เอง', 'ลิงก์หน้าเดียว ลูกค้ากรอกชื่อ เบอร์ รุ่นที่สนใจ แล้วเข้าเป็นลูกค้าในโปรแกรมทันที — ใช้กับช่องทางที่ดึงแชตไม่ได้ (TikTok, เพจ/LINE ส่วนตัว, ป้ายที่บูธ)')}
           <div class="ch-formlink"><code>${esc(leadFormLink())}</code><button type="button" class="btn btn-secondary btn-xs" data-copy-form="">📋 คัดลอกลิงก์</button><button type="button" class="btn btn-secondary btn-xs" data-qr-form="">🔳 QR</button><a class="btn btn-ghost btn-xs" href="${esc(leadFormLink())}" target="_blank" rel="noopener">ดูฟอร์ม ↗</a></div>
           <small class="ch-muted">อยากรู้ว่าลีดมาจากบัญชีไหน: แท็บ 👥 บัญชี → กด 🔗 ที่บัญชีนั้น จะได้ลิงก์เฉพาะ (บัญชีของเซลส์ ลีดจะเข้าชื่อเซลส์คนนั้นเลย) ไปวางในไบโอ</small>
@@ -109,7 +110,7 @@ export function createAutoTab({ getStatus, rerender }) {
     const ids = [...root.querySelectorAll('[data-au-ch]')].filter(x => x.checked).map(x => x.dataset.auCh)
     const hm = v => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || '').trim()) ? String(v).trim() : null)
     return {
-      aiReply: !!$('#au-ai')?.checked, autoLead: !!$('#au-lead')?.checked, autoAssign: !!$('#au-assign')?.checked, publicForm: !!$('#au-form')?.checked, leadAlert: $('#au-alert') ? !!$('#au-alert').checked : true, statusLine: !!$('#au-status')?.checked,
+      aiReply: !!$('#au-ai')?.checked, autoLead: !!$('#au-lead')?.checked, autoAssign: !!$('#au-assign')?.checked, publicForm: !!$('#au-form')?.checked, leadAlert: $('#au-alert') ? !!$('#au-alert').checked : true, statusLine: !!$('#au-status')?.checked, apptLine: !!$('#au-appt')?.checked,
       aiMode: root.querySelector('[name="au-mode"]:checked')?.value === 'offhours' ? 'offhours' : 'always',
       aiStart: hm($('#au-start')?.value), aiEnd: hm($('#au-end')?.value),
       aiChannels: channelsValue(ids, list),
