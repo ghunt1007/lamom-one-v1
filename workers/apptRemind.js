@@ -1,4 +1,4 @@
-// (v1.0.1244) เตือนนัดล่วงหน้า 1 วันทาง LINE — นัดรับรถ (ใบจอง deliveryDate) · นัดทดลองขับ · นัดเข้าโชว์รูม
+// (v1.0.1244) เตือนนัดล่วงหน้า 1 วันทาง LINE — นัดรับรถ (ใบจอง deliveryDate) · นัดทดลองขับ · นัดเข้าโชว์รูม · (v1.0.1254) นัดเข้าศูนย์บริการ
 // ส่งเฉพาะลูกค้าที่ผูก LINE แล้ว (lineUserId) ไม่เลิกรับ/ไม่บล็อก · เปิดสวิตช์ inbox_auto.apptLine ก่อน (ปิดไว้เป็นค่าเริ่มต้น)
 // ทำงานช่วง 17:00–17:59 น. (cron ทุก 10 นาที) · จด lineRemindFor = วันนัด ก่อนส่ง → ไม่ส่งซ้ำ
 import { carLabel } from '../src/utils/carLabel.js'
@@ -9,6 +9,7 @@ const UID = /^U[0-9a-f]{10,40}$/i
 const DONE_BOOKING = ['ส่งมอบแล้ว', 'ถอนจอง', 'ยกเลิก']
 const DONE_TD = ['done', 'cancelled', 'no_show', 'completed']
 const DONE_APPT = ['cancelled', 'no_show', 'arrived', 'done', 'completed']
+const DONE_SVC = ['cancelled', 'noshow', 'no_show', 'inservice', 'done', 'completed']
 const digits = s => String(s || '').replace(/\D/g, '').replace(/^66/, '0')
 const day = v => String(v || '').slice(0, 10)
 const hhmm = v => /^\d{1,2}:\d{2}/.test(String(v || '')) ? String(v).slice(0, 5) : ''
@@ -18,6 +19,7 @@ const first = n => { const w = String(n || '').trim().replace(/^คุณ/, '').
 export const REMIND_BOOKING_FIELDS = ['status', 'customerId', 'custName', 'brand', 'model', 'deliveryDate', 'deliveryTime', 'lineUserId', 'lineOptOut', 'lineBlockedAt', 'lineRemindFor', 'deleted']
 export const REMIND_TD_FIELDS = ['date', 'time', 'status', 'customerId', 'customerName', 'phone', 'model', 'lineRemindFor', 'deleted']
 export const REMIND_APPT_FIELDS = ['date', 'time', 'status', 'custName', 'phone', 'purpose', 'interestedIn', 'lineRemindFor', 'deleted']
+export const REMIND_SVC_FIELDS = ['date', 'time', 'status', 'custName', 'phone', 'model', 'plate', 'type', 'lineRemindFor', 'deleted']
 export const REMIND_CUSTOMER_FIELDS = ['firstName', 'phone', 'bookingId', 'lineUserId', 'lineOptOut', 'lineBlockedAt', 'deleted']
 
 export function remindText(kind, { name = '', date = '', time = '', what = '' } = {}) {
@@ -25,6 +27,7 @@ export function remindText(kind, { name = '', date = '', time = '', what = '' } 
   const when = `พรุ่งนี้ ${dmy(date)}${time ? ` เวลา ${time} น.` : ''}`
   const body = kind === 'delivery' ? `ขอเตือนนัดรับรถ${what ? ` ${what}` : ''} ${when} ที่โชว์รูมครับ 🚗`
     : kind === 'testdrive' ? `ขอเตือนนัดทดลองขับ${what ? ` ${what}` : ''} ${when} ครับ`
+      : kind === 'service' ? `ขอเตือนนัดเข้าศูนย์บริการ${what ? ` (${what})` : ''} ${when} ครับ 🔧`
       : `ขอเตือนนัดเข้าโชว์รูม ${when}${what ? ` (${what})` : ''} ครับ`
   return `${hi} ${body}\nถ้าต้องการเลื่อนนัด ตอบกลับข้อความนี้ได้เลยครับ`
 }
@@ -33,7 +36,7 @@ export function remindText(kind, { name = '', date = '', time = '', what = '' } 
  * เลือกนัดที่ต้องเตือน (ฟังก์ชันล้วน) — tomorrow = YYYY-MM-DD ตามเวลาไทย
  * คืน [{ col, id, to, text }] ไม่เกิน max · ลูกค้าคนเดียวมีหลายนัดวันเดียวกัน ส่งข้อความเดียว (นัดแรกที่เจอ) แต่จดทุกนัด
  */
-export function pickApptReminders({ bookings = [], testDrives = [], appointments = [], customers = [], tomorrow, max = APPT_REMIND_MAX } = {}) {
+export function pickApptReminders({ bookings = [], testDrives = [], appointments = [], serviceAppts = [], customers = [], tomorrow, max = APPT_REMIND_MAX } = {}) {
   const byId = new Map(), byPhone = new Map(), byBooking = new Map()
   for (const c of customers) {
     if (!c || c.deleted) continue
@@ -69,6 +72,13 @@ export function pickApptReminders({ bookings = [], testDrives = [], appointments
     if (!c || !ok(c.lineUserId, c)) continue
     push('appointments', a, c.lineUserId, remindText('showroom', { name: first(c.firstName || a.custName), date: tomorrow, time: hhmm(a.time), what: String(a.purpose || a.interestedIn || '').trim() }))
   }
+  // (v1.0.1254) นัดเข้าศูนย์บริการ (service_appointments) — จับคู่ลูกค้าด้วยเบอร์
+  for (const a of serviceAppts) {
+    if (!a || a.deleted || !a.id || DONE_SVC.includes(a.status) || day(a.date) !== tomorrow || a.lineRemindFor === tomorrow) continue
+    const c = byPhone.get(digits(a.phone)) || null
+    if (!c || !ok(c.lineUserId, c)) continue
+    push('service_appointments', a, c.lineUserId, remindText('service', { name: first(c.firstName || a.custName), date: tomorrow, time: hhmm(a.time), what: [String(a.type || '').trim(), String(a.plate || '').trim()].filter(Boolean).join(' · ') }))
+  }
   return { send: out, also }
 }
 
@@ -78,11 +88,12 @@ export function pickApptReminders({ bookings = [], testDrives = [], appointments
 export async function runApptRemind(deps) {
   if (!deps?.enabled || !deps.pushLine) return { sent: 0, skipped: 'off' }
   if (deps.hour !== APPT_REMIND_HOUR) return { sent: 0, skipped: 'hour' }
-  const [bookings, testDrives, appointments, customers] = await Promise.all([
+  const [bookings, testDrives, appointments, customers, serviceAppts] = await Promise.all([
     deps.list('bookings', REMIND_BOOKING_FIELDS), deps.list('test_drives', REMIND_TD_FIELDS),
     deps.list('appointments', REMIND_APPT_FIELDS), deps.list('customers', REMIND_CUSTOMER_FIELDS),
+    Promise.resolve(deps.list('service_appointments', REMIND_SVC_FIELDS)).catch(() => []),
   ])
-  const { send, also } = pickApptReminders({ bookings, testDrives, appointments, customers, tomorrow: deps.tomorrow })
+  const { send, also } = pickApptReminders({ bookings, testDrives, appointments, serviceAppts: serviceAppts || [], customers, tomorrow: deps.tomorrow })
   const f = { lineRemindFor: { stringValue: deps.tomorrow } }
   for (const a of also) await deps.mark(a.col, a.id, f)
   let sent = 0, failed = 0

@@ -54,3 +54,19 @@ describe('runApptRemind', () => {
     expect(d2.pushLine).not.toHaveBeenCalled()
   })
 })
+
+describe('นัดเข้าศูนย์บริการ (v1.0.1254)', () => {
+  it('เตือนลูกค้าที่ผูก LINE ตามเบอร์ · ข้ามนัดยกเลิก/กำลังซ่อม', () => {
+    const { send } = pickApptReminders({
+      tomorrow, customers,
+      serviceAppts: [
+        { id: 's1', date: tomorrow, time: '08:30', status: 'scheduled', phone: '0812345678', type: 'เช็กระยะ 10,000 km', plate: 'กข 1234' },
+        { id: 's2', date: tomorrow, status: 'cancelled', phone: '0812345678' },
+        { id: 's3', date: tomorrow, status: 'scheduled', phone: '0861111111' },
+      ],
+    })
+    expect(send).toHaveLength(1)
+    expect(send[0]).toMatchObject({ col: 'service_appointments', id: 's1', to: U1 })
+    expect(send[0].text).toContain('นัดเข้าศูนย์บริการ (เช็กระยะ 10,000 km · กข 1234) พรุ่งนี้ 23/11/2569 เวลา 08:30 น.')
+  })
+})
