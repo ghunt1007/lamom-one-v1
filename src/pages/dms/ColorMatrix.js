@@ -10,7 +10,8 @@ import { showToast } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
 import { orderNeeds, matchReadyCars } from '../../utils/orderNeeds.js'
-import { orderForecast, forecastOrderLines, FORECAST_LEAD_DAYS } from '../../utils/orderForecast.js'
+import { orderForecast, forecastOrderLines, forecastOrderMessage, FORECAST_LEAD_DAYS } from '../../utils/orderForecast.js'
+import { copyText } from '../../utils/copyText.js'
 import { todayBangkok, dmy } from '../../utils/format.js'
 import { carLabel } from '../../utils/carLabel.js'
 import { confirmDialog } from '../../utils/modal.js'
@@ -103,6 +104,7 @@ export default async function ColorMatrixPage(container) {
     return `<div class="card" style="padding:14px 16px;margin-bottom:16px">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
           <div style="font-weight:900;font-size:0.95rem;flex:1;min-width:200px">📈 คาดการณ์สั่งรถล่วงหน้า</div>
+          ${fc.total ? `<button class="btn btn-xs btn-secondary" id="cm-fc-copy" title="คัดลอกรายการรุ่น/สี/จำนวน (ไม่มีชื่อลูกค้า) ไปวางส่งแบรนด์/ดีลเลอร์ทาง LINE หรืออีเมล">📋 คัดลอกรายการสั่ง</button>` : ''}
           ${fc.total ? `<button class="btn btn-xs btn-primary" id="cm-fc-order" ${ordering ? 'disabled' : ''}>📦 ทำร่างตามคาดการณ์</button>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;font-size:0.72rem">
@@ -283,6 +285,7 @@ export default async function ColorMatrixPage(container) {
       computeForecast(); render()
     }))
     container.querySelectorAll('.cm-fc-row').forEach(el => el.addEventListener('click', () => { fcOpen = fcOpen === el.dataset.mk ? null : el.dataset.mk; render() }))
+    document.getElementById('cm-fc-copy')?.addEventListener('click', () => copyText(forecastOrderMessage(fc, dmy(todayBangkok())), '📋 คัดลอกรายการสั่งแล้ว — วางส่งแบรนด์/ดีลเลอร์ได้เลย'))
     document.getElementById('cm-fc-order')?.addEventListener('click', () => makeDrafts(forecastOrderLines(fc), `ตามคาดการณ์ ${fc.leadDays} วัน`))
     document.getElementById('order-btn')?.addEventListener('click', async () => {
       // (v1.0.1224) ขาดตามลูกค้าที่จองรอก่อน (จำนวนคันที่ขาด หักร่างที่ทำไว้แล้ว) — ถ้าไม่มี ใช้สีที่ไม่มีสต็อกเลยแบบเดิม

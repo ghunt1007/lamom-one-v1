@@ -140,3 +140,28 @@ export function orderForecastText(fc, max = 8) {
   lines.push('💡 เป็นการประมาณจากจังหวะจองย้อนหลัง 90 วัน + ลีดร้อน — ดู/ปรับช่วงรอรถ และทำร่างใบสั่งได้ที่ เมนูรถ › 🎨 ตารางสีรถ')
   return lines.join('\n')
 }
+
+// (v1.0.1257) ข้อความสั่งรถสำหรับส่งให้แบรนด์/ดีลเลอร์ (คัดลอกไปวางใน LINE/อีเมล) — ไม่มีชื่อลูกค้า ไม่มีข้อมูลภายใน
+// แยกตามยี่ห้อ → รุ่น → สี ใช้จำนวน "ควรสั่ง" ของผลคาดการณ์ · todayText = วันที่ DD/MM/YYYY ที่แสดงหัวข้อความ
+export function forecastOrderMessage(fc, todayText = '') {
+  const need = (fc?.models || []).filter(m => m.suggest > 0)
+  if (!need.length) return ''
+  const byBrand = new Map()
+  for (const m of need) {
+    const b = String(m.brand || '').trim() || 'อื่นๆ'
+    if (!byBrand.has(b)) byBrand.set(b, [])
+    byBrand.get(b).push(m)
+  }
+  const lines = [`📦 ขอสั่งรถ${todayText ? ` (${todayText})` : ''} — ต้องการรถภายใน ~${fc.leadDays} วัน`]
+  for (const [brand, ms] of byBrand) {
+    lines.push('', `【${brand}】`)
+    for (const m of ms) {
+      const name = String(m.model || '').trim() || m.car
+      lines.push(`${name} รวม ${m.suggest} คัน`)
+      for (const c of m.colors.filter(c => c.suggest > 0)) lines.push(`  • ${c.color === NO_COLOR ? 'ยังไม่ระบุสี' : 'สี' + c.color} ${c.suggest} คัน`)
+      if (m.unassigned) lines.push(`  • ยังไม่ระบุสี ${m.unassigned} คัน`)
+    }
+  }
+  lines.push('', `รวมทั้งหมด ${need.reduce((a, m) => a + m.suggest, 0)} คัน`)
+  return lines.join('\n')
+}
