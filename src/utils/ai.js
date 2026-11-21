@@ -700,3 +700,13 @@ export async function analyzeIdCard(imageBase64, mimeType = 'image/jpeg') {
   })
   return answerText(data) || '{}'
 }
+
+// (v1.0.1232) ประเมินรถเทิร์นจากรูป (สูงสุด 4 รูป: รอบคัน + หน้าปัดเลขไมล์) — คืนข้อความ JSON ให้ utils/tradeInAi.js ตรวจ
+export async function analyzeTradeInPhotos(images = [], prompt = '') {
+  const parts = images.slice(0, 4).map(b64 => ({ inlineData: { mimeType: 'image/jpeg', data: b64 } }))
+  const data = await callProxy('/generate', {
+    contents: [{ role: 'user', parts: [...parts, { text: prompt }] }],
+    generationConfig: { maxOutputTokens: 3000, temperature: 0.1 },
+  })
+  return answerText(data) || '{}'
+}

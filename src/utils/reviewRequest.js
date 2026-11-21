@@ -14,7 +14,7 @@ export function pickReviewTargets(customers = [], reviews = [], { days = 60, now
   const reviewed = new Set(reviews.map(r => norm(r.customer)).filter(Boolean))
   const out = []
   for (const c of customers) {
-    if (!c || c.deleted || c.isLost || c.stage !== 'delivered' || !c.lineUserId || c.reviewAskedAt) continue
+    if (!c || c.deleted || c.isLost || c.stage !== 'delivered' || !c.lineUserId || c.lineOptOut || c.lineBlockedAt || c.reviewAskedAt) continue
     const name = [c.firstName, c.lastName].filter(Boolean).join(' ')
     if (reviewed.has(norm(name)) || (c.firstName && reviewed.has(norm(c.firstName)))) continue
     if (days > 0) {

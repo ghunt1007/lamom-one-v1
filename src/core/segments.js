@@ -46,7 +46,8 @@ export async function getSegmentMembers(target) {
   return customers.map(c => ({
     id: c.id,
     name: [c.firstName, c.lastName].filter(Boolean).join(' '),
-    phone: c.phone || '', lineId: c.lineId || '', email: c.email || '', lineUserId: c.lineUserId || '',
+    // (v1.0.1230) PDPA: ลูกค้าที่ไม่ติ๊กรับข่าวสารในฟอร์ม (marketingConsent 'no') ไม่ได้รับ SMS/อีเมลกลุ่ม
+    phone: c.marketingConsent === 'no' ? '' : (c.phone || ''), lineId: c.lineId || '', email: c.marketingConsent === 'no' ? '' : (c.email || ''), lineUserId: c.lineOptOut || c.lineBlockedAt ? '' : (c.lineUserId || ''), // (v1.0.1230) ลูกค้าพิมพ์ "เลิกรับ"/บล็อก OA = ไม่ส่ง
   }))
 }
 

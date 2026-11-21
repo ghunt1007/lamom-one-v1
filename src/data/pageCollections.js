@@ -760,6 +760,11 @@ export const PAGE_COLLECTIONS = {
   "bookings",
   "winback_targets"
  ],
+ "/crm/wake-leads": [
+  "customer_notes",
+  "customers",
+  "sales_programs"
+ ],
  "/service/wash": [
   "wash_queue"
  ],

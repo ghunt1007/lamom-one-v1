@@ -48,6 +48,8 @@ import { alertNewLead } from './leadAlert.js'
 import { runLeadNudge } from './leadNudge.js'
 import { SEND_CRON, runScheduledSends, scheduleSend, unscheduleSend } from './scheduledSend.js'
 import { runChatNudge } from './chatNudge.js'
+import { pickWakeLeads } from '../src/utils/wakeLeads.js'
+import { parseLinkCode, parseOptCommand, linkByCode, setOptOut, markFollow, runStatusLine, STATUS_BOOKING_FIELDS, STATUS_CUSTOMER_FIELDS } from './lineLink.js'
 import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } from './scheduledPost.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
@@ -196,6 +198,7 @@ export default {
         await runScheduledPosts(e2, tok).catch(() => null)
         await runLeadNudgeJob(e2, tok).catch(() => null)
         await runChatNudgeJob(e2, tok).catch(() => null)
+        await runStatusLineJob(e2, tok).catch(() => null)
       })())
       return
     }
@@ -264,6 +267,26 @@ async function runChatNudgeJob(env, token) {
         method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields: { chatNudgedAt: { stringValue: iso } } }),
       })
       return res.ok
+    },
+  })
+}
+
+// (v1.0.1230) cron ทุก 10 นาที: แจ้งสถานะรถให้ลูกค้าที่ผูก LINE แล้ว เมื่อสถานะใบจองเปลี่ยน — เฉพาะเมื่อเปิดสวิตช์ในแอป (workers/lineLink.js)
+async function runStatusLineJob(env, token) {
+  if (!token) return null
+  const inbox = await readInboxAuto(env, token).catch(() => null)
+  const base = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`
+  return runStatusLine({
+    enabled: !!inbox?.statusLine,
+    listBookings: () => runQuery(env, token, 'bookings', null, null, 5000, STATUS_BOOKING_FIELDS),
+    listCustomers: () => runQuery(env, token, 'customers', null, null, 5000, STATUS_CUSTOMER_FIELDS),
+    pushLine: env.LINE_CHANNEL_ACCESS_TOKEN ? async (to, text) => (await pushLine(env, to, text)).sent : null,
+    mark: async (id, fields) => {
+      const mask = Object.keys(fields).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&')
+      const res = await fetch(`${base}/bookings/${encodeURIComponent(id)}?${mask}&currentDocument.exists=true`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }),
+      }).catch(() => null)
+      return !!res?.ok
     },
   })
 }
@@ -371,7 +394,25 @@ async function handleLineWebhook(request, env, cors) {
     const cmd = parseLineCommand(ev.type === 'message' && ev.message?.type === 'text' ? ev.message.text : '')
     let reply = null
     let otherMessage = false
-    if (cmd.type === 'register') {
+    // (v1.0.1230) ลูกค้าบล็อก/เพิ่มเพื่อน OA กลับ → จดไว้ (ไม่ส่งข้อความอัตโนมัติหาคนที่บล็อก) — ไม่เปลี่ยนการทำงานเดิม
+    if (ev.type === 'follow' || ev.type === 'unfollow') await markFollow(env, accessToken, { userId, follow: ev.type === 'follow' }).catch(() => 0)
+    // (v1.0.1230) ลูกค้าส่ง "ผูก XXXXXX" จาก QR ในแอป → ผูก LINE เข้าแฟ้มลูกค้า/ใบจอง · "เลิกรับ"/"รับข่าว" = PDPA เลิกรับ/กลับมารับ
+    const plainText = ev.type === 'message' && ev.message?.type === 'text' ? ev.message.text : ''
+    const linkCode = parseLinkCode(plainText)
+    const optCmd = linkCode ? '' : parseOptCommand(plainText)
+    let handled = false
+    if (linkCode || optCmd) {
+      const r = linkCode
+        ? ((await linkByCode(env, accessToken, { code: linkCode, userId }).catch(() => null))?.reply || '')
+        : await setOptOut(env, accessToken, { userId, out: optCmd === 'out' }).catch(() => '')
+      if (r) {
+        handled = true
+        reply = r
+        // ให้ทีมเห็นในกล่องแชต LINE ของแอปด้วยว่าลูกค้าผูก/เลิกรับแล้ว
+        await recordLineInbound(env, accessToken, ev).catch(() => null)
+      }
+    }
+    if (handled) { /* ตอบด้านล่าง */ } else if (cmd.type === 'register') {
       // เซลส์ลงทะเบียนชื่อตัวเอง → เช้าวันถัดไปได้งานค้างของตัวเองทาง LINE (ชื่อต้องตรงกับชื่อเซลส์/ผู้ดูแลในแอป)
       await writeSalesTarget(env, accessToken, userId, cmd.name)
       reply = `✅ ลงทะเบียนชื่อ "${cmd.name}" แล้วครับ\nทุกเช้า 9 โมงจะส่งงานค้างของคุณมาที่นี่ หรือพิมพ์ "งาน" เพื่อดูได้ทันที\n(ชื่อต้องตรงกับชื่อเซลส์ในแอป LAMOM ONE — พิมพ์ "ยกเลิก" เพื่อหยุดรับ)`
@@ -919,7 +960,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 export const EVENING_CUSTOMER_FIELDS = ['stage', 'createdAt', 'source', 'assignedTo', 'temperature', 'isLost', 'lostAt', 'lostReason', 'lastContactAt', 'eventId', 'referralCode', 'deleted', 'autoLead', 'utmMedium', 'utmSource', 'utmCampaign', 'tags', 'reEnquiredAt', 'firstContactAt']
 // ช่องของลูกค้าที่ buildMorningSections อ่าน — ขาดช่องไหน หัวข้อนั้นจะเงียบหายในรายงานจริง (เทสต์เช็กไว้)
 // (v1.0.1211) เดิมไม่มี autoLead → หัวข้อ "🆕 Lead ใหม่ที่ยังไม่มีใครโทร" ไม่เคยขึ้นในรายงานจริง
-export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel']
+export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel', 'phone', 'wakeSentAt', 'lineOptOut', 'lineBlockedAt', 'marketingConsent']
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly']),
@@ -1367,6 +1408,9 @@ export function buildWeeklyReport(data, { today }) {
   })
   const quietTop = Object.entries(quietBy).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k} ${v}`).join(' · ')
   const quietLines = quietN ? ['', `💤 Lead/Prospect เงียบ 7 วัน+: ${quietN} ราย`, `    มากสุด: ${quietTop}`] : []
+  // (v1.0.1231) ลีดเงียบเกิน 30 วันที่ทักได้ (ไม่เลิกรับ/ไม่ได้ทักใน 30 วัน) → ชวนเปิดหน้า "ปลุกลีดเก่า" ส่งทีเดียว
+  const wake = pickWakeLeads(customers, { today })
+  const wakeLine = wake.length ? `😴 ลีดเงียบ 30 วัน+ ที่ควรทัก: ${wake.length} ราย (ส่ง LINE ได้ ${wake.filter(w => w.channel === 'line').length}) → เมนู "ปลุกลีดเก่า"` : null
 
   // เสียดีลสัปดาห์ที่แล้ว แยกตามเหตุผล (ใช้คำหน้าเครื่องหมาย " - " เช่น "ราคา - คู่แข่งลดให้ 20,000" นับเป็น "ราคา")
   const lostBy = {}
@@ -1402,6 +1446,7 @@ export function buildWeeklyReport(data, { today }) {
     ...(sellerLines.length ? ['', '👤 ทีมขาย (สัปดาห์ที่แล้ว)', ...sellerLines] : []),
     ...fuLines,
     ...quietLines,
+    wakeLine,
     ...lostLines,
     ...(convLines.length ? ['', '🎯 ช่องทางที่ปิดจองได้ดี (Lead 90 วันล่าสุด)', ...convLines] : []),
     '',

@@ -32,6 +32,7 @@ export const INBOX_DEFAULTS = {
   aiInfo: '', // ข้อมูลโชว์รูมที่ให้ AI ใช้ตอบ เช่น ที่อยู่ เวลาเปิด เบอร์โทร รุ่นที่ขาย
   leadAlert: true, // (v1.0.1144) แจ้ง LINE + ในแอปทันทีเมื่อมีลีดใหม่เข้าทางฟอร์ม/webhook/Meta
   publicForm: false, // (v1.0.1140) เปิดฟอร์มรับลีดสาธารณะ /lead.html
+  statusLine: false, // (v1.0.1230) แจ้งสถานะรถทาง LINE อัตโนมัติ (เฉพาะลูกค้าที่ผูก LINE เองแล้ว) — ดู workers/lineLink.js
 }
 
 const bool = (v, d) => (v === true || v === false ? v : d)
@@ -52,6 +53,7 @@ export function normalizeInboxAuto(raw = {}, env = {}) {
     aiInfo: str(r.aiInfo, '', 3000),
     publicForm: bool(r.publicForm, false),
     leadAlert: bool(r.leadAlert, true),
+    statusLine: bool(r.statusLine, false),
   }
 }
 

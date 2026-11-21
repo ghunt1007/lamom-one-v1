@@ -38,6 +38,7 @@ export const NAV = [
       { icon: '🔄', label: 'วงจรชีวิตลูกค้า', labelEn: 'Customer Lifecycle', path: '/crm/lifecycle' },
       { icon: '🎂', label: 'อวยพรวันเกิด', labelEn: 'Birthday Greetings', path: '/crm/birthdays' },
       { icon: '💝', label: 'ดึงลูกค้ากลับ', labelEn: 'Win-Back', path: '/crm/winback' },
+      { icon: '😴', label: 'ปลุกลีดเก่า', labelEn: 'Wake Old Leads', path: '/crm/wake-leads' },
       { icon: '📒', label: 'บันทึกลูกค้า', labelEn: 'Customer Notes', path: '/crm/notes' },
       { icon: '👑', label: 'ลูกค้า VIP', labelEn: 'VIP Club', path: '/crm/vip' },
       { icon: '🧬', label: 'ลูกค้าซ้ำ', labelEn: 'Duplicates', path: '/crm/duplicates' },

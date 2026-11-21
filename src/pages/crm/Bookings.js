@@ -3,6 +3,7 @@ import { scanIdCard, idCardSummary } from '../../utils/idCardScan.js'
 import { carOf, carLabel } from '../../utils/carLabel.js'
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, readDoc } from '../../core/db.js'
 import { customerStatusMessage } from '../../utils/bookingNotify.js'
+import { openLineLinkQr, lineLinkState } from '../../utils/lineLink.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
 import { showToast, getState, setState, on } from '../../core/store.js'
@@ -815,6 +816,7 @@ export default async function BookingsPage(container) {
     const { el, close } = openModal({
       title: '💬 แจ้งลูกค้าทาง LINE ไหม?', size: 'sm',
       body: `<div style="font-size:0.76rem;color:var(--text-muted);margin-bottom:6px">ลูกค้าจะได้ไม่ต้องโทรถามว่ารถถึงไหนแล้ว · แก้ข้อความได้ก่อนคัดลอก</div>
+        ${b.lineUserId ? `<div style="font-size:0.74rem;margin-bottom:6px">${escHtml(lineLinkState(b).label)} — ถ้าเปิด "แจ้งสถานะรถทาง LINE อัตโนมัติ" ไว้ ระบบส่งให้เองภายใน 10 นาที</div>` : ''}
         <textarea class="input" id="bk-notice" data-no-mic rows="5" style="width:100%;font-size:16px">${escHtml(msg)}</textarea>`,
       footer: `<button class="btn btn-secondary" id="bk-notice-skip">ไม่ต้อง</button><button class="btn btn-primary" id="bk-notice-copy">📋 คัดลอกไปส่ง</button>`,
     })
@@ -1439,6 +1441,7 @@ export default async function BookingsPage(container) {
               '<button class="btn btn-secondary" id="bk-edit2">✏️ แก้ไข</button>' +
               '<button class="btn btn-secondary" id="bk-note2">📝 โน๊ต</button>' +
               (customerStatusMessage(b, b.status) ? '<button class="btn btn-secondary" id="bk-tell">💬 แจ้งลูกค้า</button>' : '') +
+              (b.lineUserId ? '' : '<button class="btn btn-secondary" id="bk-line-link" title="ลูกค้าสแกนครั้งเดียว แล้วรับแจ้งสถานะรถทาง LINE ได้">🔗 ผูก LINE</button>') +
               (depositAmt(b) > 0 && !b.rightsOnly && b.status !== 'ถอนจอง' && b.paymentVerifyStatus !== 'ยืนยันแล้ว' && b.paymentVerifyStatus !== 'รอการเงินยืนยัน'
                 ? '<button class="btn btn-secondary" id="bk-verify-pay" style="color:var(--warning)">💸 แจ้งการเงินตรวจยอด</button>' : '') +
               '<button class="btn btn-secondary" id="bk-print">📄 เอกสาร / พิมพ์' + ((b.files || []).length ? ' · 📎' + b.files.length : '') + '</button>' +
@@ -1451,6 +1454,7 @@ export default async function BookingsPage(container) {
     collapseEmptyRows([...document.querySelectorAll('.modal-overlay')].pop())
     document.getElementById('bk-replan')?.addEventListener('click', () => openReplan(b))
     document.getElementById('bk-tell')?.addEventListener('click', () => offerCustomerNotice(b, b.status))
+    document.getElementById('bk-line-link')?.addEventListener('click', () => openLineLinkQr({ targets: [{ col: 'bookings', id: b.id }, ...(b.customerId ? [{ col: 'customers', id: b.customerId }] : [])], name: b.custName || '' }))
     document.getElementById('bk-finance-btn')?.addEventListener('click', () => {
       sessionStorage.setItem('lamom_finance_prefill', JSON.stringify({
         bookingId: b.id, customerId: b.customerId || null, custName: b.custName || '', phone: b.phone || '',
