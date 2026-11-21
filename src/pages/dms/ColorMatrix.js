@@ -108,6 +108,7 @@ export default async function ColorMatrixPage(container) {
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;font-size:0.72rem">
           <span style="color:var(--text-muted)">สั่งวันนี้ รถมาส่งใน</span>${daysBtns}
         </div>
+        ${!vehicles.some(v => !v.deleted) && !orders.some(o => !o.deleted) ? `<div style="font-size:0.74rem;color:var(--warning);background:var(--surface-2);border-radius:8px;padding:6px 10px;margin-bottom:8px">⚠️ ยังไม่มีรถในสต็อกหรือใบสั่งรถในแอปเลย ตัวเลข "ควรสั่ง" จึงยังไม่ได้หักรถที่มีจริง — บันทึกที่ เมนูรถ › สต็อกรถ / ใบสั่งรถ ก่อน แล้วตัวเลขจะแม่นขึ้น</div>` : ''}
         <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:8px">ควรสั่ง = ลูกค้าจองรอ + ยอดจองที่น่าจะเข้ามาระหว่างรอรถ (จังหวะจอง 90 วันที่ผ่านมา) + ลีดร้อน 30% / อุ่น 10% − รถว่าง/กำลังมา/สั่งแล้ว · แบ่งสีตามที่ลูกค้าจองจริง · กดชื่อรุ่นเพื่อดูแยกสี</div>
         ${!shown.length ? `<div style="padding:14px 0;color:var(--text-muted)">ยังไม่มีข้อมูลการจองใน 90 วันที่ผ่านมา</div>`
           : `<div style="font-weight:800;color:${fc.total ? 'var(--warning)' : 'var(--success)'};margin-bottom:4px">${fc.total ? `ควรสั่งรวม ~${fc.total} คัน ภายใน ${fc.leadDays} วัน` : '✅ รถที่มี/กำลังมา/สั่งไว้ พอสำหรับช่วงนี้'} · จองใน 90 วัน ${fc.sold} คัน</div>

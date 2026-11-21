@@ -807,7 +807,8 @@ export function waitEtaAnswer(vehicles, bookings, orders, { today, mine = () => 
 // (v1.0.1233) คาดการณ์สั่งรถล่วงหน้า (ช่วงรอรถ 45 วัน — ปรับได้ที่หน้าตารางสีรถ)
 export function forecastAnswer(vehicles, bookings, orders, customers, { today, leadDays = 45 } = {}) {
   const fc = orderForecast({ bookings, vehicles, orders, customers, today, leadDays })
-  return { n: fc.total, text: orderForecastText(fc) }
+  const noStock = !(vehicles || []).some(v => v && !v.deleted) && !(orders || []).some(o => o && !o.deleted)
+  return { n: fc.total, text: orderForecastText(fc) + (noStock && fc.total ? '\n⚠️ ยังไม่มีรถในสต็อก/ใบสั่งรถในแอป ตัวเลขนี้ยังไม่หักรถที่มีจริง — บันทึกที่ เมนูรถ › สต็อกรถ / ใบสั่งรถ ก่อน' : '') }
 }
 
 export function lowStockAnswer(vehicles, bookings, orders) {

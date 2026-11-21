@@ -1521,6 +1521,8 @@ export function buildWeeklyReport(data, { today }) {
     const fc = orderForecast({ bookings, vehicles: data.vehicles, orders: data.vehicleOrders || [], customers, today, leadDays: 45 })
     const top = fc.models.filter(m => m.suggest > 0).slice(0, 3).map(m => `${m.car} ${m.suggest}`).join(' · ')
     if (fc.total) fcLine = `📈 ควรสั่งรถ (รถมาใน 45 วัน): ~${fc.total} คัน — ${top} → เมนู "ตารางสีรถ"`
+    // (v1.0.1253) ยังไม่ได้คีย์สต็อก/ใบสั่งรถเลย → บอกว่าตัวเลขยังไม่หักรถที่มีจริง
+    if (fcLine && !data.vehicles.some(v => v && !v.deleted) && !(data.vehicleOrders || []).some(o => o && !o.deleted)) fcLine += ' (ยังไม่หักรถที่มีจริง — ยังไม่ได้บันทึกสต็อก/ใบสั่งรถในแอป)'
   }
 
   // (v1.0.1236) ลูกค้าที่จองแล้วยังไม่ส่งมอบ ผูก LINE กี่คน — ผูกแล้วระบบแจ้งสถานะรถ/นัดส่งมอบเองได้
