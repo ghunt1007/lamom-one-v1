@@ -10,6 +10,7 @@ export const FORECAST_LEAD_DAYS = [30, 45, 60, 90]
 export const HOT_CLOSE = 0.3   // ลีดร้อน 10 คน ≈ ปิดได้ 3 คัน (ประมาณการแบบระวัง)
 export const WARM_CLOSE = 0.1
 const NO_COLOR = 'ไม่ระบุสี'
+export const OVERSTOCK_DAYS = 120
 const norm = s => String(s || '').toLowerCase().replace(/[\s\-_.()]+/g, '')
 const dayNum = iso => { const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number); return Date.UTC(y, m - 1, d) / 864e5 }
 const alive = a => (a || []).filter(x => x && !x.deleted)
@@ -96,6 +97,8 @@ export function orderForecast({ bookings = [], vehicles = [], orders = [], custo
       mk: m.mk, car: m.car, brand: m.brand, model: m.model, sold: m.sold, perMonth: r1(perDay * 30), expected: r1(expected),
       hot: m.hot, warm: m.warm, leads: r1(leads), wait, have, spare,
       coverDays: perDay > 0 ? Math.floor(spare / perDay) : null,
+      // (v1.0.1240) รถว่างเกินกว่าที่น่าจะขายได้ใน 120 วัน (หรือมีรถว่างแต่ไม่มีใครจองเลยใน 90 วัน) — ไม่ควรสั่งเพิ่ม ควรเร่งขาย
+      overstock: spare > 0 && (perDay > 0 ? spare / perDay >= OVERSTOCK_DAYS : !(m.hot || m.warm)),
       suggest, unassigned, colors,
     })
   }
@@ -121,7 +124,10 @@ export function forecastOrderLines(fc) {
 // สรุปข้อความ (LAMI / รายงาน)
 export function orderForecastText(fc, max = 8) {
   const need = fc.models.filter(m => m.suggest > 0)
-  if (!need.length) return `📈 คาดการณ์ ${fc.leadDays} วันข้างหน้า: รถที่มี/กำลังมา/สั่งไว้ พอสำหรับลูกค้าที่จองรอและยอดจองที่น่าจะเข้ามาแล้ว`
+  if (!need.length) {
+    const over = fc.models.filter(m => m.overstock)
+    return `📈 คาดการณ์ ${fc.leadDays} วันข้างหน้า: รถที่มี/กำลังมา/สั่งไว้ พอสำหรับลูกค้าที่จองรอและยอดจองที่น่าจะเข้ามาแล้ว${over.length ? `\n⚠️ สต็อกเกิน ควรเร่งขาย: ${over.slice(0, 5).map(m => `${m.car} ว่าง ${m.spare}`).join(', ')}` : ''}`
+  }
   const lines = [`📈 คาดการณ์สั่งรถ (รถมาส่งใน ~${fc.leadDays} วัน) — ควรสั่งรวม ${fc.total} คัน`]
   for (const m of need.slice(0, max)) {
     const cols = m.colors.filter(c => c.suggest > 0).map(c => `สี${c.color} ${c.suggest}`)
@@ -129,6 +135,8 @@ export function orderForecastText(fc, max = 8) {
     lines.push(`• ${m.car} ${m.suggest} คัน (${cols.join(', ')}) — จองเฉลี่ย ${m.perMonth}/เดือน · จองรอ ${m.wait} · มี/มา/สั่ง ${m.have}${m.hot ? ` · ลีดร้อน ${m.hot}` : ''}`)
   }
   if (need.length > max) lines.push(`…และอีก ${need.length - max} รุ่น`)
+  const over = fc.models.filter(m => m.overstock)
+  if (over.length) lines.push(`⚠️ สต็อกเกิน ไม่ควรสั่งเพิ่ม: ${over.slice(0, 5).map(m => `${m.car} (ว่าง ${m.spare}${m.coverDays != null ? ` · พอขาย ~${m.coverDays} วัน` : ' · ไม่มีคนจองใน 90 วัน'})`).join(', ')}`)
   lines.push('💡 เป็นการประมาณจากจังหวะจองย้อนหลัง 90 วัน + ลีดร้อน — ดู/ปรับช่วงรอรถ และทำร่างใบสั่งได้ที่ เมนูรถ › 🎨 ตารางสีรถ')
   return lines.join('\n')
 }

@@ -50,6 +50,7 @@ import { SEND_CRON, runScheduledSends, scheduleSend, unscheduleSend } from './sc
 import { runChatNudge } from './chatNudge.js'
 import { pickWakeLeads } from '../src/utils/wakeLeads.js'
 import { orderForecast } from '../src/utils/orderForecast.js'
+import { matchReadyCars } from '../src/utils/orderNeeds.js'
 import { parseLinkCode, parseOptCommand, linkByCode, setOptOut, markFollow, runStatusLine, STATUS_BOOKING_FIELDS, STATUS_CUSTOMER_FIELDS } from './lineLink.js'
 import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } from './scheduledPost.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
@@ -358,7 +359,8 @@ async function runMorningReminder(env, accessToken) {
       const text = team
         ? teamTasksText(mine, today, env.ALLOWED_ORIGIN).replace('📋 งานค้างของทีมตอนนี้', '☀️ งานค้างของทีมเช้านี้')
         : buildPersonalReminder(mine[0], today, env.ALLOWED_ORIGIN, sellerGoal(data, goals, t.name, today))
-      const r = await pushLine(env, t.userId, text)
+      const mineCars = readyPairLines(data, team ? '' : t.name)
+      const r = await pushLine(env, t.userId, mineCars.length && !team ? clipLine(text + '\n\n' + mineCars.join('\n')) : text)
       personal.push({ name: t.name, team, ...r })
     }
   }
@@ -968,7 +970,7 @@ export const EVENING_CUSTOMER_FIELDS = ['stage', 'createdAt', 'source', 'assigne
 // (v1.0.1211) เดิมไม่มี autoLead → หัวข้อ "🆕 Lead ใหม่ที่ยังไม่มีใครโทร" ไม่เคยขึ้นในรายงานจริง
 export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel', 'phone', 'wakeSentAt', 'lineOptOut', 'lineBlockedAt', 'marketingConsent']
 async function buildMorningData(env, accessToken) {
-  const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves] = await Promise.all([
+  const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves, vehicles] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly', 'colorOut', 'color', 'vin', 'lineUserId']),
     runQuery(env, accessToken, 'customers', null, null, 5000, MORNING_CUSTOMER_FIELDS),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
@@ -983,12 +985,14 @@ async function buildMorningData(env, accessToken) {
     runQuery(env, accessToken, 'pdi', 'startDate', 'DESCENDING', 300, ['status', 'startDate', 'brand', 'model', 'color', 'vin', 'inspector', 'deleted']).catch(() => []),
     runQuery(env, accessToken, 'complaints', 'createdAt', 'DESCENDING', 300, ['status', 'priority', 'subject', 'assignedTo', 'createdAt', 'customerName', 'custName', 'deleted']).catch(() => []),
     runQuery(env, accessToken, 'leave_requests', 'from', 'DESCENDING', 300, ['status', 'from', 'to', 'staff', 'type', 'deleted']).catch(() => []),
+    // (v1.0.1239) รถว่าง — จับคู่กับลูกค้าที่จองรอ (อ่านไม่ได้ = null ไม่ใส่บรรทัด)
+    runQuery(env, accessToken, 'vehicles', null, null, 3000, ['status', 'brand', 'model', 'color', 'vin', 'arrivedAt', 'deleted'], ['status', 'available']).catch(() => null),
   ])
   // แก้สถานะไฟแนนซ์ที่ค้าง "รอผล" ของใบจองที่ไปถึงรอรถ/รอส่งมอบ/ส่งมอบแล้ว ให้เป็น "ผ่าน" ในฐานข้อมูลจริงทุกเช้า
   const fixes = bookings.filter(b => b.id && finPassPatch(b))
   if (fixes.length && await commitFinancePassed(env, accessToken, fixes.map(b => b.id))) fixes.forEach(b => { b.finStatus = 'ผ่าน' })
   const today = todayBangkok()
-  const data = { bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves }
+  const data = { bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves, vehicles }
   return { today, data, text: buildMorningReminder(data, { today, appUrl: env.ALLOWED_ORIGIN }), sections: buildMorningSections(data, { today }) }
 }
 
@@ -1237,6 +1241,7 @@ export function buildMorningReminder(data, opts) {
   const finLine = financeQueueLine(data.bookings, today)
   const svc = serviceTodayLines(data.serviceAppts, today)
   const office = officeDigestLines({ today, threads: data.lineThreads, pdis: data.pdis, complaints: data.complaints, leaves: data.leaves }, { appUrl: opts.appUrl || '' })
+  const pairs = readyPairLines(data)
 
   const text = [
     '☀️ LAMOM ONE เตือนงานเช้านี้',
@@ -1245,6 +1250,7 @@ export function buildMorningReminder(data, opts) {
     '',
     ...(sections.length ? sections.flatMap((s, i) => i ? ['', s] : [s]) : ['✅ ไม่มีงานค้าง ขอให้ขายดีทั้งวันครับ 🎉']),
     ...(finLine ? ['', finLine] : []),
+    ...(pairs.length ? ['', ...pairs] : []),
     ...(svc.length ? ['', ...svc] : []),
     ...(office.length ? ['', ...office] : []),
     '',
@@ -1252,6 +1258,17 @@ export function buildMorningReminder(data, opts) {
     '🤖 LAMOM ONE Auto Reminder',
   ].join('\n')
   return clipLine(text)
+}
+
+// (v1.0.1239) รถว่างที่รุ่น+สีตรงกับลูกค้าที่จองรอ (จองก่อนได้ก่อน) — seller = เฉพาะลูกค้าของเซลส์คนนี้
+export function readyPairLines(data, seller = '') {
+  if (!Array.isArray(data?.vehicles)) return []
+  let pairs = matchReadyCars({ bookings: data.bookings || [], vehicles: data.vehicles })
+  if (seller) pairs = pairs.filter(p => normSalesName(p.booking.salesName) === normSalesName(seller))
+  if (!pairs.length) return []
+  return [`🔑 มีรถว่างตรงกับลูกค้าที่จองรอ ${pairs.length} คัน — ใส่เลขตัวถังในใบจองแล้วแจ้งลูกค้าได้เลย`,
+    ...pairs.slice(0, 5).map(({ booking: b, vehicle: v }) => `  • ${String(b.custName || '').trim() || 'ลูกค้า'} ← ${[v.model, v.color && 'สี' + v.color].filter(Boolean).join(' ')}${v.vin ? ` (${v.vin})` : ''}${!seller && b.salesName ? ` · ${b.salesName}` : ''}`),
+    ...(pairs.length > 5 ? [`  …และอีก ${pairs.length - 5} คัน ดูที่เมนูรถ › ตารางสีรถ`] : [])]
 }
 
 // LINE รับข้อความได้ไม่เกิน 5,000 ตัวอักษร — ตัดท้ายแทนที่จะส่งไม่ออกทั้งข้อความ

@@ -2,7 +2,7 @@
 //   "นัดทดลองขับวันนี้มีใครบ้าง" · "พรุ่งนี้มีใครเข้าโชว์รูม" · "มีลูกค้าทัก LINE รอตอบไหม"
 //   "เรื่องร้องเรียนค้างอยู่ไหม" · "ลูกค้าใหม่เดือนนี้กี่คน" · "ใครเกิดวันนี้ / ครบรอบซื้อรถสัปดาห์นี้"
 // ฟังก์ชันล้วน ทดสอบได้ · ตัวโหลดข้อมูลอยู่ใน lamiCommandCard.js (loadOpsAnswer)
-import { orderNeeds, orderNeedsText } from './orderNeeds.js'
+import { orderNeeds, orderNeedsText, matchReadyCars, matchReadyText } from './orderNeeds.js'
 import { orderForecast, orderForecastText } from './orderForecast.js'
 import { dmy, toDate } from './format.js'
 import { plateRows, deliveredOn, PLATE_LATE_DAYS } from './plateList.js'
@@ -151,6 +151,8 @@ export function parseOpsSpec(q) {
   // (v1.0.1233) "คาดการณ์สั่งรถ" / "เดือนหน้าควรสั่งรถกี่คัน" → คาดการณ์ล่วงหน้า (จังหวะจอง + ลีดร้อน)
   if (has(s, /คาดการณ์|พยากรณ์|ล่วงหน้า|forecast|เดือนหน้า(?:ควร|ต้อง)?สั่ง|ควรสั่ง(?:รถ)?(?:เดือนหน้า|ล่วงหน้า)/i) && has(s, /สั่ง(?:รถ)?|order/i) && !has(s, /อะไหล่|ยอดขาย(?!.*สั่ง)/)) return { kind: 'forecast' }
   if (has(s, /กำลัง(?:จะ)?มา(?:ถึง)?|กำลังขนส่ง|ระหว่างขนส่ง|รถ(?:ที่)?สั่ง(?:ไว้)?|รถจะเข้า|รถเข้าเมื่อไหร่|รถมาเมื่อไหร่|ใบสั่ง(?:ซื้อ)?รถ|สั่งรถ(?:ไป)?กี่คัน/) && !has(s, /ลูกค้า|ใคร(?:รอ|จอง)|อะไหล่/)) return { kind: 'incoming' }
+  // (v1.0.1241) "รถว่างคันไหนให้ใคร" / "จับคู่รถกับลูกค้า" → คำตอบเดียวกับรุ่นที่ต้องสั่ง (ขึ้นต้นด้วยคู่รถ-ลูกค้า)
+  if (has(s, /จับคู่รถ|รถ(?:ว่าง)?(?:คันไหน)?(?:ควร)?ให้ใคร|ลูกค้าคนไหนได้รถ|ใครได้รถ(?:คันไหน)?|รถว่างตรงกับ/) && !has(s, /อะไหล่|ทดลองขับ/)) return { kind: 'lowstock' }
   // (v1.0.1097) "รถรุ่นไหนเหลือน้อย" / "รุ่นไหนควรสั่งเพิ่ม"
   if (has(s, /รุ่นไหน|รุ่นอะไร|คันไหน|สีไหน|สีอะไร|ควรสั่ง|ต้องสั่ง/) && has(s, /เหลือน้อย|ใกล้หมด|หมดสต็อก|หมดสต๊อก|ขาดสต็อก|ขาดสต๊อก|สั่งเพิ่ม|ควรสั่ง|ต้องสั่ง|ไม่พอ/) && !has(s, /อะไหล่/)) return { kind: 'lowstock' }
   // (v1.0.1097) "ลูกค้าที่ไม่ได้รับสายมีใครบ้าง" → โทรแล้วไม่รับสาย (14 วันล่าสุด) ที่ยังติดต่อไม่ได้
@@ -789,8 +791,10 @@ export function lowStockAnswer(vehicles, bookings, orders) {
   const base = lowStockBase(vehicles, bookings)
   if (!orders) return base
   const needText = orderNeedsText(orderNeeds({ bookings, vehicles, orders }))
-  if (!needText) return base
-  return { n: Math.max(1, base.n), text: needText + '\n\n' + base.text }
+  const pairText = matchReadyText(matchReadyCars({ bookings, vehicles }), 5)
+  const head = [pairText, needText].filter(Boolean).join('\n\n')
+  if (!head) return base
+  return { n: Math.max(1, base.n), text: head + '\n\n' + base.text }
 }
 function lowStockBase(vehicles, bookings) {
   const k = v => carOf(v) || String(v.model || '').trim()

@@ -9,11 +9,12 @@ import { listDocs, createDoc } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
-import { orderNeeds } from '../../utils/orderNeeds.js'
+import { orderNeeds, matchReadyCars } from '../../utils/orderNeeds.js'
 import { orderForecast, forecastOrderLines, FORECAST_LEAD_DAYS } from '../../utils/orderForecast.js'
-import { todayBangkok } from '../../utils/format.js'
+import { todayBangkok, dmy } from '../../utils/format.js'
 import { carLabel } from '../../utils/carLabel.js'
 import { confirmDialog } from '../../utils/modal.js'
+import { navigate } from '../../core/router.js'
 
 function colorDot(color = '') {
   const map = { ขาว: '#f5f5f5', น้ำเงิน: '#1976D2', แดง: '#E53935', ดำ: '#212121', เทา: '#9E9E9E', เขียว: '#43A047', เงิน: '#BDBDBD', ทอง: '#FDD835', ชมพู: '#e91e63', เหลือง: '#ffd600' }
@@ -40,6 +41,7 @@ export default async function ColorMatrixPage(container) {
   let orders = []
   let bookings = []
   let needs = []
+  let pairs = []
   let customers = []
   let fc = null
   let fcOpen = null // รุ่นที่กางดูสี (mk)
@@ -60,6 +62,7 @@ export default async function ColorMatrixPage(container) {
     // (v1.0.1233) ลีดร้อน/อุ่น ใช้คาดการณ์ยอดจองที่น่าจะเข้ามา
     try { customers = await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 3000) } catch { customers = [] }
     needs = orderNeeds({ bookings, vehicles, orders })
+    pairs = matchReadyCars({ bookings, vehicles })
     computeForecast()
     computeMatrix()
     loading = false
@@ -73,7 +76,7 @@ export default async function ColorMatrixPage(container) {
   // (v1.0.1233) 📈 คาดการณ์สั่งรถล่วงหน้า — มองไปข้างหน้าช่วงที่รอรถมาส่ง
   function forecastSection() {
     if (!fc) return ''
-    const shown = fc.models.filter(m => m.suggest > 0 || m.sold || m.wait)
+    const shown = fc.models.filter(m => m.suggest > 0 || m.sold || m.wait || m.overstock)
     const daysBtns = FORECAST_LEAD_DAYS.map(d => `<button class="btn btn-xs ${d === leadDays ? 'btn-primary' : 'btn-secondary'} cm-lead" data-d="${d}">${d} วัน</button>`).join('')
     const cover = m => m.coverDays == null ? (m.spare ? `มีว่าง ${m.spare}` : '—') : !m.spare ? 'หมดแล้ว' : m.coverDays >= 365 ? 'เกิน 1 ปี' : `~${m.coverDays} วัน`
     const colorLine = c => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0 6px 28px;font-size:0.72rem;flex-wrap:wrap;border-top:1px dashed var(--border)">
@@ -85,7 +88,7 @@ export default async function ColorMatrixPage(container) {
     const line = m => `<div style="border-top:1px solid var(--border);padding:10px 4px">
         <div class="cm-fc-row" data-mk="${escHtml(m.mk)}" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer">
           <div style="flex:1;min-width:150px">
-            <div style="font-weight:800;font-size:0.84rem">${fcOpen === m.mk ? '▾' : '▸'} ${escHtml(m.car)}</div>
+            <div style="font-weight:800;font-size:0.84rem">${fcOpen === m.mk ? '▾' : '▸'} ${escHtml(m.car)}${m.overstock ? ' <span style="font-size:0.62rem;font-weight:700;color:var(--danger);white-space:nowrap" title="รถว่างเกินกว่าที่น่าจะขายได้ใน 120 วัน — ไม่ควรสั่งเพิ่ม ควรเร่งขาย/ทำโปร">⚠️ สต็อกเกิน</span>' : ''}</div>
             <div style="font-size:0.66rem;color:var(--text-muted);overflow-wrap:anywhere">${m.sold ? `จองเฉลี่ย ${m.perMonth} คัน/เดือน · คาดจองเพิ่ม ~${m.expected} ใน ${fc.leadDays} วัน` : 'ยังไม่มียอดจองใน 90 วัน'}${m.hot || m.warm ? ` · ลีดร้อน ${m.hot} อุ่น ${m.warm}` : ''}</div>
           </div>
           <div style="display:flex;gap:2px;font-size:0.8rem">
@@ -158,6 +161,25 @@ export default async function ColorMatrixPage(container) {
     </div>`
   }
 
+  // (v1.0.1238) 🔑 รถว่างตรงกับลูกค้าที่จองรอ — แนะนำว่าคันไหนควรให้ใคร (จองก่อนได้ก่อน)
+  function pairsSection() {
+    if (!pairs.length) return ''
+    const line = ({ booking: b, vehicle: v }) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-top:1px solid var(--border);flex-wrap:wrap">
+        <div style="width:18px;height:18px;border-radius:50%;background:${colorDot(v.color || '')};border:2px solid var(--border);flex-shrink:0"></div>
+        <div style="flex:1;min-width:150px">
+          <div style="font-weight:700;font-size:0.82rem;overflow-wrap:anywhere">${escHtml(String(b.custName || '').trim() || 'ลูกค้า')}${b.salesName ? ` <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem">· ${escHtml(b.salesName)}</span>` : ''}</div>
+          <div style="font-size:0.68rem;color:var(--text-muted);overflow-wrap:anywhere">${escHtml(carLabel(v.brand, v.model))} สี${escHtml(v.color || '-')}${v.vin ? ` · ตัวถัง ${escHtml(v.vin)}` : ''}${b.bookingDate ? ` · จอง ${escHtml(dmy(b.bookingDate))}` : ''}</div>
+        </div>
+        ${b.id ? `<button class="btn btn-xs btn-secondary cm-open-bk" data-id="${escHtml(b.id)}">📝 เปิดใบจอง</button>` : ''}
+      </div>`
+    return `<div class="card" style="padding:14px 16px;margin-bottom:16px;border-left:4px solid var(--success)">
+        <div style="font-weight:900;font-size:0.95rem;margin-bottom:4px">🔑 มีรถว่างตรงกับลูกค้าที่รอ ${pairs.length} คัน</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:6px">จับคู่แบบจองก่อนได้ก่อน และรถที่เข้าสต็อกก่อนออกก่อน (รุ่น+สีตรงกัน) · เป็นคำแนะนำ — ใส่เลขตัวถังในใบจอง/Sheet แล้วแจ้งลูกค้าได้เลย</div>
+        ${pairs.slice(0, 20).map(line).join('')}
+        ${pairs.length > 20 ? `<div style="font-size:0.7rem;color:var(--text-muted);padding-top:6px">…และอีก ${pairs.length - 20} คัน</div>` : ''}
+      </div>`
+  }
+
   // (v1.0.1224) 🛒 ต้องสั่งรุ่นไหน สีอะไร — ลูกค้าจองรอรถ เทียบ รถว่าง + กำลังมา + สั่งแล้ว
   function needsSection() {
     const waiting = needs.filter(r => r.wait > 0)
@@ -225,6 +247,7 @@ export default async function ColorMatrixPage(container) {
           </div>
         </div>
 
+        ${pairsSection()}
         ${needsSection()}
         ${forecastSection()}
 
@@ -252,6 +275,7 @@ export default async function ColorMatrixPage(container) {
     container.querySelectorAll('.stat-btn').forEach(b => b.addEventListener('click', () => { filterStatus = b.dataset.s; render() }))
     document.getElementById('model-filter')?.addEventListener('change', e => { filterModel = e.target.value; render() })
     document.getElementById('cm-need-all')?.addEventListener('click', () => { showAllNeeds = !showAllNeeds; render() })
+    container.querySelectorAll('.cm-open-bk').forEach(b => b.addEventListener('click', () => navigate('/crm/bookings?id=' + encodeURIComponent(b.dataset.id))))
     container.querySelectorAll('.cm-lead').forEach(b => b.addEventListener('click', () => {
       leadDays = Number(b.dataset.d) || 45
       try { localStorage.setItem('cm_lead_days', String(leadDays)) } catch { /* ไม่มี storage ก็ใช้ค่าในหน้านี้ */ }

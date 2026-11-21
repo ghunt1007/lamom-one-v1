@@ -75,3 +75,15 @@ describe('จับคู่รุ่นของลีด', () => {
     expect(fc.models[0]).toMatchObject({ car: 'DEEPAL S07', hot: 1 })
   })
 })
+
+describe('สต็อกเกิน (v1.0.1240)', () => {
+  it('รถว่างเกิน 120 วันของยอดขาย หรือมีรถว่างแต่ไม่มีใครจอง → overstock', () => {
+    const vehicles = Array.from({ length: 5 }, (_, i) => car({ vin: 'V' + i }))
+    const fc = orderForecast({ bookings: [bk({ bookingDate: '2026-11-01' })], vehicles: [...vehicles, car({ model: 'L07', vin: 'L1' })], today })
+    const by = Object.fromEntries(fc.models.map(m => [m.car, m.overstock]))
+    expect(by).toEqual({ 'DEEPAL S07': true, 'DEEPAL L07': true })
+    expect(orderForecastText(fc)).toContain('สต็อกเกิน')
+    const ok = orderForecast({ bookings: Array.from({ length: 9 }, () => bk()), vehicles: [car({ vin: 'A' })], today })
+    expect(ok.models[0].overstock).toBe(false)
+  })
+})
