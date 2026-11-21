@@ -102,3 +102,44 @@ export function matchReadyText(pairs, max = 10) {
     ...(pairs.length > max ? [`…และอีก ${pairs.length - max} คัน`] : []),
     '💡 ใส่เลขตัวถังในใบจอง (หรือใน Sheet) แล้วแจ้งลูกค้าได้เลย'].join('\n')
 }
+
+// (v1.0.1241) "รถจะมาเมื่อไหร่" — ไล่แจกรถให้ลูกค้าที่จองรอแบบจองก่อนได้ก่อน: รถว่าง → รถกำลังขนส่ง → ใบสั่งรถ (ตามวันที่คาดว่าจะถึง)
+// คืน Map(bookingId → { kind: 'ready'|'transit'|'order'|'none', date, ref, ahead })  ahead = ลูกค้าที่รอรุ่น/สีเดียวกันอยู่ก่อน
+export function etaForBookings({ bookings = [], vehicles = [], orders = [], today = '' } = {}) {
+  const open = alive(bookings).filter(isOpenBooking)
+  const taken = new Set(open.map(b => norm(b.vin)).filter(Boolean))
+  const key = (rec, color) => { const mk = modelKey(rec); return mk ? mk + '|' + norm(String(color || '').trim() || NO_COLOR) : '' }
+  const supply = new Map()
+  const add = (k, s) => { if (!k) return; if (!supply.has(k)) supply.set(k, []); supply.get(k).push(s) }
+  alive(vehicles).forEach(v => {
+    if (taken.has(norm(v.vin))) return
+    if (v.status === 'available') add(key(v, v.color), { kind: 'ready', date: today, rank: 0, ref: v.vin || '', at: String(v.arrivedAt || '') })
+    else if (v.status === 'transit') add(key(v, v.color), { kind: 'transit', date: String(v.eta || v.expectedDate || (String(v.arrivedAt || '').slice(0, 10) > today ? v.arrivedAt : '') || '').slice(0, 10), rank: 1, ref: v.vin || '' })
+  })
+  alive(orders).forEach(o => {
+    if (!ORDER_LIVE.includes(o.status)) return
+    for (let i = 0; i < qty(o); i++) add(key(o, o.color), { kind: 'order', date: String(o.expectedDate || '').slice(0, 10), rank: 2, ref: o.orderNo || '' })
+  })
+  for (const list of supply.values()) list.sort((a, b) => a.rank - b.rank || (a.date || '9').localeCompare(b.date || '9') || a.at?.localeCompare?.(b.at || '') || 0)
+  const out = new Map()
+  const seen = new Map()
+  alive(bookings).filter(needsBooking)
+    .sort((a, b) => String(a.bookingDate || a.createdAt || '9').localeCompare(String(b.bookingDate || b.createdAt || '9')))
+    .forEach(b => {
+      const k = key(b, b.colorOut || b.color)
+      const ahead = seen.get(k) || 0
+      seen.set(k, ahead + 1)
+      const s = supply.get(k)?.shift()
+      if (b.id) out.set(b.id, s ? { kind: s.kind, date: s.date, ref: s.ref, ahead } : { kind: 'none', date: '', ref: '', ahead })
+    })
+  return out
+}
+
+export function etaLabel(e, fmt = d => d) {
+  if (!e) return ''
+  const q = e.ahead ? ` · มีลูกค้ารอรุ่น/สีนี้ก่อน ${e.ahead} คน` : ''
+  if (e.kind === 'ready') return `✅ มีรถว่างในสต็อกสำหรับลูกค้านี้แล้ว${e.ref ? ` (ตัวถัง ${e.ref})` : ''}`
+  if (e.kind === 'transit') return `🚢 ได้คันที่กำลังขนส่ง${e.date ? ` · คาดว่าถึง ${fmt(e.date)}` : ''}${q}`
+  if (e.kind === 'order') return `📦 ได้จากใบสั่งรถ${e.ref ? ` ${e.ref}` : ''}${e.date ? ` · คาดว่าถึง ${fmt(e.date)}` : ' · ยังไม่มีวันที่คาดว่าจะถึง'}${q}`
+  return `⚠️ ยังไม่มีรถรุ่น/สีนี้ทั้งในสต็อก ระหว่างขนส่ง และใบสั่งรถ — ต้องสั่งเพิ่ม${q}`
+}

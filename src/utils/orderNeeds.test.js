@@ -84,3 +84,20 @@ describe('LAMI จับคู่รถ (v1.0.1241)', () => {
     expect(oq.parseOpsSpec('ใครได้รถคันไหน')?.kind).toBe('lowstock')
   })
 })
+
+describe('etaForBookings (v1.0.1241)', () => {
+  it('จองก่อนได้รถว่าง คนถัดไปได้คันขนส่ง แล้วใบสั่งรถตามวันที่ ที่เหลือ none', async () => {
+    const { etaForBookings, etaLabel } = await import('./orderNeeds.js')
+    const bookings = ['01', '02', '03', '04', '05'].map((d, i) => bk({ id: 'b' + i, bookingDate: '2026-11-' + d }))
+    const m = etaForBookings({
+      bookings,
+      vehicles: [car({ vin: 'R1' }), car({ vin: 'T1', status: 'transit', eta: '2026-12-01' })],
+      orders: [{ brand: 'DEEPAL', model: 'S07', color: 'ขาว', status: 'ordered', qty: 1, expectedDate: '2027-01-10', orderNo: 'O2' }, { brand: 'DEEPAL', model: 'S07', color: 'ขาว', status: 'confirmed', qty: 1, expectedDate: '2026-12-20', orderNo: 'O1' }],
+      today: '2026-11-22',
+    })
+    expect([...m.values()].map(e => [e.kind, e.ref])).toEqual([['ready', 'R1'], ['transit', 'T1'], ['order', 'O1'], ['order', 'O2'], ['none', '']])
+    expect(m.get('b4').ahead).toBe(4)
+    expect(etaLabel(m.get('b2'))).toContain('คาดว่าถึง 2026-12-20')
+    expect(etaLabel(m.get('b4'))).toContain('ต้องสั่งเพิ่ม')
+  })
+})

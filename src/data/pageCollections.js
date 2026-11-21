@@ -63,6 +63,7 @@ export const PAGE_COLLECTIONS = {
   "quotations",
   "staff",
   "users",
+  "vehicle_orders",
   "vehicles"
  ],
  "/crm/sales-income": [
