@@ -33,6 +33,10 @@ export async function geminiWithFallback(fetchImpl, env, action, body, extra = '
 // บัญชีเดียวที่ถูกขโมย/ใช้สคริปต์เรียกซ้ำๆ ก็ยังส่ง prompt ขนาดใหญ่รัว ๆ ได้ไม่จำกัด ทำให้ค่าใช้จ่าย Gemini
 // (คิดตาม token) พุ่งจนควบคุมไม่ได้ แก้ให้จำกัดทั้งขนาด request และความถี่ต่อบัญชี
 const MAX_BODY_BYTES = 200_000 // ~200KB ต่อ request เพียงพอสำหรับ prompt/บทสนทนาจริงในแอป
+// (v1.0.1237) คำขอที่แนบรูป (สแกนบัตรประชาชน 1600px / รูปรถเทิร์นหลายรูป) ใหญ่กว่า 200KB เสมอ — เดิมโดนปัดตก
+// ให้เฉพาะคำขอที่มีรูป (inlineData) ใหญ่ได้ถึง 4MB (Gemini รับรูปแนบรวมได้ ~20MB)
+export const MAX_IMAGE_BODY_BYTES = 4_000_000
+export const bodyLimit = raw => /"inline_?[dD]ata"\s*:/.test(raw) ? MAX_IMAGE_BODY_BYTES : MAX_BODY_BYTES
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_CALLS = 30 // ต่อบัญชีต่อนาที — ฟีเจอร์ AI ในแอปเรียกบ่อยกว่า SMS/Email ปกติ
 const rateLimitLog = new Map() // uid -> timestamps[] — ชั้นป้องกันแรกในหน่วยความจำของ isolate เดียว
@@ -100,8 +104,9 @@ export default {
     if (!env.GEMINI_API_KEY) return json({ error: 'AI proxy not configured (missing GEMINI_API_KEY secret)' }, 500, cors)
 
     const rawBody = await request.text()
-    if (rawBody.length > MAX_BODY_BYTES) {
-      return json({ error: `ข้อความ/prompt ใหญ่เกินไป (สูงสุด ${Math.round(MAX_BODY_BYTES / 1000)}KB)` }, 400, cors)
+    const limit = bodyLimit(rawBody)
+    if (rawBody.length > limit) {
+      return json({ error: `ข้อความ/รูปใหญ่เกินไป (สูงสุด ${Math.round(limit / 1000)}KB)` }, 400, cors)
     }
     let body
     try { body = JSON.parse(rawBody) } catch { body = {} }
