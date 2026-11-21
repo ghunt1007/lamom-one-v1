@@ -565,8 +565,9 @@ export async function handleLeadInfo(env, getToken, deps = {}) {
   const nowMs = deps.now || Date.now()
   const token = await getToken()
   if (!token) return { status: 503, body: { ok: false } }
-  const [inbox, info, models] = await Promise.all([readInboxAuto(env, token, fetchImpl), shopInfo(env, token, fetchImpl, nowMs).catch(() => ({})), showroomModels(env, token, fetchImpl, nowMs).catch(() => [])])
-  return { status: 200, body: { ok: true, open: !!inbox.publicForm, ...(info.name ? { shop: info.name } : {}), ...(info.phone ? { tel: info.phone } : {}), ...(models.length ? { models } : {}) } }
+  const [inbox, info, models, line] = await Promise.all([readInboxAuto(env, token, fetchImpl), shopInfo(env, token, fetchImpl, nowMs).catch(() => ({})), showroomModels(env, token, fetchImpl, nowMs).catch(() => []), lineBasicId(env, fetchImpl, nowMs).catch(() => '')])
+  // (v1.0.1230) line = @basicId ของ OA หลัก — แอปใช้สร้าง QR "🔗 ผูก LINE" (เปิดแชต OA พร้อมรหัส)
+  return { status: 200, body: { ok: true, open: !!inbox.publicForm, ...(info.name ? { shop: info.name } : {}), ...(info.phone ? { tel: info.phone } : {}), ...(models.length ? { models } : {}), ...(line ? { line } : {}) } }
 }
 
 export async function handleLeadForm(request, env, getToken, deps = {}) {
@@ -617,7 +618,9 @@ export async function handleLeadForm(request, env, getToken, deps = {}) {
   if (where) lead.note = [where, lead.note].filter(Boolean).join(' · ')
   if (seller) lead.note = [`📇 ฝากชื่อผ่าน QR นามบัตรของ ${seller.name}`, lead.note].filter(Boolean).join(' · ')
   lead = boothRouting(lead, ev)
-  const extra = { ...(acc ? { sourceAccountName: acc.name, sourceAccountLevel: acc.level } : {}), ...(ref ? { referralCode: ref } : {}), ...(utm ? { utmSource: utm.source, utmMedium: utm.medium, utmCampaign: utm.campaign } : {}), ...(ev ? { eventId: ev.id, eventName: ev.title } : {}) }
+  // (v1.0.1230) PDPA: ส่งฟอร์ม = ยินยอมให้ติดต่อกลับเรื่องที่สอบถาม · ข่าวสาร/โปร = เฉพาะที่ติ๊ก (marketingConsent yes/no)
+  const consentAt = new Date(nowMs).toISOString()
+  const extra = { pdpaContactAt: consentAt, marketingConsent: b.mkt === true ? 'yes' : 'no', ...(b.mkt === true ? { marketingConsentAt: consentAt } : {}), ...(acc ? { sourceAccountName: acc.name, sourceAccountLevel: acc.level } : {}), ...(ref ? { referralCode: ref } : {}), ...(utm ? { utmSource: utm.source, utmMedium: utm.medium, utmCampaign: utm.campaign } : {}), ...(ev ? { eventId: ev.id, eventName: ev.title } : {}) }
   const r = await createLead(env, token, lead, { tags: ['ฟอร์มรับลีด', ...(acc?.name ? [acc.name] : []), ...(ref ? [`แนะนำ ${ref}`] : []), ...(ev ? [`บูธ ${ev.title}`.trim()] : [])], extra, fetchImpl })
   if (r.error) { const tel = await shopPhone(env, token, fetchImpl, nowMs).catch(() => ''); return { status: 500, body: { ok: false, error: tel ? 'บันทึกไม่สำเร็จ กรุณาลองใหม่ หรือโทรหาโชว์รูม' : 'บันทึกไม่สำเร็จ กรุณาลองใหม่', ...(tel ? { tel } : {}) } } }
   // นัดทดลองขับลงตารางเดียวกับหน้า Test Drive (สถานะ "นัดแล้ว" พร้อมหมายเหตุให้โทรยืนยัน) — พลาดก็ยังมีข้อความในโน้ตลูกค้าและแจ้งเตือน

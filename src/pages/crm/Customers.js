@@ -35,6 +35,7 @@ import { stockLine } from '../../utils/stockLine.js'
 import { heuristicScore } from '../../utils/leadScore.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
+import { openLineLinkQr, lineLinkState } from '../../utils/lineLink.js'
 import { planLeadImport } from '../../utils/leadImport.js'
 import { scheduleLeadFollowups, closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
 import { pendingFollowupsFor, followupWindowFilters, followupStatusByCustomer, matchFollowupFilter, QUIET_DAYS, quietDays } from '../../utils/customerFollowups.js'
@@ -519,7 +520,7 @@ export default async function CustomersPage(container) {
               </div>
               <div style="display:flex;flex-direction:column;gap:8px">
                 ${detail('📱 โทร', c.phone && String(c.phone).replace(/[^\d+]/g, '') ? `<a id="wk-tel" href="tel:${String(c.phone).replace(/[^\d+]/g, '')}" style="color:var(--primary)">${formatPhone(c.phone)}</a>` : (formatPhone(c.phone) || '-'))}
-                ${c.lineId || c.lineUserId ? detail('💚 LINE', escHtml(c.lineId || 'LINE OA') + (c.lineUserId ? ' <button class="btn btn-ghost btn-xs" id="wk-line-chat" title="เปิดห้องแชต LINE OA ของลูกค้าคนนี้">💬 แชต LINE</button>' : '')) : ''}
+                ${detail('💚 LINE', (c.lineId || c.lineUserId ? escHtml(c.lineId || 'LINE OA') : '<span style="color:var(--text-muted)">ยังไม่ผูก</span>') + (c.lineUserId ? ' <button class="btn btn-ghost btn-xs" id="wk-line-chat" title="เปิดห้องแชต LINE OA ของลูกค้าคนนี้">💬 แชต LINE</button>' : '') + (c.lineUserId ? `<div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(lineLinkState(c).label)}</div>` : ' <button class="btn btn-ghost btn-xs" id="wk-line-link" title="ให้ลูกค้าสแกน QR ครั้งเดียว แล้วระบบส่งแจ้งสถานะรถ/นัดหมายทาง LINE ได้">🔗 ผูก LINE</button>'))}
                 ${c.email ? detail('📧 Email', (() => { const h = mailHref(c.email, { subject: `สวัสดีคุณ${c.firstName || fullName(c)} — ${c.interestedModel ? 'ข้อมูลรถ ' + c.interestedModel : 'จากโชว์รูม'}`, body: `สวัสดีคุณ${c.firstName || fullName(c)}\n\n` }); return h ? `<a href="${escHtml(h)}" style="color:var(--primary);overflow-wrap:anywhere" title="เปิดแอปอีเมลพร้อมหัวเรื่อง">${escHtml(c.email)}</a> <a class="btn btn-ghost btn-xs" href="${escHtml(h)}">✉️ ส่งอีเมล</a>` : escHtml(c.email) })()) : ''}
                 ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-') + (c.isLost ? '' : ' <button class="btn btn-ghost btn-xs" id="wk-td-btn" title="นัดลูกค้ามาทดลองขับ">🚙 นัดทดลองขับ</button>'))}
                 ${(() => { const f = c.interestedModel ? modelFacts(c.interestedModel, getVehicles(), 4) : []; return f.length ? `<details style="margin:-2px 0 2px;font-size:0.76rem"><summary style="cursor:pointer;color:var(--primary)">📋 ราคา/สเปครุ่นนี้ (ไว้ตอบลูกค้า)</summary><div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${f.map(x => `<div style="padding:6px 8px;border-radius:8px;background:var(--surface-2);line-height:1.45">${escHtml(x)}</div>`).join('')}<div id="wk-promos"></div><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.66rem;color:var(--text-muted)">ราคาตั้งจากฐานข้อมูลรถ</span><button type="button" class="btn btn-secondary btn-xs" id="wk-facts-copy">📋 คัดลอกสเปคส่งลูกค้า</button></div>${calcHtml(c)}</div></details>` : '' })()}
@@ -663,6 +664,8 @@ export default async function CustomersPage(container) {
       close(); openForm(c, { onSaved: updated => openDetail(updated) })
     })
     // (v1.0.1024) ลูกค้าที่ทักมาทาง LINE OA → เปิดห้องแชตในหน้าช่องทางโซเชียลได้เลย
+    // (v1.0.1230) QR ผูก LINE — ลูกค้าสแกนแล้วกดส่ง ระบบใส่ LINE ให้แฟ้มนี้ (และใบจองที่เชื่อม) เอง
+    el.querySelector('#wk-line-link')?.addEventListener('click', () => openLineLinkQr({ targets: [{ col: 'customers', id: c.id }, ...(c.bookingId ? [{ col: 'bookings', id: c.bookingId }] : [])], name: fullName(c) }))
     el.querySelector('#wk-line-chat')?.addEventListener('click', () => { close(); navigate(`/marketing/channels?tab=inbox&open=${encodeURIComponent('line_' + String(c.lineUserId).replace(/[^A-Za-z0-9-]/g, ''))}`) })
     el.querySelector('#wk-promote-btn')?.addEventListener('click', async () => {
       try {
