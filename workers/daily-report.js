@@ -40,7 +40,8 @@ import { isDelivered, isCancelled } from '../src/utils/bookingStatus.js'
 import { referralOwed } from '../src/utils/publicLinks.js'
 import { entryPointLine } from '../src/utils/entryPoints.js'
 import { saveReportStatus } from './reportStatus.js'
-import { readInboxAuto, aiAutoReply, lineReplySender } from './inboxAuto.js'
+import { readInboxAuto, aiAutoReply, lineReplySender, recordBotReply } from './inboxAuto.js'
+import { handleStatusAsk } from './statusAsk.js'
 import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFromChat, handleLeadForm, handleLeadInfo } from './leadIntake.js'
 import { handleNotify } from './notify.js'
 import { withStoredSecrets, handleSecrets } from './secretStore.js'
@@ -1898,6 +1899,15 @@ async function afterCustomerLine(env, accessToken, ev, chan) {
     // (v1.0.1139) ลูกค้าพิมพ์เบอร์มา → ใส่เบอร์ให้ลูกค้าที่ผูก LINE นี้ (ถ้ายังไม่มีเบอร์)
     if (text) await fillPhoneFromChat(env, accessToken, { field: 'lineUserId', value: userId, text, channelLabel: chan?.name ? `LINE ${chan.name}` : 'LINE OA' }).catch(() => null)
     const token = chan?.token || env.LINE_CHANNEL_ACCESS_TOKEN
+    // (v1.0.1248) ลูกค้าถามสถานะรถ/รถมาเมื่อไหร่ → ตอบจากใบจองจริงของ LINE นี้ (สวิตช์ statusAsk) แล้วไม่ต้องให้ AI ตอบซ้ำ
+    const threadId = lineThreadId(userId, chan?.id || '')
+    const answered = await handleStatusAsk({
+      enabled: inbox.statusAsk, userId, text, today: todayBangkok(),
+      query: (col, fields, eq) => runQuery(env, accessToken, col, null, null, 5000, fields, eq),
+      send: lineReplySender(token, ev.replyToken),
+      record: t => recordBotReply(env, accessToken, { threadId, text: t, by: '🤖 แจ้งสถานะรถ' }).catch(() => null),
+    }).catch(() => false)
+    if (answered) return
     await aiAutoReply(env, accessToken, {
       threadId: lineThreadId(userId, chan?.id || ''), channel: chan?.id || 'main', platform: 'line', isText: ev.message?.type === 'text',
       send: lineReplySender(token, ev.replyToken),

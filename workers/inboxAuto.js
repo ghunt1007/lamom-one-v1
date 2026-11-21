@@ -32,6 +32,7 @@ export const INBOX_DEFAULTS = {
   aiInfo: '', // ข้อมูลโชว์รูมที่ให้ AI ใช้ตอบ เช่น ที่อยู่ เวลาเปิด เบอร์โทร รุ่นที่ขาย
   leadAlert: true, // (v1.0.1144) แจ้ง LINE + ในแอปทันทีเมื่อมีลีดใหม่เข้าทางฟอร์ม/webhook/Meta
   publicForm: false, // (v1.0.1140) เปิดฟอร์มรับลีดสาธารณะ /lead.html
+  statusAsk: false, // (v1.0.1248) ลูกค้าที่ผูก LINE ถาม "รถมาเมื่อไหร่" → ตอบสถานะใบจองของตัวเอง — workers/statusAsk.js
   apptLine: false, // (v1.0.1244) เตือนนัดพรุ่งนี้ทาง LINE (ลูกค้าที่ผูก LINE แล้ว) — workers/apptRemind.js
   statusLine: false, // (v1.0.1230) แจ้งสถานะรถทาง LINE อัตโนมัติ (เฉพาะลูกค้าที่ผูก LINE เองแล้ว) — ดู workers/lineLink.js
 }
@@ -56,6 +57,7 @@ export function normalizeInboxAuto(raw = {}, env = {}) {
     leadAlert: bool(r.leadAlert, true),
     statusLine: bool(r.statusLine, false),
     apptLine: bool(r.apptLine, false),
+    statusAsk: bool(r.statusAsk, false),
   }
 }
 
@@ -236,6 +238,13 @@ async function addMsg(env, token, data, fetchImpl) {
   return call(fetchImpl, `${fsBase(env)}/social_messages`, {
     method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields: fsFields(data) }),
   })
+}
+
+// (v1.0.1248) บันทึกข้อความที่ระบบตอบเอง (ไม่ใช่ AI) ลงห้องแชต ให้ทีมเห็นในแอป
+export async function recordBotReply(env, token, { threadId, platform = 'line', text, by = '🤖 ระบบ' }, fetchImpl = fetch) {
+  const at = new Date()
+  await addMsg(env, token, { threadId, platform, direction: 'out', text, at, by }, fetchImpl)
+  await patchThread(env, token, threadId, { lastText: String(text).slice(0, 200), lastAt: at, lastDirection: 'out', lastByAi: true, updatedAt: at }, fetchImpl)
 }
 
 export const todayBkk = (now = new Date()) => new Date(now.getTime() + 7 * 3600 * 1000).toISOString().slice(0, 10)
