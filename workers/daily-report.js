@@ -48,6 +48,7 @@ import { alertNewLead } from './leadAlert.js'
 import { runLeadNudge } from './leadNudge.js'
 import { SEND_CRON, runScheduledSends, scheduleSend, unscheduleSend } from './scheduledSend.js'
 import { runChatNudge } from './chatNudge.js'
+import { pickWakeLeads } from '../src/utils/wakeLeads.js'
 import { parseLinkCode, parseOptCommand, linkByCode, setOptOut, markFollow, runStatusLine, STATUS_BOOKING_FIELDS, STATUS_CUSTOMER_FIELDS } from './lineLink.js'
 import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } from './scheduledPost.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
@@ -959,7 +960,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 export const EVENING_CUSTOMER_FIELDS = ['stage', 'createdAt', 'source', 'assignedTo', 'temperature', 'isLost', 'lostAt', 'lostReason', 'lastContactAt', 'eventId', 'referralCode', 'deleted', 'autoLead', 'utmMedium', 'utmSource', 'utmCampaign', 'tags', 'reEnquiredAt', 'firstContactAt']
 // ช่องของลูกค้าที่ buildMorningSections อ่าน — ขาดช่องไหน หัวข้อนั้นจะเงียบหายในรายงานจริง (เทสต์เช็กไว้)
 // (v1.0.1211) เดิมไม่มี autoLead → หัวข้อ "🆕 Lead ใหม่ที่ยังไม่มีใครโทร" ไม่เคยขึ้นในรายงานจริง
-export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel']
+export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel', 'phone', 'wakeSentAt', 'lineOptOut', 'lineBlockedAt', 'marketingConsent']
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly']),
@@ -1407,6 +1408,9 @@ export function buildWeeklyReport(data, { today }) {
   })
   const quietTop = Object.entries(quietBy).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k} ${v}`).join(' · ')
   const quietLines = quietN ? ['', `💤 Lead/Prospect เงียบ 7 วัน+: ${quietN} ราย`, `    มากสุด: ${quietTop}`] : []
+  // (v1.0.1231) ลีดเงียบเกิน 30 วันที่ทักได้ (ไม่เลิกรับ/ไม่ได้ทักใน 30 วัน) → ชวนเปิดหน้า "ปลุกลีดเก่า" ส่งทีเดียว
+  const wake = pickWakeLeads(customers, { today })
+  const wakeLine = wake.length ? `😴 ลีดเงียบ 30 วัน+ ที่ควรทัก: ${wake.length} ราย (ส่ง LINE ได้ ${wake.filter(w => w.channel === 'line').length}) → เมนู "ปลุกลีดเก่า"` : null
 
   // เสียดีลสัปดาห์ที่แล้ว แยกตามเหตุผล (ใช้คำหน้าเครื่องหมาย " - " เช่น "ราคา - คู่แข่งลดให้ 20,000" นับเป็น "ราคา")
   const lostBy = {}
@@ -1442,6 +1446,7 @@ export function buildWeeklyReport(data, { today }) {
     ...(sellerLines.length ? ['', '👤 ทีมขาย (สัปดาห์ที่แล้ว)', ...sellerLines] : []),
     ...fuLines,
     ...quietLines,
+    wakeLine,
     ...lostLines,
     ...(convLines.length ? ['', '🎯 ช่องทางที่ปิดจองได้ดี (Lead 90 วันล่าสุด)', ...convLines] : []),
     '',

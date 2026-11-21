@@ -328,6 +328,7 @@ const routes = {
   '/hr/overtime': () => import('../pages/hr/OvertimeTracking.js'),
   // CRM extras
   '/crm/winback': () => import('../pages/crm/WinBack.js'),
+  '/crm/wake-leads': () => import('../pages/crm/WakeLeads.js'),
   // Service extras
   '/service/wash': () => import('../pages/service/WashQueue.js'),
   // Finance extras
