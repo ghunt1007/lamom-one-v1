@@ -52,7 +52,7 @@ import { runChatNudge } from './chatNudge.js'
 import { pickWakeLeads } from '../src/utils/wakeLeads.js'
 import { orderForecast } from '../src/utils/orderForecast.js'
 import { runApptRemind } from './apptRemind.js'
-import { matchReadyCars, etaForBookings, needsBooking } from '../src/utils/orderNeeds.js'
+import { matchReadyCars, etaForBookings, needsBooking, ORDER_LIVE } from '../src/utils/orderNeeds.js'
 import { waitEtaAnswer } from '../src/utils/opsQuestions.js'
 import { parseLinkCode, parseOptCommand, linkByCode, setOptOut, markFollow, runStatusLine, STATUS_BOOKING_FIELDS, STATUS_CUSTOMER_FIELDS } from './lineLink.js'
 import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } from './scheduledPost.js'
@@ -1284,6 +1284,7 @@ export function buildMorningReminder(data, opts) {
   const office = officeDigestLines({ today, threads: data.lineThreads, pdis: data.pdis, complaints: data.complaints, leaves: data.leaves }, { appUrl: opts.appUrl || '' })
   const pairs = readyPairLines(data)
   const noCar = noSupplyLines(data, today)
+  const lateOrd = lateOrderLines(data, today)
 
   const text = [
     '☀️ LAMOM ONE เตือนงานเช้านี้',
@@ -1294,6 +1295,7 @@ export function buildMorningReminder(data, opts) {
     ...(finLine ? ['', finLine] : []),
     ...(pairs.length ? ['', ...pairs] : []),
     ...(noCar.length ? ['', ...noCar] : []),
+    ...(lateOrd.length ? ['', ...lateOrd] : []),
     ...(svc.length ? ['', ...svc] : []),
     ...(office.length ? ['', ...office] : []),
     '',
@@ -1312,6 +1314,23 @@ export function readyPairLines(data, seller = '') {
   return [`🔑 มีรถว่างตรงกับลูกค้าที่จองรอ ${pairs.length} คัน — ใส่เลขตัวถังในใบจองแล้วแจ้งลูกค้าได้เลย`,
     ...pairs.slice(0, 5).map(({ booking: b, vehicle: v }) => `  • ${String(b.custName || '').trim() || 'ลูกค้า'} ← ${[v.model, v.color && 'สี' + v.color].filter(Boolean).join(' ')}${v.vin ? ` (${v.vin})` : ''}${!seller && b.salesName ? ` · ${b.salesName}` : ''}`),
     ...(pairs.length > 5 ? [`  …และอีก ${pairs.length - 5} คัน ดูที่เมนูรถ › ตารางสีรถ`] : [])]
+}
+
+// (v1.0.1251) ใบสั่งรถที่เลยวันคาดว่าถึงแล้วแต่ยังไม่ถึง — ตามผู้ขาย/ไฟแนนซ์ฟลอร์แพลน · บอกจำนวนลูกค้าที่รอจากใบนั้น
+export function lateOrderLines(data, today) {
+  if (!Array.isArray(data?.orders)) return []
+  const late = data.orders.filter(o => o && !o.deleted && ORDER_LIVE.includes(o.status) && /^\d{4}-\d{2}-\d{2}/.test(String(o.expectedDate || '')) && String(o.expectedDate).slice(0, 10) < today)
+  if (!late.length) return []
+  let waitBy = new Map()
+  if (Array.isArray(data.vehicles) && Array.isArray(data.transit)) {
+    const eta = etaForBookings({ bookings: data.bookings || [], vehicles: [...data.vehicles, ...data.transit], orders: data.orders, today })
+    for (const e of eta.values()) if (e.orderId) waitBy.set(e.orderId, (waitBy.get(e.orderId) || 0) + 1)
+  }
+  const days = o => Math.round((Date.parse(today) - Date.parse(String(o.expectedDate).slice(0, 10))) / 864e5)
+  late.sort((a, b) => days(b) - days(a))
+  return [`📦 ใบสั่งรถเลยวันคาดว่าถึงแล้ว ${late.length} ใบ — ควรตามผู้ขาย/อัปเดตวันที่ในเมนูรถ › ใบสั่งรถ`,
+    ...late.slice(0, 5).map(o => `  • ${[o.orderNo, [o.model, o.color && 'สี' + o.color].filter(Boolean).join(' ')].filter(Boolean).join(' — ')}${Number(o.qty) > 1 ? ` ×${o.qty}` : ''} · เลยมา ${days(o)} วัน${waitBy.get(o.id) ? ` · ลูกค้ารอ ${waitBy.get(o.id)} คน` : ''}`),
+    ...(late.length > 5 ? [`  …และอีก ${late.length - 5} ใบ`] : [])]
 }
 
 // (v1.0.1246) ลูกค้าที่จองรอรถแต่ยังไม่มีรถรองรับเลย (ไม่มีทั้งรถว่าง รถกำลังขนส่ง และใบสั่งรถ — จองก่อนได้ก่อน)

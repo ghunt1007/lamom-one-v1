@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import worker, { noSupplyLines, waitCarText, readyPairLines, daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday, buildLineLeadFields, pickNextSales, staffCompanyFor, buildLineFollowupFields, buildNewLineLeadNotice, sellerGoal, lineLeadDocId } from './daily-report.js'
+import worker, { lateOrderLines, noSupplyLines, waitCarText, readyPairLines, daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday, buildLineLeadFields, pickNextSales, staffCompanyFor, buildLineFollowupFields, buildNewLineLeadNotice, sellerGoal, lineLeadDocId } from './daily-report.js'
 
 const BASE_ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
@@ -1533,5 +1533,21 @@ describe('noSupplyLines (v1.0.1246)', () => {
     expect(noSupplyLines({ bookings, vehicles: [], transit, orders: [] }, '2026-11-22', 'ซี').join('\n')).not.toContain('สมชาย')
     expect(noSupplyLines({ bookings, vehicles: [], transit: null, orders: [] }, '2026-11-22')).toEqual([])
     expect(noSupplyLines({ bookings, vehicles: [], transit, orders: [{ status: 'ordered', brand: 'DEEPAL', model: 'S07', color: 'ขาว' }, { status: 'ordered', model: 'L07', color: 'ดำ' }] }, '2026-11-22')).toEqual([])
+  })
+})
+
+describe('lateOrderLines (v1.0.1251)', () => {
+  it('ใบสั่งที่เลยวันคาดว่าถึง + ลูกค้าที่รอจากใบนั้น · ใบที่ถึงแล้ว/ร่าง/ยังไม่ถึงกำหนดไม่นับ', () => {
+    const orders = [
+      { id: 'o1', orderNo: 'ORD-1', status: 'shipped', model: 'S07', color: 'ขาว', qty: 2, expectedDate: '2026-11-10' },
+      { id: 'o2', orderNo: 'ORD-2', status: 'arrived', model: 'S07', color: 'ขาว', expectedDate: '2026-11-01' },
+      { id: 'o3', orderNo: 'ORD-3', status: 'draft', model: 'S07', color: 'ขาว', expectedDate: '2026-11-01' },
+      { id: 'o4', orderNo: 'ORD-4', status: 'ordered', model: 'L07', expectedDate: '2026-12-10' },
+    ]
+    const bookings = [{ id: 'b1', status: 'รอรถ', model: 'S07', colorOut: 'ขาว', bookingDate: '2026-11-01', custName: 'ก' }]
+    const t = lateOrderLines({ orders, bookings, vehicles: [], transit: [] }, '2026-11-22').join('\n')
+    expect(t).toContain('เลยวันคาดว่าถึงแล้ว 1 ใบ')
+    expect(t).toContain('ORD-1 — S07 สีขาว ×2 · เลยมา 12 วัน · ลูกค้ารอ 1 คน')
+    expect(lateOrderLines({ orders: null }, '2026-11-22')).toEqual([])
   })
 })
