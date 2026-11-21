@@ -92,7 +92,7 @@ export const NAV = [
       { icon: '📈', label: 'ประวัติราคา', labelEn: 'Price History', path: '/dms/price-history' },
       { icon: '📋', label: 'ใบรับรองทดลองขับ', labelEn: 'TD Certificate', path: '/dms/td-cert' },
       { icon: '🔐', label: 'ล็อกรถจอง', labelEn: 'Reserve Lock', path: '/dms/reserve-lock' },
-      { icon: '🎨', label: 'ตารางสีรถ · ต้องสั่ง', labelEn: 'Color Matrix', path: '/dms/color-matrix' },
+      { icon: '🎨', label: 'ตารางสีรถ · ต้องสั่ง · คาดการณ์', labelEn: 'Color Matrix', path: '/dms/color-matrix' },
       { icon: '🚗', label: 'รถมือสอง', labelEn: 'Used Car', path: '/dms/used-car' },
       { icon: '⚙️', label: 'ตั้งค่ารุ่นรถ', labelEn: 'Model Config', path: '/dms/model-config' },
       { icon: '📋', label: 'เอกสารราชการ', labelEn: 'Gov Docs', labelZh: '官方文件', path: '/dms/gov-docs' },
