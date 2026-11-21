@@ -1565,3 +1565,14 @@ describe('คำสั่ง LINE สั่งรถ (v1.0.1256)', () => {
     expect(parseLineCommand('สั่งรถยังไง')).toEqual({ type: 'none' })
   })
 })
+
+describe('forecastLineText (v1.0.1258)', () => {
+  it('ต่อท้ายรายการสั่งไม่มีชื่อลูกค้า', async () => {
+    const { forecastLineText } = await import('./daily-report.js')
+    const bookings = [{ id: 'b1', status: 'รอรถ', brand: 'DEEPAL', model: 'S07', colorOut: 'ขาว', custName: 'สมชาย ใจดี', bookingDate: '2026-11-10' }]
+    const t = forecastLineText({ vehicles: [], bookings, orders: [], customers: [], today: '2026-11-22' })
+    expect(t).toContain('— คัดลอกส่งแบรนด์ได้ —\n📦 ขอสั่งรถ (22/11/2569)')
+    expect(t).toContain('【DEEPAL】\nS07 รวม')
+    expect(t.split('— คัดลอกส่งแบรนด์ได้ —')[1]).not.toContain('สมชาย')
+  })
+})

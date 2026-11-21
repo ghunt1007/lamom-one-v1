@@ -50,7 +50,7 @@ import { runLeadNudge } from './leadNudge.js'
 import { SEND_CRON, runScheduledSends, scheduleSend, unscheduleSend } from './scheduledSend.js'
 import { runChatNudge } from './chatNudge.js'
 import { pickWakeLeads } from '../src/utils/wakeLeads.js'
-import { orderForecast } from '../src/utils/orderForecast.js'
+import { orderForecast, forecastOrderMessage } from '../src/utils/orderForecast.js'
 import { runApptRemind } from './apptRemind.js'
 import { matchReadyCars, etaForBookings, needsBooking, ORDER_LIVE } from '../src/utils/orderNeeds.js'
 import { waitEtaAnswer, forecastAnswer } from '../src/utils/opsQuestions.js'
@@ -1793,7 +1793,14 @@ async function buildForecastText(env, accessToken) {
     runQuery(env, accessToken, 'vehicle_orders', null, null, 2000, WAITCAR_ORDER_FIELDS).catch(() => []),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'isLost', 'temperature', 'interestedModel', 'bookingId', 'deleted']).catch(() => []),
   ])
-  return forecastAnswer([...avail, ...transit], bookings, orders, customers, { today: todayBangkok(), leadDays: 45 }).text + '\n\n💡 เปลี่ยนช่วงรอรถ/ดูแยกสี/ทำร่างใบสั่ง ที่ เมนูรถ › ตารางสีรถ'
+  return forecastLineText({ vehicles: [...avail, ...transit], bookings, orders, customers, today: todayBangkok() })
+}
+
+// (v1.0.1258) คำตอบ "สั่งรถ" ทาง LINE + รายการสั่งแบบไม่มีชื่อลูกค้า (กดค้างคัดลอกส่งแบรนด์/ดีลเลอร์ได้)
+export function forecastLineText({ vehicles, bookings, orders, customers, today, leadDays = 45 }) {
+  const head = forecastAnswer(vehicles, bookings, orders, customers, { today, leadDays }).text
+  const order = forecastOrderMessage(orderForecast({ bookings, vehicles, orders, customers, today, leadDays }), `${today.slice(8, 10)}/${today.slice(5, 7)}/${Number(today.slice(0, 4)) + 543}`)
+  return head + (order ? '\n\n— คัดลอกส่งแบรนด์ได้ —\n' + order : '') + '\n\n💡 เปลี่ยนช่วงรอรถ/ดูแยกสี/ทำร่างใบสั่ง ที่ เมนูรถ › ตารางสีรถ'
 }
 
 async function buildWaitCarText(env, accessToken, seller) {
