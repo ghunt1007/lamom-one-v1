@@ -107,6 +107,7 @@ export const PAGE_COLLECTIONS = {
   "warranty_claims"
  ],
  "/dms/orders": [
+  "bookings",
   "vehicle_orders",
   "vehicles"
  ],

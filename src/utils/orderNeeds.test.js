@@ -126,3 +126,23 @@ describe('stockForModel (v1.0.1243)', () => {
     expect(stockForModel(rows, { model: '' })).toEqual([])
   })
 })
+
+describe('bookingsForOrder (v1.0.1247)', () => {
+  it('ลูกค้าที่ได้รถจากใบสั่งนี้ หลังหักรถว่าง/ขนส่ง (จองก่อนได้ก่อน)', async () => {
+    const { bookingsForOrder } = await import('./orderNeeds.js')
+    const bks = [
+      { id: 'b1', status: 'รอรถ', brand: 'DEEPAL', model: 'S07', colorOut: 'ขาว', bookingDate: '2026-11-01', custName: 'หนึ่ง' },
+      { id: 'b2', status: 'รอรถ', brand: 'DEEPAL', model: 'S07', colorOut: 'ขาว', bookingDate: '2026-11-03', custName: 'สอง' },
+      { id: 'b3', status: 'รอรถ', brand: 'DEEPAL', model: 'S07', colorOut: 'ขาว', bookingDate: '2026-11-05', custName: 'สาม' },
+      { id: 'b4', status: 'รอรถ', brand: 'DEEPAL', model: 'S07', colorOut: 'ขาว', bookingDate: '2026-11-07', custName: 'สี่' },
+    ]
+    const vehicles = [{ id: 'v1', status: 'available', brand: 'DEEPAL', model: 'DEEPAL S07', color: 'ขาว', vin: 'A' }]
+    const orders = [
+      { id: 'o1', status: 'shipped', brand: 'DEEPAL', model: 'S07', color: 'ขาว', qty: 2, expectedDate: '2026-12-01', orderNo: 'ORD-1' },
+      { id: 'o2', status: 'ordered', brand: 'DEEPAL', model: 'S07', color: 'ขาว', qty: 1, expectedDate: '2026-12-20' },
+    ]
+    expect(bookingsForOrder({ bookings: bks, vehicles, orders }, 'o1').map(b => b.id)).toEqual(['b2', 'b3'])
+    expect(bookingsForOrder({ bookings: bks, vehicles, orders }, 'o2').map(b => b.id)).toEqual(['b4'])
+    expect(bookingsForOrder({ bookings: bks, vehicles, orders }, '')).toEqual([])
+  })
+})
