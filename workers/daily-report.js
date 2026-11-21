@@ -52,6 +52,7 @@ import { pickWakeLeads } from '../src/utils/wakeLeads.js'
 import { orderForecast } from '../src/utils/orderForecast.js'
 import { runApptRemind } from './apptRemind.js'
 import { matchReadyCars } from '../src/utils/orderNeeds.js'
+import { waitEtaAnswer } from '../src/utils/opsQuestions.js'
 import { parseLinkCode, parseOptCommand, linkByCode, setOptOut, markFollow, runStatusLine, STATUS_BOOKING_FIELDS, STATUS_CUSTOMER_FIELDS } from './lineLink.js'
 import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } from './scheduledPost.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
@@ -600,6 +601,14 @@ async function handleLineWebhook(request, env, cors) {
       const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
       if (me?.name || (owner && owner === userId)) reply = await buildTasksReply(env, accessToken, me?.name || '', owner === userId)
       else otherMessage = true
+    } else if (cmd.type === 'waitcar') {
+      // (v1.0.1245) ตอบเฉพาะเซลส์ที่ลงทะเบียน/เจ้าของ — ลูกค้าพิมพ์ "รอรถ" = ข้อความปกติ
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      const isOwner = !!owner && owner === userId
+      if (me?.name || isOwner) {
+        try { reply = clipLine(await buildWaitCarText(env, accessToken, isOwner ? '' : me.name)) } catch { reply = '⚠️ ดึงข้อมูลรอรถไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'unregister') {
       await deleteSalesTarget(env, accessToken, userId)
       reply = '✅ ยกเลิกการรับเตือนงานค้างแล้วครับ'
@@ -663,6 +672,8 @@ export function parseLineCommand(text) {
   if (/^(?:พรุ่งนี้|งานพรุ่งนี้|tomorrow)$/i.test(t.replace(/\s+/g, ''))) return { type: 'tomorrow' }
   // เซลส์ขอดูงานค้างของตัวเองตอนไหนก็ได้ (ไม่ต้องรอ 9 โมง)
   if (/^(?:งาน|งานวันนี้|งานค้าง|งานของฉัน|tasks?|todo)$/i.test(t.replace(/\s+/g, ''))) return { type: 'tasks' }
+  // (v1.0.1245) ลูกค้าที่จองรอรถ + รถจะมาเมื่อไหร่ (เซลส์เห็นของตัวเอง เจ้าของเห็นทั้งหมด)
+  if (/^(?:รอรถ|ลูกค้ารอรถ|รถมาเมื่อไหร่|waitcar)$/i.test(t.replace(/\s+/g, ''))) return { type: 'waitcar' }
   return { type: 'none' }
 }
 
@@ -1597,6 +1608,7 @@ export const LINE_HELP_TEXT = [
   '• งาน — ดูงานค้างของคุณตอนนี้',
   '• พรุ่งนี้ — ดูนัด/ส่งมอบ/ทดลองขับของพรุ่งนี้',
   '• ยอด — ดูยอดส่งมอบ/รายได้/จองของคุณเดือนนี้',
+  '• รอรถ — ลูกค้าที่จองรอรถ + รถจะมาเมื่อไหร่',
   '• หา 0812345678 / หา สมชาย — ค้นหาลูกค้า',
   '• โทรแล้ว 0812345678 / โทรแล้ว สมชาย — บันทึกว่าติดต่อลูกค้าแล้ว',
   '• นัด 0812345678 พรุ่งนี้ / นัด สมชาย 28/10 — นัดติดตามลูกค้า',
@@ -1710,6 +1722,25 @@ async function readSalesTarget(env, accessToken, userId) {
   } catch { return null }
 }
 // ตอบคำสั่ง "งาน" — งานค้างของเซลส์คนนี้ ณ ตอนนี้ (เนื้อหาเดียวกับข้อความ 9 โมงเช้า)
+// (v1.0.1245) คำสั่ง LINE "รอรถ" — ใช้ตรรกะเดียวกับ LAMI/หน้าใบจอง (etaForBookings: รถว่าง → ขนส่ง → ใบสั่งรถ เรียงคนจองก่อน)
+export const WAITCAR_BOOKING_FIELDS = ['status', 'custName', 'salesName', 'brand', 'model', 'colorOut', 'color', 'vin', 'bookingDate', 'deleted']
+export const WAITCAR_VEHICLE_FIELDS = ['status', 'brand', 'model', 'color', 'vin', 'arrivedAt', 'eta', 'expectedDate', 'deleted']
+export const WAITCAR_ORDER_FIELDS = ['status', 'brand', 'model', 'color', 'qty', 'expectedDate', 'orderNo', 'deleted']
+export function waitCarText({ bookings, vehicles, orders, today, seller = '' }) {
+  const mine = seller ? b => normSalesName(b.salesName) === normSalesName(seller) : () => true
+  return waitEtaAnswer(vehicles, bookings, orders, { today, mine }).text
+    .replace(/💡 เปิดใบจอง[^\n]*$/, '💡 รายละเอียดเพิ่ม: เปิดใบจองในแอป หรือ เมนูรถ › ตารางสีรถ')
+}
+async function buildWaitCarText(env, accessToken, seller) {
+  const [bookings, avail, transit, orders] = await Promise.all([
+    runQuery(env, accessToken, 'bookings', null, null, 5000, WAITCAR_BOOKING_FIELDS),
+    runQuery(env, accessToken, 'vehicles', null, null, 3000, WAITCAR_VEHICLE_FIELDS, ['status', 'available']),
+    runQuery(env, accessToken, 'vehicles', null, null, 3000, WAITCAR_VEHICLE_FIELDS, ['status', 'transit']),
+    runQuery(env, accessToken, 'vehicle_orders', null, null, 2000, WAITCAR_ORDER_FIELDS).catch(() => []),
+  ])
+  return waitCarText({ bookings, vehicles: [...avail, ...transit], orders, today: todayBangkok(), seller })
+}
+
 async function buildTasksReply(env, accessToken, name, isOwner = false) {
   try {
     const { sections, today, data } = await buildMorningData(env, accessToken)
