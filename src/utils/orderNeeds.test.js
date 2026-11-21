@@ -75,3 +75,12 @@ describe('matchReadyCars (v1.0.1238)', () => {
     expect(matchReadyText([])).toBe('')
   })
 })
+
+describe('LAMI จับคู่รถ (v1.0.1241)', () => {
+  it('ถามว่ารถว่างให้ใคร → lowstock', async () => {
+    const oq = await import('./opsQuestions.js')
+    expect(oq.parseOpsSpec('รถว่างคันไหนให้ใคร')?.kind).toBe('lowstock')
+    expect(oq.parseOpsSpec('จับคู่รถกับลูกค้า')?.kind).toBe('lowstock')
+    expect(oq.parseOpsSpec('ใครได้รถคันไหน')?.kind).toBe('lowstock')
+  })
+})
