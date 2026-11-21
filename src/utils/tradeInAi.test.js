@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseTradeInReply, midPrice, TRADEIN_PROMPT } from './tradeInAi.js'
+import { parseTradeInReply, midPrice, TRADEIN_PROMPT, fitImages } from './tradeInAi.js'
 
 describe('parseTradeInReply', () => {
   it('reads a normal reply', () => {
@@ -26,5 +26,12 @@ describe('parseTradeInReply', () => {
   it('prompt asks for JSON and null when unsure', () => {
     expect(TRADEIN_PROMPT).toContain('JSON')
     expect(TRADEIN_PROMPT).toContain('null')
+  })
+})
+
+describe('fitImages', () => {
+  it('keeps photos in order until the proxy size budget is used', () => {
+    expect(fitImages(['a'.repeat(50), 'b'.repeat(40), 'c'.repeat(30)], 100).map(x => x[0])).toEqual(['a', 'b'])
+    expect(fitImages(['a'.repeat(150)], 100)).toEqual([])
   })
 })

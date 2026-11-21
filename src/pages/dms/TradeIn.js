@@ -232,10 +232,14 @@ export default async function TradeInPage(container) {
     const label = btn.innerHTML
     btn.disabled = true; btn.innerHTML = '⏳ AI กำลังดูรูป...'
     try {
-      const [{ imageToJpegBase64 }, ai, { TRADEIN_PROMPT, parseTradeInReply, midPrice }] = await Promise.all([import('../../utils/idCardScan.js'), import('../../utils/ai.js'), import('../../utils/tradeInAi.js')])
+      const [{ imageToJpegBase64 }, ai, { TRADEIN_PROMPT, parseTradeInReply, midPrice, fitImages }] = await Promise.all([import('../../utils/idCardScan.js'), import('../../utils/ai.js'), import('../../utils/tradeInAi.js')])
       if (!ai.isAiEnabled()) { showToast('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้ AI', 'warning'); return }
-      const imgs = []
-      for (const f of files) imgs.push(await imageToJpegBase64(f, 1280))
+      // ย่อเล็ก (ด้านยาว 720px) ให้ส่งได้หลายรูปภายในขนาดที่ตัวกลาง AI รับ
+      const all = []
+      for (const f of files) all.push(await imageToJpegBase64(f, 720, 0.72))
+      const imgs = fitImages(all)
+      if (!imgs.length) { showToast('รูปใหญ่เกินไป ลองเลือกรูปน้อยลง', 'error'); return }
+      if (imgs.length < all.length) showToast(`ใช้ ${imgs.length} รูปแรก (ขนาดรวมเกิน)`, 'warning')
       const r = parseTradeInReply(await ai.analyzeTradeInPhotos(imgs, TRADEIN_PROMPT))
       if (!r) { showToast('AI อ่านรูปไม่ได้ ลองถ่ายให้เห็นทั้งคันชัดๆ', 'error'); return }
       const set = (id, v, onlyEmpty = true) => { const el = document.getElementById(id); if (el && v != null && v !== '' && (!onlyEmpty || !el.value || el.value === '0' || el.value === '—')) el.value = v }

@@ -35,3 +35,12 @@ export function parseTradeInReply(text, thisYear = new Date().getFullYear()) {
 }
 
 export const midPrice = r => (r?.low && r?.high ? Math.round((r.low + r.high) / 2 / 1000) * 1000 : null)
+
+// ตัวกลาง AI รับคำขอได้ไม่เกิน ~200KB (workers/ai-proxy.js) → เก็บรูปตามลำดับจนเต็มงบ (รูปแรกสำคัญสุด)
+export const PHOTO_BUDGET = 180_000
+export function fitImages(list, budget = PHOTO_BUDGET) {
+  const out = []
+  let used = 0
+  for (const b of list || []) { if (!b) continue; if (used + b.length > budget) break; out.push(b); used += b.length }
+  return out
+}

@@ -15,7 +15,7 @@ function pickImage() {
 }
 
 // ย่อด้านยาวเหลือ ~1600px เป็น JPEG — รูปจากมือถือ 4–12 MB ส่งช้าและเกินขนาดที่ AI รับ
-export async function imageToJpegBase64(file, max = 1600) {
+export async function imageToJpegBase64(file, max = 1600, quality = 0.88) {
   const url = URL.createObjectURL(file)
   try {
     const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url })
@@ -23,7 +23,7 @@ export async function imageToJpegBase64(file, max = 1600) {
     const c = document.createElement('canvas')
     c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k)
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
-    return c.toDataURL('image/jpeg', 0.88).split(',')[1]
+    return c.toDataURL('image/jpeg', quality).split(',')[1]
   } finally { URL.revokeObjectURL(url) }
 }
 
