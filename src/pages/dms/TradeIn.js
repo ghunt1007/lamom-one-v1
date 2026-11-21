@@ -157,10 +157,15 @@ export default async function TradeInPage(container) {
   }
 
   function openAppraisalModal(t = null) {
-    openModal({
+    const modal = openModal({
       title: t ? '🔍 ประเมินใหม่: ' + escHtml(t.oldCar) : '+ ประเมินรถเทิร์น',
       size: 'md',
-      body: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      body: `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px">
+        <div style="grid-column:1/-1">
+          <button type="button" class="btn btn-secondary btn-sm" id="ti-ai-btn" style="max-width:100%;white-space:normal">📷 ให้ AI ดูรูปรถ</button>
+          <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px">เลือกรูปรอบคัน + หน้าปัดเลขไมล์ ได้สูงสุด 4 รูป · AI เติมรุ่น ไมล์ เกรด และช่วงราคาคร่าวๆ ให้</div>
+          <div id="ti-ai-out"></div>
+        </div>
         <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="ti-name" value="${escHtml(t?.customer||'')}"></div>
         <div class="input-group"><label class="input-label">รถเก่า (ยี่ห้อ รุ่น ปี)</label><input class="input" id="ti-car" value="${escHtml(t?.oldCar||'')}" placeholder="Toyota Camry 2018"></div>
         <div class="input-group"><label class="input-label">ทะเบียน</label><input class="input" id="ti-plate" value="${escHtml(t?.plate||'')}"></div>
@@ -211,6 +216,42 @@ export default async function TradeInPage(container) {
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
+    modal?.el?.querySelector('#ti-ai-btn')?.addEventListener('click', e => aiFromPhotos(e.currentTarget))
+  }
+
+  // (v1.0.1232) AI ดูรูปรถเทิร์น → เติมรุ่น/ปี/ไมล์/เกรด/ราคาตลาดคร่าวๆ (เฉพาะช่องที่ยังว่าง) + รายการที่ต้องตรวจจริง
+  async function aiFromPhotos(btn) {
+    const files = await new Promise(resolve => {
+      const inp = document.createElement('input')
+      inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true; inp.style.display = 'none'
+      inp.addEventListener('change', () => { resolve([...(inp.files || [])].slice(0, 4)); inp.remove() })
+      document.body.appendChild(inp); inp.click()
+    })
+    if (!files.length) return
+    const out = document.getElementById('ti-ai-out')
+    const label = btn.innerHTML
+    btn.disabled = true; btn.innerHTML = '⏳ AI กำลังดูรูป...'
+    try {
+      const [{ imageToJpegBase64 }, ai, { TRADEIN_PROMPT, parseTradeInReply, midPrice }] = await Promise.all([import('../../utils/idCardScan.js'), import('../../utils/ai.js'), import('../../utils/tradeInAi.js')])
+      if (!ai.isAiEnabled()) { showToast('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้ AI', 'warning'); return }
+      const imgs = []
+      for (const f of files) imgs.push(await imageToJpegBase64(f, 1280))
+      const r = parseTradeInReply(await ai.analyzeTradeInPhotos(imgs, TRADEIN_PROMPT))
+      if (!r) { showToast('AI อ่านรูปไม่ได้ ลองถ่ายให้เห็นทั้งคันชัดๆ', 'error'); return }
+      const set = (id, v, onlyEmpty = true) => { const el = document.getElementById(id); if (el && v != null && v !== '' && (!onlyEmpty || !el.value || el.value === '0' || el.value === '—')) el.value = v }
+      set('ti-car', r.car); set('ti-mileage', r.mileage); set('ti-market', midPrice(r))
+      if (r.grade) set('ti-grade', r.grade, false)
+      const li = a => a.map(x => `<li>${escHtml(x)}</li>`).join('')
+      if (out) out.innerHTML = `<div style="margin-top:8px;padding:10px 12px;border-radius:10px;background:var(--surface-2);font-size:0.8rem;line-height:1.5">
+        <div><b>🤖 AI ประเมินเบื้องต้น</b> (ความมั่นใจ: ${{ low: 'ต่ำ', medium: 'กลาง', high: 'สูง' }[r.confidence]})</div>
+        ${r.low && r.high ? `<div>💰 ราคาตลาดคร่าวๆ <b>${formatCurrency(r.low)} – ${formatCurrency(r.high)}</b></div>` : '<div>💰 AI ไม่กล้าให้ช่วงราคา — ใส่ราคาตลาดเอง</div>'}
+        ${r.issues.length ? `<div style="margin-top:4px">⚠️ เห็นจากรูป:</div><ul style="margin:2px 0 0 18px;padding:0">${li(r.issues)}</ul>` : ''}
+        ${r.checks.length ? `<div style="margin-top:4px">🔍 ต้องตรวจจริงก่อนเสนอ:</div><ul style="margin:2px 0 0 18px;padding:0">${li(r.checks)}</ul>` : ''}
+        <div style="margin-top:6px;color:var(--warning)">ตัวเลขนี้เป็นแค่ช่วงเบื้องต้น AI ไม่มีราคาตลาดจริง · เช็กกับเต็นท์/คนประเมินก่อนเสนอลูกค้าทุกครั้ง</div>
+      </div>`
+      showToast('เติมข้อมูลจากรูปแล้ว ตรวจทานก่อนบันทึก', 'success')
+    } catch (e) { showToast((await import('../../utils/ai.js')).aiErrorText?.(e) || 'AI ดูรูปไม่สำเร็จ', 'error') }
+    finally { btn.disabled = false; btn.innerHTML = label }
   }
 
   await loadData()
