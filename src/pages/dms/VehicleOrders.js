@@ -1,4 +1,6 @@
-import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData, listDocs } from '../../core/db.js'
+import { bookingsForOrder, ORDER_LIVE } from '../../utils/orderNeeds.js'
+import { callLink } from '../../utils/callLink.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 // เดิมเลขที่คำสั่งซื้อ (orderNo) สร้างจาก counter ในหน่วยความจำ (orderCounter++) — ถ้ามี 2 คนสร้างคำสั่งซื้อ
 // พร้อมกัน (เช่น เปิด 2 แท็บ/2 เครื่อง) จะได้เลขซ้ำกันได้ (race condition) เปลี่ยนมาใช้ timestamp+random
@@ -175,6 +177,7 @@ export default async function VehicleOrdersPage(container) {
             ${dRow('🗓','วันที่สั่ง',formatDate(o.createdAt))}
           </div>
           ${o.notes ? `<div style="background:var(--surface-2);padding:10px 12px;border-radius:var(--radius-md);font-size:0.85rem">📝 ${escHtml(o.notes)}</div>` : ''}
+          ${ORDER_LIVE.includes(o.status) ? '<div id="o-waiters" style="font-size:0.83rem;color:var(--text-muted)">👥 กำลังดูลูกค้าที่รอรถจากใบสั่งนี้…</div>' : ''}
           ${nextSt ? `<button class="btn btn-primary btn-sm" id="o-advance">→ ${STATUS[nextSt]?.label}</button>` : ''}
         </div>
       `,
@@ -182,6 +185,8 @@ export default async function VehicleOrdersPage(container) {
                <button class="btn btn-primary" id="o-edit-btn">✏️ แก้ไข</button>`
     })
     document.getElementById('o-edit-btn')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openForm(o) })
+    let waiters = []
+    if (ORDER_LIVE.includes(o.status)) showWaiters(o).then(w => { waiters = w }).catch(() => document.getElementById('o-waiters')?.remove())
     document.getElementById('o-advance')?.addEventListener('click', async () => {
       if (!nextSt) return
       try {
@@ -211,7 +216,7 @@ export default async function VehicleOrdersPage(container) {
               created++
             } catch (e) {}
           }
-          showToast(`📦 รถถึงแล้ว! สร้างรถเข้าสต็อกจริงแล้ว ${created}/${qty} คัน — ไปกรอก VIN/ราคาขาย/ส่ง PDI ต่อที่หน้าสต็อก`, 'success')
+          showToast(`📦 รถถึงแล้ว! สร้างรถเข้าสต็อกจริงแล้ว ${created}/${qty} คัน — ไปกรอก VIN/ราคาขาย/ส่ง PDI ต่อที่หน้าสต็อก${waiters.length ? ` · อย่าลืมโทรแจ้งลูกค้าที่รอ: ${waiters.map(b => String(b.custName || '').trim() || 'ลูกค้า').slice(0, 3).join(', ')}${waiters.length > 3 ? ` และอีก ${waiters.length - 3} คน` : ''}` : ''}`, 'success')
           document.querySelector('.modal-overlay')?.remove()
           setTimeout(() => navigate('/dms/stock'), 600)
         } else {
@@ -221,6 +226,27 @@ export default async function VehicleOrdersPage(container) {
         updateStats(); applyFilter()
       } catch { showToast('เกิดข้อผิดพลาด','error') }
     })
+  }
+
+  // (v1.0.1247) ลูกค้าที่จองรอและจะได้รถจากใบสั่งนี้ (จองก่อนได้ก่อน หลังหักรถว่าง/กำลังขนส่ง) — รถถึงแล้วโทรหาใคร
+  async function showWaiters(o) {
+    const [bks, vs] = await Promise.all([
+      listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 2000),
+      listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 1000),
+    ])
+    const list = bookingsForOrder({ bookings: bks, vehicles: vs, orders, today: todayBangkok() }, o.id)
+    const el = document.getElementById('o-waiters')
+    if (!el) return list
+    if (!list.length) { el.textContent = '👥 ยังไม่มีลูกค้าที่จองรอรถจากใบสั่งนี้ (รถจากใบนี้ขายลูกค้าใหม่ได้)'; return list }
+    el.style.color = ''
+    el.innerHTML = `<div style="font-weight:600;margin-bottom:4px">👥 ลูกค้าที่จองรอรถจากใบสั่งนี้ ${list.length} คน (จองก่อนได้ก่อน)</div>` + list.slice(0, 10).map(b => `
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:3px 0;border-top:1px solid var(--border)">
+        <span style="flex:1 1 140px;min-width:0">${escHtml(String(b.custName || '').trim() || 'ลูกค้า')}${b.salesName ? ` <span style="color:var(--text-muted)">· ${escHtml(b.salesName)}</span>` : ''}${b.bookingDate ? ` <span style="color:var(--text-muted)">· จอง ${formatDate(b.bookingDate)}</span>` : ''}</span>
+        ${callLink(b.phone || b.custPhone, b.custName)}
+        <button type="button" class="btn btn-xs btn-secondary o-open-bk" data-id="${__escA(b.id)}">เปิดใบจอง</button>
+      </div>`).join('') + (list.length > 10 ? `<div style="color:var(--text-muted)">…และอีก ${list.length - 10} คน</div>` : '')
+    el.querySelectorAll('.o-open-bk').forEach(btn => btn.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); navigate('/crm/bookings?id=' + encodeURIComponent(btn.dataset.id)) }))
+    return list
   }
 
   function getNextStatus(s) {

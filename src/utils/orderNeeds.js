@@ -118,7 +118,7 @@ export function etaForBookings({ bookings = [], vehicles = [], orders = [], toda
   })
   alive(orders).forEach(o => {
     if (!ORDER_LIVE.includes(o.status)) return
-    for (let i = 0; i < qty(o); i++) add(key(o, o.color), { kind: 'order', date: String(o.expectedDate || '').slice(0, 10), rank: 2, ref: o.orderNo || '' })
+    for (let i = 0; i < qty(o); i++) add(key(o, o.color), { kind: 'order', date: String(o.expectedDate || '').slice(0, 10), rank: 2, ref: o.orderNo || '', oid: o.id || '' })
   })
   for (const list of supply.values()) list.sort((a, b) => a.rank - b.rank || (a.date || '9').localeCompare(b.date || '9') || a.at?.localeCompare?.(b.at || '') || 0)
   const out = new Map()
@@ -130,7 +130,7 @@ export function etaForBookings({ bookings = [], vehicles = [], orders = [], toda
       const ahead = seen.get(k) || 0
       seen.set(k, ahead + 1)
       const s = supply.get(k)?.shift()
-      if (b.id) out.set(b.id, s ? { kind: s.kind, date: s.date, ref: s.ref, ahead } : { kind: 'none', date: '', ref: '', ahead })
+      if (b.id) out.set(b.id, s ? { kind: s.kind, date: s.date, ref: s.ref, ahead, ...(s.oid ? { orderId: s.oid } : {}) } : { kind: 'none', date: '', ref: '', ahead })
     })
   return out
 }
@@ -154,4 +154,12 @@ export function stockForModel(rows, rec) {
     const coming = Math.max(0, r.have - Math.max(r.wait, r.ready))
     return { color: r.color, free, coming }
   }).filter(r => r.free || r.coming).sort((a, b) => b.free - a.free || b.coming - a.coming || a.color.localeCompare(b.color))
+}
+
+// (v1.0.1247) ลูกค้าที่จองรอและจะได้รถจากใบสั่งรถใบนี้ (จองก่อนได้ก่อน) — ใช้ในหน้าใบสั่งรถ ให้รู้ว่ารถถึงแล้วต้องโทรหาใคร
+export function bookingsForOrder({ bookings = [], vehicles = [], orders = [], today = '' } = {}, orderId) {
+  if (!orderId) return []
+  const eta = etaForBookings({ bookings, vehicles, orders, today })
+  return alive(bookings).filter(b => b.id && eta.get(b.id)?.orderId === orderId)
+    .sort((a, b) => String(a.bookingDate || a.createdAt || '9').localeCompare(String(b.bookingDate || b.createdAt || '9')))
 }
