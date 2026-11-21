@@ -49,6 +49,7 @@ import { runLeadNudge } from './leadNudge.js'
 import { SEND_CRON, runScheduledSends, scheduleSend, unscheduleSend } from './scheduledSend.js'
 import { runChatNudge } from './chatNudge.js'
 import { pickWakeLeads } from '../src/utils/wakeLeads.js'
+import { orderForecast } from '../src/utils/orderForecast.js'
 import { parseLinkCode, parseOptCommand, linkByCode, setOptOut, markFollow, runStatusLine, STATUS_BOOKING_FIELDS, STATUS_CUSTOMER_FIELDS } from './lineLink.js'
 import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } from './scheduledPost.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
@@ -333,7 +334,12 @@ async function runMorningReminder(env, accessToken) {
   if (isMonday(today)) {
     // นัดที่ทำแล้ว (ข้อมูลเช้าดึงเฉพาะนัดค้าง) — ใช้คิด % การติดตามของสัปดาห์ที่แล้ว
     const followupsDone = await runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'deleted'], ['status', 'done']).catch(() => null)
-    const wText = buildWeeklyReport({ ...data, followupsDone }, { today })
+    // (v1.0.1234) รถในสต็อก + ใบสั่งรถ — ใช้คาดการณ์ว่าควรสั่งรถเพิ่มกี่คัน
+    const [vehicles, vehicleOrders] = await Promise.all([
+      runQuery(env, accessToken, 'vehicles', null, null, 3000, ['status', 'brand', 'model', 'color', 'vin', 'deleted']).catch(() => null),
+      runQuery(env, accessToken, 'vehicle_orders', null, null, 1000, ['status', 'brand', 'model', 'color', 'qty', 'deleted']).catch(() => null),
+    ])
+    const wText = buildWeeklyReport({ ...data, followupsDone, vehicles, vehicleOrders }, { today })
     const [wt, wl] = await Promise.all([sendTelegram(env, wText), sendLineTarget(env, accessToken, wText)])
     weekly = { text: wText, telegram: wt, line: wl }
   }
@@ -963,7 +969,7 @@ export const EVENING_CUSTOMER_FIELDS = ['stage', 'createdAt', 'source', 'assigne
 export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel', 'phone', 'wakeSentAt', 'lineOptOut', 'lineBlockedAt', 'marketingConsent']
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly', 'colorOut', 'color', 'vin']),
     runQuery(env, accessToken, 'customers', null, null, 5000, MORNING_CUSTOMER_FIELDS),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
@@ -1412,6 +1418,14 @@ export function buildWeeklyReport(data, { today }) {
   const wake = pickWakeLeads(customers, { today })
   const wakeLine = wake.length ? `😴 ลีดเงียบ 30 วัน+ ที่ควรทัก: ${wake.length} ราย (ส่ง LINE ได้ ${wake.filter(w => w.channel === 'line').length}) → เมนู "ปลุกลีดเก่า"` : null
 
+  // (v1.0.1234) คาดการณ์สั่งรถ 45 วัน (เฉพาะเมื่ออ่านสต็อกได้ — อ่านไม่ได้ไม่ใส่ ดีกว่าบอกว่าต้องสั่งทุกอย่าง)
+  let fcLine = null
+  if (Array.isArray(data.vehicles)) {
+    const fc = orderForecast({ bookings, vehicles: data.vehicles, orders: data.vehicleOrders || [], customers, today, leadDays: 45 })
+    const top = fc.models.filter(m => m.suggest > 0).slice(0, 3).map(m => `${m.car} ${m.suggest}`).join(' · ')
+    if (fc.total) fcLine = `📈 ควรสั่งรถ (รถมาใน 45 วัน): ~${fc.total} คัน — ${top} → เมนู "ตารางสีรถ"`
+  }
+
   // เสียดีลสัปดาห์ที่แล้ว แยกตามเหตุผล (ใช้คำหน้าเครื่องหมาย " - " เช่น "ราคา - คู่แข่งลดให้ 20,000" นับเป็น "ราคา")
   const lostBy = {}
   let lostN = 0
@@ -1447,6 +1461,7 @@ export function buildWeeklyReport(data, { today }) {
     ...fuLines,
     ...quietLines,
     wakeLine,
+    fcLine,
     ...lostLines,
     ...(convLines.length ? ['', '🎯 ช่องทางที่ปิดจองได้ดี (Lead 90 วันล่าสุด)', ...convLines] : []),
     '',
