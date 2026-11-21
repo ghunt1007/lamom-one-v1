@@ -114,3 +114,15 @@ describe('LAMI ลูกค้ารอรถ (v1.0.1241)', () => {
     expect(r.text).toMatch(/สมชาย[\s\S]*มีรถว่างในสต็อก/)
   })
 })
+
+describe('stockForModel (v1.0.1243)', () => {
+  it('รถว่างหลังหักลูกค้าที่จองรอ แยกสี + กำลังมาที่ยังไม่มีเจ้าของ', async () => {
+    const { orderNeeds, stockForModel } = await import('./orderNeeds.js')
+    const rows = orderNeeds({
+      bookings: [bk()],
+      vehicles: [car({ vin: 'A' }), car({ vin: 'B' }), car({ vin: 'C', color: 'ดำ', status: 'transit' }), car({ model: 'L07', vin: 'D' })],
+    })
+    expect(stockForModel(rows, { brand: 'DEEPAL', model: 'DEEPAL S07' })).toEqual([{ color: 'ขาว', free: 1, coming: 0 }, { color: 'ดำ', free: 0, coming: 1 }])
+    expect(stockForModel(rows, { model: '' })).toEqual([])
+  })
+})

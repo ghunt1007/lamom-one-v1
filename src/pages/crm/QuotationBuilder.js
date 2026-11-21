@@ -28,6 +28,7 @@ import { quoteText } from '../../utils/quoteText.js'
 import { copyText } from '../../utils/copyText.js'
 import { callLink } from '../../utils/callLink.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { orderNeeds, stockForModel } from '../../utils/orderNeeds.js'
 import { programsForCar, carSummary, bestRates, CUSTOMER_TYPES, PROGRAM_TYPES, rangeLabel, normalizeProgram } from '../../utils/salesPrograms.js'
 
 // (v1.0.976) อ่านค่าตัวเลขจากช่อง — ช่องว่างใช้ค่าเริ่มต้น แต่ 0 คือ 0 จริง (เดิม 0% กลายเป็น 2.99%)
@@ -482,6 +483,7 @@ export default async function QuotationBuilderPage(container) {
               ${getVehicles().map(m => `<option value="${__escA(m.id)}" ${matchedVehicle?.id === m.id ? 'selected' : ''}>${m.brand} ${m.model} ${m.variant} — ${formatCurrency(m.price)}</option>`).join('')}
             </select>
           </div>
+          <div id="qf-stock" style="grid-column:1/-1;font-size:0.76rem;margin-top:-4px"></div>
           <div class="input-group"><label class="input-label">สี</label><input class="input" id="qf-color" placeholder="Cosmos Black"></div>
           <div class="input-group"><label class="input-label">ค่าจดทะเบียน (บาท)</label><input type="number" class="input" id="qf-regfee" value="${__escA(DEFAULT_REG_FEE)}"></div>
           <div class="input-group"><label class="input-label">ส่วนลด (บาท)</label><input type="number" class="input" id="qf-discount" value="0"></div>
@@ -495,8 +497,8 @@ export default async function QuotationBuilderPage(container) {
             <label class="input-label">อุปกรณ์เสริม (จากรายการ) — ราคาอาจต่างกันตามรุ่นรถที่เลือก</label>
             <div id="qf-acc-list" style="display:flex;flex-direction:column;gap:6px">
               ${getAccessories().map(a => `
-                <div class="acc-row" data-id="${a.id}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm)">
-                  <span style="flex:1;font-size:0.82rem">${escHtml(a.name)}</span>
+                <div class="acc-row" data-id="${a.id}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);flex-wrap:wrap">
+                  <span style="flex:1 1 140px;font-size:0.82rem;min-width:0">${escHtml(a.name)}</span>
                   <span class="acc-price" style="font-size:0.78rem;color:var(--text-muted);min-width:90px;text-align:right">${formatCurrency(getAccessoryPrice(a, matchedVehicle?.id || getVehicles()[0]?.id))}</span>
                   <select class="input acc-mode" style="width:130px;font-size:0.78rem;padding:2px 6px">
                     <option value="">ไม่รวม</option>
@@ -567,7 +569,25 @@ export default async function QuotationBuilderPage(container) {
     })
 
     // ── wire up interactivity หลังจาก modal ถูกแทรกเข้า DOM แล้ว ──────────────────
-    document.getElementById('qf-vehicle')?.addEventListener('change', () => { refreshAllAccRows(); updateSummary() })
+    document.getElementById('qf-vehicle')?.addEventListener('change', () => { refreshAllAccRows(); updateSummary(); showStock() })
+    // (v1.0.1243) รุ่นที่เลือกมีรถว่างให้ลูกค้าใหม่ไหม (หลังหักคนที่จองรอ) — แตะสีเพื่อใส่ในช่องสี
+    let stockRows = null
+    const showStock = () => {
+      const el = document.getElementById('qf-stock')
+      if (!el || !stockRows) return
+      const v = getVehicles().find(m => m.id === currentVehicleId())
+      const list = v ? stockForModel(stockRows, v) : []
+      const chip = r => `<button type="button" class="btn btn-xs btn-secondary qf-stock-c" data-c="${escHtml(r.color)}" style="white-space:nowrap">${escHtml(r.color)}${r.free ? ` ✅ ว่าง ${r.free}` : ''}${r.coming ? ` 🚢 มา ${r.coming}` : ''}</button>`
+      el.innerHTML = list.length
+        ? `<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center"><span style="color:var(--text-muted)">🚗 สต็อกรุ่นนี้ (หักคนจองรอแล้ว):</span>${list.map(chip).join('')}</div>`
+        : `<span style="color:var(--warning)">🚗 รุ่นนี้ไม่มีรถว่างหรือกำลังมาที่ยังไม่มีคนจอง — แจ้งลูกค้าว่าต้องรอสั่งรถ</span>`
+      el.querySelectorAll('.qf-stock-c').forEach(b => b.addEventListener('click', () => { const c = document.getElementById('qf-color'); if (c) c.value = b.dataset.c === 'ไม่ระบุสี' ? '' : b.dataset.c }))
+    }
+    Promise.all([
+      listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 1000),
+      listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 2000),
+      listDocs('vehicle_orders', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
+    ]).then(([vs, bks, ords]) => { stockRows = orderNeeds({ bookings: bks, vehicles: vs, orders: ords }); showStock() }).catch(() => {})
     document.querySelectorAll('.modal .acc-mode').forEach(sel => sel.addEventListener('change', (e) => {
       refreshAccRow(e.target.closest('.acc-row'), currentVehicleId())
       updateSummary()
