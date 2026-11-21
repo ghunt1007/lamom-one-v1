@@ -63,6 +63,7 @@ export const PAGE_COLLECTIONS = {
   "quotations",
   "staff",
   "users",
+  "vehicle_orders",
   "vehicles"
  ],
  "/crm/sales-income": [
@@ -81,7 +82,8 @@ export const PAGE_COLLECTIONS = {
   "sales_programs",
   "social_threads",
   "staff",
-  "test_drives"
+  "test_drives",
+  "vehicles"
  ],
  "/crm/action-plan": [
   "action_plans"

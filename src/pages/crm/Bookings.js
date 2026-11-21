@@ -3,6 +3,7 @@ import { scanIdCard, idCardSummary } from '../../utils/idCardScan.js'
 import { carOf, carLabel } from '../../utils/carLabel.js'
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, readDoc } from '../../core/db.js'
 import { customerStatusMessage } from '../../utils/bookingNotify.js'
+import { needsBooking, etaForBookings, etaLabel } from '../../utils/orderNeeds.js'
 import { openLineLinkQr, lineLinkState, needsLineLink } from '../../utils/lineLink.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
@@ -1399,6 +1400,7 @@ export default async function BookingsPage(container) {
         dRow('ชื่อ', b.custName || '-') + (canViewNid ? dRow('เลขบัตร ปชช.', b.nid || '-') : '') + dRow('โทร', b.phone || '-') + dRow('ที่อยู่', (b.address || '-') + ' ' + (b.province || '')) + dRow('แหล่งที่มา', b.source || '-') +
         sec('🚗 รถ') +
         dRow('รุ่น', carLabel(detectBrand(b.brand, b.model) || b.brand, b.model, b.variant) || '-') + dRow('สีนอก / ใน', (b.colorOut || '-') + ' / ' + (b.colorIn || '-')) + dRow('เลขตัวถัง (VIN)', b.vin || '-') + dRow('เลขมอเตอร์', b.motorNo || '-') + dRow('เลขแบต', b.batNo || '-') + dRow('เลขเครื่องยนต์', b.engineNo || '-') + dRow('ป้ายแดง / ป้ายขาว', (b.redPlate || '-') + ' / ' + (b.whitePlate || '-')) +
+        (needsBooking(b) ? '<div id="bk-eta" style="margin:4px 0 2px;padding:6px 10px;border-radius:8px;background:var(--surface-2);font-size:0.78rem;overflow-wrap:anywhere">⏳ กำลังดูว่ารถจะมาเมื่อไหร่…</div>' : '') +
         sec('💰 การเงิน / ไฟแนนซ์') +
         dRow('ราคารถ', formatCurrency(b.price)) + dRow('เงินจอง', formatCurrency(b.bookingDeposit || 0)) + dRow('เงินดาวน์', formatCurrency(b.down)) +
         (isCash ? dRow('การชำระ', 'ซื้อเงินสด') :
@@ -1456,6 +1458,7 @@ export default async function BookingsPage(container) {
               '<button class="btn btn-danger" id="bk-delete2">🗑️ ลบใบจอง</button>'
     })
     if (!isCash) refreshFinAppPanel(b)
+    if (needsBooking(b)) refreshEta(b)
     collapseEmptyRows([...document.querySelectorAll('.modal-overlay')].pop())
     document.getElementById('bk-replan')?.addEventListener('click', () => openReplan(b))
     document.getElementById('bk-tell')?.addEventListener('click', () => offerCustomerNotice(b, b.status))
@@ -1499,6 +1502,21 @@ export default async function BookingsPage(container) {
   // (v1.0.461) เดิมสถานะไฟแนนซ์บนใบจอง (finStatus ที่กรอกเอง) กับใบสมัครไฟแนนซ์จริงที่ฝ่ายการเงินยื่นกับ
   // ธนาคาร (collection finance_applications) เป็นคนละระบบแยกกันสนิท ไม่มีรหัสเชื่อมกันเลย ("เบ็ดเสร็จจุดเดียว")
   // — ต่อไปนี้ใบสมัครที่ยื่นผ่านปุ่มนี้จะผูก bookingId ไว้จริง ทำให้ดูสถานะจริงจากธนาคารได้ตรงนี้เลย
+  // (v1.0.1241) 🚚 รถจะมาเมื่อไหร่ — ไล่แจกรถว่าง/กำลังขนส่ง/ใบสั่งรถ ให้ลูกค้าที่จองรอแบบจองก่อนได้ก่อน (utils/orderNeeds.js)
+  async function refreshEta(b) {
+    const [vs, ords] = await Promise.all([
+      listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 1000).catch(() => null),
+      listDocs('vehicle_orders', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
+    ])
+    const el = document.getElementById('bk-eta')
+    if (!el) return
+    if (!vs) { el.remove(); return }
+    const e = etaForBookings({ bookings, vehicles: vs, orders: ords, today: todayBangkok() }).get(b.id)
+    if (!e) { el.remove(); return }
+    el.textContent = '🚚 ' + etaLabel(e, formatDate)
+    if (e.kind === 'none') el.style.color = 'var(--warning)'
+  }
+
   async function refreshFinAppPanel(b) {
     const el = document.getElementById('bk-finapp-panel')
     if (!el) return

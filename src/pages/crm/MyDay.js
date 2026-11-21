@@ -33,11 +33,12 @@ import { campaignLeads, campaignMessage } from '../../utils/campaignLeads.js'
 import { modelMatches } from '../../utils/salesAi.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { quoteDueToday } from '../../utils/quoteQuestions.js'
+import { matchReadyCars } from '../../utils/orderNeeds.js'
 
 const NUDGE_MAX = 8
 const SECTION_PREVIEW = 5
 // ชื่อสั้นบนแถบกระโดดไปหมวด (ตาม icon ของหมวด)
-const JUMP_LABEL = { '📞': 'นัดติดตาม', '🚙': 'ลองขับ', '🏬': 'นัดโชว์รูม', '🧲': 'Lead ใหม่', '🔴': 'Hot', '⏰': 'ไม่ได้ตาม', '🔄': 'ติดต่อใหม่', '📆': 'ยังไม่นัดส่ง', '🚗': 'ส่งมอบ', '🏦': 'ไฟแนนซ์', '💰': 'กรอกรายได้', '⏳': 'ใบจองค้าง', '🎁': 'โปรใกล้หมด', '💬': 'LINE รอตอบ', '📄': 'ใบเสนอราคา' }
+const JUMP_LABEL = { '🔑': 'ได้รถแล้ว', '📞': 'นัดติดตาม', '🚙': 'ลองขับ', '🏬': 'นัดโชว์รูม', '🧲': 'Lead ใหม่', '🔴': 'Hot', '⏰': 'ไม่ได้ตาม', '🔄': 'ติดต่อใหม่', '📆': 'ยังไม่นัดส่ง', '🚗': 'ส่งมอบ', '🏦': 'ไฟแนนซ์', '💰': 'กรอกรายได้', '⏳': 'ใบจองค้าง', '🎁': 'โปรใกล้หมด', '💬': 'LINE รอตอบ', '📄': 'ใบเสนอราคา' }
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
 
@@ -55,6 +56,7 @@ export default async function MyDayPage(container) {
   let programs = []
   let events = []
   let quotes = []
+  let readyCars = null // (v1.0.1242) รถว่างในสต็อก — จับคู่กับลูกค้าที่จองรอ
 
   container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
   const scope = await getVisibilityScope()
@@ -79,6 +81,7 @@ export default async function MyDayPage(container) {
     try { events = (await listDocs('marketing_events', [], 'startDate', 'desc', 100)).filter(e => !e.deleted && e.status !== 'cancelled') } catch { events = [] }
     // (v1.0.1075) ใบเสนอราคาที่ลูกค้ายอมรับแล้วแต่ยังไม่จอง / ใกล้หมดอายุ → ขึ้นเป็นงานวันนี้
     try { quotes = (await listDocs('quotations', f, 'createdDate', 'desc', 500)).filter(q => !q.deleted) } catch { quotes = [] }
+    try { readyCars = await listDocs('vehicles', f, 'arrivedAt', 'desc', 1000) } catch { readyCars = null }
     try { staff = staffChoices(await listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 1000)) } catch { staff = [] }
     // ลงทะเบียนรับงานทาง LINE แล้วหรือยัง (ทัก LINE OA พิมพ์ "ลงทะเบียน ชื่อ") — โหลดไม่ได้ = ไม่แสดงคำแนะนำ
     try {
@@ -347,6 +350,10 @@ export default async function MyDayPage(container) {
           `${escHtml(String(w.text).slice(0, 80))}${ownerTag(w.owner)}`,
           `<button class="btn btn-primary btn-xs md-line" data-id="${escHtml(w.id)}">💬 ตอบ</button>`), 'success') : ''}
 
+        ${(() => { const pr = readyCars ? matchReadyCars({ bookings: data.bookings, vehicles: readyCars }).filter(p => mine(p.booking.salesName, p.booking)) : []; return pr.length ? section('🔑', 'ลูกค้าได้รถแล้ว — โทรแจ้ง', 'รถว่างรุ่น+สีตรงกับที่จอง (จองก่อนได้ก่อน) · ใส่เลขตัวถังในใบจอง', pr, ({ booking: b, vehicle: v }) => line(
+          `${escHtml(String(b.custName || '').trim() || 'ลูกค้า')}`,
+          `${escHtml(carOf(v) || v.model || '')} สี${escHtml(v.color || '-')}${v.vin ? ` · ตัวถัง ${escHtml(v.vin)}` : ''}${ownerTag(b.salesName)}`,
+          `${callBtn(b.phone, b.customerId || '')}<button class="btn btn-primary btn-xs md-bk" data-id="${escHtml(b.id)}">📝 ใบจอง</button>`), 'success') : '' })()}
         ${(() => { const qd = quoteDueToday(quotes.filter(q => mine(q.salesperson, q)), today); return qd.length ? section('📄', 'ใบเสนอราคาต้องปิด', 'ลูกค้าตกลงแล้ว = ทำใบจอง · ใกล้หมดอายุ = โทรชวนจอง', qd, q => line(
           `${escHtml(q.customerName || 'ลูกค้า')} <span class="badge badge-${q._why === 'book' ? 'success' : 'warning'}" style="font-size:0.62rem">${q._why === 'book' ? 'ตกลงแล้ว รอใบจอง' : q._left === 0 ? 'หมดวันนี้' : `หมดใน ${q._left} วัน`}</span>`,
           `${escHtml(q.vehicleLabel || '')}${ownerTag(q.salesperson)}`,
@@ -442,6 +449,7 @@ export default async function MyDayPage(container) {
         onNoVoice: () => { reset(); showToast('เครื่องนี้ไม่มีเสียงภาษาไทย', 'warning') },
       })
     })
+    $$('.md-bk').forEach(b => b.addEventListener('click', () => navigate(`/crm/bookings?id=${encodeURIComponent(b.dataset.id)}`)))
     $$('.md-quote').forEach(b => b.addEventListener('click', () => navigate(`/crm/quotation?open=${encodeURIComponent(b.dataset.id)}`)))
     $$('.md-open').forEach(b => b.addEventListener('click', () => navigate(`/crm/customers?id=${encodeURIComponent(b.dataset.id)}`)))
     $$('.md-call').forEach(a => a.addEventListener('click', () => {
