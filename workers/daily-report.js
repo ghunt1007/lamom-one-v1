@@ -53,7 +53,7 @@ import { pickWakeLeads } from '../src/utils/wakeLeads.js'
 import { orderForecast } from '../src/utils/orderForecast.js'
 import { runApptRemind } from './apptRemind.js'
 import { matchReadyCars, etaForBookings, needsBooking, ORDER_LIVE } from '../src/utils/orderNeeds.js'
-import { waitEtaAnswer } from '../src/utils/opsQuestions.js'
+import { waitEtaAnswer, forecastAnswer } from '../src/utils/opsQuestions.js'
 import { parseLinkCode, parseOptCommand, linkByCode, setOptOut, markFollow, runStatusLine, STATUS_BOOKING_FIELDS, STATUS_CUSTOMER_FIELDS } from './lineLink.js'
 import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } from './scheduledPost.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
@@ -610,6 +610,12 @@ async function handleLineWebhook(request, env, cors) {
       if (me?.name || isOwner) {
         try { reply = clipLine(await buildWaitCarText(env, accessToken, isOwner ? '' : me.name)) } catch { reply = '⚠️ ดึงข้อมูลรอรถไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'forecast') {
+      // (v1.0.1256) เฉพาะเจ้าของ (ปลายทางรายงาน) — การสั่งรถเป็นเรื่องของเจ้าของ คนอื่นพิมพ์ = ข้อความปกติ
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      if (owner && owner === userId) {
+        try { reply = clipLine(await buildForecastText(env, accessToken)) } catch { reply = '⚠️ ดึงข้อมูลคาดการณ์ไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'unregister') {
       await deleteSalesTarget(env, accessToken, userId)
       reply = '✅ ยกเลิกการรับเตือนงานค้างแล้วครับ'
@@ -675,6 +681,8 @@ export function parseLineCommand(text) {
   if (/^(?:งาน|งานวันนี้|งานค้าง|งานของฉัน|tasks?|todo)$/i.test(t.replace(/\s+/g, ''))) return { type: 'tasks' }
   // (v1.0.1245) ลูกค้าที่จองรอรถ + รถจะมาเมื่อไหร่ (เซลส์เห็นของตัวเอง เจ้าของเห็นทั้งหมด)
   if (/^(?:รอรถ|ลูกค้ารอรถ|รถมาเมื่อไหร่|waitcar)$/i.test(t.replace(/\s+/g, ''))) return { type: 'waitcar' }
+  // (v1.0.1256) เจ้าของดูคาดการณ์สั่งรถ 45 วัน (สูตรเดียวกับหน้าตารางสีรถ)
+  if (/^(?:สั่งรถ|ควรสั่งรถ|คาดการณ์สั่งรถ|คาดการณ์|forecast)$/i.test(t.replace(/\s+/g, ''))) return { type: 'forecast' }
   return { type: 'none' }
 }
 
@@ -1660,6 +1668,7 @@ export const LINE_HELP_TEXT = [
   '• เสียดีล 0812345678 ราคา — บันทึกว่าเสียดีลพร้อมเหตุผล',
   '• ร้อน / อุ่น / เย็น 0812345678 — ตั้งความสนใจลูกค้า (Hot/Warm/Cold)',
   '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
+  '• สั่งรถ — คาดการณ์ว่าควรสั่งรถรุ่น/สีไหน (เฉพาะเจ้าของ)',
   '• ลงทะเบียน ชื่อเซลส์ — รับงานค้างทุก 9 โมงเช้า',
   '• ยกเลิก — หยุดรับ',
 ].join('\n')
@@ -1776,6 +1785,17 @@ export function waitCarText({ bookings, vehicles, orders, today, seller = '' }) 
   return waitEtaAnswer(vehicles, bookings, orders, { today, mine }).text
     .replace(/💡 เปิดใบจอง[^\n]*$/, '💡 รายละเอียดเพิ่ม: เปิดใบจองในแอป หรือ เมนูรถ › ตารางสีรถ')
 }
+async function buildForecastText(env, accessToken) {
+  const [bookings, avail, transit, orders, customers] = await Promise.all([
+    runQuery(env, accessToken, 'bookings', null, null, 5000, [...WAITCAR_BOOKING_FIELDS, 'createdAt']),
+    runQuery(env, accessToken, 'vehicles', null, null, 3000, WAITCAR_VEHICLE_FIELDS, ['status', 'available']),
+    runQuery(env, accessToken, 'vehicles', null, null, 3000, WAITCAR_VEHICLE_FIELDS, ['status', 'transit']),
+    runQuery(env, accessToken, 'vehicle_orders', null, null, 2000, WAITCAR_ORDER_FIELDS).catch(() => []),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'isLost', 'temperature', 'interestedModel', 'bookingId', 'deleted']).catch(() => []),
+  ])
+  return forecastAnswer([...avail, ...transit], bookings, orders, customers, { today: todayBangkok(), leadDays: 45 }).text + '\n\n💡 เปลี่ยนช่วงรอรถ/ดูแยกสี/ทำร่างใบสั่ง ที่ เมนูรถ › ตารางสีรถ'
+}
+
 async function buildWaitCarText(env, accessToken, seller) {
   const [bookings, avail, transit, orders] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, WAITCAR_BOOKING_FIELDS),
