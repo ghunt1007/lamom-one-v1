@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday, buildLineLeadFields, pickNextSales, staffCompanyFor, buildLineFollowupFields, buildNewLineLeadNotice, sellerGoal, lineLeadDocId } from './daily-report.js'
+import worker, { readyPairLines, daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday, buildLineLeadFields, pickNextSales, staffCompanyFor, buildLineFollowupFields, buildNewLineLeadNotice, sellerGoal, lineLeadDocId } from './daily-report.js'
 
 const BASE_ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
@@ -1481,5 +1481,17 @@ describe('สรุปสัปดาห์: ผูก LINE (v1.0.1236)', () => 
   it('นับใบจองที่ยังไม่ส่งมอบ ที่ผูก LINE แล้ว', () => {
     const bookings = [{ status: 'รอรถ', lineUserId: 'U1' }, { status: 'รอรถ' }, { status: 'ส่งมอบแล้ว' }, { status: 'ถอนจอง' }]
     expect(buildWeeklyReport({ bookings, customers: [] }, { today: '2026-10-26' })).toContain('🔗 ลูกค้าจองที่ผูก LINE แล้ว: 1/2 คน')
+  })
+})
+
+describe('เช้านี้: รถว่างตรงกับลูกค้าที่รอ (v1.0.1239)', () => {
+  const bookings = [{ status: 'รอรถ', brand: 'DEEPAL', model: 'S07', colorOut: 'ขาว', custName: 'สมชาย', salesName: 'บี', bookingDate: '2026-11-01' }]
+  const vehicles = [{ status: 'available', brand: 'DEEPAL', model: 'DEEPAL S07', color: 'ขาว', vin: 'V1' }]
+  it('เจ้าของเห็นทุกคู่ · เซลส์เห็นเฉพาะลูกค้าตัวเอง · ไม่มีข้อมูลรถ = ไม่ใส่', () => {
+    expect(readyPairLines({ bookings, vehicles }).join('\n')).toContain('สมชาย ← DEEPAL S07 สีขาว (V1) · บี')
+    expect(readyPairLines({ bookings, vehicles }, 'บี')).toHaveLength(2)
+    expect(readyPairLines({ bookings, vehicles }, 'เอ')).toEqual([])
+    expect(readyPairLines({ bookings, vehicles: null })).toEqual([])
+    expect(buildMorningReminder({ bookings, customers: [], followups: [], vehicles }, { today: '2026-11-22' })).toContain('🔑 มีรถว่างตรงกับลูกค้าที่จองรอ 1 คัน')
   })
 })
