@@ -1557,3 +1557,11 @@ describe('noSupplyLines ไม่ใช้สต็อก (v1.0.1252)', () => {
     expect(noSupplyLines({ bookings: [{ id: 'b1', status: 'รอรถ', model: 'S07' }], vehicles: [], transit: [], orders: [] }, '2026-11-22')).toEqual([])
   })
 })
+
+describe('คำสั่ง LINE สั่งรถ (v1.0.1256)', () => {
+  it('parse', () => {
+    expect(parseLineCommand('สั่งรถ')).toEqual({ type: 'forecast' })
+    expect(parseLineCommand('คาดการณ์ สั่งรถ')).toEqual({ type: 'forecast' })
+    expect(parseLineCommand('สั่งรถยังไง')).toEqual({ type: 'none' })
+  })
+})
