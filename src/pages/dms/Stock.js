@@ -11,6 +11,7 @@ import { pickVehicle } from '../../utils/vehiclePicker.js'
 import { navigate } from '../../core/router.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { stockAgeDays, stockAgeTone } from '../../utils/stockAge.js'
+import { bookingForVehicle } from '../../utils/orderNeeds.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 
@@ -441,8 +442,31 @@ export default async function StockPage(container) {
     const el = document.getElementById('v-booking-panel')
     if (!el) return
     const b = v.vin ? bookingByVin[v.vin] : null
-    if (!b) { el.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted)">📋 ยังไม่มีใบจอง</div>`; return }
+    if (!b) {
+      el.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted)">📋 ยังไม่มีใบจอง</div>`
+      if (v.status === 'available' || v.status === 'transit') suggestBookingForVehicle(v)
+      return
+    }
     el.innerHTML = `<div class="card" style="padding:8px 12px;font-size:0.8rem">📋 <strong>จองแล้ว</strong> — ${escHtml(b.custName || '-')} · ${escHtml(b.status || '-')}</div>`
+  }
+  // (v1.0.1249) รถว่าง/กำลังขนส่งที่ยังไม่ผูกใบจอง → บอกว่าควรให้ลูกค้าคนไหนที่จองรอ (จองก่อนได้ก่อน · รถเข้าก่อนออกก่อน)
+  async function suggestBookingForVehicle(v) {
+    let bks = [], ords = []
+    try {
+      ;[bks, ords] = await Promise.all([
+        listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 2000),
+        listDocs('vehicle_orders', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
+      ])
+    } catch { return }
+    const el = document.getElementById('v-booking-panel')
+    if (!el) return
+    const b = bookingForVehicle({ bookings: bks, vehicles: stock, orders: ords, today: todayBangkok() }, v.id)
+    if (!b) { el.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted)">📋 ยังไม่มีใบจอง · ไม่มีลูกค้าที่จองรอรุ่น/สีนี้ — ขายลูกค้าใหม่ได้เลย</div>`; return }
+    el.innerHTML = `<div class="card" style="padding:8px 12px;font-size:0.8rem;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-color:var(--success)">
+      <span style="flex:1 1 180px;min-width:0">🔑 <strong>คันนี้ควรให้</strong> ${escHtml(String(b.custName || '').trim() || 'ลูกค้า')}${b.salesName ? ` · ${escHtml(b.salesName)}` : ''}${b.bookingDate ? ` · จอง ${formatDate(b.bookingDate)}` : ''} <span style="color:var(--text-muted)">(จองรอรุ่น/สีนี้ก่อน)</span></span>
+      <button type="button" class="btn btn-xs btn-secondary" id="v-open-bk">เปิดใบจอง</button>
+    </div>`
+    document.getElementById('v-open-bk')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); navigate('/crm/bookings?id=' + encodeURIComponent(b.id)) })
   }
   async function refreshPdiPanel(v) {
     const el = document.getElementById('v-pdi-panel')

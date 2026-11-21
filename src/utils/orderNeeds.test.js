@@ -146,3 +146,25 @@ describe('bookingsForOrder (v1.0.1247)', () => {
     expect(bookingsForOrder({ bookings: bks, vehicles, orders }, '')).toEqual([])
   })
 })
+
+describe('bookingForVehicle (v1.0.1249)', () => {
+  it('คันเก่าสุดให้คนจองก่อน · คันกำลังขนส่งให้คนถัดไป', async () => {
+    const { bookingForVehicle } = await import('./orderNeeds.js')
+    const bookings = [
+      { id: 'b1', status: 'รอรถ', model: 'S07', colorOut: 'ขาว', bookingDate: '2026-11-01' },
+      { id: 'b2', status: 'รอรถ', model: 'S07', colorOut: 'ขาว', bookingDate: '2026-11-05' },
+      { id: 'b3', status: 'รอรถ', model: 'S07', colorOut: 'ขาว', bookingDate: '2026-11-09' },
+    ]
+    const vehicles = [
+      { id: 'v1', status: 'available', brand: 'DEEPAL', model: 'DEEPAL S07', color: 'ขาว', vin: 'A', arrivedAt: '2026-11-10' },
+      { id: 'v2', status: 'available', brand: 'DEEPAL', model: 'DEEPAL S07', color: 'ขาว', vin: 'B', arrivedAt: '2026-10-10' },
+      { id: 'v3', status: 'transit', brand: 'DEEPAL', model: 'DEEPAL S07', color: 'ขาว', vin: '' },
+      { id: 'v4', status: 'available', brand: 'DEEPAL', model: 'DEEPAL L07', color: 'ขาว', vin: 'C' },
+    ]
+    const d = { bookings, vehicles, today: '2026-11-22' }
+    expect(bookingForVehicle(d, 'v2')?.id).toBe('b1')
+    expect(bookingForVehicle(d, 'v1')?.id).toBe('b2')
+    expect(bookingForVehicle(d, 'v3')?.id).toBe('b3')
+    expect(bookingForVehicle(d, 'v4')).toBeNull()
+  })
+})

@@ -113,8 +113,8 @@ export function etaForBookings({ bookings = [], vehicles = [], orders = [], toda
   const add = (k, s) => { if (!k) return; if (!supply.has(k)) supply.set(k, []); supply.get(k).push(s) }
   alive(vehicles).forEach(v => {
     if (taken.has(norm(v.vin))) return
-    if (v.status === 'available') add(key(v, v.color), { kind: 'ready', date: today, rank: 0, ref: v.vin || '', at: String(v.arrivedAt || '') })
-    else if (v.status === 'transit') add(key(v, v.color), { kind: 'transit', date: String(v.eta || v.expectedDate || (String(v.arrivedAt || '').slice(0, 10) > today ? v.arrivedAt : '') || '').slice(0, 10), rank: 1, ref: v.vin || '' })
+    if (v.status === 'available') add(key(v, v.color), { kind: 'ready', date: today, rank: 0, ref: v.vin || '', at: String(v.arrivedAt || ''), vid: v.id || '' })
+    else if (v.status === 'transit') add(key(v, v.color), { kind: 'transit', date: String(v.eta || v.expectedDate || (String(v.arrivedAt || '').slice(0, 10) > today ? v.arrivedAt : '') || '').slice(0, 10), rank: 1, ref: v.vin || '', vid: v.id || '' })
   })
   alive(orders).forEach(o => {
     if (!ORDER_LIVE.includes(o.status)) return
@@ -130,7 +130,7 @@ export function etaForBookings({ bookings = [], vehicles = [], orders = [], toda
       const ahead = seen.get(k) || 0
       seen.set(k, ahead + 1)
       const s = supply.get(k)?.shift()
-      if (b.id) out.set(b.id, s ? { kind: s.kind, date: s.date, ref: s.ref, ahead, ...(s.oid ? { orderId: s.oid } : {}) } : { kind: 'none', date: '', ref: '', ahead })
+      if (b.id) out.set(b.id, s ? { kind: s.kind, date: s.date, ref: s.ref, ahead, ...(s.oid ? { orderId: s.oid } : {}), ...(s.vid ? { vehicleId: s.vid } : {}) } : { kind: 'none', date: '', ref: '', ahead })
     })
   return out
 }
@@ -162,4 +162,11 @@ export function bookingsForOrder({ bookings = [], vehicles = [], orders = [], to
   const eta = etaForBookings({ bookings, vehicles, orders, today })
   return alive(bookings).filter(b => b.id && eta.get(b.id)?.orderId === orderId)
     .sort((a, b) => String(a.bookingDate || a.createdAt || '9').localeCompare(String(b.bookingDate || b.createdAt || '9')))
+}
+
+// (v1.0.1249) รถคันนี้ (ว่าง/กำลังขนส่ง) ควรให้ลูกค้าคนไหน — ใช้ลำดับเดียวกับ "รถจะมาเมื่อไหร่" (จองก่อนได้ก่อน · รถเข้าก่อนออกก่อน)
+export function bookingForVehicle({ bookings = [], vehicles = [], orders = [], today = '' } = {}, vehicleId) {
+  if (!vehicleId) return null
+  const eta = etaForBookings({ bookings, vehicles, orders, today })
+  return alive(bookings).find(b => b.id && eta.get(b.id)?.vehicleId === vehicleId) || null
 }
