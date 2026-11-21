@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import worker, { waitCarText, readyPairLines, daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday, buildLineLeadFields, pickNextSales, staffCompanyFor, buildLineFollowupFields, buildNewLineLeadNotice, sellerGoal, lineLeadDocId } from './daily-report.js'
+import worker, { noSupplyLines, waitCarText, readyPairLines, daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday, buildLineLeadFields, pickNextSales, staffCompanyFor, buildLineFollowupFields, buildNewLineLeadNotice, sellerGoal, lineLeadDocId } from './daily-report.js'
 
 const BASE_ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
@@ -1515,5 +1515,23 @@ describe('คำสั่ง LINE รอรถ (v1.0.1245)', () => {
     const all = waitCarText({ bookings, vehicles, orders: [], today: '2026-11-22' })
     expect(all).toContain('มานี')
     expect(all).toContain('ต้องสั่งเพิ่ม')
+  })
+})
+
+describe('noSupplyLines (v1.0.1246)', () => {
+  const bookings = [
+    { id: 'b1', status: 'รอรถ', custName: 'สมชาย', salesName: 'บี', brand: 'DEEPAL', model: 'S07', colorOut: 'ขาว', bookingDate: '2026-10-01' },
+    { id: 'b2', status: 'รอรถ', custName: 'มานี', salesName: 'ซี', brand: 'DEEPAL', model: 'L07', colorOut: 'ดำ', bookingDate: '2026-11-10' },
+    { id: 'b3', status: 'รอรถ', custName: 'ปิติ', salesName: 'บี', brand: 'DEEPAL', model: 'S07', colorOut: 'เทา', bookingDate: '2026-11-01' },
+  ]
+  const transit = [{ id: 'v1', status: 'transit', brand: 'DEEPAL', model: 'DEEPAL S07', color: 'เทา', vin: 'T1' }]
+  it('เฉพาะคนที่ไม่มีรถรองรับ เรียงรอนานก่อน · ข้อมูลไม่ครบ = ไม่บอก', () => {
+    const t = noSupplyLines({ bookings, vehicles: [], transit, orders: [] }, '2026-11-22').join('\n')
+    expect(t).toContain('ยังไม่มีรถรองรับ 2 คน (รอนานสุด 52 วัน)')
+    expect(t.indexOf('สมชาย')).toBeLessThan(t.indexOf('มานี'))
+    expect(t).not.toContain('ปิติ')
+    expect(noSupplyLines({ bookings, vehicles: [], transit, orders: [] }, '2026-11-22', 'ซี').join('\n')).not.toContain('สมชาย')
+    expect(noSupplyLines({ bookings, vehicles: [], transit: null, orders: [] }, '2026-11-22')).toEqual([])
+    expect(noSupplyLines({ bookings, vehicles: [], transit, orders: [{ status: 'ordered', brand: 'DEEPAL', model: 'S07', color: 'ขาว' }, { status: 'ordered', model: 'L07', color: 'ดำ' }] }, '2026-11-22')).toEqual([])
   })
 })
