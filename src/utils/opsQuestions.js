@@ -790,6 +790,11 @@ export function waitEtaAnswer(vehicles, bookings, orders, { today, mine = () => 
     .sort((a, b) => String(a.bookingDate || '9').localeCompare(String(b.bookingDate || '9')))
   if (!rows.length) return { n: 0, text: '✅ ตอนนี้ไม่มีลูกค้าที่จองแล้วรอรถ' }
   const fmt = d => dmy(d)
+  // (v1.0.1252) ยังไม่ได้คีย์สต็อก/ใบสั่งรถในแอปเลย → ไม่เดาว่า "ต้องสั่งเพิ่ม" ทุกคน บอกให้คีย์ก่อน
+  if (!alive(vehicles).length && !alive(orders || []).length) return { n: rows.length, text: [`🚚 ลูกค้าที่จองรอรถ ${rows.length} คน`,
+    ...rows.slice(0, MAX).map(b => `• ${String(b.custName || '').trim() || 'ลูกค้า'} — ${carOf(b) || b.model || 'รถ'}${b.colorOut ? ' สี' + b.colorOut : ''}${b.bookingDate ? ` (จอง ${fmt(b.bookingDate)})` : ''}`),
+    ...(rows.length > MAX ? [`…และอีก ${rows.length - MAX} คน`] : []),
+    '💡 ยังไม่มีข้อมูลรถในสต็อก/ใบสั่งรถในแอป จึงบอกวันที่รถมาไม่ได้ — บันทึกที่ เมนูรถ › สต็อกรถ และ ใบสั่งรถ แล้วระบบจะบอกให้เอง'].join('\n') }
   const none = rows.filter(b => eta.get(b.id)?.kind === 'none').length
   const needRows = none ? orderNeeds({ bookings, vehicles, orders }) : []
   const alt = b => eta.get(b.id)?.kind === 'none' ? altColorText(needRows, b) : ''

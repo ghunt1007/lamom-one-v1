@@ -186,3 +186,13 @@ describe('altColorText (v1.0.1250)', () => {
     expect(altColorText(orderNeeds({ bookings: [b], vehicles: [] }), b)).toBe('')
   })
 })
+
+describe('waitEtaAnswer ไม่มีสต็อก (v1.0.1252)', () => {
+  it('ไม่มีรถ/ใบสั่งในแอป = บอกให้คีย์ ไม่บอกว่าต้องสั่งเพิ่ม', async () => {
+    const oq = await import('./opsQuestions.js')
+    const r = oq.waitEtaAnswer([], [{ id: 'a', status: 'รอรถ', model: 'S07', custName: 'สมชาย' }], [], { today: '2026-11-22' })
+    expect(r.text).toContain('สมชาย')
+    expect(r.text).toContain('ยังไม่มีข้อมูลรถในสต็อก')
+    expect(r.text).not.toContain('ต้องสั่งเพิ่ม')
+  })
+})

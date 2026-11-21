@@ -1510,7 +1510,8 @@ export default async function BookingsPage(container) {
     ])
     const el = document.getElementById('bk-eta')
     if (!el) return
-    if (!vs) { el.remove(); return }
+    // ยังไม่ได้บันทึกสต็อก/ใบสั่งรถในแอปเลย → ไม่บอก (ไม่งั้นทุกใบขึ้น "ยังไม่มีรถ ต้องสั่งเพิ่ม" ทั้งที่แค่ไม่ได้คีย์)
+    if (!vs || (!vs.some(v => !v.deleted && (v.status === 'available' || v.status === 'transit')) && !ords.some(o => !o.deleted))) { el.remove(); return }
     const e = etaForBookings({ bookings, vehicles: vs, orders: ords, today: todayBangkok() }).get(b.id)
     if (!e) { el.remove(); return }
     el.textContent = '🚚 ' + etaLabel(e, formatDate)

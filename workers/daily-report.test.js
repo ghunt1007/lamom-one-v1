@@ -1551,3 +1551,9 @@ describe('lateOrderLines (v1.0.1251)', () => {
     expect(lateOrderLines({ orders: null }, '2026-11-22')).toEqual([])
   })
 })
+
+describe('noSupplyLines ไม่ใช้สต็อก (v1.0.1252)', () => {
+  it('ไม่มีรถ/ใบสั่งในระบบเลย = ไม่บอก', () => {
+    expect(noSupplyLines({ bookings: [{ id: 'b1', status: 'รอรถ', model: 'S07' }], vehicles: [], transit: [], orders: [] }, '2026-11-22')).toEqual([])
+  })
+})
