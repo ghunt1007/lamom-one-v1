@@ -3,7 +3,9 @@
 // ไม่บอกข้อมูลภายใน (ลำดับคิวลูกค้าคนอื่น เลขตัวถัง เลขใบสั่ง) — บอกแค่สถานะ + วันที่คาดว่ารถถึงแบบประมาณ
 // ไม่มีใบจองที่ยังไม่ส่งมอบ → คืน null ให้ AI/ทีมตอบตามปกติ
 import { etaForBookings, needsBooking } from '../src/utils/orderNeeds.js'
-import { isOpenBooking } from '../src/utils/bookingStatus.js'
+import { isCancelled } from '../src/utils/bookingStatus.js'
+// ยังไม่ได้รับรถ = ไม่ถอน และยังไม่ "ส่งมอบแล้ว" (ตัดตัวเลขรอส่งมอบ นับเป็นยอดขายแต่ลูกค้ายังรอรับรถ — ต้องตอบได้)
+const isOpenBooking = b => !isCancelled(b) && b?.status !== 'ส่งมอบแล้ว'
 import { customerStatusMessage } from '../src/utils/bookingNotify.js'
 
 export const STATUS_ASK_RE = /(?:รถ(?:ของ(?:ผม|ฉัน|หนู|เรา))?(?:จะ)?(?:มา|ถึง|เข้า)(?:ถึง)?(?:โชว์รูม)?(?:เมื่อ|วัน)?(?:ไหร่|ไร|ไหน)|ได้รถ(?:เมื่อ|วัน)?(?:ไหร่|ไร|ไหน)|สถานะ(?:รถ|การจอง|ใบจอง)|เช็ค?สถานะ|รับรถ(?:ได้)?(?:เมื่อ|วัน)?(?:ไหร่|ไร|ไหน))/

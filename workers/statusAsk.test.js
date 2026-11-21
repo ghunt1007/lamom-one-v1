@@ -25,6 +25,9 @@ describe('statusAskReply', () => {
     expect(statusAskReply({ mine: [{ id: 'b2', status: 'ส่งมอบแล้ว' }], today })).toBeNull()
     expect(statusAskReply({ mine: [], today })).toBeNull()
   })
+  it('ตัดตัวเลขรอส่งมอบ = ยังตอบ (ลูกค้ายังไม่ได้รับรถ)', () => {
+    expect(statusAskReply({ mine: [{ id: 'b4', status: 'ตัดตัวเลขรอส่งมอบ', model: 'S07', vin: 'X', deliveryDate: '2026-11-25' }], today })).toContain('จดทะเบียนเรียบร้อย')
+  })
   it('รอส่งมอบ → ใช้ข้อความสถานะเดิม (มีนัดส่งมอบ)', () => {
     expect(statusAskReply({ mine: [{ id: 'b3', status: 'รอส่งมอบ', model: 'L07', vin: 'X', deliveryDate: '2026-11-30' }], today })).toContain('นัดส่งมอบวันที่')
   })
