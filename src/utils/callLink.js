@@ -23,3 +23,10 @@ export function mailHref(email, { subject = '', body = '' } = {}) {
   const q = [subject && 'subject=' + encodeURIComponent(subject), body && 'body=' + encodeURIComponent(body)].filter(Boolean).join('&')
   return `mailto:${e}${q ? '?' + q : ''}`
 }
+
+// (v1.0.1235) แตะแล้วเปิดแอป SMS พร้อมข้อความ — คืน '' ถ้าเบอร์ใช้ไม่ได้
+export function smsHref(phone, body = '') {
+  const n = dialNumber(phone)
+  if (!n) return ''
+  return `sms:${n}${body ? '?body=' + encodeURIComponent(body) : ''}`
+}

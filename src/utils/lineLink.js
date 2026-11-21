@@ -5,6 +5,7 @@ import { updateDocData } from '../core/db.js'
 import { showToast } from '../core/store.js'
 import { openQrModal } from './qrModal.js'
 import { formatDate } from './format.js'
+import { smsHref } from './callLink.js'
 
 const WORKER = import.meta.env.VITE_DAILY_REPORT_URL || 'https://lamom-daily-report.ghunt1007.workers.dev'
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -45,7 +46,8 @@ export async function fetchOaId() {
  * เปิด QR ผูก LINE · targets = [{ col: 'customers'|'bookings', id }] (ใส่รหัสเดียวกันทุกเอกสาร)
  * name = ชื่อลูกค้า (หัวป้ายพิมพ์)
  */
-export async function openLineLinkQr({ targets = [], name = '' } = {}) {
+// (v1.0.1235) สร้างรหัสผูก + ลิงก์ (ใช้ทั้ง QR และส่งลิงก์ทาง SMS) — คืน { oa, code, url } หรือ null (แจ้งเตือนให้แล้ว)
+export async function prepareLineLink(targets = []) {
   const list = targets.filter(t => t && t.id && ['customers', 'bookings'].includes(t.col))
   if (!list.length) return null
   const oa = await fetchOaId()
@@ -55,9 +57,21 @@ export async function openLineLinkQr({ targets = [], name = '' } = {}) {
   try {
     for (const t of list) await updateDocData(t.col, t.id, { lineLinkCode: code, lineLinkCodeAt: at })
   } catch { showToast('สร้างรหัสไม่สำเร็จ ลองใหม่อีกครั้ง', 'error'); return null }
-  const url = lineLinkUrl(oa, code)
+  return { oa, code, url: lineLinkUrl(oa, code) }
+}
+
+// ข้อความต่อท้าย SMS/แชตอื่น ชวนลูกค้าแตะลิงก์ผูก LINE
+export function lineLinkInvite(url) {
+  return url ? `\n\nรับข่าวโปรและแจ้งสถานะรถทาง LINE: แตะลิงก์นี้แล้วกด "ส่ง" ข้อความที่ขึ้นมา ${url}` : ''
+}
+
+export async function openLineLinkQr({ targets = [], name = '', phone = '' } = {}) {
+  const ready = await prepareLineLink(targets)
+  if (!ready) return null
+  const { oa, code, url } = ready
   return openQrModal({
     title: 'ผูก LINE ลูกค้า', url, filename: `ผูกLINE-${code}`,
+    sms: smsHref(phone, `สวัสดีครับ${name ? ' คุณ' + name : ''}`.trim() + lineLinkInvite(url)),
     note: `ให้ลูกค้าสแกนด้วยกล้องมือถือ → LINE จะเปิดแชต ${oa} พร้อมข้อความ "ผูก ${code}" → ลูกค้ากดส่ง เท่านั้น · รหัสใช้ได้ 30 วัน · ลูกค้าพิมพ์ "เลิกรับ" เพื่อหยุดรับข้อความได้ทุกเมื่อ`,
     poster: { heading: 'รับแจ้งสถานะรถทาง LINE', lines: [name ? `คุณ${name}` : '', 'สแกน แล้วกด "ส่ง" ข้อความที่ขึ้นมา', `รหัส ${code}`].filter(Boolean) },
   })

@@ -1454,7 +1454,7 @@ export default async function BookingsPage(container) {
     collapseEmptyRows([...document.querySelectorAll('.modal-overlay')].pop())
     document.getElementById('bk-replan')?.addEventListener('click', () => openReplan(b))
     document.getElementById('bk-tell')?.addEventListener('click', () => offerCustomerNotice(b, b.status))
-    document.getElementById('bk-line-link')?.addEventListener('click', () => openLineLinkQr({ targets: [{ col: 'bookings', id: b.id }, ...(b.customerId ? [{ col: 'customers', id: b.customerId }] : [])], name: b.custName || '' }))
+    document.getElementById('bk-line-link')?.addEventListener('click', () => openLineLinkQr({ targets: [{ col: 'bookings', id: b.id }, ...(b.customerId ? [{ col: 'customers', id: b.customerId }] : [])], name: b.custName || '', phone: b.phone || b.custPhone || '' }))
     document.getElementById('bk-finance-btn')?.addEventListener('click', () => {
       sessionStorage.setItem('lamom_finance_prefill', JSON.stringify({
         bookingId: b.id, customerId: b.customerId || null, custName: b.custName || '', phone: b.phone || '',

@@ -5,7 +5,8 @@ import { escHtml as esc } from './escape.js'
 import { copyText } from './copyText.js'
 import { qrSvg, qrDownloadLink } from './qr.js'
 
-export function openQrModal({ title = 'QR', url = '', filename = 'QR', note = '', poster = null } = {}) {
+// sms = ลิงก์ sms: ที่ทำไว้แล้ว (มีปุ่ม "📱 ส่งทาง SMS") — (v1.0.1235)
+export function openQrModal({ title = 'QR', url = '', filename = 'QR', note = '', poster = null, sms = '' } = {}) {
   if (!url) return null
   if (poster) prefetchCompanyLine()
   const { el, close } = openModal({
@@ -17,6 +18,7 @@ export function openQrModal({ title = 'QR', url = '', filename = 'QR', note = ''
         ${poster ? '<button type="button" class="btn btn-primary btn-sm" data-qr-print>🖨 พิมพ์ป้าย</button>' : ''}
         ${qrDownloadLink(url, filename, '💾 บันทึกรูป QR', 'btn btn-secondary btn-sm')}
         <button type="button" class="btn btn-secondary btn-sm" data-qr-copy>📋 คัดลอกลิงก์</button>
+        ${/^sms:/.test(sms) ? `<a class="btn btn-secondary btn-sm" href="${esc(sms)}">📱 ส่งทาง SMS</a>` : ''}
       </div>
       ${note ? `<div style="font-size:0.68rem;color:var(--text-muted);margin-top:10px;line-height:1.5">${esc(note)}</div>` : ''}
     </div>`,

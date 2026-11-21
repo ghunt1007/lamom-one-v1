@@ -665,7 +665,7 @@ export default async function CustomersPage(container) {
     })
     // (v1.0.1024) ลูกค้าที่ทักมาทาง LINE OA → เปิดห้องแชตในหน้าช่องทางโซเชียลได้เลย
     // (v1.0.1230) QR ผูก LINE — ลูกค้าสแกนแล้วกดส่ง ระบบใส่ LINE ให้แฟ้มนี้ (และใบจองที่เชื่อม) เอง
-    el.querySelector('#wk-line-link')?.addEventListener('click', () => openLineLinkQr({ targets: [{ col: 'customers', id: c.id }, ...(c.bookingId ? [{ col: 'bookings', id: c.bookingId }] : [])], name: fullName(c) }))
+    el.querySelector('#wk-line-link')?.addEventListener('click', () => openLineLinkQr({ targets: [{ col: 'customers', id: c.id }, ...(c.bookingId ? [{ col: 'bookings', id: c.bookingId }] : [])], name: fullName(c), phone: c.phone }))
     el.querySelector('#wk-line-chat')?.addEventListener('click', () => { close(); navigate(`/marketing/channels?tab=inbox&open=${encodeURIComponent('line_' + String(c.lineUserId).replace(/[^A-Za-z0-9-]/g, ''))}`) })
     el.querySelector('#wk-promote-btn')?.addEventListener('click', async () => {
       try {

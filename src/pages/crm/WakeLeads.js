@@ -12,7 +12,8 @@ import { showToast, getState } from '../../core/store.js'
 import { todayBangkok } from '../../utils/format.js'
 import { confirmDialog } from '../../utils/modal.js'
 import { escHtml } from '../../utils/escape.js'
-import { callLink } from '../../utils/callLink.js'
+import { callLink, smsHref } from '../../utils/callLink.js'
+import { prepareLineLink, lineLinkInvite } from '../../utils/lineLink.js'
 import { copyText } from '../../utils/copyText.js'
 import { lineReply } from '../../utils/socialApi.js'
 import { normalizeProgram } from '../../utils/salesPrograms.js'
@@ -69,6 +70,7 @@ export default async function WakeLeadsPage(container) {
       <textarea class="input wk-msg" data-id="${id}" rows="4" data-no-mic style="width:100%;margin-top:6px;font-size:16px" ${done ? 'disabled' : ''}>${escHtml(drafts.get(r.c.id) || '')}</textarea>
       ${isLine || done ? '' : `<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px;flex-wrap:wrap">
         <button class="btn btn-secondary btn-xs wk-copy" data-id="${id}">📋 คัดลอก</button>
+        ${smsHref(r.c.phone) ? `<button class="btn btn-secondary btn-xs wk-sms" data-id="${id}" title="เปิดแอป SMS พร้อมข้อความ + ลิงก์ให้ลูกค้าผูก LINE">📱 SMS + ลิงก์ LINE</button>` : ''}
         <button class="btn btn-success btn-xs wk-done" data-id="${id}">✅ ทักแล้ว</button></div>`}
     </div>`
   }
@@ -94,7 +96,7 @@ export default async function WakeLeadsPage(container) {
         </div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">${line.map(rowCard).join('')}</div>` : ''}
         ${phone.length ? `<div style="font-weight:700;margin:6px 0 8px">📞 ยังไม่ผูก LINE — โทรหรือทักเอง ${phone.length} คน</div>
-        <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:8px">โทรแล้วชวนสแกน QR "🔗 ผูก LINE" ในแฟ้มลูกค้า รอบหน้าจะส่งได้ในคลิกเดียว</div>
+        <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:8px">โทร หรือกด "📱 SMS + ลิงก์ LINE" (แนบลิงก์ให้ลูกค้าแตะผูก LINE เอง) — ผูกแล้วรอบหน้าส่งได้ในคลิกเดียว</div>
         <div style="display:flex;flex-direction:column;gap:8px">${phone.map(rowCard).join('')}</div>` : ''}
       </div>`
     bind()
@@ -110,6 +112,16 @@ export default async function WakeLeadsPage(container) {
     }))
     container.querySelectorAll('.wk-open').forEach(a => a.addEventListener('click', e => { e.preventDefault(); navigate(`/crm/customers?id=${encodeURIComponent(a.dataset.id)}`) }))
     container.querySelectorAll('.wk-copy').forEach(b => b.addEventListener('click', () => copyText(drafts.get(b.dataset.id) || '', '📋 คัดลอกแล้ว', 'คัดลอกไม่สำเร็จ')))
+    // (v1.0.1235) ลูกค้าที่มีแต่เบอร์: SMS พร้อมลิงก์ผูก LINE — ลูกค้าแตะแล้ว รอบหน้าส่งทาง LINE ได้ในคลิกเดียว
+    container.querySelectorAll('.wk-sms').forEach(b => b.addEventListener('click', async () => {
+      const r = rows.find(x => x.c.id === b.dataset.id)
+      if (!r) return
+      b.disabled = true
+      const link = await prepareLineLink([{ col: 'customers', id: r.c.id }])
+      b.disabled = false
+      const href = smsHref(r.c.phone, (drafts.get(r.c.id) || '') + lineLinkInvite(link?.url))
+      if (href) window.location.href = href
+    }))
     container.querySelectorAll('.wk-done').forEach(b => b.addEventListener('click', async () => {
       b.disabled = true
       if (await markSent(rows.find(r => r.c.id === b.dataset.id), 'โทร/ทักเอง')) render(); else b.disabled = false

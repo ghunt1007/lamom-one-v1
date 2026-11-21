@@ -23,3 +23,14 @@ describe('lineLink (app)', () => {
     expect(lineLinkState({ lineUserId: 'U1', lineLinkedAt: '2026-11-21T03:00:00Z' }).label).toMatch(/\d{2}\/\d{2}\/\d{4}/)
   })
 })
+
+describe('ลิงก์ผูก LINE ทาง SMS (v1.0.1235)', () => {
+  it('smsHref + ข้อความชวน', async () => {
+    const { smsHref } = await import('./callLink.js')
+    const { lineLinkInvite } = await import('./lineLink.js')
+    expect(smsHref('081-234-5678', 'สวัสดี')).toBe('sms:0812345678?body=' + encodeURIComponent('สวัสดี'))
+    expect(smsHref('12')).toBe('')
+    expect(lineLinkInvite('')).toBe('')
+    expect(lineLinkInvite('https://line.me/R/oaMessage/@a/?x')).toContain('https://line.me/R/oaMessage/@a/?x')
+  })
+})
