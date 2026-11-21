@@ -76,7 +76,7 @@ export default async function ColorMatrixPage(container) {
   // (v1.0.1233) 📈 คาดการณ์สั่งรถล่วงหน้า — มองไปข้างหน้าช่วงที่รอรถมาส่ง
   function forecastSection() {
     if (!fc) return ''
-    const shown = fc.models.filter(m => m.suggest > 0 || m.sold || m.wait)
+    const shown = fc.models.filter(m => m.suggest > 0 || m.sold || m.wait || m.overstock)
     const daysBtns = FORECAST_LEAD_DAYS.map(d => `<button class="btn btn-xs ${d === leadDays ? 'btn-primary' : 'btn-secondary'} cm-lead" data-d="${d}">${d} วัน</button>`).join('')
     const cover = m => m.coverDays == null ? (m.spare ? `มีว่าง ${m.spare}` : '—') : !m.spare ? 'หมดแล้ว' : m.coverDays >= 365 ? 'เกิน 1 ปี' : `~${m.coverDays} วัน`
     const colorLine = c => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0 6px 28px;font-size:0.72rem;flex-wrap:wrap;border-top:1px dashed var(--border)">
@@ -88,7 +88,7 @@ export default async function ColorMatrixPage(container) {
     const line = m => `<div style="border-top:1px solid var(--border);padding:10px 4px">
         <div class="cm-fc-row" data-mk="${escHtml(m.mk)}" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer">
           <div style="flex:1;min-width:150px">
-            <div style="font-weight:800;font-size:0.84rem">${fcOpen === m.mk ? '▾' : '▸'} ${escHtml(m.car)}</div>
+            <div style="font-weight:800;font-size:0.84rem">${fcOpen === m.mk ? '▾' : '▸'} ${escHtml(m.car)}${m.overstock ? ' <span style="font-size:0.62rem;font-weight:700;color:var(--danger);white-space:nowrap" title="รถว่างเกินกว่าที่น่าจะขายได้ใน 120 วัน — ไม่ควรสั่งเพิ่ม ควรเร่งขาย/ทำโปร">⚠️ สต็อกเกิน</span>' : ''}</div>
             <div style="font-size:0.66rem;color:var(--text-muted);overflow-wrap:anywhere">${m.sold ? `จองเฉลี่ย ${m.perMonth} คัน/เดือน · คาดจองเพิ่ม ~${m.expected} ใน ${fc.leadDays} วัน` : 'ยังไม่มียอดจองใน 90 วัน'}${m.hot || m.warm ? ` · ลีดร้อน ${m.hot} อุ่น ${m.warm}` : ''}</div>
           </div>
           <div style="display:flex;gap:2px;font-size:0.8rem">
