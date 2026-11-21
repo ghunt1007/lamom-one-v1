@@ -234,9 +234,9 @@ export default async function TradeInPage(container) {
     try {
       const [{ imageToJpegBase64 }, ai, { TRADEIN_PROMPT, parseTradeInReply, midPrice, fitImages }] = await Promise.all([import('../../utils/idCardScan.js'), import('../../utils/ai.js'), import('../../utils/tradeInAi.js')])
       if (!ai.isAiEnabled()) { showToast('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้ AI', 'warning'); return }
-      // ย่อเล็ก (ด้านยาว 720px) ให้ส่งได้หลายรูปภายในขนาดที่ตัวกลาง AI รับ
+      // ย่อ (ด้านยาว 1024px — อ่านเลขไมล์ได้ชัดขึ้น) ให้ส่งได้หลายรูปภายในขนาดที่ตัวกลาง AI รับ
       const all = []
-      for (const f of files) all.push(await imageToJpegBase64(f, 720, 0.72))
+      for (const f of files) all.push(await imageToJpegBase64(f, 1024, 0.8))
       const imgs = fitImages(all)
       if (!imgs.length) { showToast('รูปใหญ่เกินไป ลองเลือกรูปน้อยลง', 'error'); return }
       if (imgs.length < all.length) showToast(`ใช้ ${imgs.length} รูปแรก (ขนาดรวมเกิน)`, 'warning')

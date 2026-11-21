@@ -3,7 +3,7 @@ import { scanIdCard, idCardSummary } from '../../utils/idCardScan.js'
 import { carOf, carLabel } from '../../utils/carLabel.js'
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, readDoc } from '../../core/db.js'
 import { customerStatusMessage } from '../../utils/bookingNotify.js'
-import { openLineLinkQr, lineLinkState } from '../../utils/lineLink.js'
+import { openLineLinkQr, lineLinkState, needsLineLink } from '../../utils/lineLink.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
 import { showToast, getState, setState, on } from '../../core/store.js'
@@ -334,6 +334,7 @@ export default async function BookingsPage(container) {
   let dateFrom = ''
   let dateTo = ''
   let noIncomeOnly = false
+  let noLineOnly = false // (v1.0.1236) ใบจองที่ยังไม่ส่งมอบและลูกค้ายังไม่ผูก LINE
   const selectedIds = new Set()
   // (v1.0.954) มุมมอง "แบบ Sheet" (ครบทุกคอลัมน์ แก้ในช่องได้เลย) — จอกว้างเปิดแบบนี้เป็นค่าเริ่มต้น จำค่าที่เลือกไว้
   let viewMode = (() => { try { return localStorage.getItem('bk-view') || '' } catch { return '' } })() || (isPhoneLayout() || window.innerWidth < 768 ? 'cards' : 'sheet')
@@ -448,6 +449,7 @@ export default async function BookingsPage(container) {
     if (!ignoreStatus && statusFilter && b.status !== statusFilter) return false
     if (!ignoreStatus && actionOnly && !needsAction(b)) return false
     if (noIncomeOnly && !needsIncome(b)) return false
+    if (noLineOnly && !needsLineLink(b)) return false
     if (search) {
       // พิมพ์หลายคำได้ (ต้องเจอทุกคำ เช่น "s07 สมชาย" หรือ "รอรถ ttb") · เบอร์พิมพ์มีขีด/ไม่มีขีดก็เจอ
       const hay = [b.bookingNo, b.custName, b.brand, b.model, b.salesName, b.phone, b.nid, b.status, b.financeCo].filter(Boolean).join(' ').toLowerCase()
@@ -525,6 +527,7 @@ export default async function BookingsPage(container) {
     const delMonth = visible.filter(b => TERMINAL_STATUSES.slice(0, 2).includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(curMonth)).length /* (v1.0.1035) เดิมใช้วันนัดส่งมอบ — ให้ตรงกับหน้าแรก/รายงาน */
     const urgentCount = visible.filter(isUrgent).length
     const noIncomeCount = visible.filter(b => needsIncome(b)).length
+    const noLineCount = visible.filter(needsLineLink).length
     const deliveredAll = visible.filter(b => b.status === 'ส่งมอบแล้ว')
     const activeNonTerminal = visible.filter(b => !['ถอนจอง', 'ยกเลิก', 'ส่งมอบแล้ว'].includes(b.status))
 
@@ -551,6 +554,7 @@ export default async function BookingsPage(container) {
       ${pipelineVal > 0 ? `<span>💰 มูลค่ารอส่งมอบ <b style="color:var(--success)">฿${(pipelineVal / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 })} ล้าน</b></span>` : ''}
       <span>🚗 ส่งมอบเดือนนี้ <b style="color:var(--success)">${delMonth}</b></span>
       ${urgentCount > 0 ? `<span>🔥 ด่วน <b style="color:var(--danger)">${urgentCount}</b></span>` : ''}
+      ${noLineCount > 0 || noLineOnly ? `<span id="bk-noline-chip" style="cursor:pointer;${noLineOnly ? 'font-weight:700;text-decoration:underline' : ''}" title="ลูกค้าที่จองแล้วยังไม่ส่งมอบ แต่ยังไม่ผูก LINE — เปิดใบจองแล้วกด 🔗 ผูก LINE (ส่งลิงก์ทาง SMS ได้)">🔗 ยังไม่ผูก LINE <b style="color:var(--warning)">${noLineCount}</b>${noLineOnly ? ' ×' : ''}</span>` : ''}
       ${noIncomeCount > 0 || noIncomeOnly ? `<span id="bk-noincome-chip" style="cursor:pointer;${noIncomeOnly ? 'font-weight:700;text-decoration:underline' : ''}" title="ส่งมอบแล้วแต่ยังไม่กรอกมาร์จิ้น/ค่าคอม — กดเพื่อดูเฉพาะรายการนี้">💰 ยังไม่กรอกรายได้ <b style="color:var(--danger)">${noIncomeCount}</b>${noIncomeOnly ? ' ×' : ''}</span>` : ''}
     </div>`
 
@@ -665,6 +669,7 @@ export default async function BookingsPage(container) {
     container.querySelectorAll('.bk-status-chip').forEach(chip => chip.addEventListener('click', () => { statusFilter = chip.dataset.s; actionOnly = false; render() }))
     container.querySelector('.bk-action-chip')?.addEventListener('click', () => { actionOnly = !actionOnly; statusFilter = ''; render() })
     document.getElementById('bk-noincome-chip')?.addEventListener('click', () => { noIncomeOnly = !noIncomeOnly; render() })
+    document.getElementById('bk-noline-chip')?.addEventListener('click', () => { noLineOnly = !noLineOnly; render() })
     container.querySelectorAll('.bk-brand-card').forEach(card => card.addEventListener('click', () => { brandFilter = card.dataset.br; render() }))
   }
 
@@ -1454,7 +1459,7 @@ export default async function BookingsPage(container) {
     collapseEmptyRows([...document.querySelectorAll('.modal-overlay')].pop())
     document.getElementById('bk-replan')?.addEventListener('click', () => openReplan(b))
     document.getElementById('bk-tell')?.addEventListener('click', () => offerCustomerNotice(b, b.status))
-    document.getElementById('bk-line-link')?.addEventListener('click', () => openLineLinkQr({ targets: [{ col: 'bookings', id: b.id }, ...(b.customerId ? [{ col: 'customers', id: b.customerId }] : [])], name: b.custName || '' }))
+    document.getElementById('bk-line-link')?.addEventListener('click', () => openLineLinkQr({ targets: [{ col: 'bookings', id: b.id }, ...(b.customerId ? [{ col: 'customers', id: b.customerId }] : [])], name: b.custName || '', phone: b.phone || b.custPhone || '' }))
     document.getElementById('bk-finance-btn')?.addEventListener('click', () => {
       sessionStorage.setItem('lamom_finance_prefill', JSON.stringify({
         bookingId: b.id, customerId: b.customerId || null, custName: b.custName || '', phone: b.phone || '',

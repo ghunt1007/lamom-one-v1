@@ -424,6 +424,11 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'lowstock') {
     const [vs, bks, ords] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('vehicle_orders', f, 'createdAt', 'desc', 500).catch(() => [])])
     res = oq.lowStockAnswer(vs, bks, ords)
+  } else if (spec.kind === 'forecast') {
+    const [vs, bks, ords, customers] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('vehicle_orders', f, 'createdAt', 'desc', 500).catch(() => []), customersPromise || visibleCustomersForCommands()])
+    let leadDays = 45
+    try { leadDays = Number(localStorage.getItem('cm_lead_days')) || 45 } catch { /* ค่าเริ่มต้น */ }
+    res = oq.forecastAnswer(vs, bks, ords, customers || [], { today, leadDays })
   } else if (spec.kind === 'noanswer') {
     const [customers, logs, fus] = await Promise.all([customersPromise || visibleCustomersForCommands(), listDocs('comm_logs', f, 'createdAt', 'desc', 1000).catch(() => []), listDocs('followups', f, 'dueDate', 'desc', 2000).catch(() => [])])
     res = oq.noAnswerAnswer((customers || []).filter(c => mine(c.assignedTo, c)), logs, fus, { today })

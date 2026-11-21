@@ -1467,3 +1467,19 @@ describe('v1.0.1199 evening report: leads from our own links/QR', () => {
     expect(buildReport({ ...base, customers: [customers[3]] }, { today, time: '18:00' })).not.toContain('ผ่านลิงก์/QR ของเรา')
   })
 })
+
+describe('สรุปสัปดาห์: คาดการณ์สั่งรถ (v1.0.1234)', () => {
+  it('มีสต็อก → ใส่บรรทัดควรสั่ง · ไม่มีข้อมูลสต็อก → ไม่ใส่', () => {
+    const bookings = Array.from({ length: 6 }, (_, i) => ({ brand: 'DEEPAL', model: 'S07', colorOut: 'ขาว', status: i < 2 ? 'รอรถ' : 'ส่งมอบแล้ว', bookingDate: '2026-10-1' + i }))
+    const withStock = buildWeeklyReport({ bookings, customers: [], vehicles: [], vehicleOrders: [] }, { today: '2026-10-26' })
+    expect(withStock).toMatch(/📈 ควรสั่งรถ \(รถมาใน 45 วัน\): ~\d+ คัน — DEEPAL S07/)
+    expect(buildWeeklyReport({ bookings, customers: [] }, { today: '2026-10-26' })).not.toContain('📈')
+  })
+})
+
+describe('สรุปสัปดาห์: ผูก LINE (v1.0.1236)', () => {
+  it('นับใบจองที่ยังไม่ส่งมอบ ที่ผูก LINE แล้ว', () => {
+    const bookings = [{ status: 'รอรถ', lineUserId: 'U1' }, { status: 'รอรถ' }, { status: 'ส่งมอบแล้ว' }, { status: 'ถอนจอง' }]
+    expect(buildWeeklyReport({ bookings, customers: [] }, { today: '2026-10-26' })).toContain('🔗 ลูกค้าจองที่ผูก LINE แล้ว: 1/2 คน')
+  })
+})
