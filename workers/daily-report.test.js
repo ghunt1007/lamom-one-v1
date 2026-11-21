@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import worker, { readyPairLines, daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday, buildLineLeadFields, pickNextSales, staffCompanyFor, buildLineFollowupFields, buildNewLineLeadNotice, sellerGoal, lineLeadDocId } from './daily-report.js'
+import worker, { waitCarText, readyPairLines, daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday, buildLineLeadFields, pickNextSales, staffCompanyFor, buildLineFollowupFields, buildNewLineLeadNotice, sellerGoal, lineLeadDocId } from './daily-report.js'
 
 const BASE_ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
@@ -1493,5 +1493,27 @@ describe('เช้านี้: รถว่างตรงกับลูก�
     expect(readyPairLines({ bookings, vehicles }, 'เอ')).toEqual([])
     expect(readyPairLines({ bookings, vehicles: null })).toEqual([])
     expect(buildMorningReminder({ bookings, customers: [], followups: [], vehicles }, { today: '2026-11-22' })).toContain('🔑 มีรถว่างตรงกับลูกค้าที่จองรอ 1 คัน')
+  })
+})
+
+describe('คำสั่ง LINE รอรถ (v1.0.1245)', () => {
+  it('parse', () => {
+    expect(parseLineCommand('รอรถ')).toEqual({ type: 'waitcar' })
+    expect(parseLineCommand('ลูกค้า รอรถ')).toEqual({ type: 'waitcar' })
+    expect(parseLineCommand('รอรถนานไหม')).toEqual({ type: 'none' })
+  })
+  it('เซลส์เห็นเฉพาะลูกค้าของตัวเอง · มีวันที่รถถึง', () => {
+    const bookings = [
+      { id: 'b1', status: 'รอรถ', custName: 'สมชาย', salesName: 'วิชัย', brand: 'DEEPAL', model: 'S07', colorOut: 'ขาว', bookingDate: '2026-11-01' },
+      { id: 'b2', status: 'รอรถ', custName: 'มานี', salesName: 'สุดา', brand: 'DEEPAL', model: 'L07', colorOut: 'ดำ', bookingDate: '2026-11-02' },
+    ]
+    const vehicles = [{ id: 'v1', status: 'transit', brand: 'DEEPAL', model: 'DEEPAL S07', color: 'ขาว', vin: 'X1', eta: '2026-12-05' }]
+    const t = waitCarText({ bookings, vehicles, orders: [], today: '2026-11-22', seller: 'วิชัย' })
+    expect(t).toContain('สมชาย')
+    expect(t).not.toContain('มานี')
+    expect(t).toContain('05/12/2569')
+    const all = waitCarText({ bookings, vehicles, orders: [], today: '2026-11-22' })
+    expect(all).toContain('มานี')
+    expect(all).toContain('ต้องสั่งเพิ่ม')
   })
 })
