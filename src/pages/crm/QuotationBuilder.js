@@ -497,8 +497,8 @@ export default async function QuotationBuilderPage(container) {
             <label class="input-label">อุปกรณ์เสริม (จากรายการ) — ราคาอาจต่างกันตามรุ่นรถที่เลือก</label>
             <div id="qf-acc-list" style="display:flex;flex-direction:column;gap:6px">
               ${getAccessories().map(a => `
-                <div class="acc-row" data-id="${a.id}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm)">
-                  <span style="flex:1;font-size:0.82rem">${escHtml(a.name)}</span>
+                <div class="acc-row" data-id="${a.id}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);flex-wrap:wrap">
+                  <span style="flex:1 1 140px;font-size:0.82rem;min-width:0">${escHtml(a.name)}</span>
                   <span class="acc-price" style="font-size:0.78rem;color:var(--text-muted);min-width:90px;text-align:right">${formatCurrency(getAccessoryPrice(a, matchedVehicle?.id || getVehicles()[0]?.id))}</span>
                   <select class="input acc-mode" style="width:130px;font-size:0.78rem;padding:2px 6px">
                     <option value="">ไม่รวม</option>
