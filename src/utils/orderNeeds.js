@@ -143,3 +143,15 @@ export function etaLabel(e, fmt = d => d) {
   if (e.kind === 'order') return `📦 ได้จากใบสั่งรถ${e.ref ? ` ${e.ref}` : ''}${e.date ? ` · คาดว่าถึง ${fmt(e.date)}` : ' · ยังไม่มีวันที่คาดว่าจะถึง'}${q}`
   return `⚠️ ยังไม่มีรถรุ่น/สีนี้ทั้งในสต็อก ระหว่างขนส่ง และใบสั่งรถ — ต้องสั่งเพิ่ม${q}`
 }
+
+// (v1.0.1243) รถรุ่นนี้มีให้ขายลูกค้าใหม่ไหม (หลังหักลูกค้าที่จองรอไว้แล้ว) — ใช้ตอนทำใบเสนอราคา
+// rows = ผลจาก orderNeeds · rec = { brand, model } ของรุ่นที่เลือก · คืน [{ color, free, coming }] เรียงว่างมากก่อน
+export function stockForModel(rows, rec) {
+  const mk = modelKey(rec)
+  if (!mk) return []
+  return (rows || []).filter(r => modelKey(r) === mk).map(r => {
+    const free = Math.max(0, r.ready - r.wait)
+    const coming = Math.max(0, r.have - Math.max(r.wait, r.ready))
+    return { color: r.color, free, coming }
+  }).filter(r => r.free || r.coming).sort((a, b) => b.free - a.free || b.coming - a.coming || a.color.localeCompare(b.color))
+}

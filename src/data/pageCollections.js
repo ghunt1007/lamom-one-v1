@@ -444,8 +444,11 @@ export const PAGE_COLLECTIONS = {
   "vehicles"
  ],
  "/crm/quotation": [
+  "bookings",
   "quotations",
-  "sales_programs"
+  "sales_programs",
+  "vehicle_orders",
+  "vehicles"
  ],
  "/settings/audit": [],
  "/settings/errors": [],
