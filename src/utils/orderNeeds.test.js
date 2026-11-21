@@ -168,3 +168,21 @@ describe('bookingForVehicle (v1.0.1249)', () => {
     expect(bookingForVehicle(d, 'v4')).toBeNull()
   })
 })
+
+describe('altColorText (v1.0.1250)', () => {
+  it('เสนอสีอื่นที่ว่าง/กำลังมา ไม่รวมสีเดิม', async () => {
+    const { orderNeeds, altColorText } = await import('./orderNeeds.js')
+    const b = { id: 'b1', status: 'รอรถ', brand: 'DEEPAL', model: 'S07', colorOut: 'ขาว', bookingDate: '2026-11-01' }
+    const rows = orderNeeds({ bookings: [b], vehicles: [
+      { id: 'v1', status: 'available', brand: 'DEEPAL', model: 'DEEPAL S07', color: 'ดำ', vin: 'A' },
+      { id: 'v2', status: 'transit', brand: 'DEEPAL', model: 'DEEPAL S07', color: 'เทา', vin: 'B' },
+      { id: 'v3', status: 'available', brand: 'DEEPAL', model: 'DEEPAL L07', color: 'แดง', vin: 'C' },
+    ] })
+    const t = altColorText(rows, b)
+    expect(t).toContain('ดำ ✅ ว่าง 1')
+    expect(t).toContain('เทา 🚢 กำลังมา 1')
+    expect(t).not.toContain('แดง')
+    expect(t).not.toContain('ขาว')
+    expect(altColorText(orderNeeds({ bookings: [b], vehicles: [] }), b)).toBe('')
+  })
+})
