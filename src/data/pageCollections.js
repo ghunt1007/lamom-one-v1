@@ -1244,6 +1244,7 @@ export const PAGE_COLLECTIONS = {
  ],
  "/dms/color-matrix": [
   "bookings",
+  "customers",
   "stock",
   "vehicle_orders",
   "vehicles"
