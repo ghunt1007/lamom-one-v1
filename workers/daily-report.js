@@ -62,7 +62,7 @@ import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } f
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
 import { campaignLeads } from '../src/utils/campaignLeads.js'
 import { financeQueue } from '../src/utils/financeQueue.js'
-import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines } from '../src/utils/apptFacts.js'
+import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines, serviceJobsAnswer } from '../src/utils/apptFacts.js'
 import { officeDigestLines } from '../src/utils/aiAgents.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
@@ -659,6 +659,16 @@ async function handleLineWebhook(request, env, cors) {
       if (me?.name || isOwner) {
         try { reply = clipLine(await buildWaitCarText(env, accessToken, isOwner ? '' : me.name)) } catch { reply = '⚠️ ดึงข้อมูลรอรถไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'jobs') {
+      // (v1.0.1279) งานศูนย์บริการ — ทีมงานที่ลงทะเบียน/เจ้าของเท่านั้น (ลูกค้าพิมพ์ = ข้อความปกติ ให้ระบบตอบสถานะรถของลูกค้าเองตามสวิตช์)
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      if (me?.name || (owner && owner === userId)) {
+        try {
+          const jobs = await runQuery(env, accessToken, 'job_cards', null, null, 3000, ['status', 'custName', 'plate', 'updatedAt', 'lineReadySent', 'techName', 'deleted'])
+          reply = clipLine(serviceJobsAnswer(jobs, todayBangkok()))
+        } catch { reply = '⚠️ ดึงงานซ่อมไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'forecast') {
       // (v1.0.1256) เฉพาะเจ้าของ (ปลายทางรายงาน) — การสั่งรถเป็นเรื่องของเจ้าของ คนอื่นพิมพ์ = ข้อความปกติ
       const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
@@ -730,6 +740,8 @@ export function parseLineCommand(text) {
   if (/^(?:งาน|งานวันนี้|งานค้าง|งานของฉัน|tasks?|todo)$/i.test(t.replace(/\s+/g, ''))) return { type: 'tasks' }
   // (v1.0.1245) ลูกค้าที่จองรอรถ + รถจะมาเมื่อไหร่ (เซลส์เห็นของตัวเอง เจ้าของเห็นทั้งหมด)
   if (/^(?:รอรถ|ลูกค้ารอรถ|รถมาเมื่อไหร่|waitcar)$/i.test(t.replace(/\s+/g, ''))) return { type: 'waitcar' }
+  // (v1.0.1279) ทีมงานดูงานศูนย์บริการ (กำลังซ่อม/รออะไหล่/เสร็จรอรับ)
+  if (/^(?:งานซ่อม|งานศูนย์|ใบงาน|jobs)$/i.test(t.replace(/\s+/g, ''))) return { type: 'jobs' }
   // (v1.0.1256) เจ้าของดูคาดการณ์สั่งรถ 45 วัน (สูตรเดียวกับหน้าตารางสีรถ)
   if (/^(?:สั่งรถ|ควรสั่งรถ|คาดการณ์สั่งรถ|คาดการณ์|forecast)$/i.test(t.replace(/\s+/g, ''))) return { type: 'forecast' }
   return { type: 'none' }
@@ -1720,6 +1732,7 @@ export const LINE_HELP_TEXT = [
   '• นัด 0812345678 พรุ่งนี้ / นัด สมชาย 28/10 — นัดติดตามลูกค้า',
   '• เสียดีล 0812345678 ราคา — บันทึกว่าเสียดีลพร้อมเหตุผล',
   '• ร้อน / อุ่น / เย็น 0812345678 — ตั้งความสนใจลูกค้า (Hot/Warm/Cold)',
+  '• งานซ่อม — ใบงานศูนย์บริการที่ค้าง + รถเสร็จรอลูกค้ารับ',
   '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
   '• สั่งรถ — คาดการณ์ว่าควรสั่งรถรุ่น/สีไหน (เฉพาะเจ้าของ)',
   '• ลงทะเบียน ชื่อเซลส์ — รับงานค้างทุก 9 โมงเช้า',

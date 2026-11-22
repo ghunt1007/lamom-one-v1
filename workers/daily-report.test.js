@@ -1562,6 +1562,9 @@ describe('คำสั่ง LINE สั่งรถ (v1.0.1256)', () => {
   it('parse', () => {
     expect(parseLineCommand('สั่งรถ')).toEqual({ type: 'forecast' })
     expect(parseLineCommand('คาดการณ์ สั่งรถ')).toEqual({ type: 'forecast' })
+    expect(parseLineCommand('งานซ่อม')).toEqual({ type: 'jobs' })
+    expect(parseLineCommand('ใบงาน')).toEqual({ type: 'jobs' })
+    expect(parseLineCommand('งาน').type).toBe('tasks')
     expect(parseLineCommand('สั่งรถยังไง')).toEqual({ type: 'none' })
   })
 })

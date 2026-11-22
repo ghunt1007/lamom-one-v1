@@ -34,3 +34,30 @@ export function jobsAwaitingPickupLines(jobs = [], today, max = 5) {
   if (w.length > max) rows.push(`  - …และอีก ${w.length - max} คัน`)
   return [`🚗 รถซ่อมเสร็จรอลูกค้ามารับ: ${w.length} คัน — โทรแจ้งลูกค้า หรือกด "ส่งคืนแล้ว" ในหน้า Job Card ถ้ารับไปแล้ว`, ...rows]
 }
+
+// (v1.0.1279) คำสั่ง LINE "งานซ่อม" (ทีมงาน/เจ้าของ) — ใบงานที่ยังเปิดอยู่แยกตามสถานะ + รถที่เสร็จแล้วรอลูกค้ารับ (รวมวันนี้)
+export const JOB_OPEN_STATUS = { waiting: '⏳ รอรับรถ', checkin: '🔑 รับรถแล้ว', diagnosing: '🔍 วินิจฉัย', inprogress: '🔧 กำลังซ่อม', waiting_parts: '📦 รออะไหล่', qc: '✅ QC' }
+export function serviceJobsAnswer(jobs = [], today, max = 8) {
+  const dayN = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 864e5
+  const live = (jobs || []).filter(j => j && !j.deleted)
+  const open = live.filter(j => JOB_OPEN_STATUS[j.status])
+  const done = live.filter(j => j.status === 'done').map(j => ({ j, d: bkkDate(j.updatedAt) }))
+    .map(x => ({ ...x, days: x.d ? dayN(today) - dayN(x.d) : null }))
+    .sort((a, b) => (b.days ?? -1) - (a.days ?? -1))
+  if (!open.length && !done.length) return '🔧 ตอนนี้ไม่มีใบงานซ่อมที่ค้างอยู่ครับ (ดูทั้งหมดที่ เมนูศูนย์บริการ › Job Card)'
+  const lines = [`🔧 งานศูนย์บริการตอนนี้: กำลังทำ ${open.length} คัน · เสร็จรอรับ ${done.length} คัน`]
+  const counts = Object.entries(JOB_OPEN_STATUS).map(([k, l]) => [l, open.filter(j => j.status === k).length]).filter(([, n]) => n)
+  if (counts.length) lines.push('  ' + counts.map(([l, n]) => `${l} ${n}`).join(' · '))
+  if (done.length) {
+    lines.push('', '🚗 เสร็จแล้วรอลูกค้ามารับ:')
+    done.slice(0, max).forEach(({ j, days }) => lines.push(`  - ${String(j.custName || '').trim() || 'ลูกค้า'}${j.plate ? ` (${j.plate})` : ''}${days == null ? '' : days <= 0 ? ' · เสร็จวันนี้' : ` · เสร็จมา ${days} วัน`}${j.lineReadySent ? ' · แจ้ง LINE แล้ว' : ''}`))
+    if (done.length > max) lines.push(`  - …และอีก ${done.length - max} คัน`)
+  }
+  const parts = open.filter(j => j.status === 'waiting_parts')
+  if (parts.length) {
+    lines.push('', '📦 รออะไหล่:')
+    parts.slice(0, max).forEach(j => lines.push(`  - ${String(j.custName || '').trim() || 'ลูกค้า'}${j.plate ? ` (${j.plate})` : ''}${j.techName ? ` · ช่าง ${j.techName}` : ''}`))
+    if (parts.length > max) lines.push(`  - …และอีก ${parts.length - max} คัน`)
+  }
+  return lines.join('\n')
+}
