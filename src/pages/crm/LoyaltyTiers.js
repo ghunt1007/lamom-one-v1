@@ -2,7 +2,7 @@
  * Loyalty Tier Auto-upgrade — ระบบ Tier อัตโนมัติตามคะแนนสะสม
  * Route: /crm/loyalty-tiers
  */
-import { formatCurrency, todayBangkok } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
@@ -176,7 +176,7 @@ export default async function LoyaltyTiersPage(container) {
           </div>
           <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:6px">📖 ประวัติคะแนน</div>
           ${m.history.map(h=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.76rem">
-            <span>${h.date} · ${escHtml(h.desc)}</span>
+            <span>${formatDate(h.date)} · ${escHtml(h.desc)}</span>
             <span style="font-weight:700;color:var(--success)">+${h.pts} pts</span>
           </div>`).join('')}
           <div style="margin-top:12px;display:grid;grid-template-columns:1fr 2fr;gap:8px">

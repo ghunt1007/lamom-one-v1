@@ -159,7 +159,7 @@ export default async function QualityCompliancePage(container) {
                 <div style="font-size:0.8rem;color:var(--text-muted);display:flex;gap:12px;flex-wrap:wrap">
                   <span>👤 ${escHtml(a.auditor)}</span>
                   <span>🏢 ${escHtml(a.dept)}</span>
-                  <span>📅 ${a.startDate} – ${a.endDate}</span>
+                  <span>📅 ${formatDate(a.startDate)} – ${formatDate(a.endDate)}</span>
                   ${a.score != null ? `<span>⭐ คะแนน: ${a.score}%</span>` : ''}
                 </div>
               </div>
@@ -280,7 +280,7 @@ export default async function QualityCompliancePage(container) {
           <div class="grid-2">
             ${dr('👤','ผู้ตรวจ',escHtml(audit.auditor))}
             ${dr('🏢','แผนก',escHtml(audit.dept))}
-            ${dr('📅','ช่วงเวลา',`${audit.startDate} – ${audit.endDate}`)}
+            ${dr('📅','ช่วงเวลา',`${formatDate(audit.startDate)} – ${formatDate(audit.endDate)}`)}
             ${dr('⭐','คะแนน',audit.score != null ? audit.score + '%' : 'กำลังตรวจ')}
           </div>
           <div>

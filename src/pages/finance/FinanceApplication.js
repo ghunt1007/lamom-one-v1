@@ -1,4 +1,4 @@
-import { formatCurrency, todayBangkok } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -284,9 +284,9 @@ export default async function FinanceApplicationPage(container) {
           <div><div style="color:var(--text-muted);font-size:0.72rem">ราคารถ</div><div>${formatCurrency(a.vehiclePrice)}</div></div>
           <div><div style="color:var(--text-muted);font-size:0.72rem">เงินดาวน์</div><div>${formatCurrency(a.downPayment)}</div></div>
           <div><div style="color:var(--text-muted);font-size:0.72rem">วงเงินกู้</div><div style="font-weight:700;color:var(--primary)">${formatCurrency(a.loanAmount)}</div></div>
-          <div><div style="color:var(--text-muted);font-size:0.72rem">ธนาคาร</div><div>${a.bank}</div></div>
-          <div><div style="color:var(--text-muted);font-size:0.72rem">ยื่นวันที่</div><div>${a.submittedDate}</div></div>
-          ${a.approvedDate ? `<div><div style="color:var(--text-muted);font-size:0.72rem">อนุมัติวันที่</div><div style="color:var(--success)">${a.approvedDate}</div></div>` : ''}
+          <div><div style="color:var(--text-muted);font-size:0.72rem">ธนาคาร</div><div>${escHtml(a.bank || '-')}</div></div>
+          <div><div style="color:var(--text-muted);font-size:0.72rem">ยื่นวันที่</div><div>${formatDate(a.submittedDate)}</div></div>
+          ${a.approvedDate ? `<div><div style="color:var(--text-muted);font-size:0.72rem">อนุมัติวันที่</div><div style="color:var(--success)">${formatDate(a.approvedDate)}</div></div>` : ''}
         </div>
         <div>
           <div style="font-size:0.8rem;font-weight:600;margin-bottom:8px">เอกสารที่มี</div>
