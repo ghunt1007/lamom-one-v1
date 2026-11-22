@@ -2,6 +2,7 @@
  * Price History Log — ประวัติการเปลี่ยนราคา ต่อรุ่น ต่อวัน
  * Route: /dms/price-history
  */
+import { modelOptionsHtml } from '../../utils/modelOptions.js'
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
@@ -12,7 +13,6 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { myName } from '../../utils/myName.js'
 
-const MODELS = ['BYD Atto 3','BYD Seal AWD','BYD Han','BYD Dolphin','MG ZS EV']
 
 export default async function PriceHistoryPage(container) {
   const myGen = container.__routerGen
@@ -64,7 +64,7 @@ export default async function PriceHistoryPage(container) {
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
           <select class="input" id="model-sel" style="min-width:200px">
             <option value="all">ทุกรุ่น</option>
-            ${MODELS.map(m=>`<option value="${__escA(m)}" ${filterModel===m?'selected':''}>${m}</option>`).join('')}
+            ${[...new Set(priceHistory.map(h=>h.model).filter(Boolean))].map(m=>`<option value="${__escA(m)}" ${filterModel===m?'selected':''}>${__escA(m)}</option>`).join('')}
           </select>
           ${currentPrice ? `<div style="font-size:0.8rem;font-weight:700;color:var(--primary)">ราคาปัจจุบัน: ${formatCurrency(currentPrice)}</div>` : ''}
         </div>
@@ -146,7 +146,7 @@ export default async function PriceHistoryPage(container) {
       body: `<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:10px">
         <div><label style="font-size:0.72rem;color:var(--text-muted)">รุ่นรถ</label>
           <select class="input" id="ph-model" style="width:100%;margin-top:4px">
-            ${MODELS.map(m=>`<option>${m}</option>`).join('')}
+            ${modelOptionsHtml()}
           </select></div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">ราคาใหม่ (บาท)</label>
           <input class="input" id="ph-price" type="number" placeholder="1099000" style="width:100%;margin-top:4px"></div>

@@ -2,6 +2,7 @@
  * Corporate Quote — ใบเสนอราคา B2B
  * Route: /b2b/quotes
  */
+import { modelOptionsHtml, modelStartPrice } from '../../utils/modelOptions.js'
 import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
@@ -169,9 +170,9 @@ export default async function CorporateQuotePage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group"><label class="input-label">บริษัท *</label><input class="input" id="cq-company"></div>
           <div class="input-group"><label class="input-label">ผู้ติดต่อ *</label><input class="input" id="cq-contact"></div>
-          <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="cq-model" value="BYD Atto 3"></div>
-          <div class="input-group"><label class="input-label">จำนวน (คัน)</label><input type="number" class="input" id="cq-qty" value="5"></div>
-          <div class="input-group"><label class="input-label">ราคาต่อคัน (บาท)</label><input type="number" class="input" id="cq-price" value="1050000"></div>
+          <div class="input-group"><label class="input-label">รุ่นรถ</label><select class="input" id="cq-model">${modelOptionsHtml()}</select></div>
+          <div class="input-group"><label class="input-label">จำนวน (คัน)</label><input type="number" class="input" id="cq-qty" value="1" min="1"></div>
+          <div class="input-group"><label class="input-label">ราคาต่อคัน (บาท)</label><input type="number" class="input" id="cq-price" placeholder="ราคาเริ่มต้นของรุ่นที่เลือก"></div>
           <div class="input-group"><label class="input-label">ส่วนลด (%)</label><input type="number" class="input" id="cq-disc" value="5" min="0" max="30"></div>
           <div class="input-group"><label class="input-label">วันหมดอายุ</label><input type="date" class="input" id="cq-valid" value="${addDays(30)}"></div>
         </div>
@@ -183,9 +184,9 @@ export default async function CorporateQuotePage(container) {
         try {
           await createDoc('corporate_quotes', {
             company, contact,
-            model: document.getElementById('cq-model')?.value || 'BYD Atto 3',
-            qty: +document.getElementById('cq-qty')?.value || 5,
-            unitPrice: +document.getElementById('cq-price')?.value || 1000000,
+            model: document.getElementById('cq-model')?.value || '',
+            qty: +document.getElementById('cq-qty')?.value || 1,
+            unitPrice: +document.getElementById('cq-price')?.value || modelStartPrice(document.getElementById('cq-model')?.value || ''),
             discount: +document.getElementById('cq-disc')?.value || 0,
             status: 'draft', createDate: new Date().toISOString(),
             validUntil: document.getElementById('cq-valid')?.value || addDays(30)

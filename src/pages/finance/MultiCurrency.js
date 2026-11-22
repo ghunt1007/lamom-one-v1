@@ -25,18 +25,13 @@ const DEFAULT_RATES = [
 const THB_ROW = { code:'THB', name:'บาทไทย', flag:'🇹🇭', rate:1, symbol:'฿' }
 const CODE_ORDER = DEFAULT_RATES.map(r => r.code)
 
-const MODELS = [
-  { model:'BYD Atto 3',  baseTHB:1099000 },
-  { model:'BYD Seal AWD',baseTHB:1699000 },
-  { model:'BYD Han',     baseTHB:2099000 },
-  { model:'BYD Dolphin', baseTHB:899000  },
-  { model:'MG ZS EV',    baseTHB:799000  },
-]
+// (v1.0.1311) เดิมเป็นรุ่น BYD/MG 5 รุ่นพร้อมราคาที่พิมพ์ไว้ในโค้ด — ตอนนี้ดึงจากหน้า "ราคารถ" (vehicle_models) จริง
+let MODELS = []
 
 export default async function MultiCurrencyPage(container) {
   let baseCur = 'THB'
-  let selModel = MODELS[0]
-  let customAmt = selModel.baseTHB
+  let selModel = null
+  let customAmt = 0
   let currencies = [THB_ROW]
   let loaded = false
 
@@ -52,6 +47,12 @@ export default async function MultiCurrencyPage(container) {
     }
     docs.sort((a, b) => CODE_ORDER.indexOf(a.code) - CODE_ORDER.indexOf(b.code))
     currencies = [THB_ROW, ...docs]
+    try {
+      const vm = await listDocs('vehicle_models', [], 'basePrice', 'asc', 100)
+      MODELS = vm.filter(m => !m.deleted && (Number(m.promotionPrice) || Number(m.basePrice)) > 0)
+        .map(m => ({ model: `${m.brand || ''} ${m.model || m.name || ''}`.trim(), baseTHB: Number(m.promotionPrice) || Number(m.basePrice) }))
+    } catch (e) { MODELS = [] }
+    if (!selModel && MODELS.length) { selModel = MODELS[0]; customAmt = selModel.baseTHB }
     loaded = true
   }
 
@@ -85,7 +86,7 @@ export default async function MultiCurrencyPage(container) {
       return
     }
 
-    const amtTHB = customAmt || selModel.baseTHB
+    const amtTHB = customAmt || selModel?.baseTHB || 0
     const latest = latestManualUpdate()
 
     renderKeepFocus(container, `
@@ -93,25 +94,25 @@ export default async function MultiCurrencyPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">💱 Multi-Currency Pricing</div>
-            <div class="page-subtitle">แปลงราคารถ ${MODELS.length} รุ่น เป็น ${currencies.length} สกุลเงิน · อัตราแลกเปลี่ยนตั้งค่าโดยทีมงาน (ไม่ใช่ real-time)</div>
+            <div class="page-subtitle">แปลงราคารถ${MODELS.length ? ` ${MODELS.length} รุ่น` : ''} เป็น ${currencies.length} สกุลเงิน · อัตราแลกเปลี่ยนตั้งค่าโดยทีมงาน (ไม่ใช่ real-time)</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="edit-rate-btn">✏️ แก้ไขอัตราแลกเปลี่ยน</button>
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px">
           <!-- Left: converter -->
           <div style="display:flex;flex-direction:column;gap:12px">
             <!-- Model selector -->
             <div class="card" style="padding:14px">
               <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">🚗 เลือกรุ่นรถ</div>
               <div style="display:flex;flex-direction:column;gap:6px">
-                ${MODELS.map(m => `
-                  <div class="model-sel" data-model="${m.model}" style="padding:8px 12px;border-radius:var(--radius-sm);background:${selModel.model===m.model?'var(--primary)':'var(--surface-2)'};color:${selModel.model===m.model?'#fff':'var(--text)'};cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;transition:all .15s">
-                    <span style="font-weight:600">${m.model}</span>
-                    <span>${formatCurrency(m.baseTHB)}</span>
-                  </div>`).join('')}
+                ${MODELS.length ? MODELS.map((m, i) => `
+                  <div class="model-sel" data-i="${i}" style="padding:8px 12px;border-radius:var(--radius-sm);background:${selModel===m?'var(--primary)':'var(--surface-2)'};color:${selModel===m?'#fff':'var(--text)'};cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:0.8rem;transition:all .15s">
+                    <span style="font-weight:600;min-width:0;overflow-wrap:anywhere">${__escA(m.model)}</span>
+                    <span style="white-space:nowrap">${formatCurrency(m.baseTHB)}</span>
+                  </div>`).join('') : `<div style="font-size:0.76rem;color:var(--text-muted)">ยังไม่มีรุ่นในหน้าราคารถ — <a href="/dms/pricelist" onclick="navigate('/dms/pricelist');return false">เพิ่มรุ่น/ราคา →</a> หรือระบุราคาเองด้านล่าง</div>`}
               </div>
             </div>
 
@@ -139,7 +140,7 @@ export default async function MultiCurrencyPage(container) {
 
           <!-- Right: converted prices -->
           <div style="display:flex;flex-direction:column;gap:10px">
-            <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted)">💱 ราคา ${selModel.model} (${formatCurrency(amtTHB)}) ในทุกสกุลเงิน</div>
+            <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted)">💱 ราคา ${__escA(selModel && customAmt === selModel.baseTHB ? selModel.model : 'ที่ระบุ')} (${formatCurrency(amtTHB)}) ในทุกสกุลเงิน</div>
             ${currencies.map(c => {
               const val = convert(amtTHB, c.code)
               return `
@@ -156,9 +157,10 @@ export default async function MultiCurrencyPage(container) {
             <!-- All models comparison -->
             <div class="card" style="padding:14px;margin-top:4px">
               <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📋 เปรียบราคาทุกรุ่น (USD)</div>
+              ${MODELS.length ? '' : '<div style="font-size:0.76rem;color:var(--text-muted)">ยังไม่มีรุ่นในหน้าราคารถ</div>'}
               ${MODELS.map(m => `
-                <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.76rem">
-                  <span>${m.model}</span>
+                <div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.76rem">
+                  <span style="min-width:0;overflow-wrap:anywhere">${__escA(m.model)}</span>
                   <div style="text-align:right">
                     <div style="font-weight:700">${fmt(convert(m.baseTHB,'USD'),'USD')}</div>
                     <div style="font-size:0.64rem;color:var(--text-muted)">${formatCurrency(m.baseTHB)}</div>
@@ -170,8 +172,8 @@ export default async function MultiCurrencyPage(container) {
       </div>`)
 
     container.querySelectorAll('.model-sel').forEach(el => el.addEventListener('click', () => {
-      selModel = MODELS.find(m => m.model === el.dataset.model) || selModel
-      customAmt = selModel.baseTHB
+      selModel = MODELS[+el.dataset.i] || selModel
+      customAmt = selModel?.baseTHB || 0
       render()
     }))
     document.getElementById('custom-amt')?.addEventListener('input', e => {

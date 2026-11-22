@@ -2,6 +2,7 @@
  * Test Drive Certificate — ใบรับรองการทดลองขับ
  * Route: /dms/td-cert
  */
+import { modelOptionsHtml } from '../../utils/modelOptions.js'
 import { formatDate, formatDateTime, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
@@ -168,7 +169,7 @@ export default async function TdCertPage(container) {
         </div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">รุ่นรถ</label>
           <select class="input" id="td-model" style="width:100%;margin-top:3px">
-            <option>BYD Atto 3</option><option>BYD Seal AWD</option><option>BYD Han</option><option>BYD Dolphin</option><option>MG ZS EV</option>
+            ${modelOptionsHtml()}
           </select></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <!-- เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
@@ -188,7 +189,7 @@ export default async function TdCertPage(container) {
         try {
           await createDoc('test_drive_certs', {
             customer:name, phone:document.getElementById('td-phone')?.value||'-',
-            model:document.getElementById('td-model')?.value||'BYD Atto 3',
+            model:document.getElementById('td-model')?.value||'',
             // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
             // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
             plate:'รอกำหนด', date:document.getElementById('td-date')?.value||todayBangkok(),
