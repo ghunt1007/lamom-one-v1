@@ -1561,7 +1561,7 @@ export function buildWeeklyReport(data, { today }) {
   // (v1.0.1236) ลูกค้าที่จองแล้วยังไม่ส่งมอบ ผูก LINE กี่คน — ผูกแล้วระบบแจ้งสถานะรถ/นัดส่งมอบเองได้
   const openBk = bookings.filter(b => !isCancelled(b) && !DELIVERED_STATUSES.includes(b.status))
   const linkedN = openBk.filter(b => b.lineUserId).length
-  const linkLine = openBk.length ? `🔗 ลูกค้าจองที่ผูก LINE แล้ว: ${linkedN}/${openBk.length} คน${linkedN < openBk.length ? ' → กด "🔗 ผูก LINE" ในใบจอง (ส่งลิงก์ทาง SMS ได้)' : ' ✅'}` : null
+  const linkLine = openBk.length ? `🔗 ลูกค้าจองที่ผูก LINE แล้ว: ${linkedN}/${openBk.length} คน${linkedN < openBk.length ? ' → เมนูใบจอง กดชิป "🔗 ยังไม่ผูก LINE" แล้วกด "📱 ส่ง SMS ชวนผูก LINE" ส่งทีเดียวทุกคน' : ' ✅'}` : null
 
   // เสียดีลสัปดาห์ที่แล้ว แยกตามเหตุผล (ใช้คำหน้าเครื่องหมาย " - " เช่น "ราคา - คู่แข่งลดให้ 20,000" นับเป็น "ราคา")
   const lostBy = {}
