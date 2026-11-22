@@ -125,10 +125,10 @@ export default async function LamiBrainPage(container) {
 
   async function loadChat() {
     try {
-      chatHistory = await listDocs('chat_lami_brain', [], 'createdAt', 'asc', 500)
+      chatHistory = (await listDocs('chat_lami_brain', [], 'createdAt', 'desc', 500)).reverse()
       if (!chatHistory.length) {
         await createDoc('chat_lami_brain', { role:'lami', text: GREETING, time: new Date().toISOString() })
-        chatHistory = await listDocs('chat_lami_brain', [], 'createdAt', 'asc', 500)
+        chatHistory = (await listDocs('chat_lami_brain', [], 'createdAt', 'desc', 500)).reverse()
       }
     } catch (e) { chatHistory = [] }
   }

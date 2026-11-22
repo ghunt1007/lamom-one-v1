@@ -59,9 +59,10 @@ export default async function CommHubPage(container) {
   function subscribeChannel(chId) {
     if (unsubChannel) unsubChannel()
     firstSnapshotOfChannel = true
-    unsubChannel = watchDocs('comm_messages', [['channel', '==', chId]], 'createdAt', 'asc', 300, rows => {
+    // (v1.0.1321) 300 ข้อความล่าสุด (เดิมเก่าสุดก่อน — ห้องที่คุยเกิน 300 ข้อความ ข้อความใหม่จะไม่ขึ้นเลย)
+    unsubChannel = watchDocs('comm_messages', [['channel', '==', chId]], 'createdAt', 'desc', 300, rows => {
       if (container.__routerGen !== myGen) { unsubChannel(); return }
-      messages[chId] = rows
+      messages[chId] = [...rows].reverse()
       if (firstSnapshotOfChannel) { firstSnapshotOfChannel = false; renderPage() }
       // กันเคสหายาก: unsubscribe เดิมไปแล้วแต่ snapshot ค้างท่อมาทีหลัง — chId จะไม่ตรง activeChannel แล้ว ข้ามการ render ทิ้ง
       else if (chId === activeChannel.id) { refreshMessages() }

@@ -27,7 +27,7 @@ export default async function RescheduleAiPage(container) {
 
   async function loadData() {
     loading = true
-    try { APPTS = (await listDocs('reschedule_appointments', [], 'date', 'asc', 500)).filter(a => !a.deleted) } catch (e) { APPTS = [] }
+    try { APPTS = (await listDocs('reschedule_appointments', [], 'date', 'desc', 500)).reverse().filter(a => !a.deleted) } catch (e) { APPTS = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
