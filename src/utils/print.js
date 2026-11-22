@@ -19,6 +19,33 @@ export function getOrgInfo() {
   } catch (e) { return { ...ORG } }
 }
 
+// (v1.0.1323) หัวเอกสารที่พิมพ์ (ใบจอง/ใบถอนจอง/สลิป/เอกสารจากแม่แบบ) ใช้ข้อมูลจากหน้า "ข้อมูลบริษัท" จริง —
+// เดิมไม่มีที่ไหนเขียนค่า lamom_org เลย หัวเอกสารจึงเป็น "LAMOM ONE" ไม่มีที่อยู่/เบอร์/เลขผู้เสียภาษีทุกใบ
+// เก็บเฉพาะช่องที่กรอกแล้ว (ช่องว่างใช้ค่าเดิม) · โหลดครั้งเดียวหลังล็อกอิน และทุกครั้งที่บันทึกหน้าข้อมูลบริษัท
+export function orgFromCompany(doc) {
+  if (!doc) return {}
+  const t = v => String(v || '').trim()
+  const out = {}
+  const name = t(doc.nameTh) || t(doc.name)
+  if (name) out.name = name
+  if (t(doc.address)) out.addr = t(doc.address).replace(/\s*\n\s*/g, ' ')
+  if (t(doc.phone)) out.phone = t(doc.phone)
+  if (t(doc.taxId)) out.taxId = t(doc.taxId)
+  if (t(doc.brand)) out.sub = 'ตัวแทนจำหน่าย ' + t(doc.brand)
+  return out
+}
+export function setOrgFromCompany(doc) {
+  try { localStorage.setItem('lamom_org', JSON.stringify(orgFromCompany(doc))) } catch { /* ไม่มี storage ก็ใช้ค่าเดิม */ }
+}
+export async function prefetchOrgInfo() {
+  try {
+    const { listDocs } = await import('../core/db.js')
+    const rows = await listDocs('company_profile', [], 'createdAt', 'asc', 10)
+    const doc = (rows || []).find(r => r && !r.deleted)
+    if (doc) setOrgFromCompany(doc)
+  } catch { /* อ่านไม่ได้ = ใช้ค่าที่เก็บไว้ล่าสุด */ }
+}
+
 // แปลงเลขเป็นรูปแบบเงินบาท (ไม่มี symbol สำหรับเอกสาร)
 export function money(n) {
   if (n == null || n === '') return '0'

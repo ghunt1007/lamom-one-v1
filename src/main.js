@@ -92,6 +92,8 @@ async function bootstrapShell() {
   // (v1.0.1005) ฐานข้อมูลรุ่นรถ (~245 KB) โหลดแบบ dynamic import หลังล็อกอิน — หน้า Login ไม่ต้องดาวน์โหลดก่อน
   // seed demo data (lazy chunk) + โหลด vehicle catalog overrides + master data ให้เสร็จก่อน initRouter — กัน race หน้าแรกอ่านข้อมูลว่าง
   const [, , , brand] = await Promise.all([seedDemoData(), import('./data/vehicleDatabase.js').then(m => m.loadVehicleOverrides()), loadMasterData(), loadWhiteLabel()])
+  // (v1.0.1323) ข้อมูลบริษัทจริงสำหรับหัวเอกสารที่พิมพ์ (ไม่บล็อกการเปิดแอป)
+  import('./utils/print.js').then(m => m.prefetchOrgInfo()).catch(() => {})
   const landing = postLoginRoute(brand, window.location.pathname) || roleHomeRoute(getState('user')?.role, window.location.pathname, canOpenPath)
   if (landing) window.history.replaceState({}, '', landing)
   app.innerHTML = ''
