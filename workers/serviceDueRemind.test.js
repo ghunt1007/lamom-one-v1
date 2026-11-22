@@ -71,3 +71,13 @@ describe('LINE "ครบระยะ" (v1.0.1291)', () => {
     expect(dueListAnswer([], '2026-11-22')).toContain('✅')
   })
 })
+
+import { serviceDueMorningLine } from './serviceDueRemind.js'
+describe('09:00 service-due line (v1.0.1292)', () => {
+  it('counts unbooked in window', () => {
+    const rows = [{ dueDate: '2026-11-15' }, { dueDate: '2026-11-25' }, { dueDate: '2026-11-23', booked: true }, { dueDate: '2026-12-30' }]
+    expect(serviceDueMorningLine(rows, '2026-11-22')).toBe('📅 รถครบระยะยังไม่ได้นัด: 2 คัน (เลยกำหนด 1) — โทรนัดลูกค้า หรือพิมพ์ "ครบระยะ" ใน LINE ดูรายชื่อ')
+    expect(serviceDueMorningLine([], '2026-11-22')).toBe('')
+    expect(serviceDueMorningLine(undefined, '2026-11-22')).toBe('')
+  })
+})

@@ -81,3 +81,13 @@ export function dueListAnswer(reminders = [], today, { ahead = SERVICE_DUE_DAYS,
   if (rows.length > max) lines.push(`…และอีก ${rows.length - max} คัน ดูทั้งหมดในหน้าแจ้งเตือนเช็คระยะ`)
   return lines.join('\n')
 }
+
+// (v1.0.1292) บรรทัดในรายงาน 09:00 — จำนวนรถครบระยะที่ยังไม่ได้นัด (ช่วงเดียวกับคำสั่ง "ครบระยะ") · ไม่มี = ''
+export function serviceDueMorningLine(reminders = [], today, { ahead = SERVICE_DUE_DAYS, overdue = 30 } = {}) {
+  const t = dayNum(today)
+  const left = (reminders || []).filter(r => r && !r.deleted && !r.booked && /^\d{4}-\d{2}-\d{2}$/.test(day(r.dueDate)))
+    .map(r => dayNum(day(r.dueDate)) - t).filter(n => n <= ahead && n >= -overdue)
+  if (!left.length) return ''
+  const late = left.filter(n => n < 0).length
+  return `📅 รถครบระยะยังไม่ได้นัด: ${left.length} คัน${late ? ` (เลยกำหนด ${late})` : ''} — โทรนัดลูกค้า หรือพิมพ์ "ครบระยะ" ใน LINE ดูรายชื่อ`
+}
