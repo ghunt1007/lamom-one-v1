@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { isStatusAsk, statusAskReply, handleStatusAsk } from './statusAsk.js'
+import { isStatusAsk, statusAskReply, handleStatusAsk, isJobAsk, jobAskReply } from './statusAsk.js'
 
 const U = 'U' + 'a'.repeat(32)
 const today = '2026-11-22'
@@ -53,5 +53,28 @@ describe('handleStatusAsk', () => {
   it('LINE นี้ไม่มีใบจอง = ปล่อยให้ AI/ทีมตอบ', async () => {
     const send = vi.fn(async () => true)
     expect(await handleStatusAsk({ enabled: true, userId: 'U' + 'b'.repeat(32), text: 'รถมาเมื่อไหร่', query: async () => [], send, today })).toBe(false)
+  })
+})
+
+describe('ถามงานศูนย์บริการ (v1.0.1266)', () => {
+  it('จับคำถาม', () => {
+    for (const x of ['รถซ่อมเสร็จยังครับ', 'เช็คระยะเสร็จหรือยัง', 'รถเสร็จยัง', 'ศูนย์ได้รถกี่โมง']) expect(isJobAsk(x)).toBe(true)
+    for (const x of ['ไปศูนย์ยังไง', 'ราคาเช็คระยะเท่าไหร่', 'สวัสดี']) expect(isJobAsk(x)).toBe(false)
+  })
+  it('ตอบจากใบงานล่าสุด · ไม่มีงานค้าง = null', () => {
+    const t = jobAskReply({ name: 'สมชาย ใจดี', jobs: [
+      { id: 'j1', status: 'done', brand: 'DEEPAL', model: 'S07', plate: 'กข 1', updatedAt: '2026-11-22T03:00:00Z' },
+      { id: 'j2', status: 'delivered', updatedAt: '2026-11-22T04:00:00Z' },
+    ] })
+    expect(t).toContain('สวัสดีครับคุณสมชาย')
+    expect(t).toContain('🔧 รถ DEEPAL S07 ทะเบียน กข 1: เสร็จเรียบร้อย พร้อมให้มารับได้เลย')
+    expect(jobAskReply({ jobs: [{ id: 'j2', status: 'delivered' }] })).toBe(null)
+  })
+  it('handleStatusAsk ตอบงานศูนย์ของลูกค้าที่ผูก LINE', async () => {
+    const send = vi.fn(async () => true)
+    const query = vi.fn(async (col, f, eq) => col === 'customers' ? [{ id: 'c1', firstName: 'สมชาย', phone: '0812345678' }]
+      : col === 'job_cards' && eq?.[0] === 'customerId' ? [{ id: 'j1', status: 'waiting_parts', model: 'S07' }] : [])
+    expect(await handleStatusAsk({ enabled: true, userId: U, text: 'รถซ่อมเสร็จยัง', today, query, send })).toBe(true)
+    expect(send.mock.calls[0][0]).toContain('รออะไหล่')
   })
 })
