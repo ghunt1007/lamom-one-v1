@@ -147,7 +147,7 @@ export default async function WarrantyClaimPage(container) {
           <select class="input" id="wc-type"><option>ทั่วไป 3 ปี</option><option>Powertrain 8 ปี</option><option>Battery 8 ปี/160k km</option></select>
         </div>
       </div>`,
-      confirmText: '📤 เปิดเคลม + ส่งค่าย',
+      confirmText: '📤 บันทึกเคลม (ส่งค่ายแล้ว)',
       async onConfirm() {
         const plate = document.getElementById('wc-plate')?.value?.trim()
         const issue = document.getElementById('wc-issue')?.value?.trim()
@@ -163,7 +163,7 @@ export default async function WarrantyClaimPage(container) {
             status: 'submitted', submitted: addDays(0),
             warrantyType: document.getElementById('wc-type')?.value || 'ทั่วไป 3 ปี',
           })
-          showToast('📤 เปิดเคลม + ส่งค่ายแล้ว', 'success')
+          showToast('📤 บันทึกเคลมแล้ว สถานะ "ส่งค่ายแล้ว" — ระบบไม่ได้ส่งให้ค่ายเอง ส่งเอกสารผ่านช่องทางของค่ายตามปกติ', 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
