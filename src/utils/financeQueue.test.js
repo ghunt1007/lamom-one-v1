@@ -25,7 +25,8 @@ import { financeWaitAnswer } from './financeQueue.js'
 describe('LINE "ไฟแนนซ์" (v1.0.1295)', () => {
   const rows = [
     { custName: 'เอ', model: 'ATTO 3', financeCo: 'KBank', finStatus: 'รอผล', submitDate: '2026-11-18', status: 'จอง', salesName: 'บี' },
-    { custName: 'ซี', finStatus: 'รอเซ็นสัญญา', status: 'รอรถ', salesName: 'ดี' },
+    { custName: 'ซี', finStatus: 'รอเซ็นสัญญา', status: 'จอง', salesName: 'ดี' },
+    { custName: 'รอรถแล้ว', finStatus: 'รอผล', status: 'รอรถ' },
     { custName: 'อี', finStatus: 'รอผล', submitDate: '2026-11-10', status: 'จอง', salesName: 'บี' },
     { custName: 'ส่งแล้ว', finStatus: 'รอผล', status: 'ส่งมอบแล้ว' },
     { custName: 'ผ่าน', finStatus: 'ผ่าน', status: 'จอง' },
@@ -42,3 +43,4 @@ describe('LINE "ไฟแนนซ์" (v1.0.1295)', () => {
     expect(financeWaitAnswer([], '2026-11-22')).toContain('✅')
   })
 })
+

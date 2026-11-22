@@ -1,3 +1,4 @@
+import { FIN_PASSED_STATUSES } from './finance.js'
 // (v1.0.1010) งานฝ่ายการเงินที่ค้าง — ใช้ร่วมกันทั้งหน้าภาพรวมการเงิน และข้อความเตือน 09:00 (workers/daily-report.js)
 // นิยามเดียวกับหน้า /finance/refund: เซลส์แจ้งตรวจยอดโอนแล้วรออยู่ · ถอนจองแล้วยังไม่คืนเงินจอง
 const DAY = 86400000
@@ -19,12 +20,16 @@ export function financeQueue(bookings = [], today) {
 // (v1.0.1295) คำสั่ง LINE "ไฟแนนซ์" — ใบจองที่ยังเปิดอยู่และไฟแนนซ์ยังไม่จบ (รอส่ง/รอผล/รอโยกหัว/รอเซ็น) เรียงยื่นนานสุดก่อน
 // mine(b) = ใบจองของคนถาม (เซลส์: ของตัวเอง / เจ้าของ: ทั้งหมด) · วันที่รอนับจาก submitDate (ไม่มี = ไม่บอกจำนวนวัน ไม่เดา)
 export const FIN_WAIT_STATUSES = ['รอส่ง', 'รอผล', 'รอโยกหัว', 'รอเซ็นต์', 'รอเซ็นสัญญา']
-const CLOSED = ['ถอนจอง', 'ยกเลิก', 'ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
-export function financeWaitAnswer(bookings = [], today, { mine = () => true, max = 10 } = {}) {
+// สถานะใบจองที่เลยขั้นไฟแนนซ์แล้ว (รอรถ/รอส่งมอบ ฯลฯ) = ผ่านแล้วแม้ช่องสถานะไฟแนนซ์ค้าง — เกณฑ์เดียวกับ finPassPatch
+const CLOSED = ['ถอนจอง', 'ยกเลิก', 'ซื้อสดรอเบิกรถ', ...FIN_PASSED_STATUSES]
+export function financeWaitList(bookings = [], today, mine = () => true) {
   const t0 = Date.parse(today + 'T00:00:00Z')
   const days = b => { const at = Date.parse(String(b.submitDate || '').slice(0, 10) + 'T00:00:00Z'); return Number.isFinite(at) ? Math.max(0, Math.floor((t0 - at) / DAY)) : null }
-  const list = (bookings || []).filter(b => b && !b.deleted && !CLOSED.includes(b.status) && FIN_WAIT_STATUSES.includes(b.finStatus) && mine(b))
+  return (bookings || []).filter(b => b && !b.deleted && !CLOSED.includes(b.status) && FIN_WAIT_STATUSES.includes(b.finStatus) && mine(b))
     .map(b => ({ b, d: days(b) })).sort((x, y) => (y.d ?? -1) - (x.d ?? -1))
+}
+export function financeWaitAnswer(bookings = [], today, { mine = () => true, max = 10 } = {}) {
+  const list = financeWaitList(bookings, today, mine)
   if (!list.length) return '✅ ไม่มีใบจองที่รอไฟแนนซ์'
   const by = {}
   list.forEach(({ b }) => { by[b.finStatus] = (by[b.finStatus] || 0) + 1 })
