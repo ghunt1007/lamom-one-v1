@@ -268,8 +268,12 @@ export async function loadPayAnswer(q) {
   const pq = await import('./payQuestions.js')
   if (!pq.maybePayQuestion(q)) return null
   const { getVehicles } = await import('../data/vehicleDatabase.js')
-  const spec = pq.parsePaySpec(q, getVehicles())
-  if (!spec) return null
+  const parsed = pq.parsePaySpec(q, getVehicles())
+  if (!parsed) return null
+  // (v1.0.1284) ใช้เรทไฟแนนซ์จริงที่ตั้งไว้ (ถ้ามี) แทนค่าเริ่มต้น
+  let banks = []
+  try { const { listDocs } = await import('../core/db.js'); banks = await listDocs('finance_banks', [], 'name', 'asc', 50) } catch {}
+  const spec = pq.withRealRates(parsed, banks)
   return { text: pq.payAnswer(spec), copy: pq.payCustomerText(spec), next: pq.payFollowUps(spec), go: { path: '/finance/loan-calc?' + pq.loanCalcQuery(spec), label: '🧮 เทียบไฟแนนซ์ด้วยเงื่อนไขนี้' } }
 }
 

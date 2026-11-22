@@ -56,23 +56,46 @@ export function parsePaySpec(q, vehicles = []) {
   return { price, car, months, rate, downPct: dp ? +dp[1] : downAmt != null ? Math.round(downAmt / price * 1000) / 10 : null }
 }
 
+// (v1.0.1284) อัตราต่ำสุดของแต่ละระยะผ่อน จากเรทไฟแนนซ์จริงที่ตั้งในหน้าคำนวณค่างวด (finance_banks) — ไม่มี = null
+export function realRates(banks = []) {
+  const out = {}
+  for (const b of banks || []) {
+    if (!b || b.deleted) continue
+    for (const [m, r] of Object.entries(b.rates || {})) {
+      const v = Number(r)
+      if (v > 0 && (!out[m] || v < out[m].rate)) out[m] = { rate: v, name: String(b.name || '').trim() }
+    }
+  }
+  return Object.keys(out).length ? out : null
+}
+// ใส่อัตราจริงลง spec (เฉพาะเมื่อผู้ใช้ไม่ได้พิมพ์ดอกเบี้ยเอง) — ใช้ตอนโหลดคำตอบ
+export function withRealRates(spec, banks) {
+  const real = spec && spec.rate == null ? realRates(banks) : null
+  return real ? { ...spec, real } : spec
+}
+const rateOf = (spec, m) => spec.rate ?? spec.real?.[m]?.rate ?? DEFAULT_RATE
+const rateNote = (spec, months) => {
+  if (spec.rate != null) return `ดอกเบี้ยคงที่ ${spec.rate}% ต่อปี`
+  if (spec.real && months.some(m => spec.real[m])) return 'ดอกเบี้ยต่ำสุดจากเรทไฟแนนซ์ที่ตั้งไว้ ' + months.map(m => `${m} งวด ${rateOf(spec, m)}%${spec.real[m] ? '' : '*'}`).join(' · ') + (months.some(m => !spec.real[m]) ? ` (*ไม่มีเรท ใช้ ${DEFAULT_RATE}%)` : '')
+  return `ดอกเบี้ยคงที่ ${DEFAULT_RATE}% ต่อปี`
+}
+
 export function payAnswer(spec) {
-  const rate = spec.rate ?? DEFAULT_RATE
   const head = `🧮 ${spec.car ? spec.car + ' · ' : ''}ราคา ${baht(spec.price)}`
   const lines = [head]
   const monthsList = spec.months ? [spec.months] : [48, 60, 72, 84]
   const downs = spec.downPct != null ? [spec.downPct] : spec.months ? [10, 15, 20, 25, 30] : [15, 20, 25]
   if (downs.length === 1) {
-    const d = flatMonthly(spec.price, downs[0], monthsList[0], rate)
+    const d = flatMonthly(spec.price, downs[0], monthsList[0], rateOf(spec, monthsList[0]))
     lines.push(`ดาวน์ ${downs[0]}% = ${baht(d.down)} · ยอดจัด ${baht(d.loan)}`)
-    monthsList.forEach(m => lines.push(`• ${m} งวด → ${baht(flatMonthly(spec.price, downs[0], m, rate).monthly)}/เดือน`))
+    monthsList.forEach(m => lines.push(`• ${m} งวด → ${baht(flatMonthly(spec.price, downs[0], m, rateOf(spec, m)).monthly)}/เดือน`))
   } else {
     downs.forEach(p => {
-      const d = flatMonthly(spec.price, p, monthsList[0], rate)
-      lines.push(`• ดาวน์ ${p}% (${baht(d.down)}) → ` + monthsList.map(m => `${monthsList.length > 1 ? m + ' งวด ' : ''}${baht(flatMonthly(spec.price, p, m, rate).monthly)}`).join(' · ') + (monthsList.length > 1 ? '' : `/เดือน (${monthsList[0]} งวด)`))
+      const d = flatMonthly(spec.price, p, monthsList[0], rateOf(spec, monthsList[0]))
+      lines.push(`• ดาวน์ ${p}% (${baht(d.down)}) → ` + monthsList.map(m => `${monthsList.length > 1 ? m + ' งวด ' : ''}${baht(flatMonthly(spec.price, p, m, rateOf(spec, m)).monthly)}`).join(' · ') + (monthsList.length > 1 ? '' : `/เดือน (${monthsList[0]} งวด)`))
     })
   }
-  lines.push(`ℹ️ ประมาณการ ดอกเบี้ยคงที่ ${rate}% ต่อปี${spec.rate == null ? ' (ค่าเริ่มต้น พิมพ์ "ดอก 2.5" เพื่อเปลี่ยน)' : ''} · อัตราจริงขึ้นกับไฟแนนซ์อนุมัติ`)
+  lines.push(`ℹ️ ประมาณการ ${rateNote(spec, monthsList)}${spec.rate == null && !spec.real ? ' (ค่าเริ่มต้น พิมพ์ "ดอก 2.5" เพื่อเปลี่ยน · ตั้งเรทจริงได้ที่หน้าคำนวณค่างวด)' : ''} · อัตราจริงขึ้นกับไฟแนนซ์อนุมัติ`)
   return lines.join('\n')
 }
 
@@ -80,7 +103,9 @@ export function payAnswer(spec) {
 export function payCustomerText(spec) {
   const body = payAnswer(spec).split('\n').filter(l => !l.startsWith('ℹ️'))
   body[0] = `ตารางผ่อนเบื้องต้น ${spec.car ? spec.car.replace(' (รุ่นเริ่มต้น)', '') + ' ' : ''}ราคา ${baht(spec.price)}`
-  return [...body, `*ตัวเลขประมาณการ ดอกเบี้ย ${spec.rate ?? DEFAULT_RATE}% ต่อปี (คงที่) ค่างวดจริงขึ้นกับการอนุมัติของไฟแนนซ์`, 'สนใจนัดดูรถหรือทดลองขับ แจ้งได้เลย 🙏'].join('\n')
+  const months = spec.months ? [spec.months] : [48, 60, 72, 84]
+  const rt = [...new Set(months.map(m => rateOf(spec, m)))].sort((a, b) => a - b)
+  return [...body, `*ตัวเลขประมาณการ ดอกเบี้ย ${rt.length === 1 ? rt[0] + '%' : rt[0] + '–' + rt[rt.length - 1] + '%'} ต่อปี (คงที่) ค่างวดจริงขึ้นกับการอนุมัติของไฟแนนซ์`, 'สนใจนัดดูรถหรือทดลองขับ แจ้งได้เลย 🙏'].join('\n')
 }
 
 // ปุ่มถามต่อ: ลองเงื่อนไขอื่นในแตะเดียว
