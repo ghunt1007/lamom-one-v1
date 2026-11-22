@@ -10,6 +10,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { callLink } from '../../utils/callLink.js'
 
 const RESERVATION_STATUS = {
   active:   { label: 'จองแล้ว', color: 'primary', icon: '📋' },
@@ -86,7 +87,7 @@ export default async function VehicleReservationPage(container) {
             return `<div class="card" style="padding:12px 14px;border-left:3px solid var(--${rs?.color})${isExpiring?';background:var(--warning)08':''}">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
                 <div>
-                  <div style="font-weight:700;font-size:0.88rem">${escHtml(r.customer)} <span style="font-size:0.7rem;color:var(--text-muted)">📞 ${escHtml(r.phone)}</span></div>
+                  <div style="font-weight:700;font-size:0.88rem">${escHtml(r.customer)} <span style="font-size:0.7rem;color:var(--text-muted)">${callLink(r.phone)}</span></div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">🚗 ${escHtml(r.model)} · 🎨 ${escHtml(r.color)}</div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">👤 ${escHtml(r.staff)} · จอง ${timeAgo(r.created)}</div>
                   <div style="font-size:0.72rem;color:var(--${isExpiring?'danger':'text-muted'})">⏰ หมดอายุ ${formatDate(r.expiry)}${isExpiring?' ⚠️':''}</div>

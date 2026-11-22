@@ -10,6 +10,7 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { callLink } from '../../utils/callLink.js'
 
 
 function normPhone(p) { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('66') && d.length === 11 ? '0' + d.slice(2) : d } // +66 = 0
@@ -130,7 +131,7 @@ export default async function DuplicateManagerPage(container) {
                   <div style="font-weight:700;font-size:0.83rem">${escHtml(r.name)}</div>
                   <div style="font-size:0.7rem;color:var(--text-muted);line-height:1.6">
                     🆔 ${escHtml(r.id)}<br>
-                    📞 ${escHtml(r.phone) || '—'}<br>
+                    📞 ${callLink(r.phone, '', { icon: '' }) || '—'}<br>
                     📧 ${r.email ? escHtml(r.email) : '—'}<br>
                     📅 สร้าง ${r.created ? formatDate(r.created) : '—'}<br>
                     🤝 ${r.deals} ดีล · 📥 ${escHtml(r.source)}

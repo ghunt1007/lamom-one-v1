@@ -5,6 +5,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { callLink } from '../../utils/callLink.js'
 
 const PARTNER_TYPES = {
   broker: { label: '🤝 นายหน้า/Broker', badge: 'primary' },
@@ -124,7 +125,7 @@ export default async function B2BPortalPage(container) {
             </div>
             <div style="font-size:0.8rem;color:var(--text-muted);display:flex;flex-direction:column;gap:3px;margin-bottom:12px">
               <span>👤 ${escHtml(p.contact)}</span>
-              <span>📞 ${escHtml(p.phone)}</span>
+              <span>${callLink(p.phone)}</span>
               <span>📧 ${escHtml(p.email)}</span>
               <span>🤝 ร่วมงานตั้งแต่ ${formatDate(p.since)}</span>
             </div>
@@ -209,7 +210,7 @@ export default async function B2BPortalPage(container) {
             <span class="badge badge-${p.status==='active'?'success':'warning'}">${p.status}</span>
           </div>
           <div class="grid-2">
-            ${dr('👤','ติดต่อ',escHtml(p.contact))}${dr('📞','โทร',escHtml(p.phone))}
+            ${dr('👤','ติดต่อ',escHtml(p.contact))}${dr('📞','โทร',callLink(p.phone, p.contact, { icon: '' }))}
             ${dr('📧','อีเมล',escHtml(p.email))}${dr('📅','ร่วมงาน',formatDate(p.since))}
             ${dr('💰','Commission',p.commission_rate+'%')}${dr('💼','ดีลรวม',p.totalDeals+' ดีล')}
           </div>

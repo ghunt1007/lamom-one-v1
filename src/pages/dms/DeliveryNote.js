@@ -8,6 +8,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { callLink } from '../../utils/callLink.js'
 
 const BOOKING_TO_DN = {
   'รอส่งมอบ': 'pending',
@@ -164,7 +165,7 @@ export default async function DeliveryNotePage(container) {
                   </td>
                   <td>
                     <div style="font-weight:600;font-size:0.85rem">${escHtml(n.customerName)}</div>
-                    <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(n.phone)}</div>
+                    <div style="font-size:0.73rem;color:var(--text-muted)">${callLink(n.phone, '', { icon: '' })}</div>
                   </td>
                   <td>
                     <div style="font-size:0.85rem;font-weight:600">${escHtml(carOf(n))}</div>
@@ -223,7 +224,7 @@ export default async function DeliveryNotePage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
           <div>
             <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">ข้อมูลลูกค้า</div>
-            ${row('ชื่อ',escHtml(n.customerName))}${row('โทร',escHtml(n.phone))}${row('เซลส์',escHtml(n.salesperson))}
+            ${row('ชื่อ',escHtml(n.customerName))}${row('โทร',callLink(n.phone, '', { icon: '' }))}${row('เซลส์',escHtml(n.salesperson))}
           </div>
           <div>
             <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">ข้อมูลรถ</div>

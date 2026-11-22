@@ -12,6 +12,7 @@ import { scheduleTestDriveFollowup } from '../../utils/testDriveFollowup.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { callLink } from '../../utils/callLink.js'
 
 const TD_STATUS = {
   scheduled: { label: 'นัดแล้ว', color: 'primary' },
@@ -161,7 +162,7 @@ export default async function TestDriveSchedulerPage(container) {
                 return `<tr style="border-bottom:1px solid var(--border)">
                   <td style="padding:8px 14px;font-size:0.83rem">
                     <div style="font-weight:600">${escHtml(b.customerName)}</div>
-                    <div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(b.phone)}</div>
+                    <div style="font-size:0.7rem;color:var(--text-muted)">${callLink(b.phone, '', { icon: '' })}</div>
                   </td>
                   <td style="padding:8px 14px;text-align:center;font-size:0.8rem">🚗 ${escHtml(b.model)}</td>
                   <td style="padding:8px 14px;text-align:center;font-size:0.78rem">${formatDate(b.date)}<br>${escHtml(b.time)}</td>
@@ -223,7 +224,7 @@ export default async function TestDriveSchedulerPage(container) {
         ${row('วันที่', formatDate(b.date))}
         ${row('เวลา', escHtml(b.time))}
         ${row('เซลส์', escHtml(b.staff))}
-        ${row('โทรศัพท์', escHtml(b.phone))}
+        ${row('โทรศัพท์', callLink(b.phone, '', { icon: '' }))}
         ${b.notes ? row('หมายเหตุ', escHtml(b.notes)) : ''}
       `
     })

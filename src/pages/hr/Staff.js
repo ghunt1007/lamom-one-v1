@@ -12,6 +12,7 @@ import { linkNewAccountForStaff, updateCompanyMemberships, sendStaffPasswordRese
 import { genPassword } from '../../utils/secureRandom.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { callLink } from '../../utils/callLink.js'
 
 function companyNameOf(companiesList, companyId) {
   if (!companyId) return ''
@@ -332,7 +333,7 @@ export default async function StaffPage(container) {
           ${companyNamesOf(companiesList, s) ? `<div style="color:var(--text-muted)">🏢 ${escHtml(companyNamesOf(companiesList, s))}</div>` : ''}
           <div style="color:var(--text-2)">${stEl}</div>
           <div style="color:var(--text-muted)">📅 ${formatDate(s.startDate)}</div>
-          ${s.phone ? `<div style="color:var(--text-muted)">📱 ${escHtml(s.phone)}</div>` : ''}
+          ${s.phone ? `<div style="color:var(--text-muted)">${callLink(s.phone)}</div>` : ''}
           ${canViewSalary && s.salary ? `<div style="color:var(--accent);font-weight:600">💰 ฿${s.salary.toLocaleString()}</div>` : ''}
         </div>
       </div>`

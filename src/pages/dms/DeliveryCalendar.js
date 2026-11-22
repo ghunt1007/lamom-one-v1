@@ -17,6 +17,7 @@ import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
 import { myName } from '../../utils/myName.js'
 import { openQuickDatePop } from '../../utils/quickDatePop.js'
+import { callLink } from '../../utils/callLink.js'
 
 
 const DLV_STATUS = {
@@ -102,7 +103,7 @@ export default async function DeliveryCalendarPage(container) {
         ${unscheduled.length ? `<div style="font-size:0.8rem;font-weight:700;color:var(--warning);margin:14px 0 8px">📭 รถพร้อมส่งแต่ยังไม่ได้นัดวัน (${unscheduled.length})</div>
         <div class="card" style="padding:0;overflow:hidden">${unscheduled.map(b => `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap">
           <div style="flex:1;min-width:180px"><div style="font-weight:700;font-size:0.85rem">${escHtml(b.custName || b.customerName || 'ลูกค้า')} · ${escHtml(carOf(b) || '—')}</div>
-          <div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(b.status)}${b.bookingNo ? ` · ${escHtml(b.bookingNo)}` : ''} · เซลส์: ${escHtml(b.salesName || '—')}${b.phone ? ` · 📞 ${escHtml(b.phone)}` : ''}</div></div>
+          <div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(b.status)}${b.bookingNo ? ` · ${escHtml(b.bookingNo)}` : ''} · เซลส์: ${escHtml(b.salesName || '—')}${b.phone ? ` · ${callLink(b.phone)}` : ''}</div></div>
           <button class="btn btn-primary btn-xs dc-sched" data-id="${escHtml(b.id)}">📅 นัดวันส่งมอบ</button></div>`).join('')}</div>` : ''}
         ${section('⚠️ เลยกำหนด', overdue)}
         ${section('🎉 วันนี้', deliveries.filter(d => d.date === today))}
@@ -124,7 +125,7 @@ export default async function DeliveryCalendarPage(container) {
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
                 <div>
                   <div style="font-weight:700;font-size:0.88rem">${escHtml(d.model)} สี${escHtml(d.color)} <span style="font-size:0.7rem;color:var(--text-muted)">VIN ${escHtml(d.vin)}</span></div>
-                  <div style="font-size:0.72rem;color:var(--text-muted)">👤 ${escHtml(d.customer)} 📞 ${escHtml(d.phone)} · 🗓 ${formatDate(d.date)} ${d.time} · เซลส์: ${escHtml(d.staff)}</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted)">👤 ${escHtml(d.customer)} ${callLink(d.phone)} · 🗓 ${formatDate(d.date)} ${d.time} · เซลส์: ${escHtml(d.staff)}</div>
                 </div>
                 <span class="badge badge-${ds?.color}" style="font-size:0.63rem">${ds?.icon} ${ds?.label}</span>
               </div>

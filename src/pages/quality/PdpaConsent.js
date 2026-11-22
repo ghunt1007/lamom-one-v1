@@ -11,6 +11,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { callLink } from '../../utils/callLink.js'
 // createDoc นำเข้าไว้แล้วสำหรับ pdpa_dsr_requests เดิม — ใช้เพิ่มเติมกับ pdpa_consents ด้านล่าง (ดูปุ่ม "➕ เพิ่มลูกค้าในทะเบียน")
 
 // พบว่าหน้านี้ไม่มีการเช็คสิทธิ์เลย — ทุก role เห็น/แก้ไขความยินยอม PDPA + เบอร์โทรของลูกค้าทุกคนในระบบได้
@@ -139,7 +140,7 @@ export default async function PdpaConsentPage(container) {
                 <tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
                   <td style="padding:8px 14px">
                     <div style="font-weight:600">${escHtml(c.customer)}</div>
-                    <div style="font-size:0.65rem;color:var(--text-muted)">📞 ${escHtml(c.phone)} · ผ่าน ${escHtml(c.channel)}</div>
+                    <div style="font-size:0.65rem;color:var(--text-muted)">${callLink(c.phone)} · ผ่าน ${escHtml(c.channel)}</div>
                   </td>
                   ${Object.keys(CONSENT_TYPES).map(k => `
                     <td style="padding:8px 6px;text-align:center">

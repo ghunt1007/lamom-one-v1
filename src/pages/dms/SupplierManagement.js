@@ -7,6 +7,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { callLink } from '../../utils/callLink.js'
 
 const SUPPLIER_STATUS = {
   active:   { label: 'ใช้งาน', color: 'success' },
@@ -160,7 +161,7 @@ export default async function SupplierManagementPage(container) {
                 <td><span style="font-size:0.82rem">${cat?.icon} ${cat?.label}</span></td>
                 <td>
                   <div style="font-size:0.82rem">${escHtml(s.contact)}</div>
-                  <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(s.phone)}</div>
+                  <div style="font-size:0.73rem;color:var(--text-muted)">${callLink(s.phone, '', { icon: '' })}</div>
                 </td>
                 <td style="font-size:0.83rem">${s.paymentTerms} วัน</td>
                 <td class="text-right" style="font-size:0.83rem">${formatCurrency(s.creditLimit)}</td>
@@ -259,7 +260,7 @@ export default async function SupplierManagementPage(container) {
             <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">ข้อมูลบริษัท</div>
             ${row2('หมวดหมู่', `${cat?.icon} ${cat?.label}`)}
             ${row2('ผู้ติดต่อ', escHtml(s.contact))}
-            ${row2('โทร', escHtml(s.phone))}
+            ${row2('โทร', callLink(s.phone, '', { icon: '' }))}
             ${row2('อีเมล', escHtml(s.email || '-'))}
             ${row2('ที่อยู่', escHtml(s.address))}
             ${row2('เลขภาษี', escHtml(s.taxId))}

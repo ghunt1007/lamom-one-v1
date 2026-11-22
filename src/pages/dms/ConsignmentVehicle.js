@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { callLink } from '../../utils/callLink.js'
 
 const ST = {
   selling: { label: 'กำลังขาย', color: 'var(--primary)' },
@@ -66,7 +67,7 @@ export default async function ConsignmentVehiclePage(container) {
               ${items.map(i => `
                 <tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
                   <td style="padding:9px 12px;font-weight:600">${i.id}</td>
-                  <td>${escHtml(i.owner)}<div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(i.phone)}</div></td>
+                  <td>${escHtml(i.owner)}<div style="font-size:0.7rem;color:var(--text-muted)">${callLink(i.phone, '', { icon: '' })}</div></td>
                   <td>${escHtml(i.model)}<div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(i.plate)}</div></td>
                   <td style="text-align:right;font-weight:700">${formatCurrency(i.ask)}<div style="font-size:0.68rem;color:var(--text-muted);font-weight:400">ขั้นต่ำ ${formatCurrency(i.floor)}</div></td>
                   <td style="text-align:center">${i.commPct}%<div style="font-size:0.68rem;color:var(--success)">${formatCurrency(Math.round((i.status==='sold'?i.soldAt:i.ask)*i.commPct/100))}</div></td>
