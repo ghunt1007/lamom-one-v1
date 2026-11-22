@@ -125,3 +125,29 @@ export async function runLeadNudge(deps = {}) {
   } catch { /* ไม่ให้ cron ล้ม */ }
   return out
 }
+
+// (v1.0.1290) คำสั่ง LINE "ลีด" — ลีดที่ยังไม่มีใครติดต่อ (เข้ามาใน 3 วันล่าสุด) เรียงรอนานสุดก่อน
+// mine(c) = true เมื่อเป็นของคนถาม (เซลส์: ลูกค้าตัวเอง + ยังไม่มีผู้ดูแล / เจ้าของ: ทั้งหมด)
+export const LEAD_ASK_MAX_AGE_MS = 3 * 24 * 3600 * 1000
+export function uncontactedLeads(customers = [], { now = Date.now(), mine = () => true } = {}) {
+  return (customers || []).filter(c => {
+    if (!c || c.deleted || c.isLost || c.lastContactAt) return false
+    if ((c.stage || 'lead') !== 'lead') return false
+    const at = ms(c.createdAt)
+    return at > 0 && now - at >= 0 && now - at <= LEAD_ASK_MAX_AGE_MS && mine(c)
+  }).sort((a, b) => ms(a.createdAt) - ms(b.createdAt))
+}
+const waitLabel = mins => mins >= 1440 ? `${Math.floor(mins / 1440)} วัน` : mins >= 60 ? `${Math.floor(mins / 60)} ชม.` : `${Math.max(0, mins)} นาที`
+export function newLeadsAnswer(customers = [], { now = Date.now(), mine, max = 8 } = {}) {
+  const list = uncontactedLeads(customers, { now, mine })
+  if (!list.length) return '✅ ไม่มีลีดค้าง — ลีด 3 วันล่าสุดติดต่อครบแล้ว'
+  const lines = [`📥 ลีดที่ยังไม่มีใครติดต่อ ${list.length} ราย (3 วันล่าสุด)`]
+  for (const c of list.slice(0, max)) {
+    const name = clip(`${c.firstName || ''} ${c.lastName || ''}`, 40) || 'ไม่ระบุชื่อ'
+    const bits = [`• ${name}`, c.phone ? fmtPhone(c.phone) : '', c.interestedModel ? clip(c.interestedModel, 30) : '', `รอ ${waitLabel(Math.round((now - ms(c.createdAt)) / 60000))}`, c.assignedTo ? '' : 'ยังไม่มีผู้ดูแล']
+    lines.push(bits.filter(Boolean).join(' · '))
+  }
+  if (list.length > max) lines.push(`…และอีก ${list.length - max} ราย ดูทั้งหมดในแอป`)
+  lines.push('โทรแล้วพิมพ์ "โทรแล้ว เบอร์" เพื่อบันทึก')
+  return lines.join('\n')
+}

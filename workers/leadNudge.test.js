@@ -89,3 +89,28 @@ describe('returning customers not called back (v1.0.1214)', () => {
     expect(pushes[0][1]).toContain('เคยเสียดีล')
   })
 })
+
+import { uncontactedLeads, newLeadsAnswer } from './leadNudge.js'
+describe('LINE "ลีด" (v1.0.1290)', () => {
+  const list = [
+    { id: 'a', firstName: 'เก่า', stage: 'lead', createdAt: ago(60 * 30), phone: '0812345678', interestedModel: 'ATTO 3' },
+    { id: 'b', firstName: 'ใหม่', stage: 'lead', createdAt: ago(45), assignedTo: 'เอ' },
+    { id: 'c', firstName: 'ติดต่อแล้ว', stage: 'lead', createdAt: ago(45), lastContactAt: ago(10) },
+    { id: 'd', firstName: 'จองแล้ว', stage: 'booking', createdAt: ago(45) },
+    { id: 'e', firstName: 'นานเกิน', stage: 'lead', createdAt: ago(60 * 24 * 4) },
+    { id: 'f', firstName: 'ของบี', stage: 'lead', createdAt: ago(20), assignedTo: 'บี' },
+    { id: 'g', firstName: 'ลบ', createdAt: ago(20), deleted: true },
+  ]
+  it('picks uncontacted leads ≤3 days, oldest first', () => {
+    expect(uncontactedLeads(list, { now: NOW }).map(c => c.id)).toEqual(['a', 'b', 'f'])
+    expect(uncontactedLeads(list, { now: NOW, mine: c => !c.assignedTo || c.assignedTo === 'เอ' }).map(c => c.id)).toEqual(['a', 'b'])
+  })
+  it('formats answer', () => {
+    const t = newLeadsAnswer(list, { now: NOW })
+    expect(t).toContain('3 ราย')
+    expect(t).toContain('เก่า · 081-234-5678 · ATTO 3 · รอ 1 วัน · ยังไม่มีผู้ดูแล')
+    expect(t).toContain('ใหม่ · รอ 45 นาที')
+    expect(newLeadsAnswer([], { now: NOW })).toContain('ไม่มีลีดค้าง')
+    expect(newLeadsAnswer(list, { now: NOW, max: 1 })).toContain('อีก 2 ราย')
+  })
+})

@@ -46,7 +46,7 @@ import { handleLeadWebhook, handleMetaWebhook, metaVerifyChallenge, fillPhoneFro
 import { handleNotify } from './notify.js'
 import { withStoredSecrets, handleSecrets } from './secretStore.js'
 import { alertNewLead } from './leadAlert.js'
-import { runLeadNudge } from './leadNudge.js'
+import { runLeadNudge, newLeadsAnswer } from './leadNudge.js'
 import { SEND_CRON, runScheduledSends, scheduleSend, unscheduleSend } from './scheduledSend.js'
 import { runChatNudge } from './chatNudge.js'
 import { pickWakeLeads } from '../src/utils/wakeLeads.js'
@@ -669,6 +669,18 @@ async function handleLineWebhook(request, env, cors) {
           reply = clipLine(serviceJobsAnswer(jobs, todayBangkok()))
         } catch { reply = '⚠️ ดึงงานซ่อมไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'leads') {
+      // (v1.0.1290) ลีดที่ยังไม่มีใครติดต่อ — เซลส์เห็นของตัวเอง + ลีดที่ยังไม่มีผู้ดูแล / เจ้าของเห็นทั้งหมด · คนอื่นพิมพ์ = ข้อความปกติ
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      const isOwner = !!owner && owner === userId
+      if (me?.name || isOwner) {
+        try {
+          const customers = await runQuery(env, accessToken, 'customers', 'createdAt', 'DESCENDING', 300, ['firstName', 'lastName', 'phone', 'stage', 'assignedTo', 'interestedModel', 'createdAt', 'lastContactAt', 'isLost', 'deleted'])
+          const mine = isOwner ? () => true : c => !String(c.assignedTo || '').trim() || normSalesName(c.assignedTo) === normSalesName(me.name)
+          reply = clipLine(newLeadsAnswer(customers, { now: Date.now(), mine }))
+        } catch { reply = '⚠️ ดึงลีดไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'forecast') {
       // (v1.0.1256) เฉพาะเจ้าของ (ปลายทางรายงาน) — การสั่งรถเป็นเรื่องของเจ้าของ คนอื่นพิมพ์ = ข้อความปกติ
       const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
@@ -742,6 +754,7 @@ export function parseLineCommand(text) {
   if (/^(?:รอรถ|ลูกค้ารอรถ|รถมาเมื่อไหร่|waitcar)$/i.test(t.replace(/\s+/g, ''))) return { type: 'waitcar' }
   // (v1.0.1279) ทีมงานดูงานศูนย์บริการ (กำลังซ่อม/รออะไหล่/เสร็จรอรับ)
   if (/^(?:งานซ่อม|งานศูนย์|ใบงาน|jobs)$/i.test(t.replace(/\s+/g, ''))) return { type: 'jobs' }
+  if (/^(?:ลีด|ลีดใหม่|ลีดค้าง|leads?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'leads' }
   // (v1.0.1256) เจ้าของดูคาดการณ์สั่งรถ 45 วัน (สูตรเดียวกับหน้าตารางสีรถ)
   if (/^(?:สั่งรถ|ควรสั่งรถ|คาดการณ์สั่งรถ|คาดการณ์|forecast)$/i.test(t.replace(/\s+/g, ''))) return { type: 'forecast' }
   return { type: 'none' }
@@ -1736,6 +1749,7 @@ export const LINE_HELP_TEXT = [
   '• เสียดีล 0812345678 ราคา — บันทึกว่าเสียดีลพร้อมเหตุผล',
   '• ร้อน / อุ่น / เย็น 0812345678 — ตั้งความสนใจลูกค้า (Hot/Warm/Cold)',
   '• งานซ่อม — ใบงานศูนย์บริการที่ค้าง + รถเสร็จรอลูกค้ารับ',
+  '• ลีด — ลีด 3 วันล่าสุดที่ยังไม่มีใครติดต่อ',
   '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
   '• สั่งรถ — คาดการณ์ว่าควรสั่งรถรุ่น/สีไหน (เฉพาะเจ้าของ)',
   '• ลงทะเบียน ชื่อเซลส์ — รับงานค้างทุก 9 โมงเช้า',
