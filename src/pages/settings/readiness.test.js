@@ -26,6 +26,14 @@ describe('readinessItems', () => {
     expect(by(readinessItems({ status: full, auto: {}, financeBanks: null, now: NOW }), 'finrates').state).toBe('unknown')
     expect(by(readinessItems({ status: full, auto: {}, now: NOW }), 'finrates')).toBeUndefined()
   })
+  it('ลูกค้าที่จองอยู่ผูก LINE (v1.0.1289)', () => {
+    const bk = [{ status: 'รอรถ', lineUserId: 'U1' }, { status: 'รอรถ' }, { status: 'ส่งมอบแล้ว' }, { status: 'รอรถ', deleted: true }]
+    const c = by(readinessItems({ status: full, auto: {}, bookings: bk, now: NOW }), 'custlink')
+    expect(c.state).toBe('todo'); expect(c.label).toContain('1/2'); expect(c.hint).toContain('ยังไม่ผูก 1 คน')
+    expect(by(readinessItems({ status: full, auto: {}, bookings: [{ status: 'รอรถ', lineUserId: 'U1' }], now: NOW }), 'custlink').state).toBe('ok')
+    expect(by(readinessItems({ status: full, auto: {}, bookings: [{ status: 'ส่งมอบแล้ว' }], now: NOW }), 'custlink')).toBeUndefined()
+    expect(by(readinessItems({ status: full, auto: {}, now: NOW }), 'custlink')).toBeUndefined()
+  })
   it('Meta ต้องมีเพจอย่างน้อย 1 เพจ', () => {
     const r = readinessItems({ status: { ...full, meta: { configured: true, pages: [] } }, auto: {}, now: NOW })
     expect(by(r, 'meta').state).toBe('todo')

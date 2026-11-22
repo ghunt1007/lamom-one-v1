@@ -913,6 +913,7 @@ export const PAGE_COLLECTIONS = {
   "customers"
  ],
  "/settings/health": [
+  "bookings",
   "company_profile",
   "finance_banks",
   "system_integrations"
