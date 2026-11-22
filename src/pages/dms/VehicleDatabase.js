@@ -24,6 +24,7 @@ const FUEL_COLORS = { Petrol:'var(--text-muted)', Diesel:'var(--warning)', Hybri
 const TYPE_ICONS = { sedan:'🚗', suv:'🚙', pickup:'🛻', mpv:'🚌', hatchback:'🚗', roadster:'🏎' }
 
 function fuelBadge(fuel) {
+  if (!fuel) return ''
   const c = FUEL_COLORS[fuel] || 'var(--text-muted)'
   const l = FUEL_LABELS[fuel] || fuel
   return '<span style="font-size:0.6rem;padding:2px 7px;border-radius:10px;background:' + c + '22;color:' + c + ';font-weight:700;border:1px solid ' + c + '44">' + l + '</span>'
@@ -33,7 +34,15 @@ function priceStr(p) {
   return p >= 1000000 ? (p / 1000000).toFixed(2) + ' ล.' : (p / 1000).toFixed(0) + 'K'
 }
 
-function carCard(v) {
+// (v1.0.1303) ข้อมูลรุ่นรถมาจากแอดมินเพิ่มเอง/ผล AI ด้วย — escape ทุกช่องข้อความก่อนใส่ลง HTML (ตัวเลขคงเดิม)
+function escVeh(v) {
+  const out = {}
+  for (const [k, x] of Object.entries(v || {})) out[k] = typeof x === 'string' ? __escA(x) : Array.isArray(x) ? x.map(y => typeof y === 'string' ? __escA(y) : y) : x
+  return out
+}
+
+function carCard(raw) {
+  const v = escVeh(raw)
   const icon = TYPE_ICONS[v.bodyType] || '🚗'
   const rangeHtml = v.fuel === 'BEV' || v.fuel === 'PHEV'
     ? '<div style="font-size:0.64rem;color:#00b4d8">⚡ ' + (v.range > 0 ? v.range + ' km' : 'PHEV ' + v.battery) + '</div>'
@@ -52,7 +61,7 @@ function carCard(v) {
         '<div style="font-size:0.65rem;color:var(--text-muted)">ราคา</div>' +
         '<div style="font-size:0.92rem;font-weight:900;color:var(--primary)">฿' + priceStr(v.price) + '</div>' +
       '</div>' +
-      '<div style="font-size:0.65rem;color:var(--text-muted);text-align:right">ปี ' + v.year + '<br>' + v.seats + ' ที่นั่ง</div>' +
+      '<div style="font-size:0.65rem;color:var(--text-muted);text-align:right">' + [v.year ? 'ปี ' + v.year : '', v.seats ? v.seats + ' ที่นั่ง' : ''].filter(Boolean).join('<br>') + '</div>' +
     '</div>' +
   '</div>'
 }
@@ -86,7 +95,8 @@ function specRow(label, val) {
   '</tr>'
 }
 
-function buildModal(v) {
+function buildModal(raw) {
+  const v = escVeh(raw)
   const icon = TYPE_ICONS[v.bodyType] || '🚗'
   const evSection = (v.fuel === 'BEV' || v.fuel === 'PHEV')
     ? specRow('แบตเตอรี่', v.battery) +
@@ -101,7 +111,7 @@ function buildModal(v) {
     '<div style="background:var(--surface-2);padding:12px;border-radius:8px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">' +
       '<div>' +
         '<div style="font-size:1.3rem;font-weight:900">' + icon + ' ' + v.brand + ' ' + v.model + '</div>' +
-        '<div style="font-size:0.76rem;color:var(--text-muted)">' + v.variant + ' · ปี ' + v.year + '</div>' +
+        '<div style="font-size:0.76rem;color:var(--text-muted)">' + [v.variant, v.year ? 'ปี ' + v.year : ''].filter(Boolean).join(' · ') + '</div>' +
       '</div>' +
       fuelBadge(v.fuel) +
     '</div>' +
@@ -273,7 +283,7 @@ export default async function VehicleDatabasePage(container) {
   function brandOpts() {
     const brands = [...new Set(WV.map(v => v.brand))].sort()
     return '<option value="">ทุกยี่ห้อ</option>' +
-      brands.map(b => '<option value="' + b + '" ' + (filter.brand === b ? 'selected' : '') + '>' + b + '</option>').join('')
+      brands.map(b => '<option value="' + __escA(b) + '" ' + (filter.brand === b ? 'selected' : '') + '>' + __escA(b) + '</option>').join('')
   }
 
   function fuelOpts() {
@@ -495,10 +505,10 @@ export default async function VehicleDatabasePage(container) {
       if (!changes.length) { if (status) status.innerHTML = '<span style="color:var(--success)">✅ AI ตรวจแล้ว ข้อมูลถูกต้อง ไม่มีจุดต้องแก้</span>'; return }
       const rows = changes.map(c =>
         '<tr style="border-bottom:1px solid var(--border-subtle)">' +
-          '<td style="padding:6px 8px;font-size:0.7rem;font-weight:700;vertical-align:top">' + c.field + '</td>' +
-          '<td style="padding:6px 8px;font-size:0.68rem;color:var(--danger);vertical-align:top">' + fmtVal(c.old) + '</td>' +
-          '<td style="padding:6px 8px;font-size:0.68rem;color:var(--success);font-weight:600;vertical-align:top">' + fmtVal(c.new) + '</td>' +
-          '<td style="padding:6px 8px;font-size:0.62rem;color:var(--text-muted);vertical-align:top">' + (c.reason || '') + '</td>' +
+          '<td style="padding:6px 8px;font-size:0.7rem;font-weight:700;vertical-align:top">' + __escA(c.field) + '</td>' +
+          '<td style="padding:6px 8px;font-size:0.68rem;color:var(--danger);vertical-align:top">' + __escA(fmtVal(c.old)) + '</td>' +
+          '<td style="padding:6px 8px;font-size:0.68rem;color:var(--success);font-weight:600;vertical-align:top">' + __escA(fmtVal(c.new)) + '</td>' +
+          '<td style="padding:6px 8px;font-size:0.62rem;color:var(--text-muted);vertical-align:top">' + __escA(c.reason || '') + '</td>' +
         '</tr>').join('')
       const dbody = '<div style="font-size:0.78rem"><div style="margin-bottom:8px;color:var(--warning)">🤖 AI พบ ' + changes.length + ' จุดที่ควรแก้/เพิ่มเติม:</div>' +
         '<table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--surface-2)">' +
@@ -506,7 +516,7 @@ export default async function VehicleDatabasePage(container) {
         '</tr></thead><tbody>' + rows + '</tbody></table>' +
         '<div style="font-size:0.62rem;color:var(--text-muted);margin-top:8px">⚠️ AI อาจคลาดเคลื่อนได้ — ตรวจทานก่อนยืนยัน</div></div>'
       openModal({
-        title: '🤖 ผลตรวจ ' + v.brand + ' ' + v.model, size: 'lg', body: dbody, confirmText: '✅ ใช้ข้อมูลที่ AI แก้',
+        title: '🤖 ผลตรวจ ' + __escA(v.brand + ' ' + v.model), size: 'lg', body: dbody, confirmText: '✅ ใช้ข้อมูลที่ AI แก้',
         onConfirm: async () => {
           const fields = {}
           changes.forEach(c => { if (result.vehicle && (c.field in result.vehicle)) fields[c.field] = result.vehicle[c.field] })
@@ -559,7 +569,7 @@ export default async function VehicleDatabasePage(container) {
       fa('ข้อดี', 'pros', v.pros) + fa('ข้อเสีย', 'cons', v.cons) +
       '</div>'
     openModal({
-      title: (isNew ? '➕ เพิ่มรถรุ่นใหม่ (แอดมิน)' : '✏️ แก้ไขข้อมูล (แอดมิน) — ' + v.brand + ' ' + v.model),
+      title: (isNew ? '➕ เพิ่มรถรุ่นใหม่ (แอดมิน)' : '✏️ แก้ไขข้อมูล (แอดมิน) — ' + __escA(v.brand + ' ' + v.model)),
       size: 'lg', body, confirmText: (isNew ? '➕ เพิ่มรถ' : '💾 บันทึก'),
       onConfirm: async () => {
         const numKeys = ['price', 'priceMin', 'priceMax', 'year', 'power', 'torque', 'range', 'seats', 'chargeAC', 'chargeDC', 'bootSpace', 'frunk', 'airbags', 'groundClearance']
