@@ -10,6 +10,9 @@ import { sendSms } from '../../utils/comms.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 
+// (v1.0.1275) เดิมข้อความ SMS มี "[ลิงก์แบบสำรวจ]" ติดไปถึงลูกค้าจริง (ไม่มีแบบสำรวจออนไลน์ให้ลิงก์) — ให้ลูกค้าตอบกลับคะแนนแทน
+const CSAT_SMS = 'สวัสดีครับ ขอบคุณที่ใช้บริการของเรา รบกวนให้คะแนนบริการ 1-5 ⭐ (5 = พอใจมาก) แจ้งพนักงานที่ดูแลคุณ หรือทักแชต LINE ของร้านได้เลยครับ 🙏'
+
 const MONTH_ABBR = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
 // (v1.0.948) เอาตัวอย่างออก: เดือนตายตัว ม.ค.–มิ.ย. ที่มีจำนวนผู้ตอบสมมติ (48/55/62...) และการ์ด "คะแนนรายหมวด" ที่เป็น 0 ทุกหมวด
@@ -207,7 +210,7 @@ export default async function CsatPage(container) {
           </div>
           <div>
             <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">ตัวอย่างข้อความ</div>
-            <div style="background:var(--surface-2);border-radius:6px;padding:8px;font-size:0.72rem;color:var(--text-muted)">สวัสดีครับ! ขอบคุณที่ใช้บริการ LAMOM ONE รบกวนให้คะแนนบริการของเรา (1-5 ⭐) เพียง 30 วินาที 🙏 [ลิงก์แบบสำรวจ]</div>
+            <div style="background:var(--surface-2);border-radius:6px;padding:8px;font-size:0.72rem;color:var(--text-muted)">${escHtml(CSAT_SMS)}</div>
           </div>
         </div>`,
         confirmText: '📤 ส่งแบบสำรวจ',
@@ -222,7 +225,7 @@ export default async function CsatPage(container) {
             let msg = ''
             if (ch === 'sms') {
               if (withPhone.length) {
-                await sendSms(withPhone.map(r => r.phone), 'สวัสดีครับ! ขอบคุณที่ใช้บริการ LAMOM ONE รบกวนให้คะแนนบริการของเรา (1-5 ⭐) เพียง 30 วินาที 🙏 [ลิงก์แบบสำรวจ]')
+                await sendSms(withPhone.map(r => r.phone), CSAT_SMS)
                 msg = `✅ ส่ง SMS จริงถึงลูกค้า ${withPhone.length} ราย`
                 if (withPhone.length < liveRecent.length) msg += ` (อีก ${liveRecent.length - withPhone.length} ราย ไม่มีเบอร์โทรในระบบ — ยังส่งไม่ได้)`
               } else {
