@@ -54,7 +54,9 @@ export default async function SystemHealthPage(container) {
       try { reports = await readDoc('system_integrations', 'report_status') } catch (e) {}
       let company
       try { const cp = await listDocs('company_profile', [], 'createdAt', 'asc', 10); company = cp.find(x => !x.deleted) || null } catch (e) {}
-      ready = readinessItems({ status, auto, lastBackupMs, sheet, reports, company })
+      let financeBanks = null
+      try { financeBanks = await listDocs('finance_banks', [], 'name', 'asc', 100) } catch (e) {}
+      ready = readinessItems({ status, auto, lastBackupMs, sheet, reports, company, financeBanks })
     }
 
     return { firestoreOk, firestoreLatency, integrations, errors, todayAudit, activeUsersToday, errorsToday, ready }

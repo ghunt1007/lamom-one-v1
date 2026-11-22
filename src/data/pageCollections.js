@@ -914,6 +914,7 @@ export const PAGE_COLLECTIONS = {
  ],
  "/settings/health": [
   "company_profile",
+  "finance_banks",
   "system_integrations"
  ],
  "/analytics/executive": [

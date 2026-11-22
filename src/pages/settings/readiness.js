@@ -14,7 +14,7 @@ export const CUSTOMER_LINE_SWITCHES = [
  * @param {{status?:object|null, auto?:object|null, lastBackupMs?:number|null, now?:number}} i
  * @returns {{id:string,label:string,state:'ok'|'todo'|'unknown',hint:string,link?:string}[]}
  */
-export function readinessItems({ status, auto, lastBackupMs, sheet, reports, company, now = Date.now() } = {}) {
+export function readinessItems({ status, auto, lastBackupMs, sheet, reports, company, financeBanks, now = Date.now() } = {}) {
   const items = []
   const add = (id, label, state, hint, link) => items.push({ id, label, state, hint, ...(link ? { link } : {}) })
   const noStatus = !status
@@ -68,6 +68,14 @@ export function readinessItems({ status, auto, lastBackupMs, sheet, reports, com
     const miss = [!nm && 'ชื่อบริษัท', !/0\d{8,9}/.test(tel) && 'เบอร์โทรโชว์รูม'].filter(Boolean)
     add('company', 'ข้อมูลบริษัท (ชื่อ + เบอร์โชว์รูม) ครบ', miss.length ? 'todo' : 'ok', miss.length ? `ยังไม่ได้ใส่${miss.join(' และ ')} — ใช้บนใบเสนอราคา/ใบเสร็จ และเป็นปุ่ม 📞 โทรหาโชว์รูม บนฟอร์มลูกค้า` : '', '/settings/company')
   } else add('company', 'ข้อมูลบริษัท (ชื่อ + เบอร์โชว์รูม) ครบ', 'unknown', 'อ่านข้อมูลบริษัทไม่ได้ตอนนี้ ลองเปิดหน้านี้ใหม่', '/settings/company')
+
+  // (v1.0.1283) อัตราดอกเบี้ยไฟแนนซ์จริงในหน้าคำนวณค่างวด — ยังไม่ตั้ง = หน้านั้นใช้อัตราตัวอย่างและส่งลูกค้าไม่ได้
+  // financeBanks: รายการ finance_banks · null = อ่านไม่ได้ · undefined = ไม่ตรวจ (เช่น แจ้งเตือนเจ้าของ)
+  if (financeBanks !== undefined) {
+    const real = (financeBanks || []).filter(b => b && !b.deleted && Object.values(b.rates || {}).some(r => Number(r) > 0))
+    if (financeBanks === null) add('finrates', 'อัตราดอกเบี้ยไฟแนนซ์จริง (คำนวณค่างวด)', 'unknown', 'อ่านอัตราไม่ได้ตอนนี้ ลองเปิดหน้านี้ใหม่', '/finance/loan-calc')
+    else add('finrates', `อัตราดอกเบี้ยไฟแนนซ์จริง (คำนวณค่างวด)${real.length ? ` — ${real.length} ไฟแนนซ์` : ''}`, real.length ? 'ok' : 'todo', real.length ? '' : 'ยังใช้อัตราตัวอย่าง ปุ่มส่งค่างวดให้ลูกค้าจึงยังใช้ไม่ได้ — กด ✏️ ตั้งอัตราดอกเบี้ย ใส่เรทชีตเดือนนี้ของแต่ละไฟแนนซ์', '/finance/loan-calc')
+  }
 
   let backupState = 'unknown'
   let backupHint = 'ยังไม่พบประวัติสำรองข้อมูล — ตรวจที่หน้าสำรองข้อมูล'
