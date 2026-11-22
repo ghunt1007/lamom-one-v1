@@ -52,6 +52,7 @@ import { runChatNudge } from './chatNudge.js'
 import { pickWakeLeads } from '../src/utils/wakeLeads.js'
 import { orderForecast, forecastOrderMessage } from '../src/utils/orderForecast.js'
 import { runApptRemind } from './apptRemind.js'
+import { runServiceDue } from './serviceDueRemind.js'
 import { matchReadyCars, etaForBookings, needsBooking, ORDER_LIVE } from '../src/utils/orderNeeds.js'
 import { waitEtaAnswer, forecastAnswer } from '../src/utils/opsQuestions.js'
 import { parseLinkCode, parseOptCommand, linkByCode, setOptOut, markFollow, runStatusLine, STATUS_BOOKING_FIELDS, STATUS_CUSTOMER_FIELDS } from './lineLink.js'
@@ -205,6 +206,7 @@ export default {
         await runChatNudgeJob(e2, tok).catch(() => null)
         await runStatusLineJob(e2, tok).catch(() => null)
         await runApptRemindJob(e2, tok).catch(() => null)
+        await runServiceDueJob(e2, tok).catch(() => null)
       })())
       return
     }
@@ -309,6 +311,29 @@ async function runApptRemindJob(env, token) {
   const tomorrow = new Date(now.getTime() + 864e5).toISOString().slice(0, 10)
   return runApptRemind({
     enabled: true, hour, tomorrow,
+    list: (col, fields) => runQuery(env, token, col, null, null, 5000, fields).catch(() => []),
+    pushLine: env.LINE_CHANNEL_ACCESS_TOKEN ? async (to, text) => (await pushLine(env, to, text)).sent : null,
+    mark: async (col, id, fields) => {
+      const mask = Object.keys(fields).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&')
+      const res = await fetch(`${base}/${col}/${encodeURIComponent(id)}?${mask}&currentDocument.exists=true`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }),
+      }).catch(() => null)
+      return !!res?.ok
+    },
+  })
+}
+
+// (v1.0.1260) เตือนรถใกล้ถึงกำหนดเข้าศูนย์ทาง LINE ช่วง 10:00 — เฉพาะเมื่อเปิดสวิตช์ในแอป (workers/serviceDueRemind.js)
+async function runServiceDueJob(env, token) {
+  if (!token) return null
+  const now = new Date(Date.now() + 7 * 3600e3)
+  const hour = now.getUTCHours()
+  if (hour !== 10) return null
+  const inbox = await readInboxAuto(env, token).catch(() => null)
+  if (!inbox?.serviceDueLine) return null
+  const base = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`
+  return runServiceDue({
+    enabled: true, hour, today: now.toISOString().slice(0, 10),
     list: (col, fields) => runQuery(env, token, col, null, null, 5000, fields).catch(() => []),
     pushLine: env.LINE_CHANNEL_ACCESS_TOKEN ? async (to, text) => (await pushLine(env, to, text)).sent : null,
     mark: async (col, id, fields) => {

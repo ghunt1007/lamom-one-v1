@@ -88,6 +88,7 @@ export default async function ServiceReminderPage(container) {
                   ${r.booked ? '<span class="badge badge-success" style="font-size:0.6rem">📅 จองคิวแล้ว</span>'
                     : r.contacted ? '<span class="badge badge-warning" style="font-size:0.6rem">📞 ติดต่อแล้ว</span>'
                     : '<span class="badge badge-secondary" style="font-size:0.6rem">⏳ รอติดต่อ</span>'}
+                  ${r.lineDueSent && r.lineDueSent === r.dueDate && !r.booked ? '<span class="badge badge-primary" style="font-size:0.6rem" title="ระบบส่งข้อความเตือนทาง LINE ให้ลูกค้าแล้ว">💬 เตือน LINE แล้ว</span>' : ''}
                 </div>
               </div>
               <div style="display:flex;gap:6px">
