@@ -24,21 +24,8 @@ const SUMMARY = {
 // เป็นข้อความแต่งขึ้นตายตัวเสมอแม้หน้าจะติด badge "● ข้อมูลจริง" แล้วก็ตาม (มีชื่อลูกค้า/รถ/วันที่สมมติปนอยู่
 // ด้วย) — ตอนนี้คำนวณจากสัญญาณจริงข้ามหลายโมดูล (ดู computeRealSignals() ด้านล่าง) เหมือนวิธีที่
 // LamiBrain.js's computeInsights() ใช้อยู่แล้ว ไม่มีสัญญาณจริงข้อไหนเจอก็ปล่อยว่าง ไม่เติมของปลอมมาแทน
-const HIGHLIGHTS_DEMO = [
-  { icon: '🎉', text: 'ยอดขายเกินเป้า 5% (41/39 คัน) — เดือนที่ 3 ติดต่อกัน' },
-  { icon: '⭐', text: 'CSAT แตะ 4.7 สูงสุดในรอบ 6 เดือน' },
-  { icon: '🤝', text: 'Referral จาก VIP เพิ่ม 6 ราย มูลค่าศักยภาพ ฿7.2M' },
-]
-const CONCERNS_DEMO = [
-  { icon: '📦', text: 'สต็อก BYD Seal และ Han ต่ำกว่าเป้า — เสี่ยงเสียโอกาสขาย ฿8M+', action: 'สั่งรถเพิ่มภายในสัปดาห์นี้' },
-  { icon: '💳', text: 'หนี้ค้าง 60+ วัน ฿86,000 (ร้านเช่ารถ XYZ)', action: 'ผู้จัดการติดตามเอง / พิจารณาแนวทางกฎหมาย' },
-  { icon: '🔧', text: 'Bay ด่วนใช้งาน 91% ใกล้เต็ม ขณะ Bay EV ว่าง 36%', action: 'จัดโปรตรวจแบตฟรีดึงงานเข้า Bay EV' },
-]
-const DECISIONS_DEMO = [
-  { title: 'อนุมัติสั่งรถ Q3', detail: 'BYD Seal 4 คัน + Han 3 คัน ≈ ฿13.1M', deadline: 'ศุกร์นี้' },
-  { title: 'ปรับราคาตาม BYD ประกาศใหม่', detail: 'Atto 3 มีผล 1 ก.ค. — ต้องเคาะราคาขายใหม่', deadline: '30 มิ.ย.' },
-  { title: 'ต่อสัญญาประกันรถ Demo', detail: 'ทด-004 หมดอายุใน 25 วัน', deadline: 'สัปดาห์หน้า' },
-]
+// (v1.0.1307) เอาข้อความตัวอย่าง (ยอดขาย 41/39 คัน, หนี้ร้าน XYZ, สั่งรถ ฿13.1M ฯลฯ) ออก — เดิมโชว์เมื่อยังไม่มียอดขาย
+// เดือนนี้ และไม่มีป้ายบอกว่าเป็นตัวอย่าง · ไม่มีสัญญาณจริง = ว่าง
 
 // คำนวณ Highlights/Concerns/Decisions จริงข้ามหลายโมดูล (สต็อกรถค้าง, งานซ่อมค้าง, หนี้ค้าง 60+ วัน, PO
 // รออนุมัติ, ประกันใกล้หมด, CSAT เดือนนี้, รุ่นขายดีสุด) — คืนค่าเป็น [] ถ้าไม่พบสัญญาณจริงข้อนั้นๆ (ไม่เติม
@@ -165,10 +152,10 @@ export default async function ExecutiveSummaryPage(container) {
     // ตัวเลขกลุ่มนั้นต่อไป ไม่ให้ badge "● ข้อมูลจริง" ระดับหน้าคลุมเนื้อหาที่ยังแต่งขึ้นเองแบบเงียบๆ
     const demoNote = dataSource === 'live' ? ' <span style="font-weight:400;font-size:0.62rem;color:var(--text-muted)">(ตัวอย่าง — ยังไม่คำนวณจากข้อมูลจริง)</span>' : ''
     const useRealSections = dataSource === 'live'
-    const HIGHLIGHTS = useRealSections ? real.highlights : HIGHLIGHTS_DEMO
-    const CONCERNS = useRealSections ? real.concerns : CONCERNS_DEMO
-    const DECISIONS_NEEDED = useRealSections ? real.decisions : DECISIONS_DEMO
-    const sectionNote = useRealSections ? '' : demoNote
+    const HIGHLIGHTS = useRealSections ? real.highlights : []
+    const CONCERNS = useRealSections ? real.concerns : []
+    const DECISIONS_NEEDED = useRealSections ? real.decisions : []
+    const sectionNote = ''
 
     container.innerHTML = `
       <div class="page-content animate-slide">
