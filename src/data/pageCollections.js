@@ -123,7 +123,8 @@ export const PAGE_COLLECTIONS = {
   "service_appointments"
  ],
  "/service/jobs": [
-  "job_cards"
+  "job_cards",
+  "service_reminders"
  ],
  "/service/parts": [
   "parts"

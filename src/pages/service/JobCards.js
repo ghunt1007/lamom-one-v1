@@ -1,8 +1,9 @@
-import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData, listDocs } from '../../core/db.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
-import { formatDate, formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
+import { formatDate, formatCurrency, timeAgo, todayBangkok, dmy } from '../../utils/format.js'
+import { nextServiceReminder } from '../../utils/nextService.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { escHtml as __escA } from '../../utils/escape.js'
@@ -147,6 +148,7 @@ export default async function JobCardsPage(container) {
         await updateDocData('job_cards', j.id, { status: next })
         j.status = next
         showToast(`→ ${JOB_STATUS[next]?.label}`, 'success'); updateStats(); applyFilter()
+        if (next === 'delivered') setNextServiceReminder(j)
       } catch { showToast('เกิดข้อผิดพลาด','error') }
     }))
     document.querySelectorAll('.del-j').forEach(btn => btn.addEventListener('click', async e => {
@@ -191,6 +193,20 @@ export default async function JobCardsPage(container) {
           <button class="btn btn-ghost btn-xs del-j" data-id="${j.id}" title="ลบ">🗑️</button>
         </td>
       </tr>`
+  }
+
+  // (v1.0.1271) ส่งคืนรถงานเข้าศูนย์บริการ → ตั้งเตือนเช็คระยะครั้งถัดไป (6 เดือน) ให้เอง · ไม่ซ้ำถ้าคันนี้มีเตือนที่ยังไม่ถึงกำหนดอยู่แล้ว
+  async function setNextServiceReminder(j) {
+    try {
+      const today = todayBangkok()
+      if (!nextServiceReminder(j, today)) return
+      const existing = await listDocs('service_reminders', [['plate', '==', String(j.plate).trim()]], 'dueDate', 'desc', 20).catch(() => [])
+      const doc = nextServiceReminder(j, today, existing)
+      if (!doc) return
+      const id = await createDoc('service_reminders', doc)
+      if (id) { j.nextReminderId = id; await updateDocData('job_cards', j.id, { nextReminderId: id }).catch(() => {}) }
+      showToast(`🔔 ตั้งเตือนเช็คระยะครั้งถัดไป ${dmy(doc.dueDate)} แล้ว (หน้าแจ้งเตือนเช็คระยะ)`, 'success')
+    } catch (e) { console.warn('[JobCards] next service reminder', e) }
   }
 
   function getNextStatus(s) {
@@ -246,6 +262,7 @@ export default async function JobCardsPage(container) {
         await updateDocData('job_cards', j.id, { status: next })
         j.status = next; showToast(`→ ${JOB_STATUS[next]?.label}`, 'success')
         document.querySelector('.modal-overlay')?.remove(); updateStats(); applyFilter()
+        if (next === 'delivered') setNextServiceReminder(j)
       } catch { showToast('เกิดข้อผิดพลาด','error') }
     })
     document.getElementById('j-edit')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openForm(j) })
