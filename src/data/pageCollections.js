@@ -384,6 +384,7 @@ export const PAGE_COLLECTIONS = {
  "/marketing/events": [
   "bookings",
   "customers",
+  "event_visitors",
   "marketing_events",
   "test_drives"
  ],

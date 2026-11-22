@@ -18,3 +18,16 @@ describe('EventCheckin', () => {
     expect(visitorsOf(v, '').map(x => x.id)).toEqual([2])
   })
 })
+
+import { eventMetrics } from './marketingEvents.js'
+describe('eventMetrics visitors (v1.0.1320)', () => {
+  it('attendees = max(manual, checked-in visitors of this event)', () => {
+    const e = { id: 'e1', attendees: 2 }
+    const visitors = [{ eventId: 'e1' }, { eventId: 'e1' }, { eventId: 'e1' }, { eventId: 'e2' }, { eventId: 'e1', deleted: true }]
+    const m = eventMetrics(e, { visitors })
+    expect(m.checkedIn).toBe(3)
+    expect(m.attendees).toBe(3)
+    expect(eventMetrics({ id: 'e1', attendees: 10 }, { visitors }).attendees).toBe(10)
+    expect(eventMetrics({ id: 'e1' }).attendees).toBe(0)
+  })
+})

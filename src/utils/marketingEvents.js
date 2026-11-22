@@ -69,7 +69,10 @@ export function eventDays(e, maxDays = 31) {
 // วัดผลงานจากข้อมูลจริง
 // customers: ลูกค้าที่ eventId ตรงกับงาน · bookings: ใบจองที่ eventId ตรง หรือ customerId เป็นลูกค้าจากงาน
 // testDrives: นัดทดลองขับของลูกค้าจากงาน · manual: ตัวเลขที่กรอกเอง (ผู้เข้าชม/Lead ที่ไม่ได้บันทึกในระบบ)
-export function eventMetrics(e, { customers = [], bookings = [], testDrives = [] } = {}) {
+// visitors = ผู้เยี่ยมชมที่ลงทะเบียนในหน้าเช็กอินงาน (event_visitors ที่ eventId ตรง) — ผู้เข้าชมใช้ค่าที่มากกว่าระหว่างตัวเลขที่กรอกเองกับที่เช็กอินจริง
+export function eventMetrics(e, { customers = [], bookings = [], testDrives = [], visitors = [] } = {}) {
+  const checkedIn = visitors.filter(v => v && !v.deleted && v.eventId === e.id).length
+  const attendees = Math.max(num(e.attendees), checkedIn)
   const leadsList = customers.filter(c => c && !c.deleted && c.eventId === e.id)
   const ids = new Set(leadsList.map(c => c.id))
   const bk = bookings.filter(b => b && !b.deleted && !CANCELLED.includes(b.status) && (b.eventId === e.id || (b.customerId && ids.has(b.customerId))))
@@ -81,7 +84,7 @@ export function eventMetrics(e, { customers = [], bookings = [], testDrives = []
   const cost = num(e.spent) || num(e.budget)
   const pct = (a, b) => (b > 0 ? Math.round(a / b * 1000) / 10 : null)
   return {
-    attendees: num(e.attendees),
+    attendees, checkedIn,
     leads, leadsInSystem: leadsList.length,
     prospects: leadsList.filter(c => c.stage && c.stage !== 'lead').length,
     testDrives: new Set(td.map(t => t.customerId)).size,
@@ -89,7 +92,7 @@ export function eventMetrics(e, { customers = [], bookings = [], testDrives = []
     costPerLead: leads && cost ? Math.round(cost / leads) : null,
     costPerBooking: booked && cost ? Math.round(cost / booked) : null,
     leadToBooking: pct(booked, leads),
-    attendeeToLead: pct(leads, num(e.attendees)),
+    attendeeToLead: pct(leads, attendees),
     roi: cost && revenue ? Math.round(revenue / cost * 10) / 10 : null,
     leadTargetPct: num(e.targetLeads) ? Math.round(leads / num(e.targetLeads) * 100) : null,
     bookingTargetPct: num(e.targetBookings) ? Math.round(booked / num(e.targetBookings) * 100) : null,
