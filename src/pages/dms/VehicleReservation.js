@@ -2,6 +2,7 @@
  * Vehicle Reservation — จองคิวรถ
  * Route: /dms/reservation
  */
+import { modelOptionsHtml } from '../../utils/modelOptions.js'
 import { formatDate, formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
@@ -20,7 +21,6 @@ const RESERVATION_STATUS = {
   cancelled:{ label: 'ยกเลิก', color: 'danger', icon: '❌' },
 }
 
-const MODELS = ['BYD Dolphin', 'BYD Atto 3', 'BYD Seal AWD', 'MG ZS EV', 'BYD Han', 'BYD Atto 3 Pro']
 
 export default async function VehicleReservationPage(container) {
   const myGen = container.__routerGen
@@ -152,7 +152,7 @@ export default async function VehicleReservationPage(container) {
         <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="rs-name" value="${escHtml(existing?.customer||'')}"></div>
         <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="rs-phone" value="${escHtml(existing?.phone||'')}"></div>
         <div class="input-group"><label class="input-label">รุ่นรถ</label>
-          <select class="input" id="rs-model">${MODELS.map(m=>`<option ${existing?.model===m?'selected':''}>${m}</option>`).join('')}</select>
+          <select class="input" id="rs-model">${modelOptionsHtml(existing?.model || '')}</select>
         </div>
         <div class="input-group"><label class="input-label">สี</label><input class="input" id="rs-color" placeholder="ขาว / น้ำเงิน / เทา" value="${escHtml(existing?.color||'')}"></div>
         <div class="input-group"><label class="input-label">มัดจำ (บาท)</label><input class="input" type="number" id="rs-deposit" value="${__escA(existing?.deposit||0)}"></div>
@@ -164,7 +164,7 @@ export default async function VehicleReservationPage(container) {
         const dep = parseInt(document.getElementById('rs-deposit')?.value)||0
         const data = {
           customer:name, phone:document.getElementById('rs-phone')?.value||'',
-          model:document.getElementById('rs-model')?.value||MODELS[0],
+          model:document.getElementById('rs-model')?.value||'',
           color:document.getElementById('rs-color')?.value||'ขาว', deposit:dep,
           expiry:document.getElementById('rs-expiry')?.value||addDays(14),
         }

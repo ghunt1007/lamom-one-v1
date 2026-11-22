@@ -2,6 +2,7 @@
  * Fleet Quote — ใบเสนอราคา Fleet
  * Route: /b2b/fleet-quote
  */
+import { modelOptionsHtml, modelStartPrice } from '../../utils/modelOptions.js'
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
@@ -21,8 +22,6 @@ const FLEET_STATUS = {
   rejected:  { label: 'ปฏิเสธ', color: 'danger', icon: '❌' },
 }
 
-const MODELS = ['BYD Dolphin', 'BYD Atto 3', 'BYD Seal AWD', 'MG ZS EV', 'BYD Han', 'BYD Atto 3 Pro']
-const MSRP = { 'BYD Dolphin': 899000, 'BYD Atto 3': 1099000, 'BYD Seal AWD': 1699000, 'MG ZS EV': 799000, 'BYD Han': 2099000, 'BYD Atto 3 Pro': 1299000 }
 
 function calcTotal(q) { return q.units * q.unitPrice * (1 - q.discount/100) }
 
@@ -133,10 +132,10 @@ export default async function FleetQuotePage(container) {
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">บริษัท *</label><input class="input" id="fq-company" value="${esc(q?.company||'')}"></div>
         <div class="input-group"><label class="input-label">ผู้ติดต่อ</label><input class="input" id="fq-contact" value="${esc(q?.contact||'')}"></div>
         <div class="input-group"><label class="input-label">รุ่นรถ</label>
-          <select class="input" id="fq-model">${MODELS.map(m=>`<option ${q?.model===m?'selected':''}>${m}</option>`).join('')}</select>
+          <select class="input" id="fq-model">${modelOptionsHtml(q?.model || '')}</select>
         </div>
         <div class="input-group"><label class="input-label">จำนวน (คัน)</label><input class="input" type="number" id="fq-units" value="${__escA(q?.units||1)}"></div>
-        <div class="input-group"><label class="input-label">ราคาต่อคัน</label><input class="input" type="number" id="fq-price" value="${__escA(q?.unitPrice||1000000)}"></div>
+        <div class="input-group"><label class="input-label">ราคาต่อคัน</label><input class="input" type="number" id="fq-price" value="${__escA(q?.unitPrice||'')}" placeholder="ว่าง = ราคาเริ่มต้นของรุ่น"></div>
         <div class="input-group"><label class="input-label">ส่วนลด (%)</label><input class="input" type="number" id="fq-discount" min="0" max="30" value="${__escA(q?.discount||0)}"></div>
         <div class="input-group"><label class="input-label">วันหมดอายุ</label><input class="input" type="date" id="fq-expiry" value="${q?.expiry||addDays(30)}"></div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><input class="input" id="fq-note" value="${esc(q?.note||'')}"></div>
@@ -146,9 +145,9 @@ export default async function FleetQuotePage(container) {
         if (!company) { showToast('❗ กรุณากรอกชื่อบริษัท','error'); return false }
         const data = {
           company, contact: document.getElementById('fq-contact')?.value||'',
-          model: document.getElementById('fq-model')?.value||(q?.model||MODELS[0]),
+          model: document.getElementById('fq-model')?.value||(q?.model||''),
           units: parseInt(document.getElementById('fq-units')?.value)||1,
-          unitPrice: parseInt(document.getElementById('fq-price')?.value)||1000000,
+          unitPrice: parseInt(document.getElementById('fq-price')?.value)||modelStartPrice(document.getElementById('fq-model')?.value||''),
           discount: parseInt(document.getElementById('fq-discount')?.value)||0,
           expiry: document.getElementById('fq-expiry')?.value||addDays(30),
           note: document.getElementById('fq-note')?.value||'',

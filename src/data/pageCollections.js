@@ -1278,7 +1278,8 @@ export const PAGE_COLLECTIONS = {
   "bonus_pool_staff"
  ],
  "/finance/multi-currency": [
-  "exchange_rates"
+  "exchange_rates",
+  "vehicle_models"
  ],
  "/marketing/social-analytics": [
   "social_posts"

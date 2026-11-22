@@ -2,6 +2,7 @@
  * Event Check-in — เช็คอินงานอีเวนต์ + เก็บ Lead
  * Route: /marketing/event-checkin
  */
+import { modelOptionsHtml } from '../../utils/modelOptions.js'
 import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
@@ -95,7 +96,7 @@ export default async function EventCheckinPage(container) {
           <div class="input-group"><label class="input-label">ชื่อ *</label><input class="input" id="ec-name" autofocus></div>
           <div class="input-group"><label class="input-label">เบอร์โทร (สำคัญ!)</label><input class="input" id="ec-phone" type="tel"></div>
           <div class="input-group"><label class="input-label">รุ่นที่สนใจ</label>
-            <select class="input" id="ec-model"><option>BYD Dolphin</option><option>BYD Atto 3</option><option>BYD Seal AWD</option><option>MG4</option><option>BYD Han</option><option>ยังไม่แน่ใจ</option></select>
+            <select class="input" id="ec-model">${modelOptionsHtml('', { extra: ['ยังไม่แน่ใจ'] })}</select>
           </div>
           <div class="input-group"><label class="input-label">ระดับความสนใจ</label>
             <select class="input" id="ec-interest">${Object.entries(INTEREST).map(([k,v])=>`<option value="${__escA(k)}">${v.label}</option>`).join('')}</select>

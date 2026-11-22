@@ -152,7 +152,7 @@ export default async function PriceNegotiationPage(container) {
         if(!cust||!list||!offer){showToast('กรอกข้อมูลให้ครบ','warning');return false}
         const disc=list-offer
         const discPct=+(disc/list*100).toFixed(1)
-        const model=document.getElementById('pn-model')?.value||'BYD Atto 3'
+        const model=document.getElementById('pn-model')?.value||''
         try {
           await createDoc('price_negotiations', {customer:cust,model,listPrice:list,offerPrice:offer,discount:disc,discPct,status:'pending',sales: myName(),date:todayBangkok(),approver:'',companyId: myEffectiveCompanyId()})
           showToast('📤 ส่งขออนุมัติส่วนลด ฿'+disc.toLocaleString()+' แล้ว','success')
