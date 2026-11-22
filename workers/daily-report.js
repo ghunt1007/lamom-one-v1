@@ -678,7 +678,7 @@ async function handleLineWebhook(request, env, cors) {
         try {
           const customers = await runQuery(env, accessToken, 'customers', 'createdAt', 'DESCENDING', 300, ['firstName', 'lastName', 'phone', 'stage', 'assignedTo', 'interestedModel', 'createdAt', 'lastContactAt', 'isLost', 'deleted'])
           const mine = isOwner ? () => true : c => !String(c.assignedTo || '').trim() || normSalesName(c.assignedTo) === normSalesName(me.name)
-          reply = clipLine(newLeadsAnswer(customers, { now: Date.now(), mine }))
+          reply = clipLine(newLeadsAnswer(customers, { now: Date.now(), mine, appUrl: env.ALLOWED_ORIGIN }))
         } catch { reply = '⚠️ ดึงลีดไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
     } else if (cmd.type === 'due') {
