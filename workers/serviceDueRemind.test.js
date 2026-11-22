@@ -49,3 +49,25 @@ describe('runServiceDue', () => {
     expect(d2.pushLine).not.toHaveBeenCalled()
   })
 })
+
+import { dueListAnswer } from './serviceDueRemind.js'
+describe('LINE "ครบระยะ" (v1.0.1291)', () => {
+  const rows = [
+    { id: '1', customer: 'สมชาย', phone: '0812345678', plate: 'กข 1234', model: 'ATTO 3', dueDate: '2026-11-25' },
+    { id: '2', customer: 'สมหญิง', dueDate: '2026-11-15', lineDueSent: '2026-11-15' },
+    { id: '3', customer: 'นัดแล้ว', dueDate: '2026-11-23', booked: true },
+    { id: '4', customer: 'ไกล', dueDate: '2026-12-20' },
+    { id: '5', customer: 'เก่ามาก', dueDate: '2026-09-01' },
+    { id: '6', customer: 'วันนี้', dueDate: '2026-11-22' },
+  ]
+  it('lists overdue first then upcoming, unbooked only', () => {
+    const t = dueListAnswer(rows, '2026-11-22')
+    expect(t.split('\n')[0]).toBe('🔧 รถครบระยะที่ยังไม่ได้นัด 3 คัน (เลยกำหนด 1)')
+    expect(t.split('\n')[1]).toContain('สมหญิง · 15/11/2569 (เลย 7 วัน) · 💬 เตือนทาง LINE แล้ว')
+    expect(t.split('\n')[2]).toContain('วันนี้ ·')
+    expect(t.split('\n')[3]).toBe('• สมชาย · ATTO 3 กข 1234 · 081-234-5678 · 25/11/2569 (อีก 3 วัน)')
+    expect(t).not.toContain('นัดแล้ว')
+    expect(t).not.toContain('ไกล')
+    expect(dueListAnswer([], '2026-11-22')).toContain('✅')
+  })
+})
