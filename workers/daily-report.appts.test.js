@@ -107,3 +107,18 @@ describe('service line in the Monday weekly report (v1.0.1294)', () => {
     expect(buildWeeklyReport({ bookings: [], customers: [] }, { today: '2026-11-23' })).not.toContain('ศูนย์บริการ')
   })
 })
+
+describe('deliveries line in the Monday weekly report (v1.0.1305)', () => {
+  it('counts this week (today..Sunday) and overdue undelivered', () => {
+    const bookings = [
+      { status: 'รอส่งมอบ', deliveryDate: '2026-11-23' },
+      { status: 'รอส่งมอบ', deliveryDate: '2026-11-29' },
+      { status: 'รอส่งมอบ', deliveryDate: '2026-11-30' }, // next Monday → not this week
+      { status: 'ส่งมอบแล้ว', deliveryDate: '2026-11-24' },
+      { status: 'รอรถ', deliveryDate: '2026-11-20' },
+    ]
+    const text = buildWeeklyReport({ bookings, customers: [] }, { today: '2026-11-23' })
+    expect(text).toContain('🚗 นัดส่งมอบสัปดาห์นี้: 2 คัน · เลยวันนัดยังไม่ส่ง 1 คัน (พิมพ์ "ส่งมอบ" ดูรายชื่อ)')
+    expect(buildWeeklyReport({ bookings: [], customers: [] }, { today: '2026-11-23' })).not.toContain('นัดส่งมอบสัปดาห์นี้')
+  })
+})
