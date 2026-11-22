@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { showroomVisitLine, serviceTodayLines, jobsAwaitingPickupLines, serviceJobsAnswer } from './apptFacts.js'
+import { showroomVisitLine, serviceTodayLines, jobsAwaitingPickupLines, serviceJobsAnswer, serviceEveningLines } from './apptFacts.js'
 
 describe('apptFacts', () => {
   it('ignores deleted rows and other days', () => {
@@ -55,5 +55,24 @@ describe('serviceJobsAnswer', () => {
   })
   it('says nothing is pending when empty', () => {
     expect(serviceJobsAnswer([{ status: 'delivered' }], today)).toContain('ไม่มีใบงานซ่อมที่ค้าง')
+  })
+})
+
+describe('serviceEveningLines', () => {
+  const today = '2026-11-22'
+  it('counts new, returned today and still in shop', () => {
+    const l = serviceEveningLines([
+      { status: 'inprogress', createdAt: '2026-11-22T02:00:00Z' },
+      { status: 'waiting_parts', createdAt: '2026-11-20T02:00:00Z' },
+      { status: 'done', createdAt: '2026-11-21T02:00:00Z' },
+      { status: 'delivered', createdAt: '2026-11-21T02:00:00Z', updatedAt: '2026-11-22T09:00:00Z' },
+      { status: 'delivered', createdAt: '2026-11-01T02:00:00Z', updatedAt: '2026-11-02T09:00:00Z' },
+    ], today)
+    expect(l[1]).toBe('  • ใบงานใหม่วันนี้: 1 คัน · ส่งคืนลูกค้าวันนี้: 1 คัน')
+    expect(l[2]).toBe('  • รถยังอยู่ที่ศูนย์: 3 คัน (เสร็จรอลูกค้ารับ 1) · รออะไหล่ 1')
+  })
+  it('omits the section when job cards are unused or nothing is happening', () => {
+    expect(serviceEveningLines([], today)).toEqual([])
+    expect(serviceEveningLines([{ status: 'delivered', updatedAt: '2026-10-01T00:00:00Z' }], today)).toEqual([])
   })
 })

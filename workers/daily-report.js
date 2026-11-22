@@ -62,7 +62,7 @@ import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } f
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
 import { campaignLeads } from '../src/utils/campaignLeads.js'
 import { financeQueue } from '../src/utils/financeQueue.js'
-import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines, serviceJobsAnswer } from '../src/utils/apptFacts.js'
+import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines, serviceJobsAnswer, serviceEveningLines } from '../src/utils/apptFacts.js'
 import { officeDigestLines } from '../src/utils/aiAgents.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
@@ -773,18 +773,19 @@ async function buildReportText(env, accessToken) {
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'deleted']),
     runQuery(env, accessToken, 'team_targets', null, null, 500, ['period', 'metric', 'target']),
   ])
-  const [events, socialAccounts, appointments, referrers] = await Promise.all([
+  const [events, socialAccounts, appointments, referrers, jobCards] = await Promise.all([
     runQuery(env, accessToken, 'marketing_events', null, null, 300, ['title', 'venue', 'startDate', 'endDate', 'status', 'targetLeads', 'budget', 'spent', 'deleted']).catch(() => []),
     runQuery(env, accessToken, 'social_channels', null, null, 300, ['spend', 'deleted']).catch(() => []),
     runQuery(env, accessToken, 'appointments', 'date', 'DESCENDING', 500, ['date', 'status', 'deleted']).catch(() => []),
     runQuery(env, accessToken, 'referrers', null, null, 500, ['name', 'code', 'sales', 'commission', 'paid', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'job_cards', null, null, 3000, ['status', 'createdAt', 'updatedAt', 'deleted']).catch(() => []),
   ])
   const followups = [...fuPending, ...fuDone]
   const [metaAdsData, lineQuota] = await Promise.all([
     fetchMetaAdsForReport(env),
     Promise.race([fetchLineQuota(env.LINE_CHANNEL_ACCESS_TOKEN), new Promise(r => setTimeout(() => r(null), 5000))]).catch(() => null),
   ])
-  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts, appointments, referrers, metaAds: metaAdsData, lineQuota }, {
+  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts, appointments, referrers, jobCards, metaAds: metaAdsData, lineQuota }, {
     today: todayBangkok(),
     time: new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()),
     defaultTarget: parseInt(env.MONTHLY_DELIVERY_TARGET) || 0,
@@ -1041,6 +1042,8 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     `  • ส่งมอบเดือนนี้: ${dlvMonth.length} คัน${vsLast(dlvMonth.length, dlvLm, lm)}`,
     `  • ส่งมอบปีนี้: ${dlvYear.length} คัน`,
   ]
+  const svc = serviceEveningLines(data.jobCards, today)
+  if (svc.length) lines.push('', ...svc)
   if (dlvTomorrow.length) {
     lines.push('', `📅 นัดส่งมอบพรุ่งนี้: ${dlvTomorrow.length} คัน`,
       ...dlvTomorrow.slice(0, 10).map(b => `  • ${b.deliveryTime ? b.deliveryTime + ' ' : ''}${b.custName || 'ลูกค้า'}${b.model ? ` (${b.model})` : ''} · ${(b.salesName || '').trim() || '(ไม่ระบุ)'}`),

@@ -61,3 +61,19 @@ export function serviceJobsAnswer(jobs = [], today, max = 8) {
   }
   return lines.join('\n')
 }
+
+// (v1.0.1280) รายงาน 18:00: สรุปศูนย์บริการวันนี้ — ไม่มีใบงานเลย (ยังไม่ใช้เมนู Job Card) = ไม่ใส่หัวข้อนี้
+// "ส่งคืนวันนี้" นับใบงานสถานะส่งคืนแล้วที่แก้ไขล่าสุดวันนี้ (ไม่มีช่องวันที่ส่งคืนแยก)
+export function serviceEveningLines(jobs = [], today) {
+  const live = (jobs || []).filter(j => j && !j.deleted)
+  if (!live.length) return []
+  const isNew = live.filter(j => bkkDate(j.createdAt) === today).length
+  const back = live.filter(j => j.status === 'delivered' && bkkDate(j.updatedAt) === today).length
+  const inShop = live.filter(j => JOB_OPEN_STATUS[j.status] || j.status === 'done')
+  const done = inShop.filter(j => j.status === 'done').length
+  const parts = inShop.filter(j => j.status === 'waiting_parts').length
+  if (!isNew && !back && !inShop.length) return []
+  return ['🔧 ศูนย์บริการ',
+    `  • ใบงานใหม่วันนี้: ${isNew} คัน · ส่งคืนลูกค้าวันนี้: ${back} คัน`,
+    `  • รถยังอยู่ที่ศูนย์: ${inShop.length} คัน${done ? ` (เสร็จรอลูกค้ารับ ${done})` : ''}${parts ? ` · รออะไหล่ ${parts}` : ''}`]
+}
