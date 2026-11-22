@@ -2,6 +2,7 @@ import { navigate } from '../../core/router.js'
 import { getSalesData, listDocs } from '../../core/db.js'
 import { formatCurrency } from '../../utils/format.js'
 import { escHtml } from '../../utils/escape.js'
+import { avgIncomePerCar, campaignRoiPct } from '../../utils/campaignRoi.js'
 
 const QUICK_LINKS = [
   { icon:'🎯', label:'Campaigns', sub:'สร้างและจัดการแคมเปญ', path:'/marketing/campaigns', color:'primary' },
@@ -61,8 +62,9 @@ export default async function MarketingDashboard(container) {
   const activeCampaigns = campaigns.filter(c => c.status === 'active')
   const totalLeads  = campaigns.reduce((s, c) => s + (c.leads || 0), 0)
   const totalBudget = activeCampaigns.reduce((s, c) => s + (c.budget || 0), 0)
-  // ROI ต่อแคมเปญคำนวณด้วยสูตรเดียวกับ CampaignBuilder.js (สมมติมูลค่าเฉลี่ยต่อการขาย 200,000 บาท/คัน)
-  const roiOf = c => c.spent > 0 ? ((c.sales || 0) * 200000 - c.spent) / c.spent * 100 : 0
+  // (v1.0.1314) ROI ใช้รายได้จริงเฉลี่ยต่อคัน (เดิมสมมติ 200,000 บาท/คัน) — ยังไม่รู้รายได้ = null
+  const perCar = avgIncomePerCar(actualSales)
+  const roiOf = c => campaignRoiPct(c, perCar)
   const withSpend = campaigns.filter(c => c.spent > 0)
   // (v1.0.1310) กรวยการขายเดิมใช้ Impressions 45,200 / Clicks 8,640 / Qualified 18 ที่แต่งขึ้น — ตอนนี้รวมจากแคมเปญจริง + ใบจองจริง
   const sumOf = k => campaigns.reduce((t, c) => t + (Number(c[k]) || 0), 0)
@@ -74,7 +76,8 @@ export default async function MarketingDashboard(container) {
     { label:'ส่งมอบแล้ว', val:actualDelivered, color:'success', real:true },
   ].filter((f, i, a) => f.val > 0 || a.slice(0, i).some(x => x.val > 0))
   const funnelMax = Math.max(1, ...funnel.map(f => f.val))
-  const avgROI = withSpend.length ? Math.round(withSpend.reduce((s, c) => s + roiOf(c), 0) / withSpend.length) : 0
+  const withRoi = withSpend.filter(c => roiOf(c) != null)
+  const avgROI = withRoi.length ? Math.round(withRoi.reduce((s, c) => s + roiOf(c), 0) / withRoi.length) : 0
 
   container.innerHTML = `
     <div class="page-content animate-slide">
@@ -93,7 +96,7 @@ export default async function MarketingDashboard(container) {
         ${kCard('📢', 'Campaigns Active', activeCampaigns.length + ' แคมเปญ', 'primary')}
         ${kCard('🧲', 'Leads รวม', totalLeads + ' คน', 'accent')}
         ${kCard('✅', 'ยอดจองจริง', actualTotal + ' ราย', 'success')}
-        ${kCard('📈', 'ROI เฉลี่ย', withSpend.length ? avgROI + '%' : '-', 'warning')}
+        ${kCard('📈', 'ROI เฉลี่ย', withRoi.length ? avgROI + '%' : '-', 'warning')}
       </div>
 
       <!-- Quick links -->
@@ -150,7 +153,7 @@ export default async function MarketingDashboard(container) {
             </tr></thead>
             <tbody>
               ${campaigns.map(c => {
-                const roi = Math.round(roiOf(c))
+                const roi = roiOf(c)
                 return `
                 <tr data-nav="/marketing/campaigns" style="cursor:pointer">
                   <td style="font-weight:600">${escHtml(c.name)}</td>
@@ -158,7 +161,7 @@ export default async function MarketingDashboard(container) {
                   <td style="color:var(--text-muted)">฿${(c.budget||0).toLocaleString()}</td>
                   <td style="text-align:center;font-weight:700;color:var(--accent)">${c.leads||0}</td>
                   <td style="text-align:center;font-weight:700;color:var(--success)">${c.sales||0}</td>
-                  <td style="font-weight:700;color:${roi >= 200 ? 'var(--success)' : roi >= 100 ? 'var(--warning)' : 'var(--danger)'}">${c.spent > 0 ? (roi >= 0 ? '+' : '') + roi + '%' : '—'}</td>
+                  <td style="font-weight:700;color:${roi >= 200 ? 'var(--success)' : roi >= 100 ? 'var(--warning)' : 'var(--danger)'}">${roi != null ? (roi >= 0 ? '+' : '') + Math.round(roi) + '%' : '—'}</td>
                   <td><span class="badge badge-${c.status === 'active' ? 'success' : 'primary'}" style="font-size:0.72rem">${CAMPAIGN_STATUS_LABELS[c.status] || escHtml(c.status || '-')}</span></td>
                 </tr>
               `}).join('')}

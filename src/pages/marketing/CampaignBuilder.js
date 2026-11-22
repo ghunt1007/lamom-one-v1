@@ -2,10 +2,11 @@ import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, getSalesData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { avgIncomePerCar, campaignRoiPct } from '../../utils/campaignRoi.js'
 
 const CAMPAIGN_TYPES = {
   social:   { label: 'Social Media', icon: '📱', color: 'primary' },
@@ -29,6 +30,7 @@ export default async function CampaignBuilderPage(container) {
   seedDemoData()
 
   let campaigns = []
+  let perCar = null
   let statusFilter = 'all'
   let typeFilter = 'all'
   let loading = true
@@ -36,6 +38,7 @@ export default async function CampaignBuilderPage(container) {
   async function loadData() {
     loading = true
     try { campaigns = (await listDocs('marketing_campaigns', [], 'startDate', 'desc', 500)).filter(c => !c.deleted) } catch (e) { campaigns = [] }
+    if (perCar == null) { try { perCar = avgIncomePerCar(await getSalesData()) } catch (e) { perCar = null } }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -205,7 +208,7 @@ export default async function CampaignBuilderPage(container) {
   function openCampDetail(c) {
     const ct = CAMPAIGN_TYPES[c.type]
     const st = CAMPAIGN_STATUS[c.status]
-    const roi = c.spent > 0 ? ((c.sales * 200000 - c.spent) / c.spent * 100).toFixed(1) : '0'
+    const roi = campaignRoiPct(c, perCar)
     openModal({
       title: `${ct.icon} ${escHtml(c.name)}`, size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
@@ -216,7 +219,7 @@ export default async function CampaignBuilderPage(container) {
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
           ${bigMetric('💰 งบ', formatCurrency(c.budget))}
           ${bigMetric('💸 ใช้แล้ว', formatCurrency(c.spent))}
-          ${bigMetric('📊 ROI', roi + '%', roi > 0 ? 'success' : 'danger')}
+          ${bigMetric('📊 ROI', roi == null ? '-' : roi + '%', roi == null ? 'secondary' : roi > 0 ? 'success' : 'danger')}
           ${bigMetric('👁 Reach', c.reach.toLocaleString())}
           ${bigMetric('🖱 Clicks', c.clicks.toLocaleString())}
           ${bigMetric('🧲 Leads', c.leads)}
