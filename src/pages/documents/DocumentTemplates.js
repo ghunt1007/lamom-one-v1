@@ -9,6 +9,8 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { printDocument } from '../../utils/print.js'
+import { templateDocHtml } from '../../utils/templateDoc.js'
 
 const TPL_CATS = {
   sales:    { label: 'งานขาย', color: 'success', icon: '💰' },
@@ -79,7 +81,7 @@ export default async function DocumentTemplatesPage(container) {
                 📊 ใช้ ${t.usage} ครั้ง · ล่าสุด ${timeAgo(t.lastUsed)}
               </div>
               <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">
-                ${t.fields.map(f => `<span style="font-size:0.62rem;background:var(--surface-2);padding:2px 6px;border-radius:3px;color:var(--text-muted)">${f}</span>`).join('')}
+                ${(t.fields || []).map(f => `<span style="font-size:0.62rem;background:var(--surface-2);padding:2px 6px;border-radius:3px;color:var(--text-muted)">${esc(f)}</span>`).join('')}
               </div>
               <div style="display:flex;gap:6px">
                 <button class="btn btn-xs btn-primary use-btn" data-id="${t.id}" style="flex:1" ${t.active?'':'disabled'}>📄 สร้างเอกสาร</button>
@@ -107,25 +109,26 @@ export default async function DocumentTemplatesPage(container) {
     document.getElementById('add-tpl-btn')?.addEventListener('click', openAddForm)
   }
 
-  // เดิมปุ่ม "สร้าง PDF" toast ว่า "กำลังดาวน์โหลด PDF..." แต่โค้ดจริงมีแค่ +1 usage counter — ไม่มีการ
-  // สร้าง/ดาวน์โหลด PDF ใดๆเกิดขึ้นจริง (การสร้าง PDF จริงเป็นงานแยกที่ยังไม่มีในระบบนี้) แก้ข้อความให้ตรง
-  // กับความจริง: นี่คือการบันทึก "การใช้งาน template" เท่านั้น
+  // (v1.0.1318) กรอกช่องแล้วได้เอกสารจริง (หัวบริษัท + ข้อมูล + ช่องเซ็นชื่อ) → พิมพ์ หรือ "บันทึกเป็น PDF" ในหน้าต่างพิมพ์
+  // เดิมกดแล้วได้แค่ +1 จำนวนครั้งที่ใช้ ไม่มีเอกสารออกมาเลย · ช่องที่เว้นว่างพิมพ์เป็นเส้นจุดให้เขียนเอง
   function openUseModal(t) {
+    const fields = Array.isArray(t.fields) ? t.fields : []
     openModal({
-      title: '📄 บันทึกการใช้งาน Template: ' + esc(t.name),
+      title: '📄 ' + esc(t.name),
       size: 'md',
       body: `
-        <div style="font-size:0.74rem;color:var(--warning);margin-bottom:10px">⚠️ ยังไม่รองรับการสร้าง/ดาวน์โหลด PDF จริงจากหน้านี้ — การกดยืนยันจะบันทึกแค่ตัวนับการใช้งาน Template เท่านั้น (ไปสร้างเอกสารจริงได้ที่ Document Studio)</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        ${t.fields.map((f, i) => `<div class="input-group"><label class="input-label">${f}</label><input class="input" id="doc-f-${i}"></div>`).join('')}
+        <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:10px">กรอกเท่าที่มี ช่องที่เว้นว่างจะพิมพ์เป็นเส้นจุดให้เขียนด้วยมือ · ในหน้าต่างพิมพ์เลือก "บันทึกเป็น PDF" เพื่อเก็บเป็นไฟล์ได้</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+        ${fields.map((f, i) => `<div class="input-group"><label class="input-label">${esc(f)}</label><input class="input" id="doc-f-${i}"></div>`).join('')}
       </div>`,
-      confirmText: '✅ บันทึกการใช้งาน',
+      confirmText: '🖨 พิมพ์ / บันทึก PDF',
       async onConfirm() {
+        const values = fields.map((_, i) => document.getElementById('doc-f-' + i)?.value || '')
+        printDocument(templateDocHtml(t, values), { title: esc(t.name || 'เอกสาร') })
         try {
-          await updateDocData('document_templates', t.id, { usage: t.usage + 1, lastUsed: new Date().toISOString() })
-          showToast('✅ บันทึกการใช้งาน Template แล้ว (ยังไม่มี PDF ให้ดาวน์โหลดจริง)', 'success')
+          await updateDocData('document_templates', t.id, { usage: (Number(t.usage) || 0) + 1, lastUsed: new Date().toISOString() })
           await loadData()
-        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        } catch { /* นับจำนวนครั้งไม่สำเร็จไม่เป็นไร เอกสารพิมพ์ไปแล้ว */ }
       }
     })
   }
