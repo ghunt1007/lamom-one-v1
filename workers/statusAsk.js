@@ -10,6 +10,23 @@ const isOpenBooking = b => !isCancelled(b) && b?.status !== 'ส่งมอบ�
 import { customerStatusMessage } from '../src/utils/bookingNotify.js'
 
 export const STATUS_ASK_RE = /(?:รถ(?:ของ(?:ผม|ฉัน|หนู|เรา))?(?:จะ)?(?:มา|ถึง|เข้า)(?:ถึง)?(?:โชว์รูม)?(?:เมื่อ|วัน)?(?:ไหร่|ไร|ไหน)|ได้รถ(?:เมื่อ|วัน)?(?:ไหร่|ไร|ไหน)|สถานะ(?:รถ|การจอง|ใบจอง)|เช็ค?สถานะ|รับรถ(?:ได้)?(?:เมื่อ|วัน)?(?:ไหร่|ไร|ไหน)|รถ(?:ของ(?:ผม|ฉัน|หนู|เรา))?(?:มา|ถึง|เข้า)(?:โชว์รูม)?(?:แล้ว)?(?:หรือ)?ยัง(?!ไง|งี้|ไม่|มี)|ได้รถ(?:แล้ว)?(?:หรือ)?ยัง(?!ไง|งี้|ไม่|มี))/
+// (v1.0.1266) ถามงานศูนย์บริการ: "รถซ่อมเสร็จยัง" / "เช็คระยะเสร็จหรือยัง" / "รับรถที่ศูนย์ได้กี่โมง"
+export const JOB_ASK_RE = /(?:ซ่อม|เช็[คก]ระยะ|ศูนย์|เซอร์วิส|ล้างรถ|ทำสี|เคลม).{0,12}(?:เสร็จ|ได้(?:รับ)?(?:รถ)?(?:เมื่อ|กี่)|ยัง(?!ไง))|(?:รถ.{0,6}เสร็จ(?:แล้ว)?(?:หรือ)?ยัง)/
+export const isJobAsk = text => { const t = String(text || '').replace(/\s+/g, ''); return t.length > 0 && t.length <= 80 && JOB_ASK_RE.test(t) }
+const JOB_LABEL = { waiting: 'รอรับรถเข้าศูนย์', checkin: 'รับรถเข้าศูนย์แล้ว', diagnosing: 'กำลังตรวจเช็กหาสาเหตุ', inprogress: 'กำลังดำเนินการ', waiting_parts: 'รออะไหล่', qc: 'กำลังตรวจคุณภาพก่อนส่งมอบ', done: 'เสร็จเรียบร้อย พร้อมให้มารับได้เลย 🚗' }
+/** ข้อความตอบสถานะงานศูนย์ (ฟังก์ชันล้วน) — jobs = ใบงานของลูกค้าคนนี้ · ไม่มีงานค้าง = null */
+export function jobAskReply({ jobs = [], name = '' } = {}) {
+  const open = jobs.filter(j => j && !j.deleted && j.id && JOB_LABEL[j.status])
+    .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))
+  if (!open.length) return null
+  const n = String(name || '').trim().replace(/^คุณ/, '').split(/\s+/)[0]
+  const lines = open.slice(0, 2).map(j => {
+    const car = [[j.brand, j.model].filter(Boolean).join(' ').trim(), j.plate ? `ทะเบียน ${String(j.plate).trim()}` : ''].filter(Boolean).join(' ')
+    return `🔧 รถ${car ? ` ${car}` : 'ของคุณ'}: ${JOB_LABEL[j.status]}`
+  })
+  return [`${n ? `สวัสดีครับคุณ${n}` : 'สวัสดีครับ'} สถานะงานที่ศูนย์บริการตอนนี้ครับ`, ...lines, 'สอบถามค่าใช้จ่ายหรือรายละเอียดเพิ่ม พิมพ์มาได้เลย ทีมงานจะตอบกลับครับ 🙏'].join('\n')
+}
+
 export const isStatusAsk = text => { const t = String(text || '').replace(/\s+/g, ''); return t.length > 0 && t.length <= 80 && STATUS_ASK_RE.test(t) }
 
 const dmy = d => /^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${Number(d.slice(0, 4)) + 543}` : ''
@@ -37,8 +54,10 @@ export function statusAskReply({ mine = [], all = [], vehicles = [], orders = []
  * คืน true เมื่อตอบไปแล้ว (ผู้เรียกไม่ต้องให้ AI ตอบซ้ำ)
  */
 export async function handleStatusAsk(deps) {
-  if (!deps?.enabled || !deps.userId || !isStatusAsk(deps.text)) return false
+  if (!deps?.enabled || !deps.userId) return false
   const q = (col, fields, eq) => deps.query(col, fields, eq).catch(() => [])
+  if (isJobAsk(deps.text) && !isStatusAsk(deps.text)) return handleJobAsk(deps, q)
+  if (!isStatusAsk(deps.text)) return false
   const BK = ['status', 'custName', 'salesName', 'brand', 'model', 'colorOut', 'color', 'vin', 'bookingDate', 'createdAt', 'deliveryDate', 'customerId', 'lineUserId', 'deleted']
   const [byLine, custs] = await Promise.all([
     q('bookings', BK, ['lineUserId', deps.userId]),
@@ -57,6 +76,23 @@ export async function handleStatusAsk(deps) {
     q('vehicle_orders', ['status', 'brand', 'model', 'color', 'qty', 'expectedDate', 'deleted']),
   ]) : [[], [], [], []]
   const text = statusAskReply({ mine, all, vehicles: [...avail, ...transit], orders, today: deps.today })
+  if (!text) return false
+  if (!(await deps.send(text))) return false
+  await deps.record?.(text)
+  return true
+}
+
+// (v1.0.1266) ลูกค้าที่ผูก LINE ถามงานศูนย์บริการ → ตอบจากใบงาน (job_cards) ของตัวเอง (จับด้วยแฟ้มลูกค้า หรือเบอร์โทรในแฟ้ม)
+async function handleJobAsk(deps, q) {
+  const custs = (await q('customers', ['firstName', 'phone', 'lineUserId', 'deleted'], ['lineUserId', deps.userId])).filter(c => !c.deleted)
+  if (!custs.length) return false
+  const F = ['status', 'custName', 'phone', 'customerId', 'brand', 'model', 'plate', 'updatedAt', 'createdAt', 'deleted']
+  const byCust = (await Promise.all(custs.slice(0, 3).map(c => q('job_cards', F, ['customerId', c.id])))).flat()
+  const phones = [...new Set(custs.map(c => String(c.phone || '').trim()).filter(p => p.replace(/\D/g, '').length >= 9))].slice(0, 3)
+  const byPhone = (await Promise.all(phones.map(p => q('job_cards', F, ['phone', p])))).flat()
+  const seen = new Set()
+  const jobs = [...byCust, ...byPhone].filter(j => j?.id && !seen.has(j.id) && seen.add(j.id))
+  const text = jobAskReply({ jobs, name: custs[0].firstName })
   if (!text) return false
   if (!(await deps.send(text))) return false
   await deps.record?.(text)
