@@ -4,7 +4,7 @@ import { carOf, carLabel } from '../../utils/carLabel.js'
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, readDoc } from '../../core/db.js'
 import { customerStatusMessage } from '../../utils/bookingNotify.js'
 import { needsBooking, etaForBookings, etaLabel, orderNeeds, altColorText } from '../../utils/orderNeeds.js'
-import { openLineLinkQr, lineLinkState, needsLineLink } from '../../utils/lineLink.js'
+import { openLineLinkQr, lineLinkState, needsLineLink, pickLineInviteTargets, prepareLineLink, lineInviteSmsText, LINE_INVITE_COOLDOWN_DAYS } from '../../utils/lineLink.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
 import { showToast, getState, setState, on } from '../../core/store.js'
@@ -335,6 +335,7 @@ export default async function BookingsPage(container) {
   let dateFrom = ''
   let dateTo = ''
   let noIncomeOnly = false
+  let inviteBusy = false // (v1.0.1262) กำลังส่ง SMS ชวนผูก LINE
   let noLineOnly = false // (v1.0.1236) ใบจองที่ยังไม่ส่งมอบและลูกค้ายังไม่ผูก LINE
   const selectedIds = new Set()
   // (v1.0.954) มุมมอง "แบบ Sheet" (ครบทุกคอลัมน์ แก้ในช่องได้เลย) — จอกว้างเปิดแบบนี้เป็นค่าเริ่มต้น จำค่าที่เลือกไว้
@@ -529,6 +530,7 @@ export default async function BookingsPage(container) {
     const urgentCount = visible.filter(isUrgent).length
     const noIncomeCount = visible.filter(b => needsIncome(b)).length
     const noLineCount = visible.filter(needsLineLink).length
+    const inviteTargets = noLineOnly ? pickLineInviteTargets(visible) : []
     const deliveredAll = visible.filter(b => b.status === 'ส่งมอบแล้ว')
     const activeNonTerminal = visible.filter(b => !['ถอนจอง', 'ยกเลิก', 'ส่งมอบแล้ว'].includes(b.status))
 
@@ -556,6 +558,7 @@ export default async function BookingsPage(container) {
       <span>🚗 ส่งมอบเดือนนี้ <b style="color:var(--success)">${delMonth}</b></span>
       ${urgentCount > 0 ? `<span>🔥 ด่วน <b style="color:var(--danger)">${urgentCount}</b></span>` : ''}
       ${noLineCount > 0 || noLineOnly ? `<span id="bk-noline-chip" style="cursor:pointer;${noLineOnly ? 'font-weight:700;text-decoration:underline' : ''}" title="ลูกค้าที่จองแล้วยังไม่ส่งมอบ แต่ยังไม่ผูก LINE — เปิดใบจองแล้วกด 🔗 ผูก LINE (ส่งลิงก์ทาง SMS ได้)">🔗 ยังไม่ผูก LINE <b style="color:var(--warning)">${noLineCount}</b>${noLineOnly ? ' ×' : ''}</span>` : ''}
+      ${noLineOnly && inviteTargets.length ? `<button type="button" class="btn btn-xs btn-primary" id="bk-noline-sms" ${inviteBusy ? 'disabled' : ''} title="ส่ง SMS จริงถึงลูกค้า พร้อมลิงก์ผูก LINE ของแต่ละคน (คนที่ส่งไปแล้วภายใน ${LINE_INVITE_COOLDOWN_DAYS} วันจะข้าม)">📱 ส่ง SMS ชวนผูก LINE (${inviteTargets.length})</button>` : ''}
       ${noIncomeCount > 0 || noIncomeOnly ? `<span id="bk-noincome-chip" style="cursor:pointer;${noIncomeOnly ? 'font-weight:700;text-decoration:underline' : ''}" title="ส่งมอบแล้วแต่ยังไม่กรอกมาร์จิ้น/ค่าคอม — กดเพื่อดูเฉพาะรายการนี้">💰 ยังไม่กรอกรายได้ <b style="color:var(--danger)">${noIncomeCount}</b>${noIncomeOnly ? ' ×' : ''}</span>` : ''}
     </div>`
 
@@ -671,6 +674,26 @@ export default async function BookingsPage(container) {
     container.querySelector('.bk-action-chip')?.addEventListener('click', () => { actionOnly = !actionOnly; statusFilter = ''; render() })
     document.getElementById('bk-noincome-chip')?.addEventListener('click', () => { noIncomeOnly = !noIncomeOnly; render() })
     document.getElementById('bk-noline-chip')?.addEventListener('click', () => { noLineOnly = !noLineOnly; render() })
+    document.getElementById('bk-noline-sms')?.addEventListener('click', async () => {
+      if (inviteBusy) return
+      const targets = inviteTargets
+      if (!targets.length) return
+      if (!await confirmDialog({ title: '📱 ส่ง SMS ชวนผูก LINE', message: `ส่ง SMS จริงถึงลูกค้า ${targets.length} คน (ใช้เครดิต SMS คนละ 1–2 ข้อความ) แต่ละคนได้ลิงก์ผูก LINE ของตัวเอง แตะแล้วกด "ส่ง" ก็ผูกเสร็จ · คนที่ส่งไปแล้วจะไม่ส่งซ้ำภายใน ${LINE_INVITE_COOLDOWN_DAYS} วัน`, confirmText: 'ส่งเลย' })) return
+      inviteBusy = true; render()
+      const { sendSms } = await import('../../utils/comms.js')
+      let sent = 0, failed = 0, err = ''
+      for (const { b, phone } of targets) {
+        try {
+          const ready = await prepareLineLink([{ col: 'bookings', id: b.id }, ...(b.customerId ? [{ col: 'customers', id: b.customerId }] : [])])
+          if (!ready?.url) { failed++; if (!ready) break; continue }
+          await sendSms([phone], lineInviteSmsText(b.custName, ready.url))
+          await updateDocData('bookings', b.id, { lineInviteSmsAt: new Date().toISOString() }).catch(() => {})
+          sent++
+        } catch (e) { failed++; err = err || String(e?.message || e) }
+      }
+      inviteBusy = false; render()
+      showToast(`📱 ส่ง SMS ชวนผูก LINE แล้ว ${sent} คน${failed ? ` · ไม่สำเร็จ ${failed}${err ? ' (' + err + ')' : ''}` : ''}`, sent ? 'success' : 'error', 7000)
+    })
     container.querySelectorAll('.bk-brand-card').forEach(card => card.addEventListener('click', () => { brandFilter = card.dataset.br; render() }))
   }
 

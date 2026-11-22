@@ -80,3 +80,25 @@ export async function openLineLinkQr({ targets = [], name = '', phone = '' } = {
     poster: { heading: 'รับแจ้งสถานะรถทาง LINE', lines: [name ? `คุณ${name}` : '', 'สแกน แล้วกด "ส่ง" ข้อความที่ขึ้นมา', `รหัส ${code}`].filter(Boolean) },
   })
 }
+
+// (v1.0.1262) ส่ง SMS ชวนผูก LINE ทีละหลายคน (ใบจองที่ยังไม่ส่งมอบ ยังไม่ผูก) — ฟังก์ชันล้วน เลือกเป้าหมาย
+// มีเบอร์มือถือ 10 หลัก · ไม่ได้ส่งชวนในช่วง cooldownDays · เบอร์ซ้ำส่งครั้งเดียว
+export const LINE_INVITE_COOLDOWN_DAYS = 14
+export function pickLineInviteTargets(bookings = [], nowMs = Date.now(), cooldownDays = LINE_INVITE_COOLDOWN_DAYS) {
+  const seen = new Set(), out = []
+  for (const b of bookings) {
+    if (!needsLineLink(b)) continue
+    const phone = String(b.phone || b.custPhone || '').replace(/\D/g, '').replace(/^66/, '0')
+    if (!/^0[689]\d{8}$/.test(phone) || seen.has(phone)) continue
+    const last = Date.parse(b.lineInviteSmsAt || '')
+    if (last && nowMs - last < cooldownDays * 864e5) continue
+    seen.add(phone)
+    out.push({ b, phone })
+  }
+  return out
+}
+
+export function lineInviteSmsText(name, url) {
+  const n = String(name || '').trim().replace(/^คุณ/, '').split(/\s+/)[0]
+  return `สวัสดีครับ${n ? ' คุณ' + n : ''} ขอบคุณที่จองรถกับเรา${lineLinkInvite(url)}`
+}
