@@ -112,5 +112,6 @@ describe('LINE "ลีด" (v1.0.1290)', () => {
     expect(t).toContain('ใหม่ · รอ 45 นาที')
     expect(newLeadsAnswer([], { now: NOW })).toContain('ไม่มีลีดค้าง')
     expect(newLeadsAnswer(list, { now: NOW, max: 1 })).toContain('อีก 2 ราย')
+    expect(newLeadsAnswer(list, { now: NOW, appUrl: 'https://x.dev/' })).toContain('👉 https://x.dev/crm/customers')
   })
 })

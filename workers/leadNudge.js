@@ -138,7 +138,7 @@ export function uncontactedLeads(customers = [], { now = Date.now(), mine = () =
   }).sort((a, b) => ms(a.createdAt) - ms(b.createdAt))
 }
 const waitLabel = mins => mins >= 1440 ? `${Math.floor(mins / 1440)} วัน` : mins >= 60 ? `${Math.floor(mins / 60)} ชม.` : `${Math.max(0, mins)} นาที`
-export function newLeadsAnswer(customers = [], { now = Date.now(), mine, max = 8 } = {}) {
+export function newLeadsAnswer(customers = [], { now = Date.now(), mine, max = 8, appUrl = '' } = {}) {
   const list = uncontactedLeads(customers, { now, mine })
   if (!list.length) return '✅ ไม่มีลีดค้าง — ลีด 3 วันล่าสุดติดต่อครบแล้ว'
   const lines = [`📥 ลีดที่ยังไม่มีใครติดต่อ ${list.length} ราย (3 วันล่าสุด)`]
@@ -149,5 +149,7 @@ export function newLeadsAnswer(customers = [], { now = Date.now(), mine, max = 8
   }
   if (list.length > max) lines.push(`…และอีก ${list.length - max} ราย ดูทั้งหมดในแอป`)
   lines.push('โทรแล้วพิมพ์ "โทรแล้ว เบอร์" เพื่อบันทึก')
+  const base = String(appUrl || '').replace(/\/+$/, '')
+  if (base) lines.push(`👉 ${base}/crm/customers`)
   return lines.join('\n')
 }
