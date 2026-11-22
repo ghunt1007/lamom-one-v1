@@ -100,7 +100,7 @@ export default async function WashQueuePage(container) {
                     <div style="display:flex;gap:4px;margin-top:6px">
                       ${st === 'waiting' ? `<button class="btn btn-xs btn-warning start-btn" data-id="${q.id}" style="flex:1">🧽 เริ่ม</button>` : ''}
                       ${st === 'washing' ? `<button class="btn btn-xs btn-success finish-btn" data-id="${q.id}" style="flex:1">✅ เสร็จ</button>` : ''}
-                      ${st === 'done' ? `<button class="btn btn-xs btn-secondary deliver-btn" data-id="${q.id}" style="flex:1">🏁 ส่งมอบ + แจ้งลูกค้า</button>` : ''}
+                      ${st === 'done' ? `<button class="btn btn-xs btn-secondary deliver-btn" data-id="${escHtml(q.id)}" style="flex:1">🏁 ส่งมอบรถแล้ว</button>` : ''}
                     </div>
                   </div>`
                 }).join('') || '<div style="font-size:0.72rem;color:var(--text-muted);padding:10px;text-align:center">— ว่าง —</div>'}
@@ -134,7 +134,7 @@ export default async function WashQueuePage(container) {
       if (!q) return
       try {
         await updateDocData('wash_queue', q.id, { status: 'delivered' })
-        showToast('📱 แจ้งลูกค้า ' + q.customer + ' มารับรถแล้ว', 'success')
+        showToast('🏁 บันทึกส่งมอบรถ ' + q.plate + ' ให้ ' + q.customer + ' แล้ว', 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
