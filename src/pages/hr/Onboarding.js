@@ -2,6 +2,7 @@
  * Onboarding — ปฐมนิเทศพนักงานใหม่
  * Route: /hr/onboarding
  */
+import { escHtml } from '../../utils/escape.js'
 import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
@@ -77,8 +78,8 @@ export default async function OnboardingPage(container) {
               const xDone = (x.tasks||[]).filter(t => t.done).length
               const xPct = totalTasks ? Math.round(xDone / totalTasks * 100) : 0
               return `<div class="card staff-tab" data-id="${x.id}" style="padding:10px 12px;cursor:pointer;border:2px solid ${x.id===selected?'var(--primary)':'transparent'}">
-                <div style="font-weight:600;font-size:0.83rem">${x.name}</div>
-                <div style="font-size:0.68rem;color:var(--text-muted)">${x.role} · ${x.dept}</div>
+                <div style="font-weight:600;font-size:0.83rem">${escHtml(x.name)}</div>
+                <div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(x.role)} · ${escHtml(x.dept)}</div>
                 <div style="font-size:0.68rem;color:var(--text-muted)">เริ่ม: ${formatDate(x.startDate)}</div>
                 <div style="margin-top:6px;background:var(--surface-2);border-radius:3px;height:5px">
                   <div style="width:${xPct}%;background:var(--${xPct===100?'success':xPct>=50?'warning':'primary'});height:5px;border-radius:3px"></div>
@@ -95,8 +96,8 @@ export default async function OnboardingPage(container) {
               <div class="card" style="padding:14px;margin-bottom:12px">
                 <div style="display:flex;justify-content:space-between;margin-bottom:10px">
                   <div>
-                    <div style="font-weight:700;font-size:1rem">${s.name}</div>
-                    <div style="font-size:0.75rem;color:var(--text-muted)">${s.role} · ${s.dept} · เริ่ม ${formatDate(s.startDate)}</div>
+                    <div style="font-weight:700;font-size:1rem">${escHtml(s.name)}</div>
+                    <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(s.role)} · ${escHtml(s.dept)} · เริ่ม ${formatDate(s.startDate)}</div>
                   </div>
                   <div style="font-size:1.5rem;font-weight:900;color:var(--${pct===100?'success':pct>=50?'warning':'primary'})">${pct}%</div>
                 </div>
@@ -110,7 +111,7 @@ export default async function OnboardingPage(container) {
                     ${catTasks.map(t => `
                       <label style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer;font-size:0.8rem">
                         <input type="checkbox" class="task-check" data-sid="${s.id}" data-tid="${t.id}" ${t.done?'checked':''} style="accent-color:var(--primary)">
-                        <span style="${t.done?'text-decoration:line-through;color:var(--text-muted)':''}">${t.task}</span>
+                        <span style="${t.done?'text-decoration:line-through;color:var(--text-muted)':''}">${escHtml(t.task)}</span>
                         <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted)">วันที่ ${t.dueDay}</span>
                       </label>
                     `).join('')}

@@ -92,7 +92,7 @@ export default async function LineOaManagerPage(container) {
               return `<div class="card" style="padding:13px 14px;border-left:3px solid var(--${mt?.color})">
                 <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
                   <div>
-                    <div style="font-weight:700;font-size:0.87rem">${b.name}</div>
+                    <div style="font-weight:700;font-size:0.87rem">${escHtml(b.name)}</div>
                     <div style="font-size:0.7rem;color:var(--text-muted)">${b.status === 'scheduled' ? '⏰ กำหนดส่ง ' + formatDate(b.time) : 'ส่งแล้ว ' + timeAgo(b.time)}</div>
                   </div>
                   <span class="badge badge-${mt?.color}" style="font-size:0.62rem">${mt?.icon} ${mt?.label}</span>
@@ -115,8 +115,8 @@ export default async function LineOaManagerPage(container) {
               <div class="card" style="padding:12px 14px${a.active?'':';opacity:0.55'}">
                 <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
                   <div style="flex:1">
-                    <div style="font-size:0.75rem;color:var(--text-muted)">Keywords: <strong style="color:var(--primary)">${a.keyword}</strong></div>
-                    <div style="font-size:0.8rem;margin-top:4px;background:var(--surface-2);padding:8px 10px;border-radius:var(--radius-sm)">🤖 ${a.reply}</div>
+                    <div style="font-size:0.75rem;color:var(--text-muted)">Keywords: <strong style="color:var(--primary)">${escHtml(a.keyword)}</strong></div>
+                    <div style="font-size:0.8rem;margin-top:4px;background:var(--surface-2);padding:8px 10px;border-radius:var(--radius-sm)">🤖 ${escHtml(a.reply)}</div>
                   </div>
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">

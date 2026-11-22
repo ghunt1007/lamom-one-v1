@@ -138,8 +138,8 @@ export default async function TechnicianSchedulePage(container) {
                   const sched = shiftsFor(t.id)
                   return `<tr style="border-bottom:1px solid var(--border)">
                     <td style="padding:8px 14px">
-                      <div style="font-weight:600;font-size:0.83rem">${t.name}</div>
-                      <div style="font-size:0.68rem;color:var(--text-muted)">${t.level} · Eff ${t.efficiency}%</div>
+                      <div style="font-weight:600;font-size:0.83rem">${__escA(t.name)}</div>
+                      <div style="font-size:0.68rem;color:var(--text-muted)">${__escA(t.level)} · Eff ${t.efficiency}%</div>
                     </td>
                     ${sched.map((s, i) => {
                       const label = SHIFT_LABELS[s] || '—'
@@ -164,8 +164,8 @@ export default async function TechnicianSchedulePage(container) {
             return `<div class="card" style="padding:14px">
               <div style="display:flex;justify-content:space-between;margin-bottom:10px">
                 <div>
-                  <div style="font-weight:700;font-size:0.88rem">${t.name}</div>
-                  <div style="font-size:0.7rem;color:var(--text-muted)">${t.level}</div>
+                  <div style="font-weight:700;font-size:0.88rem">${__escA(t.name)}</div>
+                  <div style="font-size:0.7rem;color:var(--text-muted)">${__escA(t.level)}</div>
                 </div>
                 <div style="font-size:1.3rem;font-weight:900;color:${effColor}">${eff}%</div>
               </div>
@@ -205,7 +205,7 @@ export default async function TechnicianSchedulePage(container) {
     const current = shiftsFor(techId)[dayIdx]
     const dayDate = weekDatesOf(selectedWeekStart)[dayIdx]
     openModal({
-      title: `🗓️ เวร ${t.name} — วัน${WEEK_DAYS[dayIdx]} (${formatDate(dayDate)})`,
+      title: `🗓️ เวร ${__escA(t.name)} — วัน${WEEK_DAYS[dayIdx]} (${formatDate(dayDate)})`,
       size: 'sm',
       body: `
         <div class="input-group"><label class="input-label">ประเภทเวร</label>
@@ -237,7 +237,7 @@ export default async function TechnicianSchedulePage(container) {
       body: `
         <div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">ช่าง</label>
-            <select class="input" id="as-tech">${techs.map(t=>`<option value="${__escA(t.id)}" ${tech?.id===t.id?'selected':''}>${t.name} (${t.jobsToday} งาน)</option>`).join('')}</select>
+            <select class="input" id="as-tech">${techs.map(t=>`<option value="${__escA(t.id)}" ${tech?.id===t.id?'selected':''}>${__escA(t.name)} (${t.jobsToday} งาน)</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ประเภทงาน</label>
             <select class="input" id="as-type">

@@ -99,7 +99,7 @@ export default async function BranchComparisonPage(container) {
             const pct = Math.round(b[metric] / maxV * 100)
             return `<div style="margin-bottom:12px">
               <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:4px">
-                <span>${i===0?'👑 ':''}${b.name}</span>
+                <span>${i===0?'👑 ':''}${escHtml(b.name)}</span>
                 <strong>${m?.fmt(b[metric])}</strong>
               </div>
               <div style="background:var(--surface-2);border-radius:4px;height:16px">
@@ -131,7 +131,7 @@ export default async function BranchComparisonPage(container) {
                     <div style="display:flex;align-items:center;gap:6px">
                       <div style="width:8px;height:8px;border-radius:50%;background:${b.color}"></div>
                       <div>
-                        <div style="font-weight:600">${b.name}</div>
+                        <div style="font-weight:600">${escHtml(b.name)}</div>
                         <div style="font-size:0.65rem;color:var(--text-muted)">👤 ${b.manager} · ${b.staff} คน</div>
                       </div>
                     </div>
