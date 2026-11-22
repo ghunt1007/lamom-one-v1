@@ -93,7 +93,7 @@ export default async function OffboardingPage(container) {
           ${o ? `<div class="card" style="padding:16px">
             <div style="display:flex;justify-content:space-between;margin-bottom:10px">
               <div>
-                <div style="font-weight:700;font-size:1rem">${o.name}</div>
+                <div style="font-weight:700;font-size:1rem">${esc(o.name)}</div>
                 <div style="font-size:0.73rem;color:var(--text-muted)">${esc(o.role)} · ${esc(o.dept)} · วันสุดท้าย ${formatDate(o.lastDay)}</div>
                 <div style="font-size:0.73rem;color:var(--text-muted)">📌 เหตุผล: ${esc(o.reason)} · 🤝 ผู้รับช่วง: ${esc(o.successor)}</div>
               </div>
@@ -105,7 +105,7 @@ export default async function OffboardingPage(container) {
                 ${OFFBOARD_TASKS.filter(t => t.cat === cat).map(t => `
                   <label style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer;font-size:0.8rem">
                     <input type="checkbox" class="ob-check" data-oid="${o.id}" data-t="${t.id}" ${o.tasks?.[t.id]?'checked':''} style="accent-color:var(--primary)">
-                    <span style="${o.tasks?.[t.id]?'text-decoration:line-through;color:var(--text-muted)':''}">${t.task}</span>
+                    <span style="${o.tasks?.[t.id]?'text-decoration:line-through;color:var(--text-muted)':''}">${esc(t.task)}</span>
                   </label>
                 `).join('')}
               </div>
