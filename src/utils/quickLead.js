@@ -107,7 +107,7 @@ function offerFirstReply(c, me) {
 }
 
 // extra = ฟิลด์เพิ่มของลูกค้าคนแรกที่บันทึก (เช่น lineUserId จากกล่องแชต LINE — ทำให้ส่ง LINE เฉพาะกลุ่มถึงคนนี้ได้)
-export function openQuickLead({ onFull, pasteText = '', name = '', contact = '', model = '', source: initialSource = '', extra = null } = {}) {
+export function openQuickLead({ onFull, pasteText = '', name = '', contact = '', model = '', source: initialSource = '', extra = null, eventId = '', onSaved = null } = {}) {
   const me = getState('user') || {}
   let source = QUICK_SOURCES.some(([k]) => k === initialSource) ? initialSource : 'walk-in'
   let existing = null
@@ -134,7 +134,9 @@ export function openQuickLead({ onFull, pasteText = '', name = '', contact = '',
     eventsById = Object.fromEntries(evs.map(e => [e.id, e]))
     // (v1.0.995) เลือกงานไว้ให้เฉพาะคนที่อยู่บูธวันนี้ (มีเวรวันนี้ / อยู่ในทีมงานเมื่อยังไม่จัดเวร) — คนที่อยู่โชว์รูมเพิ่ม Walk-in ระหว่างงาน จะไม่ถูกนับเป็น Lead ของงานผิดๆ
     const mine = evs.find(e => onBoothToday(e, me.displayName, todayBangkok()))
-    if (!initialSource && mine) box.querySelector(`[data-ev="${CSS.escape(mine.id)}"]`)?.click()
+    // (v1.0.1318) เปิดจากหน้าเช็กอินงาน → เลือกงานนั้นไว้ให้เลย
+    if (eventId && eventsById[eventId]) box.querySelector(`[data-ev="${CSS.escape(eventId)}"]`)?.click()
+    else if (!initialSource && mine) box.querySelector(`[data-ev="${CSS.escape(mine.id)}"]`)?.click()
   }).catch(() => {})
   // โหลดลูกค้าล่าสุดไว้เช็คซ้ำ (ไม่บล็อกการเปิดฟอร์ม — ถ้าโหลดไม่ทันก็บันทึกได้ตามปกติ)
   const loaded = listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000).then(r => {
@@ -265,6 +267,8 @@ export function openQuickLead({ onFull, pasteText = '', name = '', contact = '',
       const id = await createDoc('customers', doc)
       if (existing) existing.unshift({ ...doc, id })
       extra = null
+      try { onSaved?.({ ...doc, id }) } catch {}
+      onSaved = null
       const fu = await scheduleLeadFollowups(doc, id)
       showToast(`✅ เพิ่ม ${name} แล้ว (${doc.stage === 'lead' ? 'Lead' : 'Prospect'})${fu ? ` · นัดติดตาม ${fu} ครั้ง` : ''}`, 'success')
       if (keepOpen) {

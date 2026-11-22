@@ -10,7 +10,7 @@ import { timeAgo, todayBangkok } from '../../utils/format.js'
 import { dmy } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
-import { listDocs, createDoc } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { getSalesStaff } from '../../data/masterData.js'
@@ -102,7 +102,7 @@ export default async function EventCheckinPage(container) {
               </div>
               <div style="display:flex;gap:6px;align-items:center">
                 <span class="badge badge-${it.color}" style="font-size:0.65rem">${it.label}</span>
-                ${ev && v.phone ? `<button class="btn btn-secondary btn-xs" data-lead="${esc(v.id)}" title="เพิ่มเป็นลูกค้าลีด ติดป้ายงานนี้">➕ ลีด</button>` : ''}
+                ${v.customerId ? `<span class="badge badge-success" style="font-size:0.65rem">✓ เป็นลีดแล้ว</span>` : ev && v.phone ? `<button class="btn btn-secondary btn-xs" data-lead="${esc(v.id)}" title="เพิ่มเป็นลูกค้าลีด ติดป้ายงานนี้">➕ ลีด</button>` : ''}
               </div>
             </div>`
           }).join('')}
@@ -114,7 +114,14 @@ export default async function EventCheckinPage(container) {
     container.querySelector('#ec-ev')?.addEventListener('change', e => { selId = e.target.value; renderPage() })
     container.querySelectorAll('[data-lead]').forEach(b => b.addEventListener('click', () => {
       const v = list.find(x => x.id === b.dataset.lead); if (!v) return
-      openQuickLead({ name: v.name || '', contact: v.phone || '', model: v.model && v.model !== '—' && v.model !== 'ยังไม่แน่ใจ' ? v.model : '', source: 'event' })
+      openQuickLead({
+        name: v.name || '', contact: v.phone || '', model: v.model && v.model !== '—' && v.model !== 'ยังไม่แน่ใจ' ? v.model : '', eventId: ev?.id || '',
+        onSaved: async c => {
+          v.customerId = c.id
+          if (container.__routerGen === myGen) renderPage()
+          try { await updateDocData('event_visitors', v.id, { customerId: c.id }) } catch {}
+        },
+      })
     }))
 
     container.querySelector('#checkin-btn')?.addEventListener('click', () => {
