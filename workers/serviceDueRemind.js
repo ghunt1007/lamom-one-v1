@@ -60,3 +60,24 @@ export async function runServiceDue(deps) {
   }
   return { sent, failed }
 }
+
+// (v1.0.1291) คำสั่ง LINE "ครบระยะ" สำหรับทีมงาน — รถที่ถึงกำหนดเช็คระยะ (เลยกำหนดไม่เกิน 30 วัน ถึงอีก 7 วัน) และยังไม่ได้นัด
+// เลยกำหนดก่อน แล้วตามวันครบกำหนด · บอกว่าระบบส่ง LINE เตือนลูกค้าไปแล้วหรือยัง (lineDueSent)
+export function dueListAnswer(reminders = [], today, { ahead = SERVICE_DUE_DAYS, overdue = 30, max = 10 } = {}) {
+  const t = dayNum(today)
+  const rows = (reminders || []).filter(r => r && !r.deleted && !r.booked && /^\d{4}-\d{2}-\d{2}$/.test(day(r.dueDate)))
+    .map(r => ({ r, left: dayNum(day(r.dueDate)) - t }))
+    .filter(x => x.left <= ahead && x.left >= -overdue)
+    .sort((a, b) => a.left - b.left)
+  if (!rows.length) return `✅ ไม่มีรถครบระยะที่ยังไม่ได้นัด (เลยกำหนด ${overdue} วัน ถึงอีก ${ahead} วัน)`
+  const late = rows.filter(x => x.left < 0).length
+  const lines = [`🔧 รถครบระยะที่ยังไม่ได้นัด ${rows.length} คัน${late ? ` (เลยกำหนด ${late})` : ''}`]
+  for (const { r, left } of rows.slice(0, max)) {
+    const when = left < 0 ? `เลย ${-left} วัน` : left === 0 ? 'วันนี้' : `อีก ${left} วัน`
+    const car = [String(r.model || '').trim(), String(r.plate || '').trim()].filter(Boolean).join(' ')
+    const p = digits(r.phone)
+    lines.push([`• ${String(r.customer || '').trim() || 'ไม่ระบุชื่อ'}`, car, p.length === 10 ? `${p.slice(0, 3)}-${p.slice(3, 6)}-${p.slice(6)}` : p, `${dmy(day(r.dueDate))} (${when})`, r.lineDueSent === day(r.dueDate) ? '💬 เตือนทาง LINE แล้ว' : ''].filter(Boolean).join(' · '))
+  }
+  if (rows.length > max) lines.push(`…และอีก ${rows.length - max} คัน ดูทั้งหมดในหน้าแจ้งเตือนเช็คระยะ`)
+  return lines.join('\n')
+}

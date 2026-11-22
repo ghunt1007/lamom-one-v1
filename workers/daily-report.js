@@ -52,7 +52,7 @@ import { runChatNudge } from './chatNudge.js'
 import { pickWakeLeads } from '../src/utils/wakeLeads.js'
 import { orderForecast, forecastOrderMessage } from '../src/utils/orderForecast.js'
 import { runApptRemind } from './apptRemind.js'
-import { runServiceDue } from './serviceDueRemind.js'
+import { runServiceDue, dueListAnswer } from './serviceDueRemind.js'
 import { runJobReady } from './jobReadyLine.js'
 import { matchReadyCars, etaForBookings, needsBooking, ORDER_LIVE } from '../src/utils/orderNeeds.js'
 import { waitEtaAnswer, forecastAnswer } from '../src/utils/opsQuestions.js'
@@ -681,6 +681,16 @@ async function handleLineWebhook(request, env, cors) {
           reply = clipLine(newLeadsAnswer(customers, { now: Date.now(), mine }))
         } catch { reply = '⚠️ ดึงลีดไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'due') {
+      // (v1.0.1291) รถครบระยะที่ยังไม่ได้นัด — ทีมงานที่ลงทะเบียน/เจ้าของเท่านั้น · คนอื่นพิมพ์ = ข้อความปกติ
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      if (me?.name || (owner && owner === userId)) {
+        try {
+          const rows = await runQuery(env, accessToken, 'service_reminders', null, null, 3000, ['customer', 'phone', 'plate', 'model', 'dueDate', 'booked', 'lineDueSent', 'deleted'])
+          reply = clipLine(dueListAnswer(rows, todayBangkok()))
+        } catch { reply = '⚠️ ดึงรายการครบระยะไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'forecast') {
       // (v1.0.1256) เฉพาะเจ้าของ (ปลายทางรายงาน) — การสั่งรถเป็นเรื่องของเจ้าของ คนอื่นพิมพ์ = ข้อความปกติ
       const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
@@ -755,6 +765,7 @@ export function parseLineCommand(text) {
   // (v1.0.1279) ทีมงานดูงานศูนย์บริการ (กำลังซ่อม/รออะไหล่/เสร็จรอรับ)
   if (/^(?:งานซ่อม|งานศูนย์|ใบงาน|jobs)$/i.test(t.replace(/\s+/g, ''))) return { type: 'jobs' }
   if (/^(?:ลีด|ลีดใหม่|ลีดค้าง|leads?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'leads' }
+  if (/^(?:ครบระยะ|รถครบระยะ|due)$/i.test(t.replace(/\s+/g, ''))) return { type: 'due' }
   // (v1.0.1256) เจ้าของดูคาดการณ์สั่งรถ 45 วัน (สูตรเดียวกับหน้าตารางสีรถ)
   if (/^(?:สั่งรถ|ควรสั่งรถ|คาดการณ์สั่งรถ|คาดการณ์|forecast)$/i.test(t.replace(/\s+/g, ''))) return { type: 'forecast' }
   return { type: 'none' }
@@ -1750,6 +1761,7 @@ export const LINE_HELP_TEXT = [
   '• ร้อน / อุ่น / เย็น 0812345678 — ตั้งความสนใจลูกค้า (Hot/Warm/Cold)',
   '• งานซ่อม — ใบงานศูนย์บริการที่ค้าง + รถเสร็จรอลูกค้ารับ',
   '• ลีด — ลีด 3 วันล่าสุดที่ยังไม่มีใครติดต่อ',
+  '• ครบระยะ — รถถึงกำหนดเช็คระยะที่ยังไม่ได้นัด',
   '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
   '• สั่งรถ — คาดการณ์ว่าควรสั่งรถรุ่น/สีไหน (เฉพาะเจ้าของ)',
   '• ลงทะเบียน ชื่อเซลส์ — รับงานค้างทุก 9 โมงเช้า',
