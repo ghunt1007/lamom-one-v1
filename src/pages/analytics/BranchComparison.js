@@ -7,6 +7,7 @@ import { showToast } from '../../core/store.js'
 import { getSalesData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { escHtml } from '../../utils/escape.js'
 
 const BRANCHES = [] // (2026-11-02) เอาสาขาสมมติ (บางนา/รามอินทรา/รังสิต) ออก — โชว์เฉพาะสาขาจากยอดขายจริง
 
@@ -83,7 +84,7 @@ export default async function BranchComparisonPage(container) {
           ${kpi('🏢 สาขา', liveBranches.length, 'primary')}
           ${kpi('🚗 ขายรวม', totalSales + ' คัน', 'success')}
           ${kpi('💰 รายได้รวม', formatCurrency(totalRevenue), 'warning')}
-          ${kpi('👑 สาขาดีสุด', best?.name?.replace('สาขา','') || '-', 'secondary')}
+          ${kpi('👑 สาขาดีสุด', escHtml(best?.name?.replace('สาขา','') || '-'), 'secondary')}
         </div>
 
         <!-- Metric picker -->
