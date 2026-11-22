@@ -10,6 +10,7 @@ describe('stockAnalysis', () => {
       { brand: 'DEEPAL', model: 'S07', status: 'sold', arrivedAt: '2026-07-01' },
       { brand: 'DEEPAL', model: 'L07', status: 'available', arrivedAt: '' },
       { brand: 'DEEPAL', model: 'L07', status: 'available', deleted: true },
+      { brand: 'DEEPAL', model: 'L07', status: 'transit', arrivedAt: '2026-05-01' }, // ยังไม่ถึง — ไม่นับอายุ
     ]
     const bookings = [
       { model: 'Deepal S07', status: 'ส่งมอบแล้ว', cutDate: '2026-11-10' },
@@ -22,7 +23,7 @@ describe('stockAnalysis', () => {
     expect(s07).toMatchObject({ stock: 2, reserved: 1, avail: 1, sold30: 2, price: 1199000, dos: 15 })
     expect(s07.status.label).toBe('ปกติ')
     const l07 = models.find(m => m.name === 'DEEPAL L07')
-    expect(l07).toMatchObject({ stock: 1, sold30: 0, dos: null })
+    expect(l07).toMatchObject({ stock: 2, sold30: 0, dos: null })
     expect(l07.status.label).toBe('ไม่มีขาย 30 วัน')
     expect(aging.map(a => a.count)).toEqual([1, 0, 0, 1, 0]) // 20/11 → 3 วัน, 01/08 → 114 วัน
     expect(aging[0].pct).toBe(50)

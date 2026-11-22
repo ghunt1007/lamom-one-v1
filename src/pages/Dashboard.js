@@ -1354,7 +1354,7 @@ export default async function DashboardPage(container) {
       if (staleLeads.length) alerts.push({ icon: '🧲', sev: 'warning', nav: '/crm/my-day' /* มีรายการ "Lead ไม่ได้ติดตามเกิน 3 วัน" พร้อมปุ่มโทร */, text: `Lead ใหม่ยังไม่ติดตามเกิน 3 วัน: ${staleLeads.length} ราย`, age: null })
 
       // รถค้างสต็อกเกิน 90 วัน (สรุปรวม)
-      const agingStock = vehicles.filter(v => !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว'].includes(v.status) && !v.deleted && stockSince(v) && daysSince(stockSince(v)) >= 90)
+      const agingStock = vehicles.filter(v => !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว', 'transit'].includes(v.status) && !v.deleted && stockSince(v) && daysSince(stockSince(v)) >= 90)
       if (agingStock.length) alerts.push({ icon: '🚗', sev: 'warning', nav: '/dms/aging', text: `รถค้างสต็อกเกิน 90 วัน: ${agingStock.length} คัน`, age: null })
 
       const badge = document.getElementById('alert-count')

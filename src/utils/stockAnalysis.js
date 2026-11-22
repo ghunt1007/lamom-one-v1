@@ -42,7 +42,9 @@ export function stockAnalysis({ vehicles = [], bookings = [], today } = {}) {
   })
   const aging = AGING_BUCKETS.map(([range]) => ({ range, count: 0, pct: 0 }))
   let aged = 0
-  for (const v of inStock) {
+  // รถกำลังขนส่งยังไม่ถึงโชว์รูม — ไม่นับอายุสต็อก
+  const onSite = inStock.filter(v => !['transit', 'ระหว่างขนส่ง'].includes(v.status))
+  for (const v of onSite) {
     const age = stockAgeDays(vehicleArrived(v), today)
     if (age == null) continue
     aged++
@@ -50,5 +52,5 @@ export function stockAnalysis({ vehicles = [], bookings = [], today } = {}) {
     if (i >= 0) aging[i].count++
   }
   aging.forEach(a => { a.pct = aged ? Math.round(a.count / aged * 100) : 0 })
-  return { models, aging, noDate: inStock.length - aged }
+  return { models, aging, noDate: onSite.length - aged }
 }
