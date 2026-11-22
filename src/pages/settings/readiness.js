@@ -5,6 +5,10 @@
 import { dmy, hm } from '../../utils/format.js'
 
 const BACKUP_MAX_AGE_MS = 36 * 3600 * 1000
+export const CUSTOMER_LINE_SWITCHES = [
+  ['statusLine', 'แจ้งสถานะรถ'], ['apptLine', 'เตือนนัดพรุ่งนี้'], ['serviceDueLine', 'เตือนถึงกำหนดเข้าศูนย์'],
+  ['jobReadyLine', 'แจ้งรถซ่อมเสร็จ'], ['statusAsk', 'ตอบลูกค้าถามสถานะรถ'],
+]
 
 /**
  * @param {{status?:object|null, auto?:object|null, lastBackupMs?:number|null, now?:number}} i
@@ -34,6 +38,10 @@ export function readinessItems({ status, auto, lastBackupMs, sheet, reports, com
   sw('publicform', 'เปิดฟอร์มรับลูกค้าสาธารณะ', auto?.publicForm, 'เจ้าของเปิดเองที่หน้าช่องทางโซเชียล → ตอบอัตโนมัติ · ลิงก์แนะนำเพื่อน, หน้าแคมเปญ, ลิงก์ UTM และ QR ทุกอัน (บูธ/ติดรถ) ใช้ฟอร์มนี้')
   sw('aireply', 'เปิด AI ตอบแชตอัตโนมัติ', auto?.aiReply, 'เจ้าของเปิดเองเมื่อพร้อม (ทดสอบข้อความก่อน)')
   sw('leadalert', 'แจ้งเตือนลีดใหม่ทาง LINE', auto?.leadAlert !== false, 'เปิดสวิตช์ "แจ้งเตือนทันที" ที่หน้าช่องทางโซเชียล')
+  // (v1.0.1277) ข้อความอัตโนมัติถึงลูกค้าที่ผูก LINE แล้ว — ทุกตัวปิดไว้ก่อน เจ้าของเปิดเองเมื่อพร้อม
+  const custOff = CUSTOMER_LINE_SWITCHES.filter(([k]) => auto?.[k] !== true).map(([, l]) => l)
+  sw('custline', `ข้อความอัตโนมัติถึงลูกค้าทาง LINE (เปิด ${CUSTOMER_LINE_SWITCHES.length - custOff.length}/${CUSTOMER_LINE_SWITCHES.length})`, !custOff.length,
+    `ยังปิด: ${custOff.join(' · ')} — เปิดได้ที่หน้าช่องทางโซเชียล → 🤖 (ส่งเฉพาะลูกค้าที่ผูก LINE แล้วและไม่ได้ขอเลิกรับ)`)
 
   // (v1.0.1158) Google Sheet DATA Booking — ระบบเปิดไฟล์เองได้ไหม (ปุ่มซิงก์ไม่ต้องโหลดไฟล์เอง + แถบเตือน Sheet มีแก้ไข)
   // sheet: { ok:true } | { code:'not_shared', shareWith } | null (ตรวจไม่ได้)
