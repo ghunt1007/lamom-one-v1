@@ -70,3 +70,23 @@ describe('payAnswer', () => {
     expect(payFollowUps(parsePaySpec('ผ่อน 899000 เท่าไหร่', []))).toEqual(['ผ่อน ราคา 899000 ดาวน์ 25% 72 งวด'])
   })
 })
+
+describe('เรทไฟแนนซ์จริง (v1.0.1284)', () => {
+  it('realRates เลือกต่ำสุดต่อระยะ ข้ามที่ลบ/0', async () => {
+    const { realRates } = await import('./payQuestions.js')
+    expect(realRates([{ name: 'ก', rates: { 60: 2.9, 72: 3.1 } }, { name: 'ข', rates: { 60: 2.69, 72: 0 } }, { name: 'ค', deleted: true, rates: { 60: 1 } }]))
+      .toEqual({ 60: { rate: 2.69, name: 'ข' }, 72: { rate: 3.1, name: 'ก' } })
+    expect(realRates([])).toBe(null)
+  })
+  it('payAnswer ใช้เรทจริงเมื่อไม่ได้พิมพ์ดอกเบี้ย · พิมพ์เองชนะ', async () => {
+    const { withRealRates } = await import('./payQuestions.js')
+    const banks = [{ name: 'ข', rates: { 60: 2.5 } }]
+    const t = payAnswer(withRealRates(parsePaySpec('ราคา 1,000,000 ดาวน์ 20% 60 งวด ผ่อนเท่าไหร่', []), banks))
+    expect(t).toContain('60 งวด → ฿15,000/เดือน') // 800,000×(1+2.5%×5)/60
+    expect(t).toContain('ดอกเบี้ยต่ำสุดจากเรทไฟแนนซ์ที่ตั้งไว้ 60 งวด 2.5%')
+    const own = payAnswer(withRealRates(parsePaySpec('ราคา 1,000,000 ดาวน์ 20% 60 งวด ดอก 3 ผ่อนเท่าไหร่', []), banks))
+    expect(own).toContain('ดอกเบี้ยคงที่ 3% ต่อปี')
+    const c = payCustomerText(withRealRates(parsePaySpec('ราคา 1,000,000 ดาวน์ 20% ผ่อนเท่าไหร่', []), [{ rates: { 48: 2.4, 60: 2.5 } }]))
+    expect(c).toContain('ดอกเบี้ย 2.4–2.79% ต่อปี')
+  })
+})
