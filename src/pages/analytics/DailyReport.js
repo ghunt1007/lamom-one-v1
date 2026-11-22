@@ -108,30 +108,21 @@ export default async function DailyReportPage(container) {
 
     const weekData = buildWeek(allSales, viewDate)
 
-    const daySales = dataSource === 'live'
-      ? allSales.filter(s => (s.date || s.bookingDate || s.deliveryDate || '').slice(0, 10) === viewDate)
-      : []
-    const dayUnits = dataSource === 'live' ? daySales.length : 3
-    const dayRevenue = dataSource === 'live' ? daySales.reduce((a, s) => a + (s.salePrice || 0), 0) : 3897000
+    // (v1.0.1317) โหลดข้อมูลไม่สำเร็จ = แสดง 0 (เดิมโชว์ตัวเลข/ชื่อเซลส์/การแจ้งเตือนตัวอย่าง เช่น "วิชัย ยอดขาย" ฿3,897,000)
+    const daySales = allSales.filter(s => (s.date || s.bookingDate || s.deliveryDate || '').slice(0, 10) === viewDate)
+    const dayUnits = daySales.length
+    const dayRevenue = daySales.reduce((a, s) => a + (s.salePrice || 0), 0)
 
-    const monthSales = dataSource === 'live'
-      ? allSales.filter(s => (s.date || s.bookingDate || s.deliveryDate || '').slice(0, 7) === month)
-      : []
-    const monthRevenue = dataSource === 'live' ? monthSales.reduce((a, s) => a + (s.salePrice || 0), 0) : 39000000
+    const monthSales = allSales.filter(s => (s.date || s.bookingDate || s.deliveryDate || '').slice(0, 7) === month)
+    const monthRevenue = monthSales.reduce((a, s) => a + (s.salePrice || 0), 0)
     const monthPct = monthTarget ? Math.min(100, Math.round(monthRevenue / monthTarget * 100)) : 0
-    const monthUnits = dataSource === 'live' ? monthSales.length : 30
+    const monthUnits = monthSales.length
 
-    const topPerformers = dataSource === 'live'
-      ? buildTop(allSales, viewDate)
-      : [{ name: 'วิชัย ยอดขาย', units: 2, revenue: 2598000 }, { name: 'สุดา มาดี', units: 1, revenue: 1299000 }]
+    const topPerformers = buildTop(allSales, viewDate)
 
     const alerts = dataSource === 'live'
       ? buildAlerts(dayUnits, monthRevenue, monthTarget)
-      : [
-        { type: 'warning', msg: 'ยอดขายต่ำกว่าเป้า 40% — ต้องการ 2 คันเพิ่มเพื่อถึงเป้าวันนี้' },
-        { type: 'info', msg: 'มีนัด Service 3 คันในช่วงบ่าย' },
-        { type: 'success', msg: 'สุดา มาดี ปิดดีลได้ 1 คัน มูลค่า ฿1.3M' },
-      ]
+      : [{ type: 'warning', msg: 'โหลดข้อมูลยอดขายไม่สำเร็จ — ลองรีเฟรชหน้าอีกครั้ง' }]
 
     const maxRev = Math.max(...weekData.map(d => d.revenue), 1)
 

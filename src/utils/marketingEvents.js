@@ -272,3 +272,15 @@ export function onBoothToday(e, name, today) {
   if (Array.isArray(e?.staff) && e.staff.length) return !!me && e.staff.some(n => k(n) === me)
   return true
 }
+
+// (v1.0.1317) หน้าเช็กอินงานอีเวนต์
+// รายชื่อเซลส์ให้เลือก: เวรบูธวันนี้ก่อน → ทีมที่ไป → เซลส์ทั้งหมด (ไม่ซ้ำ) · คนที่ล็อกอินอยู่ขึ้นเป็นค่าเริ่มต้นถ้าอยู่ในรายชื่อ
+export function checkinStaff(e, today, allStaff = [], me = '') {
+  const list = [...new Set([...shiftsOn(e, today), ...(Array.isArray(e?.staff) ? e.staff : []), ...allStaff].map(s => String(s || '').trim()).filter(Boolean))]
+  const def = me && list.includes(me) ? me : (list[0] || '')
+  return { list, def }
+}
+
+export function visitorsOf(visitors, eventId) {
+  return (visitors || []).filter(v => !v.deleted && (eventId ? v.eventId === eventId : !v.eventId))
+}

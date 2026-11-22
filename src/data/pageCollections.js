@@ -952,7 +952,8 @@ export const PAGE_COLLECTIONS = {
   "parts_inventory"
  ],
  "/marketing/event-checkin": [
-  "event_visitors"
+  "event_visitors",
+  "marketing_events"
  ],
  "/finance/charging-cost": [
   "charging_sessions"
