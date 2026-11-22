@@ -8,6 +8,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { carOf } from '../../utils/carLabel.js'
+import { callLink } from '../../utils/callLink.js'
 
 const JOB_STATUS = {
   waiting:    { label: '⏳ รอรับรถ',      badge: 'primary' },
@@ -207,12 +208,13 @@ export default async function JobCardsPage(container) {
       body: `
         <div style="display:flex;gap:16px;flex-wrap:wrap">
           <div style="flex:2;min-width:250px;display:flex;flex-direction:column;gap:10px">
-            <div style="display:flex;gap:8px;align-items:center">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
               <span class="badge badge-${st.badge}" style="font-size:0.9rem">${st.label}</span>
               <span style="font-size:0.8rem;color:var(--text-muted)">${JOB_TYPE[j.type] || escHtml(j.type)}</span>
+              ${j.lineReadySent ? '<span class="badge badge-success" title="ระบบแจ้งลูกค้าทาง LINE ว่ารถพร้อมรับแล้ว">💬 แจ้ง LINE แล้ว</span>' : ''}
             </div>
             ${dRow('👤','ลูกค้า',j.custName)}
-            ${dRow('📱','โทร',j.phone||'-')}
+            ${j.phone ? `<div style="font-size:0.83rem;display:flex;gap:6px"><span>📱</span><span style="color:var(--text-muted);min-width:80px;flex-shrink:0">โทร</span><span>${callLink(j.phone, j.custName, { icon: '' })}</span></div>` : dRow('📱','โทร','-')}
             ${dRow('🚗','รถ',carOf(j))}
             ${dRow('🔢','ทะเบียน',j.plate||'-')}
             ${dRow('🛣','เลขไมล์',`${(j.mileage||0).toLocaleString()} km`)}
