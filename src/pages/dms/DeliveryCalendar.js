@@ -152,7 +152,7 @@ export default async function DeliveryCalendarPage(container) {
                   ${d.status === 'preparing' && prepPct === 100 ? `<button class="btn btn-xs btn-primary ready-btn" data-id="${d.id}">✅ พร้อมส่งมอบ</button>` : ''}
                   <button class="btn btn-xs btn-secondary postpone-btn" data-id="${d.id}">📅 เลื่อนนัด</button>
                 </div>
-              ` : `<div style="font-size:0.72rem;color:var(--success)">🎉 ส่งมอบเรียบร้อย — ส่ง LINE ขอบคุณ + นัดเช็คระยะแรก 1,000 km แล้ว</div>`}
+              ` : `<div style="font-size:0.72rem;color:var(--success)">🎉 ส่งมอบเรียบร้อย — นัดโทรดูแลหลังการขาย (7 / 30 วัน) และเตือนเช็กระยะครั้งแรก 6 เดือน อยู่ในหน้าติดตามลูกค้าและหน้าแจ้งเตือนเช็คระยะ</div>`}
             </div>`
           }).join('')}
         </div>
@@ -186,7 +186,7 @@ export default async function DeliveryCalendarPage(container) {
         await maybeMarkCustomerDelivered(delivered)
         await syncStockForBookings([delivered])
         const fu = await scheduleAfterSales({ ...d.raw, id: d.id, actualDeliveryDate: addDays(0) })
-        showToast(`🎉 ส่งมอบสำเร็จ!${fu ? ' ระบบนัดโทรหาลูกค้า 7 วัน / 30 วัน / เช็กระยะ 6 เดือนให้แล้ว' : ''}`, 'success')
+        showToast(`🎉 ส่งมอบสำเร็จ!${fu ? ' ระบบนัดโทรหาลูกค้า 7 วัน / 30 วัน / เช็กระยะ 6 เดือน และตั้งเตือนเช็กระยะครั้งแรกให้แล้ว' : ''}`, 'success')
         await loadData()
         const bk = { ...d.raw, id: d.id, status: LOCAL_TO_BOOKING_STATUS.delivered }
         if (needsIncome(bk)) await askDeliveryIncome(bk, { title: '🎉 ส่งมอบแล้ว — กรอกรายได้คันนี้' })
