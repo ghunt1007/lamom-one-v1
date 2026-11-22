@@ -122,15 +122,15 @@ export default async function JobCardsPage(container) {
       return
     }
 
-    wrap.innerHTML = `<div class="table-wrap">
-      <table>
+    wrap.innerHTML = `<div class="tbl-cards-wrap"><div class="table-wrap">
+      <table class="tbl-cards">
         <thead><tr>
           <th>เลขงาน</th><th>ลูกค้า</th><th>รถ/ทะเบียน</th><th>ประเภท</th>
           <th>รายการ</th><th>สถานะ</th><th>เบย์</th><th>ช่าง</th><th>เปิดเมื่อ</th><th></th>
         </tr></thead>
         <tbody>${filtered.map(j => tableRow(j)).join('')}</tbody>
       </table>
-    </div>`
+    </div></div>`
 
     document.querySelectorAll('.job-row').forEach(row => {
       row.addEventListener('click', e => {
@@ -183,11 +183,11 @@ export default async function JobCardsPage(container) {
           <div style="font-size:0.72rem;color:var(--text-muted);font-family:monospace">${escHtml(j.plate||'')}</div>
         </td>
         <td style="font-size:0.78rem">${JOB_TYPE[j.type] || escHtml(j.type)}</td>
-        <td style="font-size:0.8rem;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(j.desc||'')}">${escHtml(j.desc||'-')}</td>
+        <td style="font-size:0.8rem;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(j.desc||'')}">${j.desc ? escHtml(j.desc) : '<span class="tbl-empty">-</span>'}</td>
         <td><span class="badge badge-${st.badge}">${st.label}</span></td>
-        <td style="font-size:0.8rem;color:var(--text-2)">${escHtml(j.bay||'-')}</td>
-        <td style="font-size:0.8rem;color:var(--text-muted)">${escHtml(j.techName||'-')}</td>
-        <td style="font-size:0.75rem;color:var(--text-muted)">${timeAgo(j.createdAt)}</td>
+        <td style="font-size:0.8rem;color:var(--text-2)"${j.bay ? ' data-l="เบย์"' : ''}>${j.bay ? escHtml(j.bay) : '<span class="tbl-empty">-</span>'}</td>
+        <td style="font-size:0.8rem;color:var(--text-muted)"${j.techName ? ' data-l="ช่าง"' : ''}>${j.techName ? escHtml(j.techName) : '<span class="tbl-empty">-</span>'}</td>
+        <td style="font-size:0.75rem;color:var(--text-muted)" data-l="เปิด">${timeAgo(j.createdAt)}</td>
         <td style="white-space:nowrap">
           ${next ? `<button class="btn btn-primary btn-sm adv-j" data-id="${j.id}" title="เลื่อนสถานะ">→</button>` : '<span style="font-size:0.75rem;color:var(--success)">✅</span>'}
           <button class="btn btn-ghost btn-xs del-j" data-id="${j.id}" title="ลบ">🗑️</button>

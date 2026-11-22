@@ -222,8 +222,8 @@ export default async function WarrantyManagementPage(container) {
         </select>
       </div>
 
-      <div class="card" style="padding:0;overflow:hidden">
-        <div class="table-wrap"><table class="table">
+      <div class="card tbl-cards-wrap" style="padding:0;overflow:hidden">
+        <div class="table-wrap"><table class="table tbl-cards">
           <thead><tr>
             <th>รหัส</th><th>ลูกค้า</th><th>รถ</th><th>ประเภท</th>
             <th>วันหมดอายุ</th><th>เหลือ</th><th>เคลม</th><th>สถานะ</th><th>การจัดการ</th>
@@ -245,11 +245,11 @@ export default async function WarrantyManagementPage(container) {
                   <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(carOf(w))} ${w.year}</div>
                 </td>
                 <td><span style="font-size:0.82rem">${tp?.icon} ${tp?.label}</span></td>
-                <td style="font-size:0.83rem">${formatDate(w.endDate)}</td>
+                <td style="font-size:0.83rem" data-l="หมดอายุ">${formatDate(w.endDate)}</td>
                 <td style="font-size:0.83rem;color:${days < 0 ? 'var(--danger)' : days <= 90 ? 'var(--warning)' : 'var(--success)'}">
-                  ${days < 0 ? `หมดแล้ว ${Math.abs(days)} วัน` : `${days} วัน`}
+                  ${!Number.isFinite(days) ? '<span class="tbl-empty">-</span>' : days < 0 ? `หมดแล้ว ${Math.abs(days)} วัน` : `${days} วัน`}
                 </td>
-                <td style="text-align:center">${claimCount(w.id) > 0 ? `<span class="badge badge-warning">${claimCount(w.id)}</span>` : '<span style="color:var(--text-muted);font-size:0.8rem">-</span>'}</td>
+                <td style="text-align:center"${claimCount(w.id) > 0 ? ' data-l="เคลม"' : ''}>${claimCount(w.id) > 0 ? `<span class="badge badge-warning">${claimCount(w.id)}</span>` : '<span class="tbl-empty" style="color:var(--text-muted);font-size:0.8rem">-</span>'}</td>
                 <td><span class="badge badge-${st.color}">${st.label}</span></td>
                 <td>
                   <div style="display:flex;gap:4px">
@@ -345,7 +345,7 @@ export default async function WarrantyManagementPage(container) {
           </div>
           <div>
             <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">ข้อมูลรับประกัน</div>
-            ${row('ประเภท', `${tp?.icon} ${tp?.label}`)}${row('วันเริ่ม', formatDate(w.startDate))}${row('วันหมด', formatDate(w.endDate))}${row('ระยะทาง', `${(w.km/1000).toFixed(0)}k กม.`)}${row('สถานะ', `<span class="badge badge-${st.color}">${st.label}</span>`)}${row('เหลือ', `<span style="color:${days<0?'var(--danger)':days<=90?'var(--warning)':'var(--success)'};font-weight:700">${days < 0 ? `หมดแล้ว ${Math.abs(days)} วัน` : `${days} วัน`}</span>`)}
+            ${row('ประเภท', `${tp?.icon} ${tp?.label}`)}${row('วันเริ่ม', formatDate(w.startDate))}${row('วันหมด', formatDate(w.endDate))}${row('ระยะทาง', w.km ? `${(w.km/1000).toFixed(0)}k กม.` : '-')}${row('สถานะ', `<span class="badge badge-${st.color}">${st.label}</span>`)}${row('เหลือ', `<span style="color:${days<0?'var(--danger)':days<=90?'var(--warning)':'var(--success)'};font-weight:700">${!Number.isFinite(days) ? '- (ยังไม่มีวันเริ่ม)' : days < 0 ? `หมดแล้ว ${Math.abs(days)} วัน` : `${days} วัน`}</span>`)}
           </div>
         </div>
         <div style="margin-top:12px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.82rem;color:var(--text-muted)">${escHtml(w.notes)}</div>
