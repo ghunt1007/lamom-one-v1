@@ -733,6 +733,7 @@ export const PAGE_COLLECTIONS = {
   "marketing_budgets"
  ],
  "/service/reminders": [
+  "service_appointments",
   "service_reminders"
  ],
  "/finance/debt": [

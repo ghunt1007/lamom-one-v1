@@ -8,6 +8,8 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { callLink } from '../../utils/callLink.js'
+import { myEffectiveCompanyId } from '../../core/companyScope.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
 import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
@@ -55,7 +57,7 @@ export default async function ServiceReminderPage(container) {
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="add-reminder-btn">➕ เพิ่มการแจ้งเตือน</button>
-            ${pending > 0 ? `<button class="btn btn-primary" id="notify-all-btn">📤 แจ้งทั้งหมด (${pending})</button>` : ''}
+
           </div>
         </div>
 
@@ -79,9 +81,9 @@ export default async function ServiceReminderPage(container) {
             return `<div class="card" style="padding:12px 14px;border-left:3px solid var(--${rt?.color})${isOverdue?';background:var(--danger)08':''}">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
                 <div>
-                  <div style="font-weight:700;font-size:0.85rem">${r.customer} <span style="font-size:0.7rem;color:var(--text-muted)">📞 ${r.phone}</span></div>
-                  <div style="font-size:0.72rem;color:var(--text-muted)">🚗 ${r.plate} · ${r.model}</div>
-                  <div style="font-size:0.72rem;color:var(--${isOverdue?'danger':'text-muted'})">${rt?.icon} ${r.detail} · กำหนด ${formatDate(r.dueDate)}${isOverdue?' ❗ เกินกำหนด':''}</div>
+                  <div style="font-weight:700;font-size:0.85rem;overflow-wrap:anywhere">${escHtml(r.customer)} <span style="font-size:0.7rem;color:var(--text-muted)">${callLink(r.phone, r.customer)}</span></div>
+                  <div style="font-size:0.72rem;color:var(--text-muted)">🚗 ${escHtml(r.plate)}${r.model ? ' · ' + escHtml(r.model) : ''}</div>
+                  <div style="font-size:0.72rem;color:var(--${isOverdue?'danger':'text-muted'})">${rt?.icon || ''} ${escHtml(r.detail)} · กำหนด ${formatDate(r.dueDate)}${isOverdue?' ❗ เกินกำหนด':''}${r.booked && r.bookedDate ? ` · นัดเข้า ${formatDate(r.bookedDate)} ${escHtml(r.bookedTime || '')}` : ''}</div>
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
                   <span class="badge badge-${rt?.color}" style="font-size:0.6rem">${rt?.icon} ${rt?.label}</span>
@@ -92,9 +94,9 @@ export default async function ServiceReminderPage(container) {
                 </div>
               </div>
               <div style="display:flex;gap:6px">
-                ${!r.contacted ? `<button class="btn btn-xs btn-primary contact-btn" data-id="${r.id}">📤 ส่งแจ้งเตือน</button>` : ''}
-                ${r.contacted && !r.booked ? `<button class="btn btn-xs btn-success book-btn" data-id="${r.id}">📅 จองคิว</button><button class="btn btn-xs btn-secondary recontact-btn" data-id="${r.id}">📞 ติดตามอีกครั้ง</button>` : ''}
-                <button class="btn btn-xs btn-ghost del-reminder-btn" data-id="${r.id}" style="margin-left:auto" title="ลบ">🗑️</button>
+                ${!r.contacted ? `<button class="btn btn-xs btn-primary contact-btn" data-id="${escHtml(r.id)}" title="กดหลังโทร/ทักลูกค้าแล้ว">✓ ติดต่อแล้ว</button><button class="btn btn-xs btn-success book-btn" data-id="${escHtml(r.id)}">📅 จองคิว</button>` : ''}
+                ${r.contacted && !r.booked ? `<button class="btn btn-xs btn-success book-btn" data-id="${escHtml(r.id)}">📅 จองคิว</button><button class="btn btn-xs btn-secondary recontact-btn" data-id="${escHtml(r.id)}">📞 ติดตามอีกครั้ง</button>` : ''}
+                <button class="btn btn-xs btn-ghost del-reminder-btn" data-id="${escHtml(r.id)}" style="margin-left:auto" title="ลบ">🗑️</button>
               </div>
             </div>`
           }).join('')}
@@ -109,7 +111,7 @@ export default async function ServiceReminderPage(container) {
       if (!r) return
       try {
         await updateDocData('service_reminders', r.id, { contacted: true })
-        showToast(`📤 ส่งแจ้งเตือนถึง ${r.customer} แล้ว`, 'success')
+        showToast(`✓ บันทึกว่าติดต่อ ${r.customer} แล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
@@ -127,7 +129,7 @@ export default async function ServiceReminderPage(container) {
     container.querySelectorAll('.book-btn').forEach(b => b.addEventListener('click', () => {
       const r = reminders.find(x => x.id === b.dataset.id)
       if (r) openModal({
-        title: '📅 จองคิว: ' + r.customer,
+        title: '📅 จองคิว: ' + escHtml(r.customer),
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">วันที่นัด</label><input class="input" type="date" id="bk-date" value="${addDays(3)}"></div>
@@ -139,21 +141,15 @@ export default async function ServiceReminderPage(container) {
           const bookedDate = document.getElementById('bk-date')?.value || addDays(3)
           const bookedTime = document.getElementById('bk-time')?.value || ''
           try {
-            await updateDocData('service_reminders', r.id, { booked: true, bookedDate, bookedTime })
-            showToast('📅 จองคิวสำเร็จ!', 'success')
+            // (v1.0.1261) สร้างนัดจริงในหน้านัดเข้าศูนย์ด้วย (เดิมจดแค่ในรายการเตือน ไม่ขึ้นตารางนัด/ไม่มีเตือนวันก่อนนัด)
+            const apptId = r.apptId || await createDoc('service_appointments', { custName: r.customer || '', phone: r.phone || '', model: r.model || '', plate: r.plate || '', type: r.detail || 'เช็กระยะ', date: bookedDate, time: bookedTime, km: 0, note: 'จากรายการแจ้งเตือนเช็คระยะ', tech: '', status: 'scheduled', companyId: myEffectiveCompanyId() })
+            await updateDocData('service_reminders', r.id, { booked: true, contacted: true, bookedDate, bookedTime, apptId })
+            showToast(`📅 จองคิว ${formatDate(bookedDate)} ${bookedTime} แล้ว — ขึ้นในหน้านัดเข้าศูนย์ด้วย`, 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
-    document.getElementById('notify-all-btn')?.addEventListener('click', async () => {
-      const toNotify = reminders.filter(r => !r.contacted)
-      try {
-        await Promise.all(toNotify.map(r => updateDocData('service_reminders', r.id, { contacted: true })))
-        showToast('📤 ส่งแจ้งเตือนทั้งหมดแล้ว', 'success')
-        await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
-    })
     document.getElementById('add-reminder-btn')?.addEventListener('click', () => {
       openModal({
         title: '➕ เพิ่มการแจ้งเตือนเช็คระยะ',
