@@ -150,7 +150,7 @@ export default async function StockValuationPage(container) {
     document.getElementById('export-btn')?.addEventListener('click', () => {
       exportToExcel(list.map(s => ({
         ID: s.id, แบรนด์: s.brand, รุ่น: s.model, Variant: s.variant, สี: s.color, VIN: s.vin,
-        ต้นทุน: s.cost, ราคาขาย: s.listPrice, Margin: s.listPrice - s.cost, 'Margin%': (((s.listPrice - s.cost) / s.cost) * 100).toFixed(1) + '%',
+        ต้นทุน: s.cost, ราคาขาย: s.listPrice, Margin: s.listPrice - s.cost, 'Margin%': s.cost > 0 && s.listPrice > 0 ? (((s.listPrice - s.cost) / s.cost) * 100).toFixed(1) + '%' : '-',
         วันที่รับ: s.stockDate, วันในสต็อก: getAge(s.stockDate), สาขา: s.branch, สถานะ: STATUS_MAP[s.status]?.label
       })), 'stock_valuation')
       showToast('📥 Export แล้ว!', 'success')
@@ -171,7 +171,8 @@ export default async function StockValuationPage(container) {
           <tbody>
             ${list.map(s => {
               const margin = s.listPrice - s.cost
-              const marginPct = (margin / s.cost * 100).toFixed(1)
+              const hasPrice = s.cost > 0 && s.listPrice > 0
+              const marginPct = hasPrice ? (margin / s.cost * 100).toFixed(1) + '%' : '-'
               const age = getAge(s.stockDate)
               const st = STATUS_MAP[s.status] || STATUS_MAP.available
               const ageColor = age >= 90 ? 'var(--danger)' : age >= 60 ? 'var(--warning)' : 'var(--text-muted)'
@@ -186,10 +187,10 @@ export default async function StockValuationPage(container) {
                   <div style="font-family:monospace;font-size:0.68rem;color:var(--text-muted)">${escHtml(s.vin)}</div>
                 </td>
                 <td style="font-size:0.8rem">${escHtml(s.branch)}</td>
-                <td class="text-right" style="font-size:0.83rem">${formatCurrency(s.cost)}</td>
-                <td class="text-right" style="font-size:0.83rem;font-weight:600">${formatCurrency(s.listPrice)}</td>
-                <td class="text-right" style="font-size:0.83rem;color:var(--success);font-weight:600">${formatCurrency(margin)}</td>
-                <td class="text-right" style="font-size:0.83rem;color:var(--success)">${marginPct}%</td>
+                <td class="text-right" style="font-size:0.83rem">${s.cost > 0 ? formatCurrency(s.cost) : "-"}</td>
+                <td class="text-right" style="font-size:0.83rem;font-weight:600">${s.listPrice > 0 ? formatCurrency(s.listPrice) : "-"}</td>
+                <td class="text-right" style="font-size:0.83rem;color:var(--success);font-weight:600">${hasPrice ? formatCurrency(margin) : '-'}</td>
+                <td class="text-right" style="font-size:0.83rem;color:var(--success)">${marginPct}</td>
                 <td>
                   <div style="font-size:0.85rem;font-weight:700;color:${ageColor}">${age} วัน</div>
                   <div style="font-size:0.68rem;color:var(--text-muted)">${formatDate(s.stockDate)}</div>
@@ -233,7 +234,7 @@ export default async function StockValuationPage(container) {
         <div class="card" style="padding:16px">
           <div style="font-weight:700;font-size:0.9rem;margin-bottom:14px">📊 มูลค่าสต็อกตามแบรนด์</div>
           ${Object.entries(byBrand).map(([brand, data]) => {
-            const pct = Math.round(data.cost / maxCost * 100)
+            const pct = maxCost > 0 ? Math.round(data.cost / maxCost * 100) : 0
             const margin = data.listPrice - data.cost
             return `<div style="margin-bottom:12px">
               <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:0.83rem">
