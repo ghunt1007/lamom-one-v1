@@ -33,6 +33,7 @@ export const INBOX_DEFAULTS = {
   leadAlert: true, // (v1.0.1144) แจ้ง LINE + ในแอปทันทีเมื่อมีลีดใหม่เข้าทางฟอร์ม/webhook/Meta
   publicForm: false, // (v1.0.1140) เปิดฟอร์มรับลีดสาธารณะ /lead.html
   statusAsk: false, // (v1.0.1248) ลูกค้าที่ผูก LINE ถาม "รถมาเมื่อไหร่" → ตอบสถานะใบจองของตัวเอง — workers/statusAsk.js
+  jobReadyLine: false, // (v1.0.1265) แจ้งลูกค้าทาง LINE เมื่อใบงานศูนย์บริการเสร็จ — workers/jobReadyLine.js
   serviceDueLine: false, // (v1.0.1260) เตือนรถใกล้ถึงกำหนดเข้าศูนย์ทาง LINE — workers/serviceDueRemind.js
   apptLine: false, // (v1.0.1244) เตือนนัดพรุ่งนี้ทาง LINE (ลูกค้าที่ผูก LINE แล้ว) — workers/apptRemind.js
   statusLine: false, // (v1.0.1230) แจ้งสถานะรถทาง LINE อัตโนมัติ (เฉพาะลูกค้าที่ผูก LINE เองแล้ว) — ดู workers/lineLink.js
@@ -59,6 +60,7 @@ export function normalizeInboxAuto(raw = {}, env = {}) {
     statusLine: bool(r.statusLine, false),
     apptLine: bool(r.apptLine, false),
     serviceDueLine: bool(r.serviceDueLine, false),
+    jobReadyLine: bool(r.jobReadyLine, false),
     statusAsk: bool(r.statusAsk, false),
   }
 }

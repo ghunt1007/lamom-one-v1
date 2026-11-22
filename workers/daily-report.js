@@ -53,6 +53,7 @@ import { pickWakeLeads } from '../src/utils/wakeLeads.js'
 import { orderForecast, forecastOrderMessage } from '../src/utils/orderForecast.js'
 import { runApptRemind } from './apptRemind.js'
 import { runServiceDue } from './serviceDueRemind.js'
+import { runJobReady } from './jobReadyLine.js'
 import { matchReadyCars, etaForBookings, needsBooking, ORDER_LIVE } from '../src/utils/orderNeeds.js'
 import { waitEtaAnswer, forecastAnswer } from '../src/utils/opsQuestions.js'
 import { parseLinkCode, parseOptCommand, linkByCode, setOptOut, markFollow, runStatusLine, STATUS_BOOKING_FIELDS, STATUS_CUSTOMER_FIELDS } from './lineLink.js'
@@ -207,6 +208,7 @@ export default {
         await runStatusLineJob(e2, tok).catch(() => null)
         await runApptRemindJob(e2, tok).catch(() => null)
         await runServiceDueJob(e2, tok).catch(() => null)
+        await runJobReadyJob(e2, tok).catch(() => null)
       })())
       return
     }
@@ -334,6 +336,28 @@ async function runServiceDueJob(env, token) {
   const base = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`
   return runServiceDue({
     enabled: true, hour, today: now.toISOString().slice(0, 10),
+    list: (col, fields) => runQuery(env, token, col, null, null, 5000, fields).catch(() => []),
+    pushLine: env.LINE_CHANNEL_ACCESS_TOKEN ? async (to, text) => (await pushLine(env, to, text)).sent : null,
+    mark: async (col, id, fields) => {
+      const mask = Object.keys(fields).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&')
+      const res = await fetch(`${base}/${col}/${encodeURIComponent(id)}?${mask}&currentDocument.exists=true`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }),
+      }).catch(() => null)
+      return !!res?.ok
+    },
+  })
+}
+
+// (v1.0.1265) แจ้งลูกค้าทาง LINE เมื่อใบงานศูนย์บริการเสร็จ (รถพร้อมรับ) — เฉพาะเมื่อเปิดสวิตช์ (workers/jobReadyLine.js)
+async function runJobReadyJob(env, token) {
+  if (!token) return null
+  const hour = new Date(Date.now() + 7 * 3600e3).getUTCHours()
+  if (hour < 8 || hour > 19) return null
+  const inbox = await readInboxAuto(env, token).catch(() => null)
+  if (!inbox?.jobReadyLine) return null
+  const base = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`
+  return runJobReady({
+    enabled: true, hour, nowMs: Date.now(),
     list: (col, fields) => runQuery(env, token, col, null, null, 5000, fields).catch(() => []),
     pushLine: env.LINE_CHANNEL_ACCESS_TOKEN ? async (to, text) => (await pushLine(env, to, text)).sent : null,
     mark: async (col, id, fields) => {
