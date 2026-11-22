@@ -1,4 +1,5 @@
-import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData, listDocs } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData, listDocs, listAllDocs } from '../../core/db.js'
+import { ORDER_IMPORT_COLS, planOrderImport } from '../../utils/orderImport.js'
 import { bookingsForOrder, ORDER_LIVE } from '../../utils/orderNeeds.js'
 import { callLink } from '../../utils/callLink.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
@@ -11,7 +12,7 @@ function genOrderNo() {
 import { showToast, on } from '../../core/store.js'
 import { formatDate, formatCurrency, todayBangkok, toDateStr } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { exportToExcel } from '../../utils/importExport.js'
+import { exportToExcel, openImportModal } from '../../utils/importExport.js'
 import { navigate } from '../../core/router.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
@@ -331,6 +332,7 @@ export default async function VehicleOrdersPage(container) {
           </div>
         </div>
         <div class="page-actions">
+          <button class="btn btn-secondary btn-sm" id="order-import-btn">📂 นำเข้า Excel</button>
           <button class="btn btn-secondary btn-sm" id="order-export-btn">📥 ส่งออก</button>
           <button class="btn btn-primary" id="add-order-btn">➕ สั่งรถใหม่</button>
         </div>
@@ -368,10 +370,35 @@ export default async function VehicleOrdersPage(container) {
 
   document.getElementById('add-order-btn').addEventListener('click', () => openForm())
   document.getElementById('order-search').addEventListener('input', e => { search = e.target.value.toLowerCase(); applyFilter() })
+  // (v1.0.1322) นำเข้าคำสั่งซื้อทั้งล็อตจาก Excel (หัวคอลัมน์เดียวกับปุ่มส่งออก) — เลขที่ซ้ำข้าม ไม่แก้ของเดิม
+  document.getElementById('order-import-btn').addEventListener('click', () => {
+    openImportModal({
+      title: 'นำเข้าคำสั่งซื้อรถ',
+      columns: ORDER_IMPORT_COLS,
+      onImport: async rows => {
+        let all = orders
+        try { all = (await listAllDocs('vehicle_orders', companyScopeFilters(), 'createdAt', 'desc', 500)).filter(o => !o.deleted) } catch {}
+        const plan = planOrderImport(rows, all, { today: todayBangkok(), newNo: () => genOrderNo() })
+        let added = 0, failed = 0
+        for (const doc of plan.creates) {
+          try { await createDoc('vehicle_orders', { ...doc, companyId: myEffectiveCompanyId() }); added++ } catch { failed++ }
+        }
+        showToast(`นำเข้าคำสั่งซื้อ ${added} รายการ${plan.skipped.length ? ` · ข้าม ${plan.skipped.length}` : ''}${failed ? ` · พลาด ${failed}` : ''}`, failed ? 'warning' : 'success', 8000)
+        if (plan.skipped.length) {
+          openModal({
+            title: `⚠️ ข้าม ${plan.skipped.length} แถว`, size: 'md',
+            body: `<div class="table-wrap" style="max-height:320px;overflow:auto"><table><thead><tr><th>แถว</th><th>รถ</th><th>เหตุผล</th></tr></thead><tbody>
+              ${plan.skipped.map(d => `<tr><td>${d.row}</td><td>${escHtml(d.name)}</td><td style="font-size:0.75rem">${escHtml(d.reason)}</td></tr>`).join('')}
+              </tbody></table></div>`,
+          })
+        }
+      },
+    })
+  })
   document.getElementById('order-export-btn').addEventListener('click', () => {
     // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
     // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
-    exportToExcel(orders.map(o => ({ เลขที่:o.orderNo, ยี่ห้อ:o.brand, รุ่น:o.model, สี:o.color, จำนวน:o.qty, ต้นทุน:o.unitCost, มูลค่ารวม:(o.unitCost||0)*(o.qty||1), สถานะ:STATUS[o.status]?.label||o.status, วันรับคาด:formatDate(o.expectedDate), Supplier:o.supplier })), `orders-${todayBangkok()}.xlsx`, 'คำสั่งซื้อ')
+    exportToExcel(orders.map(o => ({ เลขที่:o.orderNo, ยี่ห้อ:o.brand, รุ่น:o.model, Variant:o.variant||"", สี:o.color, จำนวน:o.qty, ต้นทุน:o.unitCost, มูลค่ารวม:(o.unitCost||0)*(o.qty||1), สถานะ:STATUS[o.status]?.label||o.status, วันรับคาด:formatDate(o.expectedDate), Supplier:o.supplier, หมายเหตุ:o.notes||"" })), `orders-${todayBangkok()}.xlsx`, 'คำสั่งซื้อ')
     showToast('Export แล้ว', 'success')
   })
   document.querySelectorAll('.sf-ord').forEach(btn => btn.addEventListener('click', () => {
