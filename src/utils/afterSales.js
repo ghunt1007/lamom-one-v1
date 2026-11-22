@@ -15,6 +15,20 @@ export const AFTER_SALES_PLAN = [
 ]
 const MAX_BACKDATE_DAYS = 14
 
+// (v1.0.1272) เตือนเช็กระยะครั้งแรกในหน้าแจ้งเตือนเช็คระยะ (service_reminders) วันเดียวกับนัดโทร 180 วัน
+// ให้ลูกค้ารถใหม่อยู่ในรายการที่สวิตช์ "เตือนรถใกล้ถึงกำหนดเข้าศูนย์ทาง LINE" ใช้ด้วย (สวิตช์ยังปิดไว้ = ไม่มีอะไรส่งถึงลูกค้า)
+export function buildFirstServiceReminder(booking, followups) {
+  const f = (followups || []).find(x => x.purpose === 'แจ้งบริการถึงกำหนด')
+  if (!f) return null
+  return {
+    customer: f.customerName, phone: f.phone,
+    plate: String(booking.whitePlate || booking.plate || booking.redPlate || '').trim(),
+    model: f.vehicleModel, type: 'time', detail: 'เช็กระยะครั้งแรก (ครบ 6 เดือนหลังรับรถ)',
+    dueDate: f.dueDate, contacted: false, booked: false, contactCount: 0,
+    ...(f.customerId ? { customerId: f.customerId } : {}), fromBookingId: booking.id,
+  }
+}
+
 export function buildAfterSalesFollowups(booking, today = todayBangkok()) {
   if (!booking?.id || booking.afterSalesScheduled || booking.deleted) return []
   const delivered = /^\d{4}-\d{2}-\d{2}/.test(booking.actualDeliveryDate || '') ? booking.actualDeliveryDate.slice(0, 10) : today
@@ -36,6 +50,8 @@ export async function scheduleAfterSales(booking) {
   for (const f of list) {
     try { await createDoc('followups', { ...f, companyId: booking.companyId ?? myEffectiveCompanyId() }); n++ } catch { /* ข้าม */ }
   }
+  const rem = n ? buildFirstServiceReminder(booking, list) : null
+  if (rem) { try { await createDoc('service_reminders', rem) } catch { /* ข้าม */ } }
   if (n) {
     try { await updateDocData('bookings', booking.id, { afterSalesScheduled: true }); booking.afterSalesScheduled = true } catch { /* ข้าม */ }
   }

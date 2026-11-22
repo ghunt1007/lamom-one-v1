@@ -28,4 +28,14 @@ describe('after-sales follow-ups', () => {
     expect(calls.at(-1)).toEqual(['update', 'bookings', 'B3', { afterSalesScheduled: true }])
     expect(await scheduleAfterSales(bk)).toBe(0)
   })
+  it('also adds the first service reminder (180 days) once (v1.0.1272)', async () => {
+    const bk = { ...b, id: 'B4', actualDeliveryDate: '2026-11-20', phone: '0812345678', whitePlate: '1กก 99' }
+    await scheduleAfterSales(bk)
+    const rem = calls.filter(c => c[0] === 'create' && c[1] === 'service_reminders')
+    expect(rem.length).toBe(1)
+    expect(rem[0][2]).toMatchObject({ customer: 'ก', phone: '0812345678', plate: '1กก 99', model: 'BYD Seal', dueDate: '2027-05-19', booked: false, customerId: 'C1', fromBookingId: 'B4' })
+    calls.length = 0
+    await scheduleAfterSales(bk)
+    expect(calls.length).toBe(0)
+  })
 })
