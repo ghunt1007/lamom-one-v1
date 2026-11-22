@@ -6,58 +6,51 @@ import { showToast } from '../../core/store.js'
 import { getSalesData } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
 import { exportToExcel, exportToCSV } from '../../utils/importExport.js'
-import { saleCost } from '../../utils/saleCost.js'
+import { saleCost, costEstimateNote } from '../../utils/saleCost.js'
+import { escHtml } from '../../utils/escape.js'
 
-const MODELS = [
-  { model:'BYD Seal AWD', brand:'BYD', sold:16, avgPrice:1899900, avgCost:1540000, accessories:85000, finance:42000, insurance:28000 },
-  { model:'BYD Atto 3 Extended', brand:'BYD', sold:22, avgPrice:1199900, avgCost:970000, accessories:64000, finance:38000, insurance:22000 },
-  { model:'BYD Han EV', brand:'BYD', sold:8, avgPrice:1899900, avgCost:1580000, accessories:110000, finance:55000, insurance:32000 },
-  { model:'BYD Dolphin Boost', brand:'BYD', sold:20, avgPrice:799900, avgCost:640000, accessories:38000, finance:28000, insurance:18000 },
-  { model:'MG ZS EV Luxury Plus', brand:'MG', sold:6, avgPrice:999900, avgCost:820000, accessories:45000, finance:32000, insurance:20000 },
-  { model:'MG4 EV', brand:'MG', sold:3, avgPrice:859900, avgCost:700000, accessories:30000, finance:25000, insurance:16000 },
-]
-
+// (v1.0.1310) เดิมเป็นรุ่น BYD/MG สมมติ 6 รุ่น (ยอดขาย/ราคา/ต้นทุน/F&I แต่งขึ้น) และเอาข้อมูลจริงไปทับเฉพาะชื่อที่ตรงกัน
+// รุ่นที่ขายจริง (เช่น Deepal) จึงไม่เคยขึ้น — ตอนนี้สร้างจากใบจองที่ขายแล้วจริงล้วน
 function calcRow(m) {
   const vehicleGross = m.avgPrice - m.avgCost
-  const totalGross = vehicleGross + m.accessories + m.finance + m.insurance
-  const grossPct = Math.round(totalGross / m.avgPrice * 100)
+  const totalGross = vehicleGross + m.finance
+  const grossPct = m.avgPrice > 0 ? Math.round(totalGross / m.avgPrice * 100) : 0
   const totalRevenue = m.sold * m.avgPrice
   const totalProfit = m.sold * totalGross
   return { ...m, vehicleGross, totalGross, grossPct, totalRevenue, totalProfit }
 }
 
+export function modelsFromSales(sales = []) {
+  const byCar = {}
+  for (const s of sales) {
+    if (!s || !s.delivered || !(Number(s.salePrice) > 0)) continue
+    const key = s.model || s.vehicleModel || 'ไม่ระบุ'
+    if (!byCar[key]) byCar[key] = { model: key, brand: s.brand || '', sold: 0, rev: 0, cost: 0, fin: 0 }
+    const m = byCar[key]
+    m.sold++
+    m.rev += Number(s.salePrice) || 0
+    m.cost += saleCost(s)
+    m.fin += Number(s.comFinance || s.finance) || 0
+  }
+  return Object.values(byCar).map(m => ({
+    model: m.model, brand: m.brand, sold: m.sold,
+    avgPrice: Math.round(m.rev / m.sold), avgCost: Math.round(m.cost / m.sold), finance: Math.round(m.fin / m.sold),
+  }))
+}
+
 export default async function ModelProfitabilityPage(container) {
   const myGen = container.__routerGen
-  let liveModels = [...MODELS].map(m => ({ ...m }))
+  let liveModels = []
+  let soldRows = []
   let dataSource = 'demo'
   let sortBy = 'totalProfit'
 
   try {
     const sales = await getSalesData().catch(() => [])
     if (container.__routerGen !== myGen) return
-    if (sales.length >= 2) {
-      const byCar = {}
-      for (const s of sales) {
-        const key = s.model || s.vehicleModel || 'ไม่ระบุ'
-        if (!byCar[key]) byCar[key] = { sold: 0, totalRev: 0, totalCost: 0 }
-        byCar[key].sold++
-        byCar[key].totalRev += s.salePrice || 0
-        // ต้นทุนจริงต่อคัน (s.cost จากใบจอง) ถ้าไม่มีค่อย fallback ประมาณ 82% ของราคาขาย — pattern เดียวกับ
-        // CashFlow.js/VatReport.js ไม่ใช่ avgCost ปลอมจาก MODELS demo อีกต่อไป
-        byCar[key].totalCost += saleCost(s)
-      }
-      liveModels = liveModels.map(m => {
-        const data = byCar[m.model]
-        if (!data) return m
-        return {
-          ...m,
-          sold: data.sold,
-          avgPrice: data.sold > 0 ? Math.round(data.totalRev / data.sold) : m.avgPrice,
-          avgCost: data.sold > 0 ? Math.round(data.totalCost / data.sold) : m.avgCost,
-        }
-      })
-      dataSource = 'live'
-    }
+    soldRows = sales.filter(s => s.delivered && Number(s.salePrice) > 0)
+    liveModels = modelsFromSales(sales)
+    if (liveModels.length) dataSource = 'live'
   } catch {}
 
   function bar(pct, color) {
@@ -68,15 +61,15 @@ export default async function ModelProfitabilityPage(container) {
 
   function modelRow(r, maxProfit) {
     const color = r.grossPct>=15?'var(--success)':r.grossPct>=10?'var(--warning)':'var(--danger)'
-    const barW = Math.round(r.totalProfit/maxProfit*100)
+    const barW = maxProfit > 0 ? Math.max(0, Math.round(r.totalProfit/maxProfit*100)) : 0
     return '<tr style="border-bottom:1px solid var(--border-subtle)">' +
       '<td style="padding:10px 10px">' +
-        '<div style="font-weight:700;font-size:0.8rem">'+r.model+'</div>' +
-        '<div style="font-size:0.66rem;color:var(--text-muted)">'+r.brand+'</div>' +
+        '<div style="font-weight:700;font-size:0.8rem">'+escHtml(r.model)+'</div>' +
+        '<div style="font-size:0.66rem;color:var(--text-muted)">'+escHtml(r.brand)+'</div>' +
       '</td>' +
       '<td style="padding:10px 10px;text-align:right;font-size:0.76rem">'+r.sold+'</td>' +
       '<td style="padding:10px 10px;text-align:right;font-size:0.76rem">฿'+Math.round(r.vehicleGross/1000)+'k</td>' +
-      '<td style="padding:10px 10px;text-align:right;font-size:0.76rem;color:var(--primary)">+฿'+Math.round((r.accessories+r.finance+r.insurance)/1000)+'k</td>' +
+      '<td style="padding:10px 10px;text-align:right;font-size:0.76rem;color:var(--primary)">'+(r.finance ? '+฿'+Math.round(r.finance/1000)+'k' : '-')+'</td>' +
       '<td style="padding:10px 10px;text-align:right;font-size:0.78rem;font-weight:700;color:'+color+'">'+r.grossPct+'%</td>' +
       '<td style="padding:10px 10px;min-width:140px">' +
         '<div style="font-size:0.74rem;font-weight:700;color:var(--success)">฿'+Math.round(r.totalProfit/1000)+'k</div>' +
@@ -88,7 +81,7 @@ export default async function ModelProfitabilityPage(container) {
   function render() {
     const rows = liveModels.map(calcRow)
     rows.sort((a,b)=> sortBy==='grossPct' ? b.grossPct-a.grossPct : sortBy==='sold' ? b.sold-a.sold : b.totalProfit-a.totalProfit)
-    const maxProfit = Math.max(...rows.map(r=>r.totalProfit))
+    const maxProfit = Math.max(0, ...rows.map(r=>r.totalProfit))
     const totalProfit = rows.reduce((s,r)=>s+r.totalProfit,0)
     const totalRev = rows.reduce((s,r)=>s+r.totalRevenue,0)
     const totalSold = rows.reduce((s,r)=>s+r.sold,0)
@@ -102,18 +95,18 @@ export default async function ModelProfitabilityPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📊 Model Profitability</div>
-            <div class="page-subtitle">กำไรและ Margin แยกตามรุ่น · ${liveModels.length} รุ่น${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ยอดขาย/ต้นทุนจริง</span> <span style="color:var(--text-muted);font-size:0.68rem">(F&amp;I เป็นค่าประมาณ)</span>' : ''}</div>
+            <div class="page-subtitle">กำไรและ Margin แยกตามรุ่น · ${liveModels.length} รุ่น${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ยอดขาย/ต้นทุนจริง</span> <span style="color:var(--text-muted);font-size:0.68rem">(นับเฉพาะคันที่ขายแล้ว)</span>' : ''}</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="export-btn">📤 ส่งออก</button>
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px">
-          ${sc('💰 กำไรรวม (YTD)', '฿'+Math.round(totalProfit/1000000*10)/10+'M', 'var(--success)')}
-          ${sc('📈 Revenue รวม', '฿'+Math.round(totalRev/1000000*10)/10+'M', 'var(--primary)')}
-          ${sc('📊 Avg Gross Margin', avgMargin+'%', avgMargin>=12?'var(--success)':'var(--warning)')}
-          ${sc('🏆 รุ่นกำไรสูงสุด', topModel.model.split(' ').slice(0,2).join(' '), 'var(--warning)')}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px">
+          ${sc('💰 กำไรรวม', totalSold ? '฿'+Math.round(totalProfit/1000000*10)/10+'M' : '-', 'var(--success)')}
+          ${sc('📈 Revenue รวม', totalSold ? '฿'+Math.round(totalRev/1000000*10)/10+'M' : '-', 'var(--primary)')}
+          ${sc('📊 Avg Gross Margin', totalSold ? avgMargin+'%' : '-', avgMargin>=12?'var(--success)':'var(--warning)')}
+          ${sc('🏆 รุ่นกำไรสูงสุด', escHtml(topModel.model.split(' ').slice(0,2).join(' ')), 'var(--warning)')}
         </div>
 
         <div style="display:flex;gap:6px;margin-bottom:14px">${sortBtns}</div>
@@ -125,13 +118,13 @@ export default async function ModelProfitabilityPage(container) {
                 <th style="text-align:left;padding:10px 10px;font-weight:600;color:var(--text-muted)">รุ่น</th>
                 <th style="text-align:right;padding:10px 10px;font-weight:600;color:var(--text-muted)">ขาย</th>
                 <th style="text-align:right;padding:10px 10px;font-weight:600;color:var(--text-muted)">Gross/คัน</th>
-                <th style="text-align:right;padding:10px 10px;font-weight:600;color:var(--primary)">+F&I</th>
+                <th style="text-align:right;padding:10px 10px;font-weight:600;color:var(--primary)">+คอมไฟแนนซ์/คัน</th>
                 <th style="text-align:right;padding:10px 10px;font-weight:600;color:var(--text-muted)">กำไร%</th>
                 <th style="padding:10px 10px;font-weight:600;color:var(--text-muted)">กำไรรวม</th>
               </tr>
             </thead>
             <tbody>
-              ${rows.map(r=>modelRow(r,maxProfit)).join('')}
+              ${rows.length ? rows.map(r=>modelRow(r,maxProfit)).join('') : '<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--text-muted)">ยังไม่มีรถที่ขายแล้วพร้อมราคาขาย</td></tr>'}
             </tbody>
             <tfoot>
               <tr style="border-top:2px solid var(--border);background:var(--surface-2)">
@@ -143,6 +136,7 @@ export default async function ModelProfitabilityPage(container) {
             </tfoot>
           </table>
         </div>
+        ${costEstimateNote(soldRows)}
       </div>`
 
     container.querySelectorAll('.sort-btn').forEach(b=>b.addEventListener('click',()=>{sortBy=b.dataset.k;render()}))
@@ -157,7 +151,7 @@ export default async function ModelProfitabilityPage(container) {
       'ขายได้ (คัน)': r.sold,
       'ราคาขายเฉลี่ย (บาท)': r.avgPrice,
       'กำไรยานยนต์ (บาท)': r.vehicleGross,
-      'F&I รวม (บาท)': r.accessories + r.finance + r.insurance,
+      'คอมไฟแนนซ์เฉลี่ย/คัน (บาท)': r.finance,
       'Margin %': r.grossPct,
       'กำไรรวม (บาท)': r.totalProfit,
     }))
@@ -183,8 +177,8 @@ export default async function ModelProfitabilityPage(container) {
                   const c = r.grossPct>=15?'var(--success)':r.grossPct>=10?'var(--warning)':'var(--danger)'
                   return `<tr style="border-bottom:1px solid var(--border-subtle)">
                     <td style="padding:6px 8px">
-                      <div style="font-weight:700">${r.model}</div>
-                      <div style="font-size:0.66rem;color:var(--text-muted)">${r.brand}</div>
+                      <div style="font-weight:700">${escHtml(r.model)}</div>
+                      <div style="font-size:0.66rem;color:var(--text-muted)">${escHtml(r.brand)}</div>
                     </td>
                     <td style="padding:6px 8px;text-align:right">${r.sold}</td>
                     <td style="padding:6px 8px;text-align:right">฿${Math.round(r.totalGross/1000)}k</td>
