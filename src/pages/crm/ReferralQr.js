@@ -12,6 +12,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml } from '../../utils/escape.js'
 import { referralUrl, newReferralCode, referralStats, referrerTotals, REFERRAL_RATE } from '../../utils/publicLinks.js'
 import { qrSvg, qrDownloadLink } from '../../utils/qr.js'
+import { callLink } from '../../utils/callLink.js'
 
 const COMMISSION_RATE = REFERRAL_RATE // บาทต่อคันที่ขายได้ (ค่าเดียวกับรายงาน 18:00)
 const PAY_ROLES = ['finance', 'manager', 'owner', 'admin']
@@ -177,7 +178,7 @@ export default async function ReferralQrPage(container) {
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div style="flex:1">
             <div style="font-weight:700;font-size:0.86rem">${escHtml(r.name)}</div>
-            <div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(r.phone)} · Code: <code style="font-size:0.7rem">${escHtml(r.code)}</code></div>
+            <div style="font-size:0.7rem;color:var(--text-muted)">${callLink(r.phone, '', { icon: '' })} · Code: <code style="font-size:0.7rem">${escHtml(r.code)}</code></div>
           </div>
           <div style="text-align:right">
             <div style="font-size:0.8rem;font-weight:700;color:var(--primary)">${formatCurrency(r.commission)}</div>

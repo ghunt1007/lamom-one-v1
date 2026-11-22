@@ -12,6 +12,7 @@ import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { notifyTeam } from '../../utils/teamNotify.js'
+import { callLink } from '../../utils/callLink.js'
 
 const APP_STATUS = {
   draft:     { label: 'Draft', color: 'primary' },
@@ -175,7 +176,7 @@ export default async function FinanceApplicationPage(container) {
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
         <div>
           <div style="font-weight:700;font-size:0.9rem">${escHtml(a.custName)}</div>
-          <div style="font-size:0.78rem;color:var(--text-muted)">${escHtml(a.phone)}</div>
+          <div style="font-size:0.78rem;color:var(--text-muted)">${callLink(a.phone, '', { icon: '' })}</div>
         </div>
         <span class="badge badge-${st.color}">${st.label}</span>
       </div>

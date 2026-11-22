@@ -12,6 +12,7 @@ import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
 import { numVal } from '../../utils/numInput.js'
+import { callLink } from '../../utils/callLink.js'
 
 const DEBT_STATUS = {
   current:    { label: 'ปกติ', color: 'success' },
@@ -100,7 +101,7 @@ export default async function CreditControlPage(container) {
               <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
                 <div>
                   <div style="font-weight:700;font-size:0.9rem">${escHtml(d.customer)}</div>
-                  <div style="font-size:0.75rem;color:var(--text-muted)">${d.type === 'b2b' ? '🏢 B2B' : d.type === 'gov' ? '🏛 ราชการ' : '👤 รายย่อย'} · ${escHtml(d.contact)} · ${escHtml(d.phone)}</div>
+                  <div style="font-size:0.75rem;color:var(--text-muted)">${d.type === 'b2b' ? '🏢 B2B' : d.type === 'gov' ? '🏛 ราชการ' : '👤 รายย่อย'} · ${escHtml(d.contact)} · ${callLink(d.phone, '', { icon: '' })}</div>
                 </div>
                 <div style="text-align:right">
                   <span class="badge badge-${st?.color}" style="font-size:0.68rem">${st?.label}</span>
@@ -171,7 +172,7 @@ export default async function CreditControlPage(container) {
       body: `
         <div style="margin-bottom:12px"><span class="badge badge-${st?.color}">${st?.label}</span></div>
         ${row('ประเภท', d.type === 'b2b' ? '🏢 B2B' : d.type === 'gov' ? '🏛 ราชการ' : '👤 รายย่อย')}
-        ${row('ผู้ติดต่อ', escHtml(d.contact) + ' · ' + escHtml(d.phone))}
+        ${row('ผู้ติดต่อ', escHtml(d.contact) + ' · ' + callLink(d.phone, d.contact, { icon: '' }))}
         ${row('ยอดค้างชำระ', formatCurrency(d.used))}
         ${row('วงเงินเครดิต', formatCurrency(d.creditLimit))}
         ${row('จำนวนใบแจ้งหนี้', d.invoices + ' ใบ')}

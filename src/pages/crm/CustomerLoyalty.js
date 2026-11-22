@@ -6,6 +6,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { callLink } from '../../utils/callLink.js'
 
 const TIERS = {
   bronze:   { label: 'Bronze', icon: '🥉', color: '#cd7f32', minPoints: 0,     maxPoints: 999,   benefit: 'ลด 1% ค่าบริการ' },
@@ -186,7 +187,7 @@ export default async function CustomerLoyaltyPage(container) {
               return `<tr>
                 <td>
                   <div style="font-weight:700;font-size:0.88rem">${escHtml(m.name)}</div>
-                  <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(m.phone)} · ${m.id}</div>
+                  <div style="font-size:0.73rem;color:var(--text-muted)">${callLink(m.phone, '', { icon: '' })} · ${m.id}</div>
                 </td>
                 <td style="font-size:0.8rem;max-width:150px">${m.vehicles.map(v => escHtml(v)).join(', ')}</td>
                 <td>
@@ -302,7 +303,7 @@ export default async function CustomerLoyaltyPage(container) {
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-          <div>${['สมาชิกตั้งแต่ ' + formatDate(m.joinDate), 'โทร: ' + escHtml(m.phone), 'ยอดซื้อรวม: ' + formatCurrency(m.totalSpend), 'กิจกรรมล่าสุด: ' + formatDate(m.lastActivity)].map(t => `<div style="font-size:0.82rem;padding:4px 0;border-bottom:1px solid var(--border);color:var(--text-muted)">${t}</div>`).join('')}</div>
+          <div>${['สมาชิกตั้งแต่ ' + formatDate(m.joinDate), 'โทร: ' + callLink(m.phone, '', { icon: '' }), 'ยอดซื้อรวม: ' + formatCurrency(m.totalSpend), 'กิจกรรมล่าสุด: ' + formatDate(m.lastActivity)].map(t => `<div style="font-size:0.82rem;padding:4px 0;border-bottom:1px solid var(--border);color:var(--text-muted)">${t}</div>`).join('')}</div>
           <div>
             <div style="font-size:0.78rem;font-weight:700;margin-bottom:6px">รถที่ลงทะเบียน</div>
             ${m.vehicles.map(v => `<div style="font-size:0.82rem;padding:4px 8px;background:var(--surface-2);border-radius:var(--radius-sm);margin-bottom:4px">🚗 ${escHtml(v)}</div>`).join('')}

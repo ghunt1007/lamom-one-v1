@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { callLink } from '../../utils/callLink.js'
 
 export default async function TdCertPage(container) {
   const myGen = container.__routerGen
@@ -68,7 +69,7 @@ export default async function TdCertPage(container) {
                 <div style="flex:1">
                   <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
                     <span style="font-weight:700;font-size:0.88rem">${escHtml(c.customer)}</span>
-                    <span style="font-size:0.68rem;color:var(--text-muted)">${escHtml(c.phone)}</span>
+                    <span style="font-size:0.68rem;color:var(--text-muted)">${callLink(c.phone, '', { icon: '' })}</span>
                     <span style="font-size:0.62rem;background:${c.signed?'var(--success)':'var(--warning)'};color:#fff;padding:1px 8px;border-radius:10px">${c.signed?'✅ เซ็นแล้ว':'⏳ รอเซ็น'}</span>
                   </div>
                   <div style="display:flex;gap:16px;font-size:0.74rem;color:var(--text-muted)">

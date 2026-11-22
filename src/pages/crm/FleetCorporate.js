@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml } from '../../utils/escape.js'
+import { callLink } from '../../utils/callLink.js'
 
 const ST = {
   prospect: { label: 'Prospect', color: 'var(--text-muted)' },
@@ -97,7 +98,7 @@ export default async function FleetCorporatePage(container) {
             <div style="font-weight:700;font-size:0.9rem">${escHtml(d.company)}
               <span style="font-size:0.66rem;background:${s.color};color:#fff;padding:1px 8px;border-radius:10px;margin-left:6px">${s.label}</span>
             </div>
-            <div style="font-size:0.74rem;color:var(--text-muted)">${escHtml(d.contact)} · ${escHtml(d.phone)} · Sales: ${escHtml(d.sales)}</div>
+            <div style="font-size:0.74rem;color:var(--text-muted)">${escHtml(d.contact)} · ${callLink(d.phone, '', { icon: '' })} · Sales: ${escHtml(d.sales)}</div>
           </div>
           <div style="text-align:right">
             <div style="font-size:1.1rem;font-weight:900;color:var(--primary)">${formatCurrency(val)}</div>

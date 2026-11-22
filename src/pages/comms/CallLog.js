@@ -10,6 +10,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { myName } from '../../utils/myName.js'
+import { callLink } from '../../utils/callLink.js'
 
 
 const CALL_TYPES = {
@@ -94,7 +95,7 @@ export default async function CallLogPage(container) {
             return `<div class="card" style="padding:12px 14px;border-left:3px solid var(--${ct?.color})">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:4px">
                 <div>
-                  <div style="font-weight:700;font-size:0.84rem">${ct?.icon} ${escHtml(c.caller)} <span style="font-size:0.7rem;color:var(--text-muted)">${escHtml(c.phone)}</span></div>
+                  <div style="font-weight:700;font-size:0.84rem">${ct?.icon} ${escHtml(c.caller)} <span style="font-size:0.7rem;color:var(--text-muted)">${callLink(c.phone, c.caller, { icon: '' })}</span></div>
                   <div style="font-size:0.7rem;color:var(--text-muted)">${tp?.icon} ${tp?.label} · ${fmtDur(c.duration)} ${c.staff ? '· 👤 ' + escHtml(c.staff) : ''} · ${timeAgo(c.time)}</div>
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">

@@ -9,6 +9,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { callLink } from '../../utils/callLink.js'
 
 const FLEET_STATUS = {
   prospect: { label: 'Prospect', color: 'secondary' },
@@ -87,7 +88,7 @@ export default async function FleetManagementPage(container) {
               </div>
               <div style="display:flex;gap:12px;font-size:0.78rem;margin-bottom:8px">
                 <span>👤 ${escHtml(f.contact)}</span>
-                <span>📞 ${escHtml(f.phone)}</span>
+                <span>${callLink(f.phone)}</span>
               </div>
               <div style="display:flex;gap:10px;margin-bottom:8px">
                 ${kpiMini('🚗 กองรถ', f.fleetSize + ' คัน')}
@@ -135,7 +136,7 @@ export default async function FleetManagementPage(container) {
       body: `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
           <div>
-            ${row('อุตสาหกรรม', escHtml(f.industry))}${row('ผู้ติดต่อ', escHtml(f.contact))}${row('โทร', escHtml(f.phone))}${row('Email', escHtml(f.email))}${row('เซลส์', escHtml(f.salesperson))}${row('สถานะ', `<span class="badge badge-${fs?.color}">${fs?.label}</span>`)}
+            ${row('อุตสาหกรรม', escHtml(f.industry))}${row('ผู้ติดต่อ', escHtml(f.contact))}${row('โทร', callLink(f.phone, '', { icon: '' }))}${row('Email', escHtml(f.email))}${row('เซลส์', escHtml(f.salesperson))}${row('สถานะ', `<span class="badge badge-${fs?.color}">${fs?.label}</span>`)}
           </div>
           <div>
             ${row('กองรถปัจจุบัน', f.fleetSize + ' คัน')}${row('EV ในกอง', f.evCount + ' คัน')}${row('เป้าหมายกอง', f.targetFleet + ' คัน')}${row('ส่วนลด', f.discount + '%')}${row('เครดิต', f.creditTerms + ' วัน')}${f.lastOrderDate ? row('สั่งซื้อล่าสุด', formatDate(f.lastOrderDate)) : ''}

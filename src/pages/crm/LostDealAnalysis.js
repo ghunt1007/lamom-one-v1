@@ -9,6 +9,7 @@ import { classifyLostReason } from '../../utils/lostReason.js'
 import { navigate } from '../../core/router.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { callLink } from '../../utils/callLink.js'
 
 const LOST_REASONS = {
   price:       { label: '💸 ราคาแพงเกินไป', color: 'danger' },
@@ -212,7 +213,7 @@ export default async function LostDealAnalysisPage(container) {
                 return `<tr style="cursor:pointer" class="ld-row" data-id="${d.id}">
                   <td>
                     <div style="font-weight:600;font-size:0.85rem">${escHtml(d.custName)}</div>
-                    <div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(d.phone)}</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted)">${callLink(d.phone, '', { icon: '' })}</div>
                   </td>
                   <td style="font-size:0.83rem">${escHtml(d.interestedIn)}</td>
                   <td style="font-weight:700;font-size:0.83rem">${formatCurrency(d.budget)}</td>

@@ -7,6 +7,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { callLink } from '../../utils/callLink.js'
 
 const JOB_STATUS = {
   open:    { label: 'รับสมัคร', color: 'success' },
@@ -173,7 +174,7 @@ export default async function RecruitmentPage(container) {
               return `<tr>
                 <td>
                   <div style="font-weight:600;font-size:0.85rem">${escHtml(a.name)}</div>
-                  <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(a.phone)}</div>
+                  <div style="font-size:0.73rem;color:var(--text-muted)">${callLink(a.phone, '', { icon: '' })}</div>
                 </td>
                 <td style="font-size:0.82rem">${escHtml(job?.title || '-')}</td>
                 <td style="font-size:0.82rem">${formatDate(a.appliedDate)}</td>
@@ -269,7 +270,7 @@ export default async function RecruitmentPage(container) {
       size: 'md',
       body: `
         ${row('ตำแหน่ง', escHtml(job?.title||'-'))}
-        ${row('โทรศัพท์', escHtml(a.phone))}
+        ${row('โทรศัพท์', callLink(a.phone, '', { icon: '' }))}
         ${row('อีเมล', escHtml(a.email))}
         ${row('วันที่สมัคร', formatDate(a.appliedDate))}
         ${row('คะแนน', a.score !== null ? `<strong style="color:${a.score>=80?'var(--success)':a.score>=60?'var(--warning)':'var(--danger)'}">${a.score}/100</strong>` : 'ยังไม่ประเมิน')}

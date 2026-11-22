@@ -332,7 +332,7 @@ export default async function ShowroomAppointmentPage(container) {
       body: `<div style="display:flex;flex-direction:column;gap:10px;font-size:0.85rem">
         <span class="badge badge-${st.color}">${st.label}</span>
         <div class="grid-2" style="gap:8px">
-          <div>📞 ${escHtml(a.phone)}</div><div>📅 ${escHtml(a.date)} ${escHtml(a.time)}</div>
+          <div>${callLink(a.phone)}</div><div>📅 ${escHtml(a.date)} ${escHtml(a.time)}</div>
           <div>🎯 ${escHtml(a.purpose)}</div><div>🚗 ${escHtml(a.interestedIn)}</div>
           <div>👤 ${escHtml(a.salesperson)}</div><div>📣 ${escHtml(a.source)}</div>
         </div>
