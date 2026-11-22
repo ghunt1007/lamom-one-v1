@@ -62,7 +62,7 @@ import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } f
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
 import { campaignLeads } from '../src/utils/campaignLeads.js'
 import { financeQueue, financeWaitAnswer } from '../src/utils/financeQueue.js'
-import { deliveryWeekAnswer } from '../src/utils/deliveryWeek.js'
+import { deliveryWeekAnswer, deliveryWeekList } from '../src/utils/deliveryWeek.js'
 import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines, serviceJobsAnswer, serviceEveningLines, serviceWeekLines } from '../src/utils/apptFacts.js'
 import { officeDigestLines } from '../src/utils/aiAgents.js'
 
@@ -1681,6 +1681,11 @@ export function buildWeeklyReport(data, { today }) {
   })
   const cancelWhy = Object.entries(cancelBy).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${k} ${v}`).join(' · ')
   const lostLines = lostN ? ['', `💔 เสียดีล: ${lostN} ราย`, `    เหตุผล: ${lostTop}`] : []
+  // (v1.0.1305) นัดส่งมอบสัปดาห์นี้ (วันนี้–อาทิตย์) + ที่เลยวันนัดแล้วยังไม่ส่ง — ไม่มีทั้งคู่ = ไม่แสดง
+  const dw = deliveryWeekList(bookings, today, () => true, { ahead: 6 })
+  const dwLine = dw.upcoming.length || dw.overdue.length
+    ? `🚗 นัดส่งมอบสัปดาห์นี้: ${dw.upcoming.length} คัน${dw.overdue.length ? ` · เลยวันนัดยังไม่ส่ง ${dw.overdue.length} คัน` : ''} (พิมพ์ "ส่งมอบ" ดูรายชื่อ)`
+    : null
 
   return [
     '📅 LAMOM ONE สรุปสัปดาห์ที่แล้ว',
@@ -1701,6 +1706,7 @@ export function buildWeeklyReport(data, { today }) {
     wakeLine,
     fcLine,
     linkLine,
+    dwLine,
     ...lostLines,
     ...serviceWeekLines(data.jobCards, weeks[0], weeks[1]),
     ...(convLines.length ? ['', '🎯 ช่องทางที่ปิดจองได้ดี (Lead 90 วันล่าสุด)', ...convLines] : []),
