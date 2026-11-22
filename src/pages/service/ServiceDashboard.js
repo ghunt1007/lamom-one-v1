@@ -128,6 +128,14 @@ export default async function ServiceDashboard(container) {
     if (lowParts > 0) alerts.push({ type: 'danger', icon: '🔴', nav: '/service/parts', msg: `อะไหล่ใกล้หมด ${lowParts} รายการ — ควรสั่งซื้อทันที` })
     if (todayAppts.length) alerts.push({ type: 'warning', icon: '⚠️', nav: '/service/appointment', msg: `นัดหมาย Service วันนี้ ${todayAppts.length} คัน — ยังไม่เช็คอิน ${notCheckedIn.length} คัน` })
     if (qcReady.length) alerts.push({ type: 'success', icon: '✅', nav: '/service/jobs', msg: `งาน QC ผ่านพร้อมส่งคืนลูกค้า ${qcReady.length} คัน` })
+    // (v1.0.1274) ซ่อมเสร็จแล้วแต่ลูกค้ายังไม่มารับ — นับวันจากการแก้ไขล่าสุดของใบงาน
+    const waitPick = jobs.filter(j => j.status === 'done')
+    if (waitPick.length) {
+      const ms = j => { const v = j.updatedAt; const t = v?.toDate ? v.toDate().getTime() : Date.parse(v || ''); return Number.isFinite(t) ? t : 0 }
+      const oldest = Math.max(0, ...waitPick.map(j => ms(j) ? Math.floor((Date.now() - ms(j)) / 864e5) : 0))
+      const told = waitPick.filter(j => j.lineReadySent).length
+      alerts.push({ type: oldest >= 2 ? 'warning' : 'primary', icon: '🚗', nav: '/service/jobs', msg: `ซ่อมเสร็จรอลูกค้ามารับ ${waitPick.length} คัน${oldest >= 1 ? ` (นานสุด ${oldest} วัน)` : ''}${told ? ` · แจ้ง LINE แล้ว ${told}` : ''} — รับแล้วกด "ส่งคืนแล้ว"` })
+    }
     alertsEl.innerHTML = alerts.length
       ? alerts.map(a => `<div data-nav="${a.nav}" style="padding:9px 13px;background:var(--surface-2);border-left:3px solid var(--${a.type});border-radius:var(--radius-sm);font-size:0.8rem;cursor:pointer">${a.icon} ${a.msg}</div>`).join('')
       : `<div style="padding:9px 13px;background:var(--surface-2);border-left:3px solid var(--success);border-radius:var(--radius-sm);font-size:0.8rem">✅ ไม่มีเรื่องด่วนตอนนี้</div>`
