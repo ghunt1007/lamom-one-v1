@@ -5,7 +5,7 @@
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { sendSms } from '../../utils/comms.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
@@ -203,6 +203,10 @@ export default async function InstallmentPage(container) {
     document.getElementById('remind-all-btn')?.addEventListener('click', async () => {
       const overduePlans = plans.filter(p => deriveStatus(p) === 'overdue')
       if (!overduePlans.length) { showToast('ไม่มีรายการค้างชำระ', 'info'); return }
+      // (v1.0.1273) เดิมกดแล้วส่ง SMS ทวงทุกคนทันที ไม่ถามก่อน — ส่งแล้วเรียกคืนไม่ได้
+      const nPhone = overduePlans.filter(p => p.phone).length
+      const ok = await confirmDialog({ title: '📱 ส่ง SMS ทวงถามค้างชำระ', message: `ส่ง SMS จริงถึงลูกค้าค้างชำระ ${nPhone} ราย${overduePlans.length > nPhone ? ` (อีก ${overduePlans.length - nPhone} รายไม่มีเบอร์)` : ''} — ตรวจว่ายอดและจำนวนวันค้างถูกต้องก่อน ส่งแล้วเรียกคืนไม่ได้`, confirmText: nPhone ? `ส่ง ${nPhone} ราย` : 'แจ้งทีมอย่างเดียว' })
+      if (!ok) return
       await notifyInstallment(
         '📱 ทวงถามลูกค้าค้างชำระทั้งหมด ' + overduePlans.length + ' ราย',
         overduePlans.map(p => p.customer + ' (ค้าง ' + deriveOverdueDays(p) + ' วัน)').join(', ')
@@ -211,7 +215,7 @@ export default async function InstallmentPage(container) {
       let sent = 0
       for (const p of withPhone) {
         try {
-          await sendSms([p.phone], `LAMOM แจ้งคุณ${p.customer}: ค้างชำระค่างวด ${p.model} มา ${p.overdue || 0} วัน กรุณาชำระ ${(p.monthly||0).toLocaleString()} บาทโดยเร็ว`)
+          await sendSms([p.phone], `LAMOM แจ้งคุณ${p.customer}: ค้างชำระค่างวด ${p.model} มา ${deriveOverdueDays(p)} วัน กรุณาชำระ ${(p.monthly||0).toLocaleString()} บาทโดยเร็ว`)
           sent++
         } catch {}
       }

@@ -309,11 +309,14 @@ export default async function CustomerFeedbackPage(container) {
         const wantSms = document.getElementById('resp-sms')?.checked && f.phone
         try {
           await createDoc('feedback_responses', { feedbackId: f.id, customerName: f.customerName, response: txt, companyId: myEffectiveCompanyId() })
+          let smsOk = false
           if (wantSms) {
-            try { await sendSms([f.phone], txt) } catch { showToast('บันทึกคำตอบแล้ว แต่ส่ง SMS ไม่สำเร็จ', 'error') }
+            try { await sendSms([f.phone], txt); smsOk = true } catch { /* แจ้งด้านล่าง */ }
           }
           f.responded = true; f.response = txt
-          showToast(`✅ บันทึกคำตอบให้ ${f.customerName} แล้ว${wantSms ? ' และส่ง SMS แล้ว' : ''}`, 'success')
+          // (v1.0.1273) เดิมส่ง SMS ไม่สำเร็จแล้วยังขึ้น "ส่ง SMS แล้ว" ทับข้อความเตือน
+          if (wantSms && !smsOk) showToast(`บันทึกคำตอบให้ ${f.customerName} แล้ว แต่ส่ง SMS ไม่สำเร็จ — กรุณาโทรแจ้งเอง`, 'error')
+          else showToast(`✅ บันทึกคำตอบให้ ${f.customerName} แล้ว${wantSms ? ' และส่ง SMS แล้ว' : ''}`, 'success')
           renderPage()
         } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
