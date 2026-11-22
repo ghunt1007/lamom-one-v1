@@ -12,6 +12,8 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
+import { callLink } from '../../utils/callLink.js'
+import { copyText } from '../../utils/copyText.js'
 
 const daysLeft = endDate => daysFromToday(endDate)
 
@@ -99,7 +101,7 @@ export default async function WarrantyExpiryPage(container) {
             <div class="page-subtitle">ติดตามประกันหมดอายุ · แจ้งลูกค้าล่วงหน้า · ${VEHICLES.length} คัน</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-primary" id="notify-all-btn">📨 แจ้งเตือนทั้งหมด</button>
+            <button class="btn btn-primary" id="notify-all-btn" title="คัดลอกชื่อ เบอร์ รุ่น และวันหมดประกัน ของรถที่ใกล้หมด/หมดแล้วและยังไม่ได้แจ้ง ไว้ไล่โทรหรือส่งต่อให้ทีม">📋 คัดลอกรายชื่อที่ต้องแจ้ง</button>
           </div>
         </div>
 
@@ -143,7 +145,7 @@ export default async function WarrantyExpiryPage(container) {
                   </td>
                   <td>
                     <div style="font-weight:600">${escHtml(v.owner)}</div>
-                    <div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(v.phone)}</div>
+                    <div style="font-size:0.68rem;color:var(--text-muted)">${callLink(v.phone, v.owner)}</div>
                   </td>
                   <td style="text-align:center">${formatDate(v.warrantyEnd)}</td>
                   <td style="text-align:center;font-weight:700;color:${d<=0?'var(--danger)':d<=60?'var(--warning)':'var(--success)'}">
@@ -159,7 +161,7 @@ export default async function WarrantyExpiryPage(container) {
                     <span style="font-size:0.62rem;background:${badge.bg};color:${badge.fg};padding:2px 8px;border-radius:10px">${badge.label}</span>
                   </td>
                   <td style="text-align:center">
-                    ${v.notified ? `<span style="font-size:0.66rem;color:var(--success)">✅ แจ้งแล้ว</span>` : `<button class="btn btn-xs btn-secondary notify-btn" data-id="${escHtml(v.id)}" style="font-size:0.68rem">📱 แจ้ง</button>`}
+                    ${v.notified ? `<span style="font-size:0.66rem;color:var(--success)">✅ แจ้งแล้ว</span>` : `<button class="btn btn-xs btn-secondary notify-btn" data-id="${escHtml(v.id)}" style="font-size:0.68rem" title="กดหลังโทร/ส่งข้อความแจ้งลูกค้าแล้ว (ปุ่มนี้ไม่ได้ส่งข้อความเอง)">✓ แจ้งแล้ว</button>`}
                   </td>
                 </tr>`
               }).join('')}
@@ -172,12 +174,11 @@ export default async function WarrantyExpiryPage(container) {
     container.querySelectorAll('.fil-btn').forEach(b => b.addEventListener('click', () => { filter = b.dataset.f; render() }))
     document.getElementById('search-box')?.addEventListener('input', e => { search = e.target.value; render() })
     document.getElementById('notify-all-btn')?.addEventListener('click', async () => {
-      const targets = VEHICLES.filter(v => getLiveStatus(v) === 'expiring' || getLiveStatus(v) === 'expired')
-      try {
-        await Promise.all(targets.map(v => persistWarranty(v._raw, { notified: true })))
-        showToast(`📨 แจ้งเตือนประกัน ${targets.length} คันแล้ว`, 'success')
-        await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      // (v1.0.1263) เดิมปุ่ม "แจ้งเตือนทั้งหมด" แค่จดว่าแจ้งแล้วทุกคัน ไม่ได้ส่งอะไรถึงลูกค้าจริง → เปลี่ยนเป็นคัดลอกรายชื่อไว้ไล่โทร
+      const targets = VEHICLES.filter(v => !v.notified && (getLiveStatus(v) === 'expiring' || getLiveStatus(v) === 'expired'))
+      if (!targets.length) { showToast('✅ ไม่มีรถที่ต้องแจ้งเพิ่ม', 'success'); return }
+      const lines = targets.map(v => `• ${v.owner} ${v.phone || '(ไม่มีเบอร์)'} — ${v.model}${v.plate ? ' ' + v.plate : ''} ประกันหมด ${formatDate(v.warrantyEnd)}`)
+      copyText(`🛡 ลูกค้าที่ต้องแจ้งเรื่องประกัน ${targets.length} คัน\n` + lines.join('\n'), `📋 คัดลอกรายชื่อ ${targets.length} คันแล้ว — โทรแจ้งแล้วกด ✓ แจ้งแล้ว ทีละคัน`)
     })
     container.querySelectorAll('.notify-btn').forEach(b => b.addEventListener('click', async e => {
       e.stopPropagation()
@@ -185,7 +186,7 @@ export default async function WarrantyExpiryPage(container) {
       if (!v) return
       try {
         await persistWarranty(v._raw, { notified: true })
-        showToast(`📱 แจ้ง ${v.owner} เรื่องประกัน ${v.model} แล้ว`, 'success')
+        showToast(`✓ บันทึกว่าแจ้ง ${v.owner} เรื่องประกัน ${v.model} แล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
