@@ -6,6 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { addDays } from '../../utils/aheadBrief.js'
 import { nextAnniversary } from '../../utils/anniversary.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
+import { loadOptedOutPhones, splitByConsent, phoneKey } from '../../utils/marketingOptOut.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
@@ -146,10 +147,11 @@ export default async function BirthdayGreetingsPage(container) {
         showToast('📤 ส่งคำอวยพรทั้งหมดแล้ว! (ตัวอย่างข้อมูล)', 'success'); renderPage()
         return
       }
-      const withPhone = targets.filter(e => e.phone)
-      if (!withPhone.length) { showToast('❗ ไม่มีเบอร์โทรลูกค้ากลุ่มนี้ในระบบ', 'warning'); return }
+      // (v1.0.1281) ข้ามลูกค้าที่ไม่ยินยอมรับข่าวสาร (PDPA)
+      const { keep: withPhone, skipped } = splitByConsent(targets.filter(e => e.phone), await loadOptedOutPhones())
+      if (!withPhone.length) { showToast(skipped.length ? `❗ ลูกค้ากลุ่มนี้ ${skipped.length} ราย ไม่ยินยอมรับข่าวสาร — ไม่ส่ง` : '❗ ไม่มีเบอร์โทรลูกค้ากลุ่มนี้ในระบบ', 'warning'); return }
       // (v1.0.1275) ถามก่อนส่งจริง พร้อมตัวอย่างข้อความ — ส่งแล้วเรียกคืนไม่ได้
-      if (!await confirmDialog({ title: '📤 ส่ง SMS อวยพร', message: `ส่ง SMS จริงถึง ${withPhone.length} ราย ตัวอย่าง: "${buildGreetingMsg(withPhone[0])}"`, confirmText: `ส่ง ${withPhone.length} ราย` })) return
+      if (!await confirmDialog({ title: '📤 ส่ง SMS อวยพร', message: `ส่ง SMS จริงถึง ${withPhone.length} ราย${skipped.length ? ` (ข้าม ${skipped.length} รายที่ไม่ยินยอมรับข่าวสาร)` : ''} ตัวอย่าง: "${buildGreetingMsg(withPhone[0])}"`, confirmText: `ส่ง ${withPhone.length} ราย` })) return
       let ok = 0
       for (const e of withPhone) {
         const msg = buildGreetingMsg(e)
@@ -194,6 +196,7 @@ export default async function BirthdayGreetingsPage(container) {
           return
         }
         if (!e.phone) { showToast('❗ ไม่มีเบอร์โทรลูกค้ารายนี้', 'error'); return false }
+        if ((await loadOptedOutPhones()).has(phoneKey(e.phone))) { showToast(`🔕 ${e.customer} ไม่ยินยอมรับข่าวสาร (PDPA) — ไม่ส่ง SMS`, 'warning'); return false }
         try {
           await sendSms([e.phone], msg)
           await createDoc('greeting_sends', { customer: e.customer, phone: e.phone, eventDate: e.date, type: e.type, channel: 'SMS', sentAt: new Date().toISOString(), companyId: myEffectiveCompanyId() })
