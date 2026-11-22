@@ -116,7 +116,7 @@ export default async function AnnouncementsPage(container) {
         <div style="display:flex;flex-direction:column;gap:10px">
           ${list.map(a => {
             const at = ANN_TYPES[a.type]
-            const readPct = Math.round(a.readBy / a.totalStaff * 100)
+            const readPct = a.totalStaff > 0 ? Math.min(100, Math.round(a.readBy / a.totalStaff * 100)) : 0
             const scopeLabel = a.scope === 'company' ? '🏢 ' + escHtml(companiesList.find(c=>c.id===a.targetCompanyId)?.name || a.targetCompanyId)
               : a.scope === 'department' ? '🏷 แผนก ' + escHtml(a.targetDepartment) : '🌐 ทั้งองค์กร'
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${at?.color})${a.pinned?';background:var(--warning)06':''}">
