@@ -188,7 +188,7 @@ export default async function EvAdoptionPage(container) {
       body: `
         <div style="font-size:0.82rem">
           <div style="font-weight:700;margin-bottom:8px">ยอดขายรายเดือน</div>
-          <table style="width:100%;border-collapse:collapse;font-size:0.76rem;margin-bottom:16px">
+          <div style="overflow-x:auto;margin-bottom:16px"><table style="width:100%;border-collapse:collapse;font-size:0.76rem">
             <thead>
               <tr style="border-bottom:2px solid var(--border);background:var(--surface-2)">
                 <th style="padding:7px 9px;text-align:left">เดือน</th>
@@ -212,7 +212,7 @@ export default async function EvAdoptionPage(container) {
                 </tr>`
               }).join('')}
             </tbody>
-          </table>
+          </table></div>
           <div style="font-weight:700;margin-bottom:6px">Market Share ตามรุ่น</div>
           ${liveModelShare.map(m => `<div style="display:flex;justify-content:space-between;font-size:0.74rem;padding:4px 0;border-bottom:1px solid var(--border-subtle)">
             <span style="display:flex;align-items:center;gap:5px">
