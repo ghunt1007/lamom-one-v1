@@ -92,3 +92,18 @@ describe('service-due line in the 09:00 reminder (v1.0.1292)', () => {
     expect(buildMorningReminder({ ...base }, { today })).not.toContain('ครบระยะ')
   })
 })
+
+import { buildWeeklyReport } from './daily-report.js'
+describe('service line in the Monday weekly report (v1.0.1294)', () => {
+  it('counts opened and delivered job cards per week', () => {
+    const jobCards = [
+      { status: 'inprogress', createdAt: '2026-11-17T03:00:00Z' },
+      { status: 'delivered', createdAt: '2026-11-10T03:00:00Z', updatedAt: '2026-11-18T03:00:00Z' },
+      { status: 'delivered', createdAt: '2026-11-09T03:00:00Z', updatedAt: '2026-11-11T03:00:00Z' },
+      { status: 'done', createdAt: '2026-11-19T03:00:00Z', deleted: true },
+    ]
+    const text = buildWeeklyReport({ bookings: [], customers: [], jobCards }, { today: '2026-11-23' })
+    expect(text).toContain('🔧 ศูนย์บริการ: ใบงานใหม่ 1 คัน (🔻 −1) · ส่งคืนลูกค้า 1 คัน (➖ เท่าเดิม)')
+    expect(buildWeeklyReport({ bookings: [], customers: [] }, { today: '2026-11-23' })).not.toContain('ศูนย์บริการ')
+  })
+})

@@ -62,7 +62,7 @@ import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } f
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
 import { campaignLeads } from '../src/utils/campaignLeads.js'
 import { financeQueue } from '../src/utils/financeQueue.js'
-import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines, serviceJobsAnswer, serviceEveningLines } from '../src/utils/apptFacts.js'
+import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines, serviceJobsAnswer, serviceEveningLines, serviceWeekLines } from '../src/utils/apptFacts.js'
 import { officeDigestLines } from '../src/utils/aiAgents.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
@@ -413,11 +413,13 @@ async function runMorningReminder(env, accessToken) {
     // นัดที่ทำแล้ว (ข้อมูลเช้าดึงเฉพาะนัดค้าง) — ใช้คิด % การติดตามของสัปดาห์ที่แล้ว
     const followupsDone = await runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'deleted'], ['status', 'done']).catch(() => null)
     // (v1.0.1234) รถในสต็อก + ใบสั่งรถ — ใช้คาดการณ์ว่าควรสั่งรถเพิ่มกี่คัน
-    const [vehicles, vehicleOrders] = await Promise.all([
+    const [vehicles, vehicleOrders, jobCards] = await Promise.all([
       runQuery(env, accessToken, 'vehicles', null, null, 3000, ['status', 'brand', 'model', 'color', 'vin', 'deleted']).catch(() => null),
       runQuery(env, accessToken, 'vehicle_orders', null, null, 1000, ['status', 'brand', 'model', 'color', 'qty', 'deleted']).catch(() => null),
+      // (v1.0.1294) ใบงานศูนย์บริการ — สรุปเปิดใหม่/ส่งคืนของสัปดาห์
+      runQuery(env, accessToken, 'job_cards', null, null, 3000, ['status', 'createdAt', 'updatedAt', 'deleted']).catch(() => []),
     ])
-    const wText = buildWeeklyReport({ ...data, followupsDone, vehicles, vehicleOrders }, { today })
+    const wText = buildWeeklyReport({ ...data, followupsDone, vehicles, vehicleOrders, jobCards }, { today })
     const [wt, wl] = await Promise.all([sendTelegram(env, wText), sendLineTarget(env, accessToken, wText)])
     weekly = { text: wText, telegram: wt, line: wl }
   }
@@ -1672,6 +1674,7 @@ export function buildWeeklyReport(data, { today }) {
     fcLine,
     linkLine,
     ...lostLines,
+    ...serviceWeekLines(data.jobCards, weeks[0], weeks[1]),
     ...(convLines.length ? ['', '🎯 ช่องทางที่ปิดจองได้ดี (Lead 90 วันล่าสุด)', ...convLines] : []),
     '',
     '─────────────────────',
