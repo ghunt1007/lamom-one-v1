@@ -1582,6 +1582,12 @@ describe('คำสั่ง LINE สั่งรถ (v1.0.1256)', () => {
     expect(parseLineCommand('รถว่าง')).toEqual({ type: 'stock', q: '' })
     expect(parseLineCommand('งาน').type).toBe('tasks')
     expect(parseLineCommand('สั่งรถยังไง')).toEqual({ type: 'none' })
+    expect(parseLineCommand('โปร')).toEqual({ type: 'promo', q: '' })
+    expect(parseLineCommand('โปร S07')).toEqual({ type: 'promo', q: 'S07' })
+    expect(parseLineCommand('โปรใกล้หมด')).toEqual({ type: 'promo', q: 'ใกล้หมด' })
+    expect(parseLineCommand('โปรโมชั่น')).toEqual({ type: 'promo', q: '' })
+    expect(parseLineCommand('โปรดติดต่อกลับ').type).not.toBe('promo')
+    expect(parseLineCommand('โปรแกรม').type).not.toBe('promo')
   })
 })
 

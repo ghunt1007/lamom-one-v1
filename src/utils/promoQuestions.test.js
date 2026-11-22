@@ -52,3 +52,26 @@ describe('promoQuestions', () => {
     expect(none.next).toContain('โปรเดือนนี้มีอะไรบ้าง')
   })
 })
+
+import { promoLineSpec, promoLineAnswer } from './promoQuestions.js'
+describe('promoLineSpec / promoLineAnswer (LINE โปร)', () => {
+  it('parses model, ending and finance words', () => {
+    expect(promoLineSpec('')).toEqual({ model: '', brand: '', ending: false, finance: false })
+    expect(promoLineSpec('S07')).toEqual({ model: 'S07', brand: '', ending: false, finance: false })
+    expect(promoLineSpec('ใกล้หมด')).toMatchObject({ model: '', ending: true })
+    expect(promoLineSpec('ดอกเบี้ย S05')).toMatchObject({ model: 'S05', finance: true })
+  })
+  it('answers active customer programs only, with copy text for a model', () => {
+    const programs = [
+      { id: 'a', type: 'showroom', title: 'ลดเงินสด', models: ['S07'], amount: 20000, dateFrom: '2026-11-01', dateTo: '2026-11-30' },
+      { id: 'b', type: 'margin', title: 'มาร์จิ้นลับ', models: ['S07'], amount: 9999, dateFrom: '2026-11-01', dateTo: '2026-11-30' },
+      { id: 'c', type: 'brand', title: 'หมดแล้ว', models: ['S07'], amount: 1, dateFrom: '2026-10-01', dateTo: '2026-10-31' },
+    ]
+    const t = promoLineAnswer(programs, 'S07', '2026-11-23')
+    expect(t).toContain('ลดเงินสด')
+    expect(t).not.toContain('มาร์จิ้นลับ')
+    expect(t).not.toContain('หมดแล้ว')
+    expect(t).toContain('ข้อความส่งลูกค้า')
+    expect(promoLineAnswer([], '', '2026-11-23')).toContain('ไม่พบ')
+  })
+})
