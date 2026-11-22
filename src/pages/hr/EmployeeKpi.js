@@ -99,7 +99,7 @@ export default async function EmployeeKpiPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
           ${kpi('📋 จำนวนที่ประเมิน', list.length, 'primary')}
           ${kpi('📊 คะแนนเฉลี่ย', avgScore + '/100', avgScore>=75?'success':avgScore>=60?'warning':'danger')}
-          ${kpi('🏆 คะแนนสูงสุด', topPerformer ? staffName(topPerformer.staffId) + ' (' + topPerformer.overallScore + ')' : '-', 'success')}
+          ${kpi('🏆 คะแนนสูงสุด', topPerformer ? esc(staffName(topPerformer.staffId)) + ' (' + topPerformer.overallScore + ')' : '-', 'success')}
           ${kpi('⚠️ ต้องปรับปรุง', needsAttention, needsAttention>0?'danger':'secondary')}
         </div>
 
@@ -234,7 +234,7 @@ export default async function EmployeeKpiPage(container) {
   function openDetailModal(e) {
     const rt = RATING_CFG[ratingOf(e.overallScore)]
     openModal({
-      title: `📋 ${staffName(e.staffId)} — ${PERIOD_TYPES[e.periodType]?.label} ${e.periodValue}`,
+      title: `📋 ${esc(staffName(e.staffId))} — ${esc(PERIOD_TYPES[e.periodType]?.label || "")} ${esc(e.periodValue)}`,
       size: 'md',
       body: `
         <div style="text-align:center;margin-bottom:14px">
