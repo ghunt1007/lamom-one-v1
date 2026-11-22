@@ -27,6 +27,27 @@ export function jobAskReply({ jobs = [], name = '' } = {}) {
   return [`${n ? `สวัสดีครับคุณ${n}` : 'สวัสดีครับ'} สถานะงานที่ศูนย์บริการตอนนี้ครับ`, ...lines, 'สอบถามค่าใช้จ่ายหรือรายละเอียดเพิ่ม พิมพ์มาได้เลย ทีมงานจะตอบกลับครับ 🙏'].join('\n')
 }
 
+// (v1.0.1282) ลูกค้าถามว่าเช็คระยะครั้งหน้าเมื่อไหร่ → ตอบจากหน้าแจ้งเตือนเช็คระยะ (service_reminders) ของเบอร์ตัวเอง
+export const DUE_ASK_RE = /(?:เช็[คก]ระยะ|เข้าศูนย์|เซอร์วิส|ถ่ายน้ำมันเครื่อง).{0,12}(?:ครั้งหน้า|ครั้งต่อไป|รอบหน้า|รอบต่อไป|เมื่อไหร่|เมื่อไร|วันไหน|ตอนไหน|กี่โมง)|(?:ครบ|ถึง)กำหนด.{0,8}(?:เช็[คก]ระยะ|เข้าศูนย์)|(?:ครั้งหน้า|รอบหน้า).{0,6}(?:เช็[คก]ระยะ|เข้าศูนย์)/
+export const isDueAsk = text => { const t = String(text || '').replace(/\s+/g, ''); return t.length > 0 && t.length <= 80 && DUE_ASK_RE.test(t) && !/ราคา|เท่าไหร่|กี่บาท|ค่าใช้จ่าย/.test(t) }
+const digitsOf = p => String(p || '').replace(/\D/g, '').replace(/^66(?=\d{9}$)/, '0')
+const dayN = d => { const [y, m, x] = String(d).slice(0, 10).split('-').map(Number); return Date.UTC(y, m - 1, x) / 864e5 }
+/** ข้อความตอบกำหนดเข้าศูนย์ (ฟังก์ชันล้วน) — reminders ของเบอร์ลูกค้าคนนี้ · ไม่มีรายการ = null (ให้ทีมตอบเอง) */
+export function dueAskReply({ reminders = [], name = '', today = '' } = {}) {
+  const rows = reminders.filter(r => r && !r.deleted && /^\d{4}-\d{2}-\d{2}/.test(String(r.dueDate || '')) && dayN(r.dueDate) >= dayN(today) - 60)
+    .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)))
+  if (!rows.length) return null
+  const n = String(name || '').trim().replace(/^คุณ/, '').split(/\s+/)[0]
+  const lines = rows.slice(0, 2).map(r => {
+    const car = [String(r.model || '').trim(), r.plate ? `ทะเบียน ${String(r.plate).trim()}` : ''].filter(Boolean).join(' ')
+    const left = dayN(r.dueDate) - dayN(today)
+    const when = left === 0 ? 'วันนี้' : left < 0 ? `วันที่ ${dmy(r.dueDate)} (เลยกำหนดมา ${-left} วัน)` : `วันที่ ${dmy(r.dueDate)}`
+    return `🔧 รถ${car ? ` ${car}` : 'ของคุณ'}: ถึงกำหนดเข้าศูนย์${r.detail ? ` (${String(r.detail).trim()})` : ''} ${when}${r.booked ? ' · จองคิวไว้แล้ว ✅' : ''}`
+  })
+  const anyOpen = rows.slice(0, 2).some(r => !r.booked)
+  return [`${n ? `สวัสดีครับคุณ${n}` : 'สวัสดีครับ'} กำหนดเข้าศูนย์ครั้งถัดไปครับ`, ...lines, anyOpen ? 'ต้องการนัดวันเวลา ตอบกลับข้อความนี้ได้เลย ทีมงานจะจองคิวให้ครับ 🙏' : 'ถ้าต้องการเปลี่ยนวันนัด พิมพ์มาได้เลยครับ 🙏'].join('\n')
+}
+
 export const isStatusAsk = text => { const t = String(text || '').replace(/\s+/g, ''); return t.length > 0 && t.length <= 80 && STATUS_ASK_RE.test(t) }
 
 const dmy = d => /^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${Number(d.slice(0, 4)) + 543}` : ''
@@ -56,6 +77,7 @@ export function statusAskReply({ mine = [], all = [], vehicles = [], orders = []
 export async function handleStatusAsk(deps) {
   if (!deps?.enabled || !deps.userId) return false
   const q = (col, fields, eq) => deps.query(col, fields, eq).catch(() => [])
+  if (isDueAsk(deps.text) && !isStatusAsk(deps.text)) return handleDueAsk(deps, q)
   if (isJobAsk(deps.text) && !isStatusAsk(deps.text)) return handleJobAsk(deps, q)
   if (!isStatusAsk(deps.text)) return false
   const BK = ['status', 'custName', 'salesName', 'brand', 'model', 'colorOut', 'color', 'vin', 'bookingDate', 'createdAt', 'deliveryDate', 'customerId', 'lineUserId', 'deleted']
@@ -93,6 +115,19 @@ async function handleJobAsk(deps, q) {
   const seen = new Set()
   const jobs = [...byCust, ...byPhone].filter(j => j?.id && !seen.has(j.id) && seen.add(j.id))
   const text = jobAskReply({ jobs, name: custs[0].firstName })
+  if (!text) return false
+  if (!(await deps.send(text))) return false
+  await deps.record?.(text)
+  return true
+}
+
+// (v1.0.1282) จับรายการเตือนด้วยเบอร์โทรในแฟ้มลูกค้าที่ผูก LINE นี้ (เบอร์ในหน้าเตือนอาจมีขีด/เว้นวรรค จึงอ่านทั้งหมดแล้วเทียบตัวเลข)
+async function handleDueAsk(deps, q) {
+  const custs = (await q('customers', ['firstName', 'phone', 'lineUserId', 'deleted'], ['lineUserId', deps.userId])).filter(c => !c.deleted)
+  const phones = new Set(custs.map(c => digitsOf(c.phone)).filter(p => p.length >= 9))
+  if (!phones.size) return false
+  const all = await q('service_reminders', ['customer', 'phone', 'plate', 'model', 'detail', 'dueDate', 'booked', 'deleted'])
+  const text = dueAskReply({ reminders: all.filter(r => phones.has(digitsOf(r.phone))), name: custs[0].firstName, today: deps.today })
   if (!text) return false
   if (!(await deps.send(text))) return false
   await deps.record?.(text)

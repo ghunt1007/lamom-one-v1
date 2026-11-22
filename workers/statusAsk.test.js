@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { isStatusAsk, statusAskReply, handleStatusAsk, isJobAsk, jobAskReply } from './statusAsk.js'
+import { isStatusAsk, statusAskReply, handleStatusAsk, isJobAsk, jobAskReply, isDueAsk, dueAskReply } from './statusAsk.js'
 
 const U = 'U' + 'a'.repeat(32)
 const today = '2026-11-22'
@@ -76,5 +76,33 @@ describe('ถามงานศูนย์บริการ (v1.0.1266)', () =
       : col === 'job_cards' && eq?.[0] === 'customerId' ? [{ id: 'j1', status: 'waiting_parts', model: 'S07' }] : [])
     expect(await handleStatusAsk({ enabled: true, userId: U, text: 'รถซ่อมเสร็จยัง', today, query, send })).toBe(true)
     expect(send.mock.calls[0][0]).toContain('รออะไหล่')
+  })
+})
+
+describe('ถามกำหนดเช็คระยะ (v1.0.1282)', () => {
+  it('จับคำถาม', () => {
+    for (const x of ['เช็คระยะครั้งหน้าเมื่อไหร่ครับ', 'ต้องเข้าศูนย์เมื่อไร', 'ครบกำหนดเช็คระยะยัง', 'รอบหน้าเข้าศูนย์วันไหน']) expect(isDueAsk(x)).toBe(true)
+    for (const x of ['เช็คระยะราคาเท่าไหร่', 'รถซ่อมเสร็จยัง', 'สวัสดี']) expect(isDueAsk(x)).toBe(false)
+  })
+  it('ตอบรายการถัดไป บอกจองแล้ว/เลยกำหนด · ไม่มี = null', () => {
+    const t = dueAskReply({ name: 'มานี', today: '2026-11-22', reminders: [
+      { dueDate: '2026-12-05', model: 'S07', plate: 'กข 1', detail: '10,000 km', booked: true },
+      { dueDate: '2026-11-20', model: 'L07' },
+      { dueDate: '2026-01-01', model: 'old' },
+    ] })
+    expect(t).toContain('สวัสดีครับคุณมานี')
+    expect(t.indexOf('L07')).toBeLessThan(t.indexOf('S07'))
+    expect(t).toContain('วันที่ 20/11/2569 (เลยกำหนดมา 2 วัน)')
+    expect(t).toContain('S07 ทะเบียน กข 1: ถึงกำหนดเข้าศูนย์ (10,000 km) วันที่ 05/12/2569 · จองคิวไว้แล้ว')
+    expect(t).not.toContain('old')
+    expect(dueAskReply({ reminders: [], today: '2026-11-22' })).toBe(null)
+  })
+  it('handleStatusAsk จับเบอร์แบบมีขีด', async () => {
+    const send = vi.fn(async () => true)
+    const query = vi.fn(async col => col === 'customers' ? [{ id: 'c1', firstName: 'มานี', phone: '0812345678' }]
+      : col === 'service_reminders' ? [{ phone: '081-234-5678', dueDate: '2026-12-01', model: 'S07' }, { phone: '0899999999', dueDate: '2026-12-02', model: 'X' }] : [])
+    expect(await handleStatusAsk({ enabled: true, userId: U, text: 'เช็คระยะครั้งหน้าเมื่อไหร่', today, query, send })).toBe(true)
+    expect(send.mock.calls[0][0]).toContain('S07')
+    expect(send.mock.calls[0][0]).not.toContain(' X')
   })
 })
