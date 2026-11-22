@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { isStatusAsk, statusAskReply, handleStatusAsk, isJobAsk, jobAskReply, isDueAsk, dueAskReply } from './statusAsk.js'
+import { isStatusAsk, statusAskReply, handleStatusAsk, isJobAsk, jobAskReply, isDueAsk, dueAskReply, isApptAsk, apptAskReply } from './statusAsk.js'
 
 const U = 'U' + 'a'.repeat(32)
 const today = '2026-11-22'
@@ -104,5 +104,33 @@ describe('ถามกำหนดเช็คระยะ (v1.0.1282)', () => {
     expect(await handleStatusAsk({ enabled: true, userId: U, text: 'เช็คระยะครั้งหน้าเมื่อไหร่', today, query, send })).toBe(true)
     expect(send.mock.calls[0][0]).toContain('S07')
     expect(send.mock.calls[0][0]).not.toContain(' X')
+  })
+})
+
+describe('ถามนัดของตัวเอง (v1.0.1288)', () => {
+  it('จับคำถาม', () => {
+    for (const x of ['นัดวันไหนนะครับ', 'นัดทดลองขับกี่โมง', 'นัดเข้าศูนย์วันที่เท่าไหร่', 'นัดของผมเมื่อไหร่']) expect(isApptAsk(x)).toBe(true)
+    for (const x of ['นัดรับรถวันไหน', 'ขอนัดทดลองขับ', 'สวัสดี']) expect(isApptAsk(x)).toBe(false)
+  })
+  it('ตอบนัดที่ยังไม่ถึง เรียงตามวันเวลา · ไม่มี = null', () => {
+    const t = apptAskReply({ name: 'มานี', today: '2026-11-22', items: [
+      { kind: 'service', date: '2026-11-25', time: '09:00', what: 'เช็คระยะ' },
+      { kind: 'testdrive', date: '2026-11-22', time: '14:30:00', what: 'S07' },
+      { kind: 'showroom', date: '2026-11-01' },
+    ] })
+    expect(t).toContain('📅 ทดลองขับ (S07): วันนี้ เวลา 14:30 น.')
+    expect(t).toContain('📅 เข้าศูนย์บริการ (เช็คระยะ): วันที่ 25/11/2569 เวลา 09:00 น.')
+    expect(t.indexOf('ทดลองขับ')).toBeLessThan(t.indexOf('ศูนย์บริการ'))
+    expect(t).not.toContain('โชว์รูม')
+    expect(apptAskReply({ items: [], today: '2026-11-22' })).toBe(null)
+  })
+  it('handleStatusAsk ไม่เอานัดที่ยกเลิก/ของคนอื่น', async () => {
+    const send = vi.fn(async () => true)
+    const query = vi.fn(async col => col === 'customers' ? [{ id: 'c1', firstName: 'มานี', phone: '0812345678' }]
+      : col === 'test_drives' ? [{ customerId: 'c1', date: '2026-11-23', model: 'S07' }, { customerId: 'c1', date: '2026-11-24', status: 'cancelled', model: 'X1' }, { customerId: 'zz', date: '2026-11-23', model: 'OTHER' }]
+      : col === 'service_appointments' ? [{ phone: '081-234-5678', date: '2026-11-26', type: 'เช็คระยะ' }] : [])
+    expect(await handleStatusAsk({ enabled: true, userId: U, text: 'นัดวันไหนครับ', today, query, send })).toBe(true)
+    const m = send.mock.calls[0][0]
+    expect(m).toContain('S07'); expect(m).toContain('เช็คระยะ'); expect(m).not.toContain('X1'); expect(m).not.toContain('OTHER')
   })
 })
