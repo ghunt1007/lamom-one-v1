@@ -63,6 +63,7 @@ import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils
 import { campaignLeads } from '../src/utils/campaignLeads.js'
 import { financeQueue, financeWaitAnswer } from '../src/utils/financeQueue.js'
 import { deliveryWeekAnswer, deliveryWeekList } from '../src/utils/deliveryWeek.js'
+import { stockLineAnswer } from '../src/utils/stockList.js'
 import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines, serviceJobsAnswer, serviceEveningLines, serviceWeekLines } from '../src/utils/apptFacts.js'
 import { officeDigestLines } from '../src/utils/aiAgents.js'
 
@@ -718,6 +719,16 @@ async function handleLineWebhook(request, env, cors) {
           reply = clipLine(deliveryWeekAnswer(rows, todayBangkok(), { mine }))
         } catch { reply = '⚠️ ดึงนัดส่งมอบไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'stock') {
+      // (v1.0.1312) รถในสต็อก — ทีมงานที่ลงทะเบียน/เจ้าของเท่านั้น (ลูกค้าพิมพ์ = ข้อความปกติ) · ไม่มีราคา/ต้นทุนในคำตอบ
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      if (me?.name || (owner && owner === userId)) {
+        try {
+          const rows = await runQuery(env, accessToken, 'vehicles', null, null, 3000, ['status', 'brand', 'model', 'variant', 'color', 'deleted'])
+          reply = clipLine(stockLineAnswer(rows, { q: cmd.q }))
+        } catch { reply = '⚠️ ดึงข้อมูลสต็อกไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'forecast') {
       // (v1.0.1256) เฉพาะเจ้าของ (ปลายทางรายงาน) — การสั่งรถเป็นเรื่องของเจ้าของ คนอื่นพิมพ์ = ข้อความปกติ
       const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
@@ -796,6 +807,9 @@ export function parseLineCommand(text) {
   if (/^(?:ไฟแนนซ์|รอไฟแนนซ์|ไฟแนนท์|finance)$/i.test(t.replace(/\s+/g, ''))) return { type: 'finwait' }
   // (v1.0.1302) นัดส่งมอบ 7 วันข้างหน้า + ที่เลยวันนัดแล้วยังไม่ส่ง
   if (/^(?:ส่งมอบ|นัดส่งมอบ|deliver(?:y|ies)?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'deliveries' }
+  // (v1.0.1312) รถในสต็อกแยกรุ่น/สี: "สต็อก" ทั้งหมด / "สต็อก S07" เฉพาะรุ่น
+  const st = t.match(/^(?:สต็อก|สต๊อก|สต็อค|รถว่าง|รถพร้อมขาย|stock)(?:\s+(.+))?$/i)
+  if (st) return { type: 'stock', q: (st[1] || '').trim().slice(0, 30) }
   // (v1.0.1256) เจ้าของดูคาดการณ์สั่งรถ 45 วัน (สูตรเดียวกับหน้าตารางสีรถ)
   if (/^(?:สั่งรถ|ควรสั่งรถ|คาดการณ์สั่งรถ|คาดการณ์|forecast)$/i.test(t.replace(/\s+/g, ''))) return { type: 'forecast' }
   return { type: 'none' }
@@ -1805,6 +1819,7 @@ export const LINE_HELP_TEXT = [
   '• ครบระยะ — รถถึงกำหนดเช็คระยะที่ยังไม่ได้นัด',
   '• ไฟแนนซ์ — ใบจองที่ยังรอผลไฟแนนซ์/รอเซ็นสัญญา',
   '• ส่งมอบ — นัดส่งมอบรถ 7 วันข้างหน้า + ที่เลยวันนัดแล้วยังไม่ส่ง',
+  '• สต็อก — รถพร้อมขาย/กำลังมา/จองแล้ว แยกรุ่นและสี (สต็อก S07 = เฉพาะรุ่น)',
   '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
   '• สั่งรถ — คาดการณ์ว่าควรสั่งรถรุ่น/สีไหน (เฉพาะเจ้าของ)',
   '• ลงทะเบียน ชื่อเซลส์ — รับงานค้างทุก 9 โมงเช้า',
