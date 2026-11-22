@@ -161,7 +161,7 @@ export default async function ServiceAppointmentPage(container) {
         <!-- Time block -->
         <div style="min-width:54px;text-align:center;flex-shrink:0">
           <div style="font-size:1.2rem;font-weight:800;color:var(--primary)">${a.time}</div>
-          ${viewMode !== 'day' ? `<div style="font-size:0.68rem;color:var(--text-muted)">${a.date}</div>` : ''}
+          ${viewMode !== 'day' ? `<div style="font-size:0.68rem;color:var(--text-muted)">${formatDate(a.date)}</div>` : ''}
         </div>
         <!-- Info -->
         <div style="flex:1;min-width:0">

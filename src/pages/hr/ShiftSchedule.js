@@ -2,7 +2,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
-import { todayBangkok } from '../../utils/format.js'
+import { todayBangkok, formatDate } from '../../utils/format.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
@@ -194,7 +194,7 @@ export default async function ShiftSchedulePage(container) {
     const { el, close } = openModal({
       title: `📆 กำหนดกะ — ${escHtml(s?.name || '')}`, size: 'sm',
       body: `<div>
-        <div style="font-size:0.83rem;color:var(--text-muted);margin-bottom:12px">วันที่: ${date}</div>
+        <div style="font-size:0.83rem;color:var(--text-muted);margin-bottom:12px">วันที่: ${formatDate(date)}</div>
         <div style="display:flex;flex-direction:column;gap:8px">
           ${Object.entries(SHIFTS).map(([k, v]) => `
             <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid ${current===k?'var(--'+v.color+')':'var(--border)'};border-radius:var(--radius-md);cursor:pointer;background:${current===k?'var(--'+v.color+'-dim)':'transparent'}">

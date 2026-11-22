@@ -3,7 +3,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesStaff } from '../../core/hierarchy.js'
-import { todayBangkok, nowBangkokTime } from '../../utils/format.js'
+import { todayBangkok, nowBangkokTime, formatDate } from '../../utils/format.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
@@ -229,7 +229,7 @@ export default async function AttendancePage(container) {
           <tbody>
             ${monthRecs.map(([date, recs]) => `
               <tr>
-                <td style="font-size:0.8rem;white-space:nowrap">${date}</td>
+                <td style="font-size:0.8rem;white-space:nowrap">${formatDate(date)}</td>
                 ${activeStaff.map(s => {
                   const r = recs.find(x => x.staffId === s.id)
                   if (!r) return '<td style="text-align:center">-</td>'
