@@ -7,6 +7,7 @@ import { showToast } from '../../core/store.js'
 import { getSalesData } from '../../core/db.js'
 import { sendSms } from '../../utils/comms.js'
 import { escHtml } from '../../utils/escape.js'
+import { confirmDialog } from '../../utils/modal.js'
 
 const RISK = {
   high:   { label: '🔴 เสี่ยงสูง',    color: 'var(--danger)',   action: 'โทรหาด่วน + เสนอโปรพิเศษ' },
@@ -128,7 +129,12 @@ export default async function ChurnPredictionPage(container) {
     document.getElementById('auto-btn')?.addEventListener('click', async () => {
       const high = customers.filter(c => risk(c.score) === 'high')
       if (dataSource === 'live') {
-        const withPhone = high.filter(c => c.phone)
+        // (v1.0.1273) เดิมกดแล้วส่ง SMS ทุกคนทันทีไม่ถามก่อน — ส่งออกไปแล้วเรียกคืนไม่ได้ · เบอร์ซ้ำส่งครั้งเดียว
+        const seen = new Set()
+        const withPhone = high.filter(c => { const k = String(c.phone || '').replace(/\D/g, ''); return k.length >= 9 && !seen.has(k) && seen.add(k) })
+        if (!withPhone.length) { showToast('ลูกค้าเสี่ยงสูงยังไม่มีเบอร์โทรในระบบ — ส่งไม่ได้', 'warning'); return }
+        const ok = await confirmDialog({ title: '📱 ส่ง SMS ถึงลูกค้าเสี่ยงสูง', message: `ส่ง SMS จริง ${withPhone.length} เบอร์ ข้อความ "มีโปรพิเศษสำหรับคุณ กรุณาติดต่อเซลส์เพื่อรับสิทธิ์" — ตรวจให้แน่ใจว่ามีโปรให้ลูกค้าจริง ส่งแล้วเรียกคืนไม่ได้`, confirmText: `ส่ง ${withPhone.length} เบอร์` })
+        if (!ok) return
         let sent = 0
         for (const c of withPhone) {
           try { await sendSms([c.phone], `LAMOM แจ้งคุณ${c.name}: มีโปรพิเศษสำหรับคุณ กรุณาติดต่อเซลส์เพื่อรับสิทธิ์`); sent++ } catch {}
