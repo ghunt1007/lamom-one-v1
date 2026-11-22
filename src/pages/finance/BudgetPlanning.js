@@ -379,7 +379,7 @@ export default async function BudgetPlanningPage(container) {
       <span style="color:var(--text-muted)">${label}</span>
       <div style="text-align:right">
         <div style="font-weight:700">${formatCurrency(budget)}</div>
-        ${hasActual ? `<div style="color:${isGood?'var(--success)':'var(--danger)'};font-size:0.75rem">${formatCurrency(actual)} (${diff>=0?'+':''}${(diff/budget*100).toFixed(1)}%)</div>` : ''}
+        ${hasActual ? `<div style="color:${isGood?'var(--success)':'var(--danger)'};font-size:0.75rem">${formatCurrency(actual)}${budget > 0 ? ` (${diff>=0?'+':''}${(diff/budget*100).toFixed(1)}%)` : ''}</div>` : ''}
       </div>
     </div>`
   }

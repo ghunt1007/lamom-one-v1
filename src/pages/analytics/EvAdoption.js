@@ -201,12 +201,12 @@ export default async function EvAdoptionPage(container) {
             </thead>
             <tbody>
               ${liveMonthly.map(m => {
-                const share = (m.lamom / m.market * 100).toFixed(2)
+                const share = m.market > 0 ? (m.lamom / m.market * 100).toFixed(2) : '-'
                 return `<tr style="border-bottom:1px solid var(--border-subtle)">
                   <td style="padding:6px 9px;font-weight:700">${m.month}</td>
                   <td style="padding:6px 9px;text-align:right">${m.market.toLocaleString()}</td>
                   <td style="padding:6px 9px;text-align:right;color:var(--primary);font-weight:700">${m.lamom}</td>
-                  <td style="padding:6px 9px;text-align:right">${share}%</td>
+                  <td style="padding:6px 9px;text-align:right">${share === '-' ? '-' : share + '%'}</td>
                   <td style="padding:6px 9px;text-align:right;color:var(--success)">${m.evShare}%</td>
                   <td style="padding:6px 9px;color:var(--text-muted)">${escHtml(m.topModel)}</td>
                 </tr>`
@@ -237,7 +237,7 @@ export default async function EvAdoptionPage(container) {
           'เดือน': m.month,
           'ตลาด EV (คัน)': m.market,
           'ยอดขาย LAMOM (คัน)': m.lamom,
-          'Market Share %': parseFloat((m.lamom / m.market * 100).toFixed(2)),
+          'Market Share %': m.market > 0 ? parseFloat((m.lamom / m.market * 100).toFixed(2)) : '-',
           'EV Share ตลาด %': m.evShare,
           'รุ่นขายดี': m.topModel,
         })),

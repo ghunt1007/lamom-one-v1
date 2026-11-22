@@ -71,7 +71,7 @@ export default async function SpecialEditionPage(container) {
     const avail = e.units.filter(u=>u.status==='available').length
     const reserved = e.units.filter(u=>u.status==='reserved').length
     const done = e.units.filter(u=>u.status==='delivered').length
-    const pct = Math.round((reserved + done) / e.totalAlloc * 100)
+    const pct = e.totalAlloc > 0 ? Math.min(100, Math.round((reserved + done) / e.totalAlloc * 100)) : 0
 
     return `
       <div class="card" style="padding:14px">
