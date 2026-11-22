@@ -84,3 +84,11 @@ describe('cars waiting for pickup in the 09:00 owner reminder (v1.0.1270)', () =
     expect(buildMorningReminder({ ...base }, { today })).not.toContain('รอลูกค้ามารับ')
   })
 })
+
+describe('service-due line in the 09:00 reminder (v1.0.1292)', () => {
+  it('shows unbooked due count', () => {
+    const d = new Date(Date.parse(today + 'T00:00:00Z') + 3 * 864e5).toISOString().slice(0, 10)
+    expect(buildMorningReminder({ ...base, dueReminders: [{ dueDate: d }] }, { today })).toContain('📅 รถครบระยะยังไม่ได้นัด: 1 คัน')
+    expect(buildMorningReminder({ ...base }, { today })).not.toContain('ครบระยะ')
+  })
+})
