@@ -77,3 +77,17 @@ export function serviceEveningLines(jobs = [], today) {
     `  • ใบงานใหม่วันนี้: ${isNew} คัน · ส่งคืนลูกค้าวันนี้: ${back} คัน`,
     `  • รถยังอยู่ที่ศูนย์: ${inShop.length} คัน${done ? ` (เสร็จรอลูกค้ารับ ${done})` : ''}${parts ? ` · รออะไหล่ ${parts}` : ''}`]
 }
+
+// (v1.0.1294) สรุปสัปดาห์ (จันทร์) — ใบงานศูนย์บริการเปิดใหม่ / ส่งคืนลูกค้า สัปดาห์ที่แล้วเทียบสัปดาห์ก่อน · ไม่มีเลยทั้งสองสัปดาห์ = []
+export function serviceWeekLines(jobs = [], cur, prev) {
+  const live = (jobs || []).filter(j => j && !j.deleted)
+  const inR = (d, [a, b]) => !!d && d >= a && d <= b
+  const count = r => ({
+    opened: live.filter(j => inR(bkkDate(j.createdAt), r)).length,
+    back: live.filter(j => j.status === 'delivered' && inR(bkkDate(j.updatedAt), r)).length,
+  })
+  const c = count(cur), p = count(prev)
+  if (!c.opened && !c.back && !p.opened && !p.back) return []
+  const diff = (a, b) => a === b ? '➖ เท่าเดิม' : a > b ? `🔺 +${a - b}` : `🔻 −${b - a}`
+  return ['', `🔧 ศูนย์บริการ: ใบงานใหม่ ${c.opened} คัน (${diff(c.opened, p.opened)}) · ส่งคืนลูกค้า ${c.back} คัน (${diff(c.back, p.back)})`]
+}
