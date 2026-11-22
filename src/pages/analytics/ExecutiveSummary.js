@@ -2,7 +2,7 @@
  * Executive Summary — สรุปผู้บริหารหน้าเดียว
  * Route: /analytics/executive
  */
-import { formatCurrency, formatDate, toDateStr, toDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, toDateStr, toDate, todayBangkok } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { openModal } from '../../utils/modal.js'
 import { getSalesData, getCommissionData, listDocs } from '../../core/db.js'
@@ -13,11 +13,12 @@ import { escHtml } from '../../utils/escape.js'
 import { PUBLIC_ORIGIN } from '../../utils/publicLinks.js'
 
 const SUMMARY = {
-  month: 'มิถุนายน 2569',
+  month: '',
   sales: { actual: 0, target: 0, revenue: 0, lastMonth: 0 },
-  service: { jobs: 0, revenue: 0, csat: 0 },
-  finance: { grossProfit: 0, netProfit: 0, margin: 0, cashflow: 0, ar: 0 },
-  people: { headcount: 0, attendance: 0, topSales: '-', topTech: '-' },
+  // (v1.0.1308) null = ยังไม่มีข้อมูลจริง → แสดง "-" (เดิมเป็น 0 + ป้าย "ตัวอย่าง")
+  service: { jobs: null, revenue: null, csat: null },
+  finance: { grossProfit: 0, netProfit: 0, margin: 0, cashflow: 0, ar: null },
+  people: { headcount: null, attendance: null, topSales: '-', topTech: '-' },
 }
 
 // ตัวอย่างล้วน — ใช้เฉพาะตอนยังไม่มีข้อมูลจริงพอจะคำนวณ (บริษัทใหม่/ยังไม่มีข้อมูล) ก่อน v1.0.360 สามค่านี้
@@ -107,6 +108,29 @@ export default async function ExecutiveSummaryPage(container) {
   let dataSource = 'demo'
   let real = { highlights: [], concerns: [], decisions: [] }
 
+  // (v1.0.1308) ชื่อเดือนตามเวลาไทยเสมอ (เดิม hardcode "มิถุนายน 2569" ถ้ายอดขายยังไม่ถึง 2 คัน)
+  const THAI_MO = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+  const ym = todayBangkok().slice(0, 7)
+  summary.month = `${THAI_MO[+ym.slice(5)]} ${+ym.slice(0, 4) + 543}`
+  // ศูนย์บริการ/ทีมงาน/ลูกหนี้ จากข้อมูลจริง (อ่านไม่ได้ = คงเป็น "-")
+  await Promise.all([
+    listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).then(jobs => {
+      summary.service.jobs = jobs.filter(j => !j.deleted && toDateStr(j.createdAt).startsWith(ym)).length
+    }).catch(() => {}),
+    listDocs('csat', [], 'createdAt', 'desc', 500).then(rows => {
+      const sc = rows.filter(f => !f.deleted && toDateStr(f.createdAt).startsWith(ym)).map(f => Number(f.csat || f.csatScore)).filter(n => n >= 1 && n <= 5)
+      if (sc.length) summary.service.csat = (sc.reduce((a, n) => a + n, 0) / sc.length).toFixed(1)
+    }).catch(() => {}),
+    listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 500).then(st => {
+      const live = st.filter(x => !x.deleted && x.status !== 'resigned' && x.status !== 'inactive')
+      if (live.length) summary.people.headcount = live.length
+    }).catch(() => {}),
+    listDocs('debts', companyScopeFilters(), 'dueDate', 'asc', 500).then(ds => {
+      summary.finance.ar = ds.filter(d => !d.deleted && d.status !== 'paid').reduce((a, d) => a + (Number(d.amount) || 0), 0)
+    }).catch(() => {}),
+  ])
+  if (container.__routerGen !== myGen) return
+
   try {
     const [sales, coms] = await Promise.all([
       getSalesData().catch(() => []),
@@ -127,8 +151,6 @@ export default async function ExecutiveSummaryPage(container) {
       // CashFlow.js/VatReport.js (ใช้ cost จริงถ้ามี ไม่มีค่อย fallback ประมาณ 82% ของราคาขาย)
       const grossProfit = currSales.reduce((a, s) => a + ((s.salePrice || 0) - saleCost(s)), 0)
       const topSales = coms.length ? [...coms].sort((a,b)=>b.carsSold-a.carsSold)[0] : null
-      const thaiMonths = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
-      summary.month = `${thaiMonths[now.getMonth()+1]} ${now.getFullYear()+543}`
       summary.sales.actual = currSales.length
       summary.sales.revenue = totalRevenue
       summary.sales.lastMonth = prevSales.length
@@ -150,7 +172,6 @@ export default async function ExecutiveSummaryPage(container) {
     // ส่วนที่ยังปลอมอยู่ตอนนี้เหลือแค่ service.jobs/csat, finance.netProfit/margin/ar, people.headcount/
     // attendance/topTech (ต้องดึงข้อมูล HR/attendance เพิ่ม เป็นขอบเขตแยกจากรอบแก้นี้) — คงป้ายกำกับไว้เฉพาะ
     // ตัวเลขกลุ่มนั้นต่อไป ไม่ให้ badge "● ข้อมูลจริง" ระดับหน้าคลุมเนื้อหาที่ยังแต่งขึ้นเองแบบเงียบๆ
-    const demoNote = dataSource === 'live' ? ' <span style="font-weight:400;font-size:0.62rem;color:var(--text-muted)">(ตัวอย่าง — ยังไม่คำนวณจากข้อมูลจริง)</span>' : ''
     const useRealSections = dataSource === 'live'
     const HIGHLIGHTS = useRealSections ? real.highlights : []
     const CONCERNS = useRealSections ? real.concerns : []
@@ -172,8 +193,8 @@ export default async function ExecutiveSummaryPage(container) {
 
         <!-- Big numbers -->
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('🚗 ยอดขาย', s.sales.actual + ' คัน (' + salesPct + '% เป้า)', 'success')}
-          ${kpi('💰 รายได้รวม', formatCurrency(s.sales.revenue + s.service.revenue), 'primary')}
+          ${kpi('🚗 ยอดขาย', s.sales.actual + ' คัน' + (s.sales.target ? ' (' + salesPct + '% เป้า)' : ''), 'success')}
+          ${kpi('💰 รายได้รวม', formatCurrency(s.sales.revenue + (s.service.revenue || 0)), 'primary')}
           ${kpi('📊 กำไรขั้นต้น', formatCurrency(s.finance.grossProfit) + (s.sales.revenue ? ' (' + Math.round(s.finance.grossProfit / s.sales.revenue * 100) + '%)' : ''), 'success')}
           ${kpi('📈 เทียบเดือนก่อน', (growth>0?'+':'') + growth + '%', growth >= 0 ? 'success' : 'danger', '<span style="font-size:0.62rem;color:var(--text-muted)">วันที่ 1–' + new Date().getDate() + ' เท่ากัน</span>')}
         </div>
@@ -218,22 +239,20 @@ export default async function ExecutiveSummaryPage(container) {
         <!-- Department snapshot -->
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
           <div class="card" style="padding:12px 14px">
-            <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">🔧 ศูนย์บริการ${demoNote}</div>
-            ${row('งาน', s.service.jobs + ' งาน')}
-            ${row('รายได้', formatCurrency(s.service.revenue))}
-            ${row('CSAT', '⭐ ' + s.service.csat)}
+            <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">🔧 ศูนย์บริการ</div>
+            ${row('ใบงานเดือนนี้', s.service.jobs == null ? '-' : s.service.jobs + ' งาน')}
+            ${row('CSAT', s.service.csat == null ? '-' : '⭐ ' + s.service.csat + '/5')}
           </div>
           <div class="card" style="padding:12px 14px">
             <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">💰 การเงิน</div>
             ${row('Gross Profit', formatCurrency(s.finance.grossProfit))}
             ${row('Cash Flow', formatCurrency(s.finance.cashflow))}
-            ${row('AR ค้าง' + demoNote, formatCurrency(s.finance.ar))}
+            ${row('ลูกหนี้ค้าง', s.finance.ar == null ? '-' : formatCurrency(s.finance.ar))}
           </div>
           <div class="card" style="padding:12px 14px">
-            <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">👥 ทีมงาน${demoNote}</div>
-            ${row('พนักงาน', s.people.headcount + ' คน (เข้างาน ' + s.people.attendance + '%)')}
-            ${row('🏆 Top Sales', s.people.topSales)}
-            ${row('🏆 Top Tech', s.people.topTech)}
+            <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">👥 ทีมงาน</div>
+            ${row('พนักงาน', s.people.headcount == null ? '-' : s.people.headcount + ' คน')}
+            ${row('🏆 Top Sales', escHtml(s.people.topSales))}
           </div>
         </div>
       </div>
@@ -246,20 +265,18 @@ export default async function ExecutiveSummaryPage(container) {
         { 'หัวข้อ': 'ยอดขาย (คัน)', 'ข้อมูล': s.sales.actual },
         { 'หัวข้อ': 'เป้าหมาย (คัน)', 'ข้อมูล': s.sales.target },
         { 'หัวข้อ': 'รายได้ยอดขาย (บาท)', 'ข้อมูล': s.sales.revenue },
-        { 'หัวข้อ': 'งานบริการ (รายการ)', 'ข้อมูล': s.service.jobs },
-        { 'หัวข้อ': 'รายได้บริการ (บาท)', 'ข้อมูล': s.service.revenue },
-        { 'หัวข้อ': 'CSAT', 'ข้อมูล': s.service.csat },
+        { 'หัวข้อ': 'ใบงานบริการเดือนนี้', 'ข้อมูล': s.service.jobs ?? '-' },
+        { 'หัวข้อ': 'CSAT (เต็ม 5)', 'ข้อมูล': s.service.csat ?? '-' },
+        { 'หัวข้อ': 'ลูกหนี้ค้าง (บาท)', 'ข้อมูล': s.finance.ar ?? '-' },
+        { 'หัวข้อ': 'พนักงาน (คน)', 'ข้อมูล': s.people.headcount ?? '-' },
         { 'หัวข้อ': 'Gross Profit (บาท)', 'ข้อมูล': s.finance.grossProfit },
-        { 'หัวข้อ': 'Net Profit (บาท)', 'ข้อมูล': s.finance.netProfit },
-        { 'หัวข้อ': 'Net Margin %', 'ข้อมูล': s.finance.margin },
         { 'หัวข้อ': 'Cashflow (บาท)', 'ข้อมูล': s.finance.cashflow },
         { 'หัวข้อ': 'Top Sales', 'ข้อมูล': s.people.topSales },
-        { 'หัวข้อ': 'Top Tech', 'ข้อมูล': s.people.topTech },
       ], `Executive_Summary_${s.month.replace(' ', '_')}.xlsx`, 'Summary')
       showToast('📥 Export Executive Summary แล้ว', 'success')
     })
     document.getElementById('share-btn')?.addEventListener('click', () => {
-      const text = `📊 LAMOM ONE — Executive Summary ${s.month}\n\n🚗 ยอดขาย: ${s.sales.actual}/${s.sales.target} คัน (${Math.round(s.sales.actual/s.sales.target*100)}%)\n💰 รายได้: ${formatCurrency(s.sales.revenue)}\n🔧 งานบริการ: ${s.service.jobs} งาน CSAT ⭐${s.service.csat}\n📈 Gross Profit: ${formatCurrency(s.finance.grossProfit)} (${s.finance.margin}%)\n👑 Top Sales: ${s.people.topSales}`
+      const text = `📊 LAMOM ONE — Executive Summary ${s.month}\n\n🚗 ยอดขาย: ${s.sales.actual}${s.sales.target ? `/${s.sales.target} คัน (${Math.round(s.sales.actual/s.sales.target*100)}%)` : ' คัน'}\n💰 รายได้: ${formatCurrency(s.sales.revenue)}\n🔧 ใบงานบริการ: ${s.service.jobs ?? '-'} งาน${s.service.csat != null ? ` · CSAT ⭐${s.service.csat}/5` : ''}\n📈 Gross Profit: ${formatCurrency(s.finance.grossProfit)}\n👑 Top Sales: ${s.people.topSales}`
       const lineUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(PUBLIC_ORIGIN + '/analytics/executive')}&text=${encodeURIComponent(text)}`
       openModal({
         title: '📤 แชร์ Executive Summary',

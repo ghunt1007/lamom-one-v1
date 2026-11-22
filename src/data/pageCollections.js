@@ -924,6 +924,7 @@ export const PAGE_COLLECTIONS = {
   "insurance_policies",
   "job_cards",
   "purchase_orders",
+  "staff",
   "vehicles"
  ],
  "/service/estimate": [
