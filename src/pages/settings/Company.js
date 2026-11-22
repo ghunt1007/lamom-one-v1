@@ -154,6 +154,8 @@ export default async function CompanyPage(container) {
       const ok = await saveCompany(data)
       if (container.__routerGen !== myGen) return
       if (!ok) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
+      // (v1.0.1323) หัวเอกสารที่พิมพ์ใช้ข้อมูลนี้ทันที
+      import('../../utils/print.js').then(m => m.setOrgFromCompany(data)).catch(() => {})
       showToast('✅ บันทึกข้อมูลบริษัทแล้ว', 'success')
       renderPage()
     })
