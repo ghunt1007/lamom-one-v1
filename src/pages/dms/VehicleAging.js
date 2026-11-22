@@ -2,6 +2,7 @@
  * Vehicle Aging Report — รถค้างสต็อก แจ้งเตือนเร่งขาย
  * Route: /dms/aging
  */
+import { stockAgeDays } from '../../utils/stockAge.js'
 import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
@@ -40,9 +41,10 @@ export default async function VehicleAgingPage(container) {
       // เดิม query collection 'stock' ซึ่งไม่มีอยู่จริงในระบบ (ไม่มีหน้าไหนเขียนลง collection นี้เลย) —
       // สต็อกจริงอยู่ใน 'vehicles' (เขียนโดย Stock.js) ทำให้หน้านี้ว่างเปล่าตลอดเวลาในทางปฏิบัติ
       const docs = await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'asc', 200)
-      stock = docs.filter(d => !d.deleted && d.status !== 'sold').map((d, i) => ({
+      // (v1.0.1315) รถกำลังขนส่งยังไม่ถึงโชว์รูม — ไม่นับอายุสต็อก
+      stock = docs.filter(d => !d.deleted && !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว', 'transit', 'ระหว่างขนส่ง'].includes(d.status)).map((d, i) => ({
         id: d.id,
-        vin: d.vin || `VIN-${i+1}`,
+        vin: d.vin || '-',
         model: `${d.brand || ''} ${d.model || ''}`.trim(),
         color: d.color || '',
         cost: d.cost || 0,
@@ -64,7 +66,7 @@ export default async function VehicleAgingPage(container) {
       return
     }
     const rows = stock.map(s => {
-      const days = Math.floor((Date.now() - new Date(s.arrived).getTime()) / 86400000)
+      const days = stockAgeDays(s.arrived, todayBangkok()) ?? 0
       return { ...s, days, b: bucket(days), carry: Math.round(s.cost * DAILY_RATE * days) }
     }).sort((a, b) => b.days - a.days)
 
@@ -116,7 +118,7 @@ export default async function VehicleAgingPage(container) {
                 <td style="text-align:center;font-weight:700;color:${r.b.color}">${r.days} วัน</td>
                 <td style="text-align:center"><span style="font-size:0.66rem;background:${r.b.color};color:#fff;padding:2px 8px;border-radius:10px">${r.b.label}</span></td>
                 <td style="text-align:right;color:var(--danger)">${formatCurrency(r.carry)}</td>
-                <td style="text-align:right;padding-right:12px">${r.days>60?`<button class="btn btn-xs btn-secondary promo-btn" data-vin="${escHtml(r.vin)}" data-model="${escHtml(r.model)}">🎁 จัดโปร</button>`:''}</td>
+                <td style="text-align:right;padding-right:12px">${r.days>60?`<button class="btn btn-xs btn-secondary promo-btn" data-id="${escHtml(r.id)}" data-vin="${escHtml(r.vin)}" data-model="${escHtml(r.model)}">🎁 จัดโปร</button>`:''}</td>
               </tr>`).join('')}
           </tbody>
         </table>
@@ -124,7 +126,7 @@ export default async function VehicleAgingPage(container) {
     `
 
     container.querySelectorAll('.promo-btn').forEach(b => b.addEventListener('click', () => {
-      const r = rows.find(x => x.vin === b.dataset.vin)
+      const r = rows.find(x => x.id === b.dataset.id)
       openModal({
         title: '🎁 จัดโปรเร่งระบาย ' + escHtml(b.dataset.model) + ' (' + escHtml(b.dataset.vin) + ')',
         size: 'sm',

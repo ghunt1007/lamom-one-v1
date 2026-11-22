@@ -527,8 +527,12 @@ export default async function StockPage(container) {
             return
           }
         }
-        await updateDocData('vehicles', v.id, { status: btn.dataset.st })
-        v.status = btn.dataset.st; showToast(`เปลี่ยนสถานะเป็น ${STATUS[btn.dataset.st]?.label}`, 'success')
+        // (v1.0.1315) รถที่สร้างจากใบสั่ง (กำลังขนส่ง) ตั้งวันรับรถเป็นวันสั่ง — พอรถมาถึงจริง (ออกจากสถานะขนส่ง)
+        // ใช้วันนี้เป็นวันรับรถ อายุสต็อก/ดอกเบี้ยฟลอร์แพลนจะนับจากวันที่รถอยู่ที่โชว์รูมจริง
+        const patch = { status: btn.dataset.st }
+        if (v.status === 'transit' && btn.dataset.st !== 'transit' && btn.dataset.st !== 'sold') patch.arrivedAt = todayBangkok()
+        await updateDocData('vehicles', v.id, patch)
+        Object.assign(v, patch); showToast(`เปลี่ยนสถานะเป็น ${STATUS[btn.dataset.st]?.label}`, 'success')
         close(); document.querySelector('.modal-overlay')?.remove(); updateStats(); applyFilter()
       } catch { showToast('เกิดข้อผิดพลาด','error') }
     }))
