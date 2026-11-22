@@ -7,13 +7,18 @@ const by = (items, id) => items.find(i => i.id === id)
 
 describe('readinessItems', () => {
   it('ทุกอย่างพร้อม → ok ทั้งหมด', () => {
-    const it2 = readinessItems({ status: full, auto: { publicForm: true, aiReply: true, leadAlert: true }, lastBackupMs: NOW - 3600e3, sheet: { ok: true }, company: { nameTh: 'บริษัท ทดสอบ', phone: '02-123-4567' }, reports: { morningAt: new Date(NOW - 3600e3).toISOString(), morningOk: true, eveningAt: new Date(NOW - 7200e3).toISOString(), eveningOk: true }, now: NOW })
+    const it2 = readinessItems({ status: full, auto: { publicForm: true, aiReply: true, leadAlert: true, statusLine: true, apptLine: true, serviceDueLine: true, jobReadyLine: true, statusAsk: true }, lastBackupMs: NOW - 3600e3, sheet: { ok: true }, company: { nameTh: 'บริษัท ทดสอบ', phone: '02-123-4567' }, reports: { morningAt: new Date(NOW - 3600e3).toISOString(), morningOk: true, eveningAt: new Date(NOW - 7200e3).toISOString(), eveningOk: true }, now: NOW })
     expect(readinessSummary(it2)).toEqual({ ok: it2.length, todo: 0, unknown: 0, total: it2.length })
   })
   it('ไม่มีสถานะจาก worker → unknown ไม่เดาว่าผ่าน', () => {
     const r = readinessItems({ status: null, auto: { publicForm: false }, now: NOW })
     expect(by(r, 'line').state).toBe('unknown')
     expect(by(r, 'publicform').state).toBe('todo')
+  })
+  it('สวิตช์ข้อความถึงลูกค้าทาง LINE: บอกตัวที่ยังปิด (v1.0.1277)', () => {
+    const c = by(readinessItems({ status: full, auto: { statusLine: true, apptLine: true }, now: NOW }), 'custline')
+    expect(c.state).toBe('todo'); expect(c.label).toContain('2/5'); expect(c.hint).toContain('แจ้งรถซ่อมเสร็จ'); expect(c.hint).not.toContain('แจ้งสถานะรถ ·')
+    expect(by(readinessItems({ status: full, auto: { _noAccess: true }, now: NOW }), 'custline').state).toBe('unknown')
   })
   it('Meta ต้องมีเพจอย่างน้อย 1 เพจ', () => {
     const r = readinessItems({ status: { ...full, meta: { configured: true, pages: [] } }, auto: {}, now: NOW })
