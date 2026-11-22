@@ -148,7 +148,7 @@ export default async function ReferralProgramPage(container) {
               ${REWARD_TIERS.map(t => `
                 <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.8rem">
                   <span>${t.icon} ${t.tier} (${t.minRef}+ แนะนำ)</span>
-                  <span style="font-weight:700;color:${t.color}">${formatCurrency(t.reward)}</span>
+                  <span style="font-weight:700;color:color-mix(in srgb, ${t.color} 60%, var(--text))">${formatCurrency(t.reward)}</span>
                 </div>
               `).join('')}
             </div>

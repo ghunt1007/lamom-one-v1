@@ -41,6 +41,9 @@
   --danger-dim:   rgba(248,113,113,0.14);
   --info:         #38BDF8;
   --info-dim:     rgba(56,189,248,0.14);
+  /* (v1.0.1306) สีรอง (เทา) — 134 จุดในแอปใช้ var(--secondary) แต่ไม่เคยมีค่า → แถบ/ตัวเลขโปร่งใสมองไม่เห็น */
+  --secondary:    #718096;
+  --secondary-dim:rgba(113,128,150,0.16);
   --text:         #E8EDF7;
   --text-2:       #C3CCDC;
   --text-3:       #93A0B8;
@@ -72,6 +75,8 @@
   --danger-dim:   rgba(200,30,30,0.08);
   --info:         #0C6A84;
   --info-dim:     rgba(12,106,132,0.09);
+  --secondary:    #64748B;
+  --secondary-dim:rgba(100,116,139,0.10);
   --text:         #0F172A;
   --text-2:       #334155;
   --text-3:       #526075;
