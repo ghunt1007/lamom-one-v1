@@ -541,7 +541,7 @@ export default async function StockPage(container) {
       size: 'lg',
       body: `
         <div style="display:flex;flex-direction:column;gap:12px">
-          <button type="button" class="btn btn-secondary btn-sm" id="vf-pick" style="align-self:flex-start">🚘 เลือกจาก Catalog (140 รุ่น) — เติมสเปก/ราคาอัตโนมัติ</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="vf-pick" style="align-self:flex-start;white-space:normal;text-align:left;max-width:100%">🚘 เลือกจาก Catalog (140 รุ่น) — เติมสเปก/ราคาอัตโนมัติ</button>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ยี่ห้อ *</label>
               <select class="input" id="vf-brand">

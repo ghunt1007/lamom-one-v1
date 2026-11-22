@@ -202,9 +202,9 @@ export default async function MoodSurveyPage(container) {
       title:'✏️ กรอก Mood วันนี้', size:'sm',
       body:`<div style="font-size:0.8rem">
         <div style="font-size:0.78rem;font-weight:700;margin-bottom:12px">${QUESTIONS[0]}</div>
-        <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-bottom:16px">
           ${MOODS.map(m=>`
-            <button class="mood-pick" data-score="${m.score}" style="font-size:2rem;background:none;border:3px solid transparent;border-radius:12px;padding:8px;cursor:pointer;transition:all .15s" title="${m.label}">${m.emoji}</button>`).join('')}
+            <button class="mood-pick" data-score="${m.score}" style="font-size:clamp(1.5rem,8vw,2rem);background:none;border:3px solid transparent;border-radius:12px;padding:6px;cursor:pointer;transition:all .15s" title="${m.label}">${m.emoji}</button>`).join('')}
         </div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">บอกเพิ่มเติม (optional)</label>
           <input class="input" id="mood-note" placeholder="รู้สึกอย่างไร..." style="width:100%;margin-top:4px"></div>

@@ -927,3 +927,13 @@
   .modal-body { padding: 14px 20px; }
   .modal-footer { padding: 10px 20px 12px; }
 }
+
+/* (v1.0.1298) ฟอร์มในหน้าต่าง (เพิ่ม/สร้าง) ที่วางช่องกรอก 2 คอลัมน์ด้วย inline grid — บนมือถือช่องวันที่/เวลา/โทร
+   ดันกว้างเกินหน้าต่างจนล้นขอบขวา (16 หน้า เช่น นัดส่งมอบ ใบส่งมอบ ประกัน สัญญา) → ลูกในกริดย่อได้ และจอแคบเรียงช่องเดียว */
+.modal-body [style*="display:grid"] > *, .modal-body [style*="display: grid"] > *, .modal-body [style*="display:flex"] > .input-group { min-width: 0; }
+.modal-body .input, .modal-body input, .modal-body select, .modal-body textarea { min-width: 0; max-width: 100%; }
+@media (max-width: 480px) {
+  .modal-body [style*="grid-template-columns:1fr 1fr"], .modal-body [style*="grid-template-columns: 1fr 1fr"],
+  .modal-body [style*="grid-template-columns:repeat(2,1fr)"], .modal-body [style*="grid-template-columns:repeat(2, 1fr)"],
+  .modal-body [style*="grid-template-columns:1fr 1fr 1fr"], .modal-body [style*="grid-template-columns:repeat(3,1fr)"] { grid-template-columns: 1fr !important; }
+}
