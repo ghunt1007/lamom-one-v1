@@ -71,3 +71,16 @@ describe('service appointments in the 09:00 group reminder (v1.0.1015)', async (
     expect(focusLines(p)).toContain('รับลูกค้านัดเข้าโชว์รูม คุณดี เวลา 10:00')
   })
 })
+
+import { buildMorningReminder } from './daily-report.js'
+describe('cars waiting for pickup in the 09:00 owner reminder (v1.0.1270)', () => {
+  it('adds the pickup line when done job cards wait since before today', () => {
+    const doneJobs = [{ status: 'done', custName: 'คุณรอรับ', plate: 'กข 9', updatedAt: '2026-11-08T03:00:00Z' }]
+    const text = buildMorningReminder({ ...base, doneJobs }, { today })
+    expect(text).toContain('🚗 รถซ่อมเสร็จรอลูกค้ามารับ: 1 คัน')
+    expect(text).toContain('คุณรอรับ (กข 9) · เสร็จมา 2 วัน')
+  })
+  it('no line without done jobs', () => {
+    expect(buildMorningReminder({ ...base }, { today })).not.toContain('รอลูกค้ามารับ')
+  })
+})

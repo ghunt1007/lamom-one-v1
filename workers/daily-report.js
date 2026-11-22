@@ -62,7 +62,7 @@ import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } f
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
 import { campaignLeads } from '../src/utils/campaignLeads.js'
 import { financeQueue } from '../src/utils/financeQueue.js'
-import { serviceTodayLines, showroomVisitLine } from '../src/utils/apptFacts.js'
+import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines } from '../src/utils/apptFacts.js'
 import { officeDigestLines } from '../src/utils/aiAgents.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
@@ -1065,7 +1065,7 @@ export const EVENING_CUSTOMER_FIELDS = ['stage', 'createdAt', 'source', 'assigne
 // (v1.0.1211) เดิมไม่มี autoLead → หัวข้อ "🆕 Lead ใหม่ที่ยังไม่มีใครโทร" ไม่เคยขึ้นในรายงานจริง
 export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel', 'phone', 'wakeSentAt', 'lineOptOut', 'lineBlockedAt', 'marketingConsent']
 async function buildMorningData(env, accessToken) {
-  const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves, vehicles, transit, orders] = await Promise.all([
+  const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves, vehicles, transit, orders, doneJobs] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly', 'colorOut', 'color', 'vin', 'lineUserId']),
     runQuery(env, accessToken, 'customers', null, null, 5000, MORNING_CUSTOMER_FIELDS),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
@@ -1085,12 +1085,14 @@ async function buildMorningData(env, accessToken) {
     // (v1.0.1246) รถกำลังขนส่ง + ใบสั่งรถ — ใช้หาลูกค้าที่จองรอแต่ยังไม่มีรถรองรับเลย (อ่านไม่ได้ = ไม่ใส่บรรทัดนั้น)
     runQuery(env, accessToken, 'vehicles', null, null, 3000, ['status', 'brand', 'model', 'color', 'vin', 'arrivedAt', 'eta', 'expectedDate', 'deleted'], ['status', 'transit']).catch(() => null),
     runQuery(env, accessToken, 'vehicle_orders', null, null, 2000, ['status', 'brand', 'model', 'color', 'qty', 'expectedDate', 'orderNo', 'deleted']).catch(() => null),
+    // (v1.0.1270) ใบงานซ่อมที่เสร็จแล้วรอลูกค้ามารับ
+    runQuery(env, accessToken, 'job_cards', null, null, 500, ['status', 'custName', 'plate', 'updatedAt', 'lineReadySent', 'deleted'], ['status', 'done']).catch(() => []),
   ])
   // แก้สถานะไฟแนนซ์ที่ค้าง "รอผล" ของใบจองที่ไปถึงรอรถ/รอส่งมอบ/ส่งมอบแล้ว ให้เป็น "ผ่าน" ในฐานข้อมูลจริงทุกเช้า
   const fixes = bookings.filter(b => b.id && finPassPatch(b))
   if (fixes.length && await commitFinancePassed(env, accessToken, fixes.map(b => b.id))) fixes.forEach(b => { b.finStatus = 'ผ่าน' })
   const today = todayBangkok()
-  const data = { bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves, vehicles, transit, orders }
+  const data = { bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves, vehicles, transit, orders, doneJobs }
   return { today, data, text: buildMorningReminder(data, { today, appUrl: env.ALLOWED_ORIGIN }), sections: buildMorningSections(data, { today }) }
 }
 
@@ -1338,6 +1340,7 @@ export function buildMorningReminder(data, opts) {
   const sections = buildMorningSections(data, opts).map(s => s.text)
   const finLine = financeQueueLine(data.bookings, today)
   const svc = serviceTodayLines(data.serviceAppts, today)
+  const pickup = jobsAwaitingPickupLines(data.doneJobs, today)
   const office = officeDigestLines({ today, threads: data.lineThreads, pdis: data.pdis, complaints: data.complaints, leaves: data.leaves }, { appUrl: opts.appUrl || '' })
   const pairs = readyPairLines(data)
   const noCar = noSupplyLines(data, today)
@@ -1354,6 +1357,7 @@ export function buildMorningReminder(data, opts) {
     ...(noCar.length ? ['', ...noCar] : []),
     ...(lateOrd.length ? ['', ...lateOrd] : []),
     ...(svc.length ? ['', ...svc] : []),
+    ...(pickup.length ? ['', ...pickup] : []),
     ...(office.length ? ['', ...office] : []),
     '',
     '─────────────────────',

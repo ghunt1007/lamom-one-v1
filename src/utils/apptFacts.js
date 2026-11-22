@@ -20,3 +20,17 @@ export function serviceTodayLines(serviceAppts = [], today, max = 6) {
   if (t.length > max) rows.push(`  - …และอีก ${t.length - max} คัน`)
   return [`🔧 นัดเข้าศูนย์บริการวันนี้: ${t.length} คัน`, ...rows]
 }
+
+// (v1.0.1270) รถซ่อม/เช็กระยะเสร็จแล้วแต่ลูกค้ายังไม่มารับ (ใบงานสถานะ "เสร็จแล้ว" ตั้งแต่ก่อนวันนี้) — รายงาน LINE 09:00
+// ใช้เวลาแก้ไขล่าสุดของใบงานแทนเวลาที่เสร็จ (ใบงานที่เสร็จแล้วมักไม่ถูกแก้อีก) · ไม่มีวันที่ = ไม่นับ (ไม่เดา)
+const bkkDate = iso => { const t = Date.parse(iso || ''); return Number.isFinite(t) ? new Date(t + 7 * 3600e3).toISOString().slice(0, 10) : '' }
+export function jobsAwaitingPickupLines(jobs = [], today, max = 5) {
+  const dayN = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 864e5
+  const w = (jobs || []).filter(j => j && !j.deleted && j.status === 'done')
+    .map(j => ({ j, d: bkkDate(j.updatedAt) })).filter(x => x.d && x.d < today)
+    .map(x => ({ ...x, days: dayN(today) - dayN(x.d) })).sort((a, b) => b.days - a.days)
+  if (!w.length) return []
+  const rows = w.slice(0, max).map(({ j, days }) => `  - ${String(j.custName || '').trim() || 'ลูกค้า'}${j.plate ? ` (${j.plate})` : ''} · เสร็จมา ${days} วัน${j.lineReadySent ? ' · แจ้ง LINE แล้ว' : ''}`)
+  if (w.length > max) rows.push(`  - …และอีก ${w.length - max} คัน`)
+  return [`🚗 รถซ่อมเสร็จรอลูกค้ามารับ: ${w.length} คัน — โทรแจ้งลูกค้า หรือกด "ส่งคืนแล้ว" ในหน้า Job Card ถ้ารับไปแล้ว`, ...rows]
+}
