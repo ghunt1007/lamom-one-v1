@@ -9,8 +9,32 @@ import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
+import { qrSvg } from '../../utils/qr.js'
+import { leadFormUrl } from '../../utils/publicLinks.js'
+import { getOrgInfo } from '../../utils/print.js'
 
 const ST = { available: { label: 'มีสต็อก', color: 'var(--success)' }, reserved: { label: 'จองแล้ว', color: 'var(--primary)' }, sold: { label: 'ขายแล้ว', color: 'var(--text-muted)' } }
+
+// (v1.0.1325) พิมพ์ป้าย QR ติดรถจริง — เดิมปุ่ม 🖨 แค่บันทึกว่า "พิมพ์แล้ว" ไม่มีอะไรพิมพ์ออกมา
+// QR พาลูกค้าไปฟอร์มฝากชื่อ-เบอร์ของรุ่นนั้น (ลีดเข้าระบบติดชื่อรุ่น) · ป้ายละคัน: รุ่น สี ราคา VIN 8 ตัวท้าย
+function printQrLabels(list) {
+  const w = window.open('', '_blank', 'width=800,height=900')
+  if (!w) { showToast('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาต pop-up แล้วลองใหม่', 'warning'); return false }
+  const org = getOrgInfo()
+  const label = v => `<div class="lb"><div class="qr">${qrSvg(leadFormUrl({ model: v.model }), { size: 170 })}</div>
+    <div class="m">${escHtml(v.model)}</div>
+    <div class="s">${escHtml([v.color && 'สี' + v.color, v.price ? formatCurrency(v.price) : ''].filter(Boolean).join(' · '))}</div>
+    <div class="t">สแกนฝากชื่อ-เบอร์ รับข้อเสนอ/นัดทดลองขับ</div>
+    <div class="v">${escHtml(String(v.vin || '').slice(-8))} · ${escHtml(org.name || '')}</div></div>`
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR ติดรถ ${list.length} คัน</title><style>
+    body{font-family:sans-serif;margin:16px}.g{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    .lb{border:1px dashed #999;border-radius:10px;padding:12px;text-align:center;break-inside:avoid}
+    .qr{line-height:0;margin-bottom:6px}.m{font-size:18px;font-weight:700}.s{font-size:13px;color:#333;margin-top:2px}
+    .t{font-size:12px;color:#555;margin-top:6px}.v{font-size:10px;color:#888;margin-top:4px}
+  </style></head><body><div class="g">${list.map(label).join('')}</div><script>window.print()<\/script></body></html>`)
+  w.document.close()
+  return true
+}
 
 export default async function QrVehiclePage(container) {
   const myGen = container.__routerGen
@@ -27,7 +51,7 @@ export default async function QrVehiclePage(container) {
       const docs = await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 100)
       vehicles = docs.filter(d => !d.deleted).map((d, i) => ({
         id: d.id,
-        vin: d.vin || `VIN-${i+1}`,
+        vin: d.vin || '', // (v1.0.1325) ไม่มี VIN = ว่าง (เดิมใส่ VIN-1, VIN-2 ปลอม)
         model: carOf(d),
         color: d.color || '',
         year: d.year || new Date().getFullYear(),
@@ -80,29 +104,31 @@ export default async function QrVehiclePage(container) {
 
     document.getElementById('scan-btn')?.addEventListener('click', () => {
       const vin = document.getElementById('scan-input').value.trim()
-      const v = vehicles.find(x => x.vin.toLowerCase().includes(vin.toLowerCase()) || vin === '')
+      const v = vehicles.find(x => x.vin && x.vin.toLowerCase().includes(vin.toLowerCase()))
       if (!vin) { showToast('ใส่ VIN ก่อนสแกน', 'warning'); return }
       if (v) openVehicleDetail(v)
       else showToast('❌ ไม่พบ VIN นี้ในระบบ', 'error')
     })
     document.getElementById('print-all-btn')?.addEventListener('click', async () => {
       const targets = vehicles.filter(v => v.status !== 'sold')
+      if (!targets.length) { showToast('ไม่มีรถในสต็อกให้พิมพ์', 'warning'); return }
+      if (!printQrLabels(targets)) return
       try {
         await Promise.all(targets.map(v => updateDocData('vehicles', v.id, { printed: true })))
-        showToast(`🖨 สั่งพิมพ์ QR Code ${targets.length} แผ่น (${targets.map(v=>v.model).join(', ')}) แล้ว`, 'success')
+        showToast(`🖨 เปิดหน้าพิมพ์ป้าย QR ${targets.length} คันแล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
     container.querySelectorAll('.view-qr-btn').forEach(b => b.addEventListener('click', () => {
-      const v = vehicles.find(x => x.vin === b.dataset.vin)
+      const v = vehicles.find(x => x.id === b.dataset.id)
       if (v) openVehicleDetail(v)
     }))
     container.querySelectorAll('.print-qr-btn').forEach(b => b.addEventListener('click', async () => {
-      const v = vehicles.find(x => x.vin === b.dataset.vin)
+      const v = vehicles.find(x => x.id === b.dataset.id)
       if (!v) return
+      if (!printQrLabels([v])) return
       try {
         await updateDocData('vehicles', v.id, { printed: true })
-        showToast(`🖨 พิมพ์ QR ของ ${b.dataset.model} แล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
@@ -110,7 +136,6 @@ export default async function QrVehiclePage(container) {
 
   function vehicleCard(v) {
     const s = ST[v.status] || ST.available
-    const short = v.vin.slice(-8)
     return `
       <div class="card" style="padding:14px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
@@ -121,18 +146,15 @@ export default async function QrVehiclePage(container) {
           <span style="font-size:0.66rem;background:${s.color};color:#fff;padding:2px 8px;border-radius:10px">${s.label}</span>
         </div>
 
-        <!-- QR placeholder -->
-        <div style="width:100%;aspect-ratio:1;max-width:120px;margin:0 auto 12px;background:var(--surface-2);border-radius:var(--radius-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px solid var(--border)">
-          <div style="font-size:2rem">📱</div>
-          <div style="font-size:0.6rem;color:var(--text-muted);margin-top:4px;text-align:center">${escHtml(short)}<br>SCAN ME</div>
-        </div>
+        <!-- (v1.0.1325) QR จริง → ฟอร์มฝากชื่อ-เบอร์ของรุ่นนี้ -->
+        <div style="width:120px;max-width:100%;margin:0 auto 12px;background:#fff;border-radius:var(--radius-sm);line-height:0;padding:4px">${qrSvg(leadFormUrl({ model: v.model }), { size: '100%' })}</div>
 
-        <div style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin-bottom:10px">VIN: <code style="font-size:0.7rem">${escHtml(v.vin)}</code></div>
+        <div style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin-bottom:10px">VIN: <code style="font-size:0.7rem">${escHtml(v.vin || '-')}</code></div>
         <div style="font-size:0.78rem;text-align:center;font-weight:700;color:var(--primary);margin-bottom:10px">${formatCurrency(v.price)}</div>
 
         <div style="display:flex;gap:6px">
-          <button class="btn btn-secondary view-qr-btn" data-vin="${escHtml(v.vin)}" style="flex:1;font-size:0.74rem">👁 ดูรายละเอียด</button>
-          ${v.printed ? `<span style="font-size:0.66rem;color:var(--success);text-align:center;flex:1;align-self:center">✅ พิมพ์แล้ว</span>` : `<button class="btn btn-secondary print-qr-btn" data-vin="${escHtml(v.vin)}" data-model="${escHtml(v.model)}" style="flex:1;font-size:0.74rem">🖨 พิมพ์ QR</button>`}
+          <button class="btn btn-secondary view-qr-btn" data-id="${escHtml(v.id)}" style="flex:1;font-size:0.74rem">👁 ดูรายละเอียด</button>
+          ${v.printed ? `<span style="font-size:0.66rem;color:var(--success);text-align:center;flex:1;align-self:center">✅ พิมพ์แล้ว</span>` : `<button class="btn btn-secondary print-qr-btn" data-id="${escHtml(v.id)}" data-model="${escHtml(v.model)}" style="flex:1;font-size:0.74rem">🖨 พิมพ์ QR</button>`}
         </div>
       </div>`
   }
@@ -140,7 +162,7 @@ export default async function QrVehiclePage(container) {
   function openVehicleDetail(v) {
     const s = ST[v.status] || ST.available
     openModal({
-      title: '📱 ' + escHtml(v.model) + ' · ' + escHtml(v.vin.slice(-8)),
+      title: '📱 ' + escHtml(v.model) + ' · ' + escHtml(v.vin ? v.vin.slice(-8) : '-'),
       size: 'sm',
       body: `
         <div style="display:flex;gap:6px;margin-bottom:10px">
