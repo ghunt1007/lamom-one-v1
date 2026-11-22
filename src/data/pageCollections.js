@@ -646,8 +646,8 @@ export const PAGE_COLLECTIONS = {
   "vehicle_warranties"
  ],
  "/analytics/stock": [
+  "bookings",
   "stock",
-  "stock_orders",
   "vehicles"
  ],
  "/finance/monthly-close": [

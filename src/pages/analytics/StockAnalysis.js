@@ -2,132 +2,92 @@
  * Stock Analysis — วิเคราะห์สต็อกรถ
  * Route: /analytics/stock
  */
-import { formatCurrency } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
-import { listDocs, createDoc } from '../../core/db.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
+import { listDocs, listAllDocs } from '../../core/db.js'
+import { navigate } from '../../core/router.js'
+import { stockAnalysis } from '../../utils/stockAnalysis.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 
-const MODELS = [
-  { id: 'M01', name: 'BYD Dolphin', stock: 0, reserved: 0, sold30: 0, targetStock: 10, price: 899000, color: '#3b82f6' },
-  { id: 'M02', name: 'BYD Atto 3', stock: 0, reserved: 0, sold30: 0, targetStock: 8, price: 1099000, color: '#10b981' },
-  { id: 'M03', name: 'BYD Seal AWD', stock: 0, reserved: 0, sold30: 0, targetStock: 6, price: 1699000, color: '#f59e0b' },
-  { id: 'M04', name: 'MG ZS EV', stock: 0, reserved: 0, sold30: 0, targetStock: 8, price: 799000, color: '#ef4444' },
-  { id: 'M05', name: 'BYD Han', stock: 0, reserved: 0, sold30: 0, targetStock: 4, price: 2099000, color: '#8b5cf6' },
-  { id: 'M06', name: 'BYD Atto 3 Pro', stock: 0, reserved: 0, sold30: 0, targetStock: 5, price: 1299000, color: '#06b6d4' },
-  { id: 'M07', name: 'MG4 Electric', stock: 0, reserved: 0, sold30: 0, targetStock: 7, price: 949000, color: '#ec4899' },
-]
-
-const AGING_DATA = [
-  { range: '0-30 วัน', count: 0, pct: 0 },
-  { range: '31-60 วัน', count: 0, pct: 0 },
-  { range: '61-90 วัน', count: 0, pct: 0 },
-  { range: '91-120 วัน', count: 0, pct: 0 },
-  { range: '120+ วัน', count: 0, pct: 0 },
-]
-
 export default async function StockAnalysisPage(container) {
   const myGen = container.__routerGen
-  // (2026-11-02) ไม่โชว์รุ่นรถสมมติ (BYD/MG) แล้ว — ยังไม่มีรถในสต็อก = ว่าง
+  // (v1.0.1309) ข้อมูลจริงล้วน — ไม่มีเป้าสต็อกสมมติ/อายุสต็อกตัวอย่างแล้ว
   let liveModels = []
+  let aging = []
+  let noDate = 0
   let dataSource = 'demo'
   let sortBy = 'stock'
   let sortDir = 'desc'
 
   try {
-    // เดิม orderBy('createdAt') — รถจริงในระบบไม่มี field นี้ (มีแต่ arrivedAt) ทำให้ Firestore orderBy
-    // ตัดออกจากผลลัพธ์ไปเงียบๆทั้งหมด เห็นสต็อกรถ 0 คันตลอด ต้องใช้ arrivedAt ให้ตรงกับ Stock.js
-    const vehicles = await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => [])
+    // เดิม orderBy('createdAt') — รถจริงในระบบไม่มี field นี้ (มีแต่ arrivedAt) ต้องใช้ arrivedAt ให้ตรงกับ Stock.js
+    const [vehicles, bookings] = await Promise.all([
+      listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => []),
+      listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc').catch(() => []),
+    ])
     if (container.__routerGen !== myGen) return
-    if (vehicles.length >= 2) {
-      const grouped = {}
-      for (const v of vehicles) {
-        const key = `${v.brand || ''} ${v.model || ''}`.trim() || 'ไม่ระบุ'
-        if (!grouped[key]) grouped[key] = { stock: 0, reserved: 0, price: v.price || v.salePrice || 0 }
-        if (v.status === 'จอง' || v.status === 'reserved') grouped[key].reserved++
-        else grouped[key].stock++
-      }
-      // (v1.0.xxx) เดิมรุ่นจริงที่ไม่ตรงกับ MODELS demo ตัวไหนเลย fallback ไป MODELS[i % MODELS.length] ซึ่งยืม
-      // targetStock/color ของรุ่นอื่นที่ไม่เกี่ยวข้องมาใช้ — ค่า targetStock ปลอมนี้ไหลเข้าไปคำนวณจำนวน
-      // "+ สั่งรถเพิ่ม" จริงด้วย (ดูปุ่ม order-btn ด้านล่าง) จึงเปลี่ยนเป็นค่ากลาง (เฉลี่ยจากรุ่น demo จริง)
-      // แทนการยืมข้อมูลรุ่นอื่นแบบสุ่มซึ่งไม่เกี่ยวข้องกับรุ่นนี้เลย
-      const avgTargetStock = Math.round(MODELS.reduce((a, m) => a + m.targetStock, 0) / MODELS.length)
-      const avgPrice = 0 // ไม่เดาราคาจากรุ่นสมมติ
-      liveModels = Object.entries(grouped).map(([name, g], i) => {
-        const demo = MODELS.find(m => m.name === name)
-        return {
-          id: demo?.id || `V${i}`,
-          name,
-          stock: g.stock,
-          reserved: g.reserved,
-          sold30: demo?.sold30 || 0,
-          targetStock: demo?.targetStock ?? avgTargetStock,
-          price: g.price || demo?.price || avgPrice,
-          color: demo?.color || '#94a3b8',
-        }
-      })
-      dataSource = 'live'
-    }
+    const r = stockAnalysis({ vehicles, bookings, today: todayBangkok() })
+    liveModels = r.models
+    aging = r.aging
+    noDate = r.noDate
+    if (liveModels.length) dataSource = 'live'
   } catch {}
 
   function renderPage() {
     const sorted = [...liveModels].sort((a, b) => {
       const mul = sortDir === 'desc' ? -1 : 1
       if (sortBy === 'name') return mul * String(a.name || '').localeCompare(String(b.name || ''))
-      return mul * (a[sortBy] - b[sortBy])
+      return mul * ((a[sortBy] ?? -1) - (b[sortBy] ?? -1))
     })
     const totalStock = liveModels.reduce((a, m) => a + m.stock, 0)
     const totalReserved = liveModels.reduce((a, m) => a + m.reserved, 0)
-    const totalValue = liveModels.reduce((a, m) => a + m.stock * m.price, 0)
-    const lowStock = liveModels.filter(m => m.stock < m.targetStock).length
-    const maxStock = Math.max(1, ...liveModels.map(m => Math.max(m.stock, m.targetStock)))
+    const totalValue = liveModels.reduce((a, m) => a + m.stock * (m.price || 0), 0)
+    const lowStock = liveModels.filter(m => m.status.color === 'danger').length
+    const maxStock = Math.max(1, ...liveModels.map(m => Math.max(m.stock, m.sold30)))
+    const empty = '<div style="font-size:0.78rem;color:var(--text-muted);padding:10px 0">ยังไม่มีรถในสต็อก — เพิ่มรถได้ที่หน้า สต็อกรถ</div>'
 
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">📦 Stock Analysis</div>
-            <div class="page-subtitle">วิเคราะห์สต็อกรถ — ระดับ ความต้องการ และอายุสต็อก${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">วิเคราะห์สต็อกรถ — เทียบยอดขาย 30 วัน และอายุสต็อก${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-primary" id="order-btn">+ สั่งรถเพิ่ม</button>
+            <button class="btn btn-primary" id="order-btn">🧮 ดูแผนสั่งรถ</button>
           </div>
         </div>
 
-        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:16px">
           ${kpi('🚗 รถในสต็อก', totalStock + ' คัน', 'primary')}
           ${kpi('📋 จองแล้ว', totalReserved + ' คัน', 'warning')}
-          ${kpi('⚠️ ต่ำกว่าเป้า', lowStock + ' รุ่น', lowStock > 0 ? 'danger' : 'success')}
-          ${kpi('💰 มูลค่ารวม', formatCurrency(totalValue), 'success')}
+          ${kpi('⚠️ ใกล้หมด (<15 วัน)', lowStock + ' รุ่น', lowStock > 0 ? 'danger' : 'success')}
+          ${kpi('💰 มูลค่ารวม', totalValue > 0 ? formatCurrency(totalValue) : '-', 'success')}
         </div>
 
-        <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px">
-          <!-- Bar chart by model -->
-          <div class="card" style="padding:14px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📊 สต็อกแต่ละรุ่น (vs เป้า)</div>
-            ${liveModels.map(m => {
+        <div class="sa-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px;margin-bottom:14px">
+          <div class="card" style="padding:14px;min-width:0">
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📊 สต็อกแต่ละรุ่น เทียบขาย 30 วัน</div>
+            ${liveModels.length ? liveModels.map(m => {
               const pct = Math.round(m.stock / maxStock * 100)
-              const tPct = Math.round(m.targetStock / maxStock * 100)
-              const status = m.stock >= m.targetStock ? 'success' : m.stock >= m.targetStock * 0.5 ? 'warning' : 'danger'
+              const sPct = Math.round(m.sold30 / maxStock * 100)
               return `<div style="margin-bottom:8px">
-                <div style="display:flex;justify-content:space-between;font-size:0.73rem;margin-bottom:3px">
-                  <span>${escHtml(m.name)}</span>
-                  <span style="color:var(--${status});font-weight:700">${m.stock} / ${m.targetStock}</span>
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:0.73rem;margin-bottom:3px">
+                  <span style="min-width:0;overflow-wrap:anywhere">${escHtml(m.name)}</span>
+                  <span style="color:var(--${m.status.color});font-weight:700;white-space:nowrap">สต็อก ${m.stock} · ขาย ${m.sold30}</span>
                 </div>
                 <div style="background:var(--surface-2);border-radius:4px;height:10px;position:relative">
-                  <div style="width:${pct}%;background:var(--${status});height:10px;border-radius:4px"></div>
-                  <div style="position:absolute;left:${tPct}%;top:0;width:2px;height:10px;background:var(--text-muted)"></div>
+                  <div style="width:${pct}%;background:var(--primary);height:10px;border-radius:4px"></div>
+                  ${m.sold30 ? `<div title="ขาย 30 วัน" style="position:absolute;left:${Math.min(sPct, 99)}%;top:0;width:2px;height:10px;background:var(--text-muted)"></div>` : ''}
                 </div>
               </div>`
-            }).join('')}
+            }).join('') : empty}
           </div>
 
-          <!-- Aging analysis -->
-          <div class="card" style="padding:14px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">⏳ Aging สต็อก <span style="font-size:0.62rem;font-weight:400;color:var(--text-muted)">(ตัวอย่าง — ยังไม่คำนวณจากข้อมูลจริง)</span></div>
-            ${AGING_DATA.map(a => {
+          <div class="card" style="padding:14px;min-width:0">
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">⏳ อายุสต็อก (นับจากวันรถเข้า)</div>
+            ${aging.map(a => {
               const color = a.range.startsWith('120') ? 'danger' : a.range.startsWith('91') ? 'warning' : 'primary'
               return `<div style="margin-bottom:8px">
                 <div style="display:flex;justify-content:space-between;font-size:0.73rem;margin-bottom:3px">
@@ -138,50 +98,39 @@ export default async function StockAnalysisPage(container) {
                 </div>
               </div>`
             }).join('')}
+            ${noDate ? `<div style="font-size:0.68rem;color:var(--text-muted);margin-top:6px">ไม่นับ ${noDate} คันที่ยังไม่ได้ใส่วันรถเข้า</div>` : ''}
           </div>
         </div>
 
-        <!-- Detail table -->
         <div class="card" style="overflow-x:auto">
-          <table style="width:100%;border-collapse:collapse">
+          <table style="width:100%;border-collapse:collapse;min-width:640px">
             <thead>
               <tr style="border-bottom:1px solid var(--border);font-size:0.73rem;color:var(--text-muted)">
                 ${thSort('name', 'รุ่น', sortBy, sortDir)}
                 ${thSort('stock', 'สต็อก', sortBy, sortDir)}
                 ${thSort('reserved', 'จอง', sortBy, sortDir)}
-                <th style="padding:8px 10px;text-align:center">พร้อมขาย</th>
+                ${thSort('avail', 'พร้อมขาย', sortBy, sortDir)}
                 ${thSort('sold30', 'ขาย 30 วัน', sortBy, sortDir)}
-                <th style="padding:8px 10px;text-align:center">DOS</th>
+                ${thSort('dos', 'พอขาย (วัน)', sortBy, sortDir)}
                 ${thSort('price', 'ราคา', sortBy, sortDir)}
                 <th style="padding:8px 14px">สถานะ</th>
               </tr>
             </thead>
             <tbody>
-              ${sorted.map(m => {
-                const avail = m.stock - m.reserved
-                const dos = m.sold30 > 0 ? (m.stock / (m.sold30/30)).toFixed(1) : '∞'
-                const status = m.stock >= m.targetStock ? 'success' : m.stock >= m.targetStock * 0.5 ? 'warning' : 'danger'
-                const statusLabel = m.stock >= m.targetStock ? 'ปกติ' : m.stock >= m.targetStock * 0.5 ? 'ต่ำ' : 'วิกฤต'
-                return `<tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
-                  <td style="padding:8px 14px">
-                    <div style="display:flex;align-items:center;gap:6px">
-                      <div style="width:8px;height:8px;border-radius:50%;background:${m.color}"></div>
-                      <span style="font-weight:600">${escHtml(m.name)}</span>
-                    </div>
-                  </td>
+              ${sorted.length ? sorted.map(m => `<tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
+                  <td style="padding:8px 14px;font-weight:600">${escHtml(m.name)}</td>
                   <td style="padding:8px 10px;text-align:center;font-weight:700">${m.stock}</td>
                   <td style="padding:8px 10px;text-align:center;color:var(--warning)">${m.reserved}</td>
-                  <td style="padding:8px 10px;text-align:center;font-weight:700;color:var(--success)">${avail}</td>
+                  <td style="padding:8px 10px;text-align:center;font-weight:700;color:var(--success)">${m.avail}</td>
                   <td style="padding:8px 10px;text-align:center">${m.sold30}</td>
-                  <td style="padding:8px 10px;text-align:center;color:var(--text-muted)">${dos} วัน</td>
-                  <td style="padding:8px 10px;text-align:right">${formatCurrency(m.price)}</td>
-                  <td style="padding:8px 14px"><span class="badge badge-${status}" style="font-size:0.6rem">${statusLabel}</span></td>
-                </tr>`
-              }).join('')}
+                  <td style="padding:8px 10px;text-align:center;color:var(--text-muted)">${m.dos == null ? '-' : m.dos}</td>
+                  <td style="padding:8px 10px;text-align:right">${m.price > 0 ? formatCurrency(m.price) : '-'}</td>
+                  <td style="padding:8px 14px"><span class="badge badge-${m.status.color}" style="font-size:0.6rem">${m.status.label}</span></td>
+                </tr>`).join('') : `<tr><td colspan="8" style="padding:14px;text-align:center;color:var(--text-muted);font-size:0.8rem">ยังไม่มีรถในสต็อก</td></tr>`}
             </tbody>
           </table>
         </div>
-        <p style="font-size:0.7rem;color:var(--text-muted);margin-top:6px;padding-left:4px">DOS = Days of Supply · แถวสีเทา = เส้นเป้า</p>
+        <p style="font-size:0.7rem;color:var(--text-muted);margin-top:6px;padding-left:4px">พอขาย (วัน) = รถพร้อมขาย ÷ ยอดขายเฉลี่ยต่อวันใน 30 วันล่าสุด · ใกล้หมด &lt; 15 วัน · ปกติ ≤ 60 วัน · เส้นเทา = ยอดขาย 30 วัน</p>
       </div>
     `
 
@@ -191,33 +140,8 @@ export default async function StockAnalysisPage(container) {
       else { sortBy = s; sortDir = 'desc' }
       renderPage()
     }))
-    document.getElementById('order-btn')?.addEventListener('click', () => {
-      const lowModels = liveModels.filter(m => m.stock < m.targetStock)
-      openModal({
-        title: '+ สั่งรถเพิ่ม',
-        size: 'sm',
-        body: `<div style="font-size:0.82rem">
-          <p style="margin-bottom:8px">รุ่นที่ต้องการ:</p>
-          ${lowModels.map(m => `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
-            <span>${escHtml(m.name)}</span><span style="color:var(--danger)">ขาด ${m.targetStock - m.stock} คัน</span>
-          </div>`).join('')}
-        </div>`,
-        async onConfirm() {
-          const totalCars = lowModels.reduce((s, m) => s + (m.targetStock - m.stock), 0)
-          try {
-            for (const m of lowModels) {
-              await createDoc('stock_orders', {
-                model: m.name,
-                qty: m.targetStock - m.stock,
-                status: 'pending',
-                orderedAt: new Date().toISOString(),
-              })
-            }
-            showToast(`📋 ส่งคำสั่งซื้อ ${lowModels.length} รุ่น รวม ${totalCars} คันแล้ว`, 'success')
-          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
-        }
-      })
-    })
+    // (v1.0.1309) เดิมปุ่มนี้เขียน stock_orders ด้วยจำนวนจาก "เป้าสต็อก" ที่แต่งขึ้น — ตอนนี้พาไปหน้าแผนสั่งรถจริง (ตารางสี + พยากรณ์)
+    container.querySelector('#order-btn')?.addEventListener('click', () => navigate('/dms/color-matrix'))
   }
 
   renderPage()
