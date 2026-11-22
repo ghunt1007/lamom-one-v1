@@ -598,6 +598,8 @@
   table.tbl-cards td:last-child { margin-left: auto; }
   /* ช่องที่ว่าง (แค่ "-") ไม่ต้องโชว์บนการ์ดมือถือ — ใส่ <span class="tbl-empty">-</span> */
   table.tbl-cards td:has(> .tbl-empty:only-child) { display: none; }
+  /* (v1.0.1299) ป้ายเล็กหน้าค่า (data-l) บนการ์ดมือถือ — ตัวเลข/วันที่ที่ไม่มีหัวคอลัมน์แล้วจะรู้ว่าคืออะไร */
+  table.tbl-cards td[data-l]::before { content: attr(data-l) ' '; color: var(--text-muted); font-size: 0.7rem; font-weight: 400; }
   /* การ์ดลูกค้าบนมือถือ: ปุ่มลบ 🗑 อยู่ใกล้นิ้วเกินไป กดพลาดง่าย — ลบได้จากหน้ารายละเอียดลูกค้า (ปุ่ม 🗑️ ลบ) */
   .cust-row .del-btn { display: none !important; }
   /* การ์ดตัวเลขบนมือถือ: เตี้ยลง เห็นเนื้อหาหลักเร็วขึ้น */

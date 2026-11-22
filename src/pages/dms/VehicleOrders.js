@@ -90,15 +90,15 @@ export default async function VehicleOrdersPage(container) {
       return
     }
 
-    wrap.innerHTML = `<div class="table-wrap">
-      <table>
+    wrap.innerHTML = `<div class="tbl-cards-wrap"><div class="table-wrap">
+      <table class="tbl-cards">
         <thead><tr>
           <th>เลขที่คำสั่ง</th><th>ยี่ห้อ/รุ่น</th><th>สี</th><th>จำนวน</th>
           <th>ต้นทุน/คัน</th><th>มูลค่ารวม</th><th>สถานะ</th><th>วันรับคาด</th><th>ผู้ขาย</th><th></th>
         </tr></thead>
         <tbody>${filtered.map(o => tableRow(o)).join('')}</tbody>
       </table>
-    </div>`
+    </div></div>`
     bindTableEvents()
   }
 
@@ -113,15 +113,15 @@ export default async function VehicleOrdersPage(container) {
           <div style="font-weight:600">${escHtml(carOf(o))}</div>
           <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(o.variant || '')}</div>
         </td>
-        <td>${escHtml(o.color || '-')}</td>
+        <td>${o.color ? escHtml(o.color) : '<span class="tbl-empty">-</span>'}</td>
         <td style="text-align:center;font-weight:700">${o.qty || 1} คัน</td>
-        <td style="color:var(--text-2)">${formatCurrency(o.unitCost)}</td>
-        <td style="font-weight:600;color:var(--accent)">${formatCurrency(total)}</td>
+        <td style="color:var(--text-2)" data-l="ต้นทุน/คัน">${formatCurrency(o.unitCost)}</td>
+        <td style="font-weight:600;color:var(--accent)" data-l="รวม">${formatCurrency(total)}</td>
         <td><span class="badge badge-${st.badge}">${st.label}</span></td>
-        <td style="font-size:0.8rem;${isLate ? 'color:var(--danger);font-weight:600' : 'color:var(--text-2)'}">
+        <td style="font-size:0.8rem;${isLate ? 'color:var(--danger);font-weight:600' : 'color:var(--text-2)'}" data-l="รับคาด">
           ${formatDate(o.expectedDate)}${isLate ? ' ⚠️' : ''}
         </td>
-        <td style="font-size:0.8rem;color:var(--text-muted)">${escHtml(o.supplier || '-')}</td>
+        <td style="font-size:0.8rem;color:var(--text-muted)">${o.supplier ? escHtml(o.supplier) : '<span class="tbl-empty">-</span>'}</td>
         <td>
           <div style="display:flex;gap:3px">
             <button class="btn btn-ghost btn-sm edit-o" data-id="${o.id}" title="แก้ไข">✏️</button>
