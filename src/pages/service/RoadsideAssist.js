@@ -9,6 +9,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { callLink } from '../../utils/callLink.js'
 
 const CASE_TYPES = {
   battery_dead: { label: 'แบต 12V หมด', icon: '🔋' },
@@ -77,7 +78,7 @@ export default async function RoadsideAssistPage(container) {
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
                 <div>
                   <div style="font-weight:700;font-size:0.87rem">${ct?.icon} ${ct?.label} — ${escHtml(c.plate)} (${escHtml(c.model)})</div>
-                  <div style="font-size:0.72rem;color:var(--text-muted)">👤 ${escHtml(c.customer)} 📞 ${escHtml(c.phone)} · แจ้ง ${timeAgo(c.reported)}</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted)">👤 ${escHtml(c.customer)} ${callLink(c.phone, c.customer)} · แจ้ง ${timeAgo(c.reported)}</div>
                   <div style="font-size:0.74rem;font-weight:600;color:var(--primary)">📍 ${escHtml(c.location)}</div>
                   ${c.team ? `<div style="font-size:0.72rem;color:var(--text-muted)">🚐 ${escHtml(c.team)}${c.eta > 0 ? ' · ถึงใน ~' + c.eta + ' นาที' : ''}</div>` : ''}
                 </div>

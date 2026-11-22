@@ -6,6 +6,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { numVal } from '../../utils/numInput.js'
+import { callLink } from '../../utils/callLink.js'
 
 const CAR_STATUS = {
   available: { label: 'พร้อมให้ยืม', color: 'success' },
@@ -160,7 +161,7 @@ export default async function LoanerCarPage(container) {
             return `<tr>
               <td>
                 <div style="font-weight:600;font-size:0.85rem">${escHtml(l.custName)}</div>
-                <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(l.phone)}</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">${callLink(l.phone, l.custName, { icon: '' })}</div>
               </td>
               <td style="font-size:0.83rem">${escHtml(l.carModel)}<br><span style="font-size:0.73rem;color:var(--text-muted)">${escHtml(l.carPlate)}</span></td>
               <td style="font-size:0.8rem">${escHtml(l.jobCard)}</td>
