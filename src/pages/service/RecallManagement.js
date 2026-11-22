@@ -11,6 +11,7 @@ import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
 import { carOf } from '../../utils/carLabel.js'
+import { callLink } from '../../utils/callLink.js'
 
 const RECALL_STATUS = {
   open:       { label: 'เปิดอยู่', color: 'danger' },
@@ -127,7 +128,7 @@ export default async function RecallManagementPage(container) {
                   <div style="display:flex;justify-content:space-between;margin-bottom:4px">
                     <div>
                       <div style="font-weight:600;font-size:0.83rem">${escHtml(v.plate)} — ${escHtml(v.owner)}</div>
-                      <div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(v.phone)}</div>
+                      <div style="font-size:0.7rem;color:var(--text-muted)">${callLink(v.phone, v.owner, { icon: '' })}</div>
                     </div>
                     <span class="badge badge-${vs?.color}" style="font-size:0.62rem">${vs?.label}</span>
                   </div>

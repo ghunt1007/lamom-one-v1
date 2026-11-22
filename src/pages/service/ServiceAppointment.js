@@ -6,6 +6,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { callLink } from '../../utils/callLink.js'
 
 const APPT_STATUS = {
   scheduled: { label: 'นัดแล้ว', color: 'primary' },
@@ -260,7 +261,7 @@ export default async function ServiceAppointmentPage(container) {
             <span class="badge badge-primary">${escHtml(a.type)}</span>
           </div>
           <div class="grid-2" style="gap:8px;font-size:0.85rem">
-            <div>📱 ${escHtml(a.phone)}</div>
+            <div>${a.phone ? callLink(a.phone, a.custName, { icon: '📱 ' }) : ''}</div>
             <div>🚗 ${escHtml(a.model)}</div>
             <div>🔖 ${escHtml(a.plate)}</div>
             <div>📏 ${escHtml(a.km?.toLocaleString()||'-')} km</div>

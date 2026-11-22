@@ -11,6 +11,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { callLink } from '../../utils/callLink.js'
 
 // เดิมหน้านี้มี RECALLS เป็น const array ปลอมแยกต่างหาก ไม่เชื่อมกับระบบ Recall จริงที่ RecallManagement.js ใช้
 // (collection 'recall_campaigns') ทำให้ recall ที่สร้าง/อัปเดตจริงจากหน้า RecallManagement ไม่โผล่ที่นี่เลย
@@ -169,7 +170,7 @@ export default async function RecallTrackerPage(container) {
                   <td style="font-size:0.76rem">${escHtml(v.model)}</td>
                   <td>
                     <div style="font-size:0.78rem;font-weight:600">${escHtml(v.owner)}</div>
-                    <div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(v.phone)}</div>
+                    <div style="font-size:0.68rem;color:var(--text-muted)">${callLink(v.phone, v.owner, { icon: '' })}</div>
                   </td>
                   <td style="font-size:0.7rem;font-family:monospace;color:var(--text-muted)">${rc?.campaign||'—'}</td>
                   <td style="text-align:center"><span style="font-size:0.64rem;background:${w?.color};color:#fff;padding:2px 8px;border-radius:10px">${w?.label||wst}</span></td>

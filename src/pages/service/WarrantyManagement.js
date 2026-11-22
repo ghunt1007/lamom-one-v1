@@ -9,6 +9,7 @@ import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { carOf } from '../../utils/carLabel.js'
+import { callLink } from '../../utils/callLink.js'
 
 const WARRANTY_STATUS = {
   active:   { label: 'มีผล', color: 'success' },
@@ -237,7 +238,7 @@ export default async function WarrantyManagementPage(container) {
                 <td><span style="font-family:monospace;font-size:0.8rem">${escHtml(w.id)}</span></td>
                 <td>
                   <div style="font-weight:600;font-size:0.85rem">${escHtml(w.customerName)}</div>
-                  <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(w.phone)}</div>
+                  <div style="font-size:0.73rem;color:var(--text-muted)">${callLink(w.phone, w.customerName, { icon: '' })}</div>
                 </td>
                 <td>
                   <div style="font-weight:600;font-size:0.85rem">${escHtml(w.vehiclePlate)}</div>
@@ -340,7 +341,7 @@ export default async function WarrantyManagementPage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
           <div>
             <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">ข้อมูลลูกค้า</div>
-            ${row('ชื่อ', escHtml(w.customerName))}${row('โทร', escHtml(w.phone))}${row('ทะเบียน', escHtml(w.vehiclePlate))}${row('รถ', escHtml(`${w.brand} ${w.model} ${w.year}`))}${row('VIN', `<span style="font-family:monospace;font-size:0.78rem">${escHtml(w.vin||'-')}</span>`)}
+            ${row('ชื่อ', escHtml(w.customerName))}${row('โทร', w.phone ? callLink(w.phone, w.customerName, { icon: '' }) : '-')}${row('ทะเบียน', escHtml(w.vehiclePlate))}${row('รถ', escHtml(`${w.brand} ${w.model} ${w.year}`))}${row('VIN', `<span style="font-family:monospace;font-size:0.78rem">${escHtml(w.vin||'-')}</span>`)}
           </div>
           <div>
             <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">ข้อมูลรับประกัน</div>

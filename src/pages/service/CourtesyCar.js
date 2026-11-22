@@ -10,6 +10,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { callLink } from '../../utils/callLink.js'
 
 const PD_STATUS = {
   scheduled: { label: 'นัดแล้ว', color: 'secondary', icon: '📅' },
@@ -86,7 +87,7 @@ export default async function CourtesyCarPage(container) {
             return `<div class="card" style="padding:13px 14px;border-left:3px solid var(--${ps?.color})">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
                 <div>
-                  <div style="font-weight:700;font-size:0.86rem">${escHtml(j.plate)} — ${escHtml(j.customer)} <span style="font-size:0.7rem;color:var(--text-muted)">📞 ${escHtml(j.phone)}</span></div>
+                  <div style="font-weight:700;font-size:0.86rem">${escHtml(j.plate)} — ${escHtml(j.customer)} <span style="font-size:0.7rem;color:var(--text-muted)">${callLink(j.phone, j.customer)}</span></div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">📍 ${escHtml(j.address)} (${j.distance} km ${isFree ? '— ฟรี' : '— คิดเพิ่ม'})</div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">🔧 ${escHtml(j.service)}</div>
                   ${j.driver ? `<div style="font-size:0.72rem;color:var(--text-muted)">👷 ${escHtml(j.driver)}</div>` : ''}
