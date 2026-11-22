@@ -10,6 +10,22 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { callLink } from '../../utils/callLink.js'
+import { printDocument, docHeader, docFooter, getOrgInfo, esc as pesc } from '../../utils/print.js'
+
+// (v1.0.1324) พิมพ์ใบรับรองทดลองขับจริง (หัวบริษัทจากหน้าข้อมูลบริษัท + ช่องเซ็น) — เดิมปุ่ม 🖨 แค่ขึ้นข้อความว่า "พิมพ์แล้ว" ไม่มีอะไรพิมพ์ออกมา
+function printCert(c) {
+  const row = (a, b) => '<tr><td class="lbl">' + a + '</td><td class="val">' + pesc(b == null || b === '' ? '-' : b) + '</td></tr>'
+  printDocument('<div class="doc">' + docHeader('ใบรับรองการทดลองขับรถ', c.id, formatDate(c.date)) +
+    '<table class="kv"><tbody>' +
+      row('ลูกค้า', c.customer) + row('เบอร์โทร', c.phone) + row('รุ่นรถ', c.model) + row('ทะเบียน', c.plate) +
+      row('วันที่/เวลา', [formatDate(c.date), c.time].filter(Boolean).join(' ')) + row('พนักงาน', c.staff) +
+      row('ระยะทาง (km)', c.km) + row('น้ำมัน/แบต', c.fuel) + row('ความเสียหาย', c.damage) +
+    '</tbody></table>' +
+    '<p style="font-size:12px;margin-top:10px">ข้าพเจ้ารับทราบเงื่อนไขการทดลองขับ และยืนยันข้อมูลข้างต้นถูกต้อง</p>' +
+    '<div class="sign-row"><div class="sign-box"><div class="sign-line"></div><div class="sign-cap">ลูกค้า</div><div class="sign-cap">(' + pesc(c.customer || '..............................') + ')</div></div>' +
+    '<div class="sign-box"><div class="sign-line"></div><div class="sign-cap">พนักงาน</div><div class="sign-cap">(' + pesc(c.staff || '..............................') + ')</div></div></div>' +
+    docFooter() + '</div>', { title: pesc('ใบรับรองทดลองขับ ' + (c.id || '')) })
+}
 
 export default async function TdCertPage(container) {
   const myGen = container.__routerGen
@@ -98,13 +114,14 @@ export default async function TdCertPage(container) {
       const printRows = selDate ? certs.filter(c => c.date === selDate) : certs
       if (!printRows.length) { showToast('ไม่มีรายการ', 'warning'); return }
       const win = window.open('', '_blank', 'width=900,height=700')
+      if (!win) { showToast('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาต pop-up แล้วลองใหม่', 'warning'); return }
       win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ใบรับรอง Test Drive</title>
         <style>body{font-family:sans-serif;padding:20px;font-size:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f5f5f5}h2{margin:0 0 12px}.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px}@media print{.no-print{display:none}}</style>
       </head><body>
-        <h2>📋 รายงานใบรับรอง Test Drive${selDate ? ' — ' + selDate : ''}</h2>
+        <h2>📋 รายงานใบรับรอง Test Drive${selDate ? ' — ' + formatDate(selDate) : ''}</h2>
         <table><thead><tr><th>เลขที่</th><th>ลูกค้า</th><th>รุ่น</th><th>ทะเบียน</th><th>วันที่</th><th>km</th><th>พนักงาน</th><th>เซ็น</th></tr></thead>
-        <tbody>${printRows.map(c => `<tr><td>${escHtml(c.id)}</td><td>${escHtml(c.customer)}</td><td>${escHtml(c.model)}</td><td>${escHtml(c.plate)}</td><td>${escHtml(c.date)} ${escHtml(c.time)}</td><td>${escHtml(String(c.km))}</td><td>${escHtml(c.staff)}</td><td>${c.signed ? '✅' : '—'}</td></tr>`).join('')}</tbody>
-        </table><p style="margin-top:12px;color:#666">พิมพ์วันที่: ${new Date().toLocaleString('th-TH')} · รวม ${printRows.length} รายการ</p>
+        <tbody>${printRows.map(c => `<tr><td>${escHtml(c.id)}</td><td>${escHtml(c.customer)}</td><td>${escHtml(c.model)}</td><td>${escHtml(c.plate)}</td><td>${formatDate(c.date)} ${escHtml(c.time)}</td><td>${escHtml(String(c.km))}</td><td>${escHtml(c.staff)}</td><td>${c.signed ? '✅' : '—'}</td></tr>`).join('')}</tbody>
+        </table><p style="margin-top:12px;color:#666">พิมพ์วันที่: ${formatDateTime(new Date())} · รวม ${printRows.length} รายการ</p>
         <script>window.print()</script></body></html>`)
       win.document.close()
       showToast(`🖨 พิมพ์ใบรับรอง ${printRows.length} รายการแล้ว`, 'success')
@@ -123,7 +140,7 @@ export default async function TdCertPage(container) {
     container.querySelectorAll('.print-btn').forEach(b => b.addEventListener('click', e => {
       e.stopPropagation()
       const c = certs.find(x=>x.id===b.dataset.id)
-      if(c) showToast(`🖨 พิมพ์ใบรับรองทดลองขับ ${c.customer} - ${c.model} แล้ว`,'success')
+      if (c) printCert(c)
     }))
     container.querySelectorAll('.cert-row').forEach(el => el.addEventListener('click', () => {
       const c = certs.find(x=>x.id===el.dataset.id)
@@ -135,7 +152,7 @@ export default async function TdCertPage(container) {
     openModal({
       title:'📋 ใบรับรองทดลองขับ — ' + escHtml(c.id), size:'sm',
       body:`<div style="font-size:0.8rem;border:1px solid var(--border);border-radius:8px;padding:14px">
-        <div style="text-align:center;font-weight:700;font-size:1rem;margin-bottom:12px">LAMOM ONE — ใบรับรองการทดลองขับรถ</div>
+        <div style="text-align:center;font-weight:700;font-size:1rem;margin-bottom:12px">${escHtml(getOrgInfo().name)} — ใบรับรองการทดลองขับรถ</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.78rem">
           <div><b>ลูกค้า:</b> ${escHtml(c.customer)}</div><div><b>เบอร์:</b> ${escHtml(c.phone)}</div>
           <div><b>รุ่นรถ:</b> ${escHtml(c.model)}</div><div><b>ทะเบียน:</b> ${escHtml(c.plate)}</div>
@@ -151,8 +168,9 @@ export default async function TdCertPage(container) {
       confirmText:'🖨 พิมพ์ / ยืนยันเซ็น',
       async onConfirm(){
         try {
+          printCert(c)
           await updateDocData('test_drive_certs', c.id, { signed: true })
-          showToast(`🖨 พิมพ์ใบ ${c.id} — ${c.customer} (${c.model}) เซ็นรับแล้ว`, 'success')
+          showToast(`✅ ${c.id} — ${c.customer} (${c.model}) บันทึกว่าเซ็นแล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }

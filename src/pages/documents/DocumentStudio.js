@@ -23,6 +23,7 @@ import { confirmDialog, openModal } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { getOrgInfo } from '../../utils/print.js'
 
 const DOC_TYPES = {
   booking:       { label: '📝 ใบจอง',           color: 'primary' },
@@ -394,6 +395,7 @@ function printDocument(doc) {
   // ทุกจุด) ถ้าชื่อเอกสารมี </title><script> ปนมาจะหลุดออกจาก <title> แล้วรันโค้ดได้ทันทีที่เปิดหน้าต่างพิมพ์
   const content = sanitizeRichHtml(doc.content || getTemplate(doc.type, doc))
   const win = window.open('', '_blank', 'width=800,height=900')
+  if (!win) { showToast('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาต pop-up แล้วลองใหม่', 'warning'); return }
   win.document.write(`
     <!DOCTYPE html><html><head>
     <meta charset="UTF-8">
@@ -412,7 +414,7 @@ function printDocument(doc) {
     </style>
     </head><body>
     <div class="header">
-      <div style="font-size:20px;font-weight:bold">LAMOM AUTO GROUP</div>
+      <div style="font-size:20px;font-weight:bold">${escHtml(getOrgInfo().name)}</div>
       <h1>${escHtml(doc.title)}</h1>
       <div style="font-size:12px;color:#666">วันที่: ${formatDate(doc.createdAt || new Date().toISOString())}</div>
     </div>
@@ -452,7 +454,7 @@ function getTemplate(type, doc) {
 
     contract: `<h2>สัญญาจะซื้อจะขายรถยนต์</h2>
 <p>ทำขึ้น ณ {{สถานที่}} วันที่ {{วันที่}}</p>
-<p><b>ผู้ขาย:</b> LAMOM AUTO GROUP</p>
+<p><b>ผู้ขาย:</b> ${escHtml(getOrgInfo().name)}</p>
 <p><b>ผู้ซื้อ:</b> {{ชื่อ-นามสกุล}} เลขบัตรประชาชน: {{เลขบัตร}}</p>
 <h2>รายละเอียดรถยนต์</h2>
 <table><tr><th>รายการ</th><th>รายละเอียด</th></tr>
