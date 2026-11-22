@@ -5,7 +5,7 @@
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { addDays } from '../../utils/aheadBrief.js'
 import { nextAnniversary } from '../../utils/anniversary.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
@@ -30,8 +30,10 @@ const t0 = dayInMonth(0), t1 = dayInMonth(1), t3 = dayInMonth(3), t7 = dayInMont
 const DEMO_EVENTS = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 const GREETING_TEMPLATES = {
-  birthday: 'สุขสันต์วันเกิดค่ะคุณ[ชื่อ] 🎂 ขอให้มีความสุขมากๆ ตลอดปี — ทีมงาน LAMOM ขอมอบส่วนลดบริการ 10% เป็นของขวัญ ใช้ได้ภายใน 30 วัน',
-  anniversary: 'ครบรอบ [ปี] ปีกับ [รุ่นรถ] แล้วนะคะ 🚗 ขอบคุณที่ไว้วางใจ LAMOM — รับสิทธิ์เช็คระยะฟรีในเดือนนี้ค่ะ',
+  // (v1.0.1275) เดิมสัญญาส่วนลด 10% / เช็คระยะฟรี ในข้อความที่ส่งจริงทุกคน ทั้งที่ร้านอาจไม่มีโปรนี้ — ข้อความกลางๆ
+  // ถ้ามีโปรจริง เพิ่มเองได้ในหน้าต่างส่งรายคน
+  birthday: 'สุขสันต์วันเกิดค่ะคุณ[ชื่อ] 🎂 ขอให้มีความสุขมากๆ สุขภาพแข็งแรง เดินทางปลอดภัยตลอดปี — จากทีมงานที่ดูแลรถของคุณ',
+  anniversary: 'ครบรอบ [ปี] ปีกับ [รุ่นรถ] แล้วนะคะ 🚗 ขอบคุณที่ไว้วางใจให้เราดูแล มีอะไรให้ช่วยเรื่องรถ ทักมาได้ตลอดค่ะ',
 }
 
 export default async function BirthdayGreetingsPage(container) {
@@ -146,6 +148,8 @@ export default async function BirthdayGreetingsPage(container) {
       }
       const withPhone = targets.filter(e => e.phone)
       if (!withPhone.length) { showToast('❗ ไม่มีเบอร์โทรลูกค้ากลุ่มนี้ในระบบ', 'warning'); return }
+      // (v1.0.1275) ถามก่อนส่งจริง พร้อมตัวอย่างข้อความ — ส่งแล้วเรียกคืนไม่ได้
+      if (!await confirmDialog({ title: '📤 ส่ง SMS อวยพร', message: `ส่ง SMS จริงถึง ${withPhone.length} ราย ตัวอย่าง: "${buildGreetingMsg(withPhone[0])}"`, confirmText: `ส่ง ${withPhone.length} ราย` })) return
       let ok = 0
       for (const e of withPhone) {
         const msg = buildGreetingMsg(e)
