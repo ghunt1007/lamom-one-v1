@@ -56,7 +56,9 @@ export default async function SystemHealthPage(container) {
       try { const cp = await listDocs('company_profile', [], 'createdAt', 'asc', 10); company = cp.find(x => !x.deleted) || null } catch (e) {}
       let financeBanks = null
       try { financeBanks = await listDocs('finance_banks', [], 'name', 'asc', 100) } catch (e) {}
-      ready = readinessItems({ status, auto, lastBackupMs, sheet, reports, company, financeBanks })
+      let bookings
+      try { const { companyScopeFilters } = await import('../../core/companyScope.js'); bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 2000) } catch (e) {}
+      ready = readinessItems({ status, auto, lastBackupMs, sheet, reports, company, financeBanks, bookings })
     }
 
     return { firestoreOk, firestoreLatency, integrations, errors, todayAudit, activeUsersToday, errorsToday, ready }

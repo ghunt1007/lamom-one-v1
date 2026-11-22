@@ -3,6 +3,7 @@
 // ทุกข้อเป็นของจริงที่ตรวจได้ ไม่ใช่ตัวเลขสมมติ ข้อที่ตรวจไม่ได้จะบอกว่า "ตรวจไม่ได้" ไม่เดาว่าผ่าน
 
 import { dmy, hm } from '../../utils/format.js'
+import { isOpenBooking } from '../../utils/bookingStatus.js'
 
 const BACKUP_MAX_AGE_MS = 36 * 3600 * 1000
 export const CUSTOMER_LINE_SWITCHES = [
@@ -14,7 +15,7 @@ export const CUSTOMER_LINE_SWITCHES = [
  * @param {{status?:object|null, auto?:object|null, lastBackupMs?:number|null, now?:number}} i
  * @returns {{id:string,label:string,state:'ok'|'todo'|'unknown',hint:string,link?:string}[]}
  */
-export function readinessItems({ status, auto, lastBackupMs, sheet, reports, company, financeBanks, now = Date.now() } = {}) {
+export function readinessItems({ status, auto, lastBackupMs, sheet, reports, company, financeBanks, bookings, now = Date.now() } = {}) {
   const items = []
   const add = (id, label, state, hint, link) => items.push({ id, label, state, hint, ...(link ? { link } : {}) })
   const noStatus = !status
@@ -75,6 +76,15 @@ export function readinessItems({ status, auto, lastBackupMs, sheet, reports, com
     const real = (financeBanks || []).filter(b => b && !b.deleted && Object.values(b.rates || {}).some(r => Number(r) > 0))
     if (financeBanks === null) add('finrates', 'อัตราดอกเบี้ยไฟแนนซ์จริง (คำนวณค่างวด)', 'unknown', 'อ่านอัตราไม่ได้ตอนนี้ ลองเปิดหน้านี้ใหม่', '/finance/loan-calc')
     else add('finrates', `อัตราดอกเบี้ยไฟแนนซ์จริง (คำนวณค่างวด)${real.length ? ` — ${real.length} ไฟแนนซ์` : ''}`, real.length ? 'ok' : 'todo', real.length ? '' : 'ยังใช้อัตราตัวอย่าง ปุ่มส่งค่างวดให้ลูกค้าจึงยังใช้ไม่ได้ — กด ✏️ ตั้งอัตราดอกเบี้ย ใส่เรทชีตเดือนนี้ของแต่ละไฟแนนซ์', '/finance/loan-calc')
+  }
+
+  // (v1.0.1289) ลูกค้าที่จองอยู่ผูก LINE แล้วกี่คน — ผูกแล้วระบบแจ้งสถานะรถ/เตือนนัด/ตอบถามสถานะทาง LINE ได้ (ต้องเปิดสวิตช์ด้วย)
+  // bookings: ใบจอง · undefined = ไม่ตรวจ · ไม่มีใบจองที่ยังเปิด = ไม่แสดงข้อนี้
+  if (Array.isArray(bookings)) {
+    const open = bookings.filter(b => b && !b.deleted && isOpenBooking(b))
+    const linked = open.filter(b => b.lineUserId).length
+    if (open.length) add('custlink', `ลูกค้าที่จองอยู่ผูก LINE แล้ว ${linked}/${open.length} คน`, linked === open.length ? 'ok' : 'todo',
+      linked === open.length ? '' : `ยังไม่ผูก ${open.length - linked} คน — หน้าใบจอง › กด "🔗 ยังไม่ผูก LINE" › "📱 ส่ง SMS ชวนผูก LINE" ส่งทีเดียวทุกคน (ลูกค้ากดลิงก์แล้วกดส่งในแชต)`, '/crm/bookings')
   }
 
   let backupState = 'unknown'
