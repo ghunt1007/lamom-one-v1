@@ -36,6 +36,7 @@ import { heuristicScore } from '../../utils/leadScore.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
 import { openLineLinkQr, lineLinkState } from '../../utils/lineLink.js'
+import { myName } from '../../utils/myName.js'
 import { planLeadImport } from '../../utils/leadImport.js'
 import { scheduleLeadFollowups, closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
 import { pendingFollowupsFor, followupWindowFilters, followupStatusByCustomer, matchFollowupFilter, QUIET_DAYS, quietDays } from '../../utils/customerFollowups.js'
@@ -521,6 +522,9 @@ export default async function CustomersPage(container) {
               <div style="display:flex;flex-direction:column;gap:8px">
                 ${detail('📱 โทร', c.phone && String(c.phone).replace(/[^\d+]/g, '') ? `<a id="wk-tel" href="tel:${String(c.phone).replace(/[^\d+]/g, '')}" style="color:var(--primary)">${formatPhone(c.phone)}</a>` : (formatPhone(c.phone) || '-'))}
                 ${detail('💚 LINE', (c.lineId || c.lineUserId ? escHtml(c.lineId || 'LINE OA') : '<span style="color:var(--text-muted)">ยังไม่ผูก</span>') + (c.lineUserId ? ' <button class="btn btn-ghost btn-xs" id="wk-line-chat" title="เปิดห้องแชต LINE OA ของลูกค้าคนนี้">💬 แชต LINE</button>' : '') + (c.lineUserId ? `<div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(lineLinkState(c).label)}</div>` : ' <button class="btn btn-ghost btn-xs" id="wk-line-link" title="ให้ลูกค้าสแกน QR ครั้งเดียว แล้วระบบส่งแจ้งสถานะรถ/นัดหมายทาง LINE ได้">🔗 ผูก LINE</button>'))}
+                ${detail('📣 ข่าวสาร', c.marketingConsent === 'no'
+                  ? `<span style="color:var(--warning)">🔕 ไม่รับข่าวสาร</span> <span style="font-size:0.7rem;color:var(--text-muted)">(ข้ามใน SMS/อีเมล/LINE ส่งตามกลุ่ม)</span> <button class="btn btn-ghost btn-xs" id="wk-consent" data-v="yes" title="ลูกค้าแจ้งว่ากลับมารับข่าวสารได้">↩️ ยินยอมอีกครั้ง</button>`
+                  : `<span style="color:var(--text-muted)">รับได้</span> <button class="btn btn-ghost btn-xs" id="wk-consent" data-v="no" title="ลูกค้าแจ้งว่าไม่ต้องการรับข่าวสาร/โปรโมชัน (PDPA)">🔕 ลูกค้าขอไม่รับ</button>`)}
                 ${c.email ? detail('📧 Email', (() => { const h = mailHref(c.email, { subject: `สวัสดีคุณ${c.firstName || fullName(c)} — ${c.interestedModel ? 'ข้อมูลรถ ' + c.interestedModel : 'จากโชว์รูม'}`, body: `สวัสดีคุณ${c.firstName || fullName(c)}\n\n` }); return h ? `<a href="${escHtml(h)}" style="color:var(--primary);overflow-wrap:anywhere" title="เปิดแอปอีเมลพร้อมหัวเรื่อง">${escHtml(c.email)}</a> <a class="btn btn-ghost btn-xs" href="${escHtml(h)}">✉️ ส่งอีเมล</a>` : escHtml(c.email) })()) : ''}
                 ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-') + (c.isLost ? '' : ' <button class="btn btn-ghost btn-xs" id="wk-td-btn" title="นัดลูกค้ามาทดลองขับ">🚙 นัดทดลองขับ</button>'))}
                 ${(() => { const f = c.interestedModel ? modelFacts(c.interestedModel, getVehicles(), 4) : []; return f.length ? `<details style="margin:-2px 0 2px;font-size:0.76rem"><summary style="cursor:pointer;color:var(--primary)">📋 ราคา/สเปครุ่นนี้ (ไว้ตอบลูกค้า)</summary><div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${f.map(x => `<div style="padding:6px 8px;border-radius:8px;background:var(--surface-2);line-height:1.45">${escHtml(x)}</div>`).join('')}<div id="wk-promos"></div><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.66rem;color:var(--text-muted)">ราคาตั้งจากฐานข้อมูลรถ</span><button type="button" class="btn btn-secondary btn-xs" id="wk-facts-copy">📋 คัดลอกสเปคส่งลูกค้า</button></div>${calcHtml(c)}</div></details>` : '' })()}
@@ -666,6 +670,23 @@ export default async function CustomersPage(container) {
     // (v1.0.1024) ลูกค้าที่ทักมาทาง LINE OA → เปิดห้องแชตในหน้าช่องทางโซเชียลได้เลย
     // (v1.0.1230) QR ผูก LINE — ลูกค้าสแกนแล้วกดส่ง ระบบใส่ LINE ให้แฟ้มนี้ (และใบจองที่เชื่อม) เอง
     el.querySelector('#wk-line-link')?.addEventListener('click', () => openLineLinkQr({ targets: [{ col: 'customers', id: c.id }, ...(c.bookingId ? [{ col: 'bookings', id: c.bookingId }] : [])], name: fullName(c), phone: c.phone }))
+    // (v1.0.1285) PDPA: ทีมบันทึกเองได้เมื่อลูกค้าแจ้งทางโทรศัพท์/หน้าร้านว่าไม่ต้องการข่าวสาร — ส่งกลุ่ม/การตลาดจะข้ามคนนี้
+    el.querySelector('#wk-consent')?.addEventListener('click', async e => {
+      const v = e.currentTarget.dataset.v
+      const ok = await confirmDialog(v === 'no'
+        ? { title: '🔕 ลูกค้าขอไม่รับข่าวสาร', message: `บันทึกว่า ${escHtml(fullName(c))} ไม่ต้องการรับข่าวสาร/โปรโมชัน — SMS/อีเมล/LINE ที่ส่งตามกลุ่มลูกค้า ปลุกลีดเก่า และ SMS การตลาด (ลูกค้าเสี่ยงหนี/Upsell/อวยพร) จะข้ามคนนี้ · LINE Broadcast ถึงเพื่อน OA ทั้งหมดเลือกคนไม่ได้ ลูกค้าพิมพ์ "เลิกรับ" หรือบล็อก OA เองได้ · ข้อความเรื่องรถ/นัดหมายของลูกค้าเองยังส่งได้`, confirmText: 'บันทึก' }
+        : { title: '↩️ ลูกค้ายินยอมรับข่าวสาร', message: `ยืนยันว่า ${escHtml(fullName(c))} แจ้งเองว่ากลับมารับข่าวสาร/โปรโมชันได้`, confirmText: 'ยืนยัน' })
+      if (!ok) return
+      try {
+        const patch = { marketingConsent: v, marketingConsentAt: new Date().toISOString(), marketingConsentBy: myName() || '' }
+        await updateDocData('customers', c.id, patch)
+        Object.assign(c, patch)
+        const row = customers.find(x => x.id === c.id)
+        if (row) Object.assign(row, patch)
+        showToast(v === 'no' ? '🔕 บันทึกแล้ว — ไม่ส่งข่าวสารถึงลูกค้าคนนี้' : '✅ บันทึกแล้ว — รับข่าวสารได้', 'success')
+        close(); openDetail(c)
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
     el.querySelector('#wk-line-chat')?.addEventListener('click', () => { close(); navigate(`/marketing/channels?tab=inbox&open=${encodeURIComponent('line_' + String(c.lineUserId).replace(/[^A-Za-z0-9-]/g, ''))}`) })
     el.querySelector('#wk-promote-btn')?.addEventListener('click', async () => {
       try {

@@ -96,3 +96,12 @@ describe('getSegmentCount', () => {
     expect(await getSegmentCount('all', 'sms')).toBe(1)
   })
 })
+
+describe('PDPA marketingConsent (v1.0.1285)', () => {
+  it('blanks phone, email and LINE id for customers who said no', async () => {
+    listDocs.mockResolvedValue([{ id: 'n', firstName: 'A', phone: '0812345678', email: 'a@b.c', lineUserId: 'U1', marketingConsent: 'no' }, { id: 'y', phone: '0899999999', lineUserId: 'U2' }])
+    const m = await getSegmentMembers('all')
+    expect(m.find(x => x.id === 'n')).toMatchObject({ phone: '', email: '', lineUserId: '' })
+    expect(m.find(x => x.id === 'y')).toMatchObject({ phone: '0899999999', lineUserId: 'U2' })
+  })
+})
