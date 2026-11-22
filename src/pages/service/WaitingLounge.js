@@ -30,9 +30,10 @@ export default async function WaitingLoungePage(container) {
   // เดิมใช้ listDocs (โหลดครั้งเดียว) ทั้งที่หน้านี้ประกาศตัวว่า "real-time เหมือนจอสนามบิน" และมีปุ่มเปิด
   // จอทีวีให้ลูกค้าดู — ถ้าช่างอีกคนอัปเดต stage จากเครื่องอื่น จอนี้จะไม่ขยับเองเลยจนกว่าจะมีคน re-render
   // หน้าเอง เปลี่ยนเป็น watchDocs เพื่อให้ทุกเครื่องที่เปิดหน้านี้ (รวมจอทีวี) อัปเดตสดจริงเมื่อมีการเปลี่ยนแปลง
-  const unsubQueue = watchDocs('waiting_lounge_queue', [], 'checkin', 'asc', 500, rows => {
+  // (v1.0.1321) ดึง 500 คิว "ล่าสุด" (เดิมดึงเก่าสุดก่อน — คิวสะสมเกิน 500 แล้วลูกค้าที่เพิ่งเช็กอินจะไม่ขึ้นจอ)
+  const unsubQueue = watchDocs('waiting_lounge_queue', [], 'checkin', 'desc', 500, rows => {
     if (container.__routerGen !== myGen) { unsubQueue(); return }
-    queue = rows.filter(q => !q.deleted)
+    queue = rows.filter(q => !q.deleted).reverse()
     loading = false
     renderPage()
   })

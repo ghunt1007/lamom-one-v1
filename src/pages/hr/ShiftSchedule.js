@@ -2,7 +2,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
-import { todayBangkok, formatDate } from '../../utils/format.js'
+import { todayBangkok, formatDate, addDaysBangkok } from '../../utils/format.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
@@ -52,7 +52,9 @@ export default async function ShiftSchedulePage(container) {
     try {
       const [staff, shifts] = await Promise.all([
         listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 200),
-        listDocs('shift_schedules', companyScopeFilters(), 'date', 'asc', 2000),
+        // (v1.0.1321) ดึงตั้งแต่ 120 วันก่อนเป็นต้นไป — เดิมดึง 2,000 กะ "เก่าสุดก่อน" เมื่อกะสะสมเกิน 2,000 (พนักงาน 15 คน ≈ 4 เดือน)
+        // กะสัปดาห์นี้/สัปดาห์หน้าจะหายจากตารางเงียบๆ
+        listDocs('shift_schedules', [...companyScopeFilters(), ['date', '>=', addDaysBangkok(-120)]], 'date', 'asc', 3000),
       ])
       activeStaff = staff.map(s => ({
         id: s.id,
