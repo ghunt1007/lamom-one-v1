@@ -64,6 +64,7 @@ import { campaignLeads } from '../src/utils/campaignLeads.js'
 import { financeQueue, financeWaitAnswer } from '../src/utils/financeQueue.js'
 import { deliveryWeekAnswer, deliveryWeekList } from '../src/utils/deliveryWeek.js'
 import { stockLineAnswer } from '../src/utils/stockList.js'
+import { promoLineAnswer } from '../src/utils/promoQuestions.js'
 import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines, serviceJobsAnswer, serviceEveningLines, serviceWeekLines } from '../src/utils/apptFacts.js'
 import { officeDigestLines } from '../src/utils/aiAgents.js'
 
@@ -729,6 +730,17 @@ async function handleLineWebhook(request, env, cors) {
           reply = clipLine(stockLineAnswer(rows, { q: cmd.q }))
         } catch { reply = '⚠️ ดึงข้อมูลสต็อกไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'promo') {
+      // (v1.0.1319) โปรที่ใช้ได้วันนี้ (เฉพาะที่บอกลูกค้าได้ — ไม่มีมาร์จิ้น/ค่าบริหาร/รางวัล) · ทีมงานที่ลงทะเบียน/เจ้าของเท่านั้น
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      if (me?.name || (owner && owner === userId)) {
+        try {
+          const rows = await runQuery(env, accessToken, 'sales_programs', null, null, 1000)
+          const progs = rows.filter(r => r && !r.deleted).map(r => ({ ...normalizeProgram(r), id: r.id }))
+          reply = clipLine(promoLineAnswer(progs, cmd.q, todayBangkok()))
+        } catch { reply = '⚠️ ดึงข้อมูลโปรไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'forecast') {
       // (v1.0.1256) เฉพาะเจ้าของ (ปลายทางรายงาน) — การสั่งรถเป็นเรื่องของเจ้าของ คนอื่นพิมพ์ = ข้อความปกติ
       const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
@@ -810,6 +822,9 @@ export function parseLineCommand(text) {
   // (v1.0.1312) รถในสต็อกแยกรุ่น/สี: "สต็อก" ทั้งหมด / "สต็อก S07" เฉพาะรุ่น
   const st = t.match(/^(?:สต็อก|สต๊อก|สต็อค|รถว่าง|รถพร้อมขาย|stock)(?:\s+(.+))?$/i)
   if (st) return { type: 'stock', q: (st[1] || '').trim().slice(0, 30) }
+  // (v1.0.1319) โปรที่ใช้ได้วันนี้: "โปร" ทั้งหมด / "โปร S07" เฉพาะรุ่น / "โปรใกล้หมด" / "โปร ดอกเบี้ย"
+  const pr = t.match(/^(?:โปรโมชั่น|โปรโมชัน|โปร|แคมเปญ|promo)(?:\s+(.+)|(ใกล้หมด|เดือนนี้|ดอกเบี้ย.*))?$/i)
+  if (pr) return { type: 'promo', q: (pr[1] || pr[2] || '').trim().slice(0, 40) }
   // (v1.0.1256) เจ้าของดูคาดการณ์สั่งรถ 45 วัน (สูตรเดียวกับหน้าตารางสีรถ)
   if (/^(?:สั่งรถ|ควรสั่งรถ|คาดการณ์สั่งรถ|คาดการณ์|forecast)$/i.test(t.replace(/\s+/g, ''))) return { type: 'forecast' }
   return { type: 'none' }
@@ -1820,6 +1835,7 @@ export const LINE_HELP_TEXT = [
   '• ไฟแนนซ์ — ใบจองที่ยังรอผลไฟแนนซ์/รอเซ็นสัญญา',
   '• ส่งมอบ — นัดส่งมอบรถ 7 วันข้างหน้า + ที่เลยวันนัดแล้วยังไม่ส่ง',
   '• สต็อก — รถพร้อมขาย/กำลังมา/จองแล้ว แยกรุ่นและสี (สต็อก S07 = เฉพาะรุ่น)',
+  '• โปร — โปรที่ใช้ได้วันนี้ (โปร S07 = เฉพาะรุ่น + ข้อความส่งลูกค้า · โปรใกล้หมด)',
   '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
   '• สั่งรถ — คาดการณ์ว่าควรสั่งรถรุ่น/สีไหน (เฉพาะเจ้าของ)',
   '• ลงทะเบียน ชื่อเซลส์ — รับงานค้างทุก 9 โมงเช้า',

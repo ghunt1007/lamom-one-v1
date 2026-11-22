@@ -70,3 +70,21 @@ export function promoAnswer({ programs = [], spec, today }) {
     : [...(spec.ending ? [] : ['โปรไหนใกล้หมด']), ...models.slice(0, 2).map(m => `${m} มีโปรอะไร`)]
   return { text: lines.join('\n'), copy, next }
 }
+
+// (v1.0.1319) คำสั่ง LINE "โปร" / "โปร S07" / "โปรใกล้หมด" / "โปร ดอกเบี้ย" → spec สำหรับ promoAnswer
+// ไม่ต้องรู้รายชื่อรุ่น: matchesCar จับคู่แบบคำบางส่วนอยู่แล้ว (S07 ตรงกับ "Deepal S07")
+export function promoLineSpec(q) {
+  const s = String(q || '').trim()
+  const ending = ENDING.test(s)
+  const finance = /ดอกเบี้ย|ไฟแนนซ์/.test(s)
+  const model = s.replace(new RegExp(ENDING.source, 'g'), ' ')
+    .replace(/ดอกเบี้ย(?:พิเศษ)?|ไฟแนนซ์|เดือนนี้|วันนี้|ทั้งหมด|มีอะไร(?:บ้าง)?|อะไรบ้าง|รุ่น/g, ' ')
+    .replace(/\s+/g, ' ').trim().slice(0, 30)
+  return { model, brand: '', ending, finance }
+}
+
+// ข้อความตอบใน LINE: คำตอบเดียวกับ LAMI + ข้อความพร้อมส่งลูกค้า (ถ้าระบุรุ่น)
+export function promoLineAnswer(programs, q, today) {
+  const r = promoAnswer({ programs, spec: promoLineSpec(q), today })
+  return r.copy ? `${r.text}\n\n📋 ข้อความส่งลูกค้า (คัดลอกได้):\n${r.copy}` : r.text
+}
