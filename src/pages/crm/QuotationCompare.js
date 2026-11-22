@@ -10,8 +10,8 @@ import { sendEmail } from '../../utils/comms.js'
 import { printDocument, docHeader, docFooter, esc } from '../../utils/print.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { copyText } from '../../utils/copyText.js'
 
-const PROMO_DISCOUNT = 0.04 // โปรเดือนนี้ (ส่วนลดตัวอย่างสำหรับคำนวณ ไม่ใช่ราคาจริงจากผู้ผลิต)
 
 export default async function QuotationComparePage(container) {
   const myGen = container.__routerGen
@@ -21,11 +21,22 @@ export default async function QuotationComparePage(container) {
   let selected = byPriceAsc.slice(0, 2).map(v => v.id)
   let downPct = 20
   let term = 60
-  const FLAT_RATE = 2.69
+  // (v1.0.1276) เดิมหักส่วนลดสมมติ 4% ทุกรุ่น ("ราคาโปรเดือนนี้") แล้วส่งตัวเลขนั้นให้ลูกค้าทางอีเมล/พิมพ์ ทั้งที่ไม่ใช่โปรจริง
+  // ตอนนี้เซลส์ใส่ส่วนลดจริงเอง (บาท ค่าเริ่ม 0) และแก้ดอกเบี้ยได้ — จำค่าที่ใช้ล่าสุดไว้ในเครื่อง
+  const ls = (k, d) => { try { const v = parseFloat(localStorage.getItem(k)); return Number.isFinite(v) ? v : d } catch { return d } }
+  let discount = 0
+  let FLAT_RATE = ls('qc_rate', 2.69)
+  const net = v => Math.max(0, (v.price || 0) - discount)
 
   function monthly(principal) {
     const interest = principal * (FLAT_RATE / 100) * (term / 12)
     return Math.round((principal + interest) / term)
+  }
+
+  function compareText(chosen, name) {
+    return [`ใบเปรียบเทียบรุ่นรถสำหรับคุณ${name}`,
+      ...chosen.map(v => `🚗 ${vehicleLabel(v)}\n   ราคา ${formatCurrency(net(v))}${discount > 0 ? ` (หักส่วนลด ${formatCurrency(discount)})` : ''}\n   ดาวน์ ${downPct}% ${formatCurrency(Math.round(net(v) * downPct / 100))} · ผ่อน ${term} งวด ประมาณ ${formatCurrency(monthly(Math.round(net(v) * (1 - downPct / 100))))}/เดือน`),
+      `(ค่างวดเป็นการประมาณ ดอกเบี้ย ${FLAT_RATE}% ต่อปี ยืนยันกับไฟแนนซ์อีกครั้ง)`].join('\n')
   }
 
   function vehicleLabel(v) {
@@ -80,10 +91,14 @@ export default async function QuotationComparePage(container) {
             <label class="input-label">เงินดาวน์: <strong style="color:var(--primary)">${downPct}%</strong></label>
             <input type="range" id="down-slider" min="0" max="50" step="5" value="${__escA(downPct)}" style="width:100%;accent-color:var(--primary)">
           </div>
-          <div style="display:flex;gap:4px">
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
             <span style="font-size:0.75rem;color:var(--text-muted);align-self:center">ผ่อน:</span>
             ${[48, 60, 72, 84].map(t => `<button class="btn btn-xs ${term === t ? 'btn-primary' : 'btn-secondary'} term-btn" data-t="${t}">${t} งวด</button>`).join('')}
           </div>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--text-muted)">ส่วนลด (บาท)
+            <input class="input" id="qc-disc" type="number" min="0" step="1000" inputmode="numeric" value="${discount || ''}" placeholder="0" style="width:110px"></label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--text-muted)">ดอกเบี้ย flat %
+            <input class="input" id="qc-rate" type="number" min="0" max="15" step="0.01" inputmode="decimal" value="${FLAT_RATE}" style="width:80px"></label>
         </div>
 
         <!-- Compare table -->
@@ -98,19 +113,19 @@ export default async function QuotationComparePage(container) {
               </thead>
               <tbody>
                 ${specRow('💰 ราคาปกติ', chosen.map(v => formatCurrency(v.price)))}
-                ${specRow('🎁 ราคาโปรเดือนนี้', chosen.map(v => `<span style="color:var(--success);font-weight:700">${formatCurrency(Math.round(v.price * (1 - PROMO_DISCOUNT)))}</span>`), true)}
+                ${discount > 0 ? specRow(`🎁 ราคาหลังส่วนลด ${formatCurrency(discount)}`, chosen.map(v => `<span style="color:var(--success);font-weight:700">${formatCurrency(net(v))}</span>`), true) : ''}
                 ${specRow('⛽ ประเภทเชื้อเพลิง', chosen.map(v => v.fuel || '-'))}
                 ${specRow('🔋 แบตเตอรี่', chosen.map(v => v.battery || '—'), false, chosen.map(v => batteryKwh(v)), 'max')}
                 ${specRow('🛣 ระยะวิ่ง (EV)', chosen.map(v => v.range ? v.range + ' km' : '—'), false, chosen.map(v => v.range || 0), 'max')}
                 ${specRow('⚡ กำลังเครื่องยนต์/มอเตอร์', chosen.map(v => v.power ? v.power + ' แรงม้า' : '—'), false, chosen.map(v => v.power || 0), 'max')}
                 ${specRow('💺 ที่นั่ง', chosen.map(v => (v.seats || '-') + ' ที่นั่ง'))}
                 ${specRow('🛡 การรับประกัน', chosen.map(v => v.warranty || '—'))}
-                ${specRow('💵 เงินดาวน์ ' + downPct + '%', chosen.map(v => formatCurrency(Math.round(v.price * (1 - PROMO_DISCOUNT) * downPct / 100))))}
-                ${specRow('📅 ค่างวด ' + term + ' เดือน', chosen.map(v => `<strong style="color:var(--primary)">${formatCurrency(monthly(Math.round(v.price * (1 - PROMO_DISCOUNT) * (1 - downPct / 100))))}</strong>/ด.`), true)}
+                ${specRow('💵 เงินดาวน์ ' + downPct + '%', chosen.map(v => formatCurrency(Math.round(net(v) * downPct / 100))))}
+                ${specRow('📅 ค่างวด ' + term + ' เดือน', chosen.map(v => `<strong style="color:var(--primary)">${formatCurrency(monthly(Math.round(net(v) * (1 - downPct / 100))))}</strong>/ด.`), true)}
               </tbody>
             </table>
           </div>
-          <p style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;padding-left:4px">💡 ช่องไฮไลต์เขียว = ดีที่สุดในแถวนั้น · ดอกเบี้ย flat ${FLAT_RATE}% · ราคาโปรเป็นตัวอย่างส่วนลดสำหรับคำนวณ (หักแล้ว ${PROMO_DISCOUNT * 100}%) — ยืนยันราคาโปรจริงกับฝ่ายขายก่อนเสนอลูกค้า</p>
+          <p style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;padding-left:4px">💡 ช่องไฮไลต์เขียว = ดีที่สุดในแถวนั้น · ดอกเบี้ย flat ${FLAT_RATE}% · ค่างวดเป็นการประมาณ ยืนยันดอกเบี้ยจริงกับไฟแนนซ์ก่อนเสนอลูกค้า</p>
         `}
       </div>
     `
@@ -130,17 +145,18 @@ export default async function QuotationComparePage(container) {
     }))
     document.getElementById('down-slider')?.addEventListener('input', e => { downPct = parseInt(e.target.value); renderPage() })
     container.querySelectorAll('.term-btn').forEach(b => b.addEventListener('click', () => { term = parseInt(b.dataset.t); renderPage() }))
+    document.getElementById('qc-disc')?.addEventListener('change', e => { discount = Math.max(0, parseFloat(e.target.value) || 0); renderPage() })
+    document.getElementById('qc-rate')?.addEventListener('change', e => { const r = parseFloat(e.target.value); if (Number.isFinite(r) && r >= 0 && r <= 15) { FLAT_RATE = r; try { localStorage.setItem('qc_rate', String(r)) } catch {} } renderPage() })
     document.getElementById('send-btn')?.addEventListener('click', () => {
       // (v1.0.xxx) เดิมไม่อ่านช่องทางที่เลือกเลย แค่ toast สำเร็จหลอกๆทุกครั้ง — ตอนนี้อ่านช่องทางจริง:
       // "พิมพ์เอกสาร" เปิดหน้าต่างพิมพ์จริงผ่าน printDocument() (utils/print.js), "อีเมล" ส่งจริงผ่าน
-      // sendEmail() (utils/comms.js) เมื่อกรอกอีเมลผู้รับ, "LINE" ไม่มีการเชื่อม DM รายบุคคลจริงในระบบนี้
-      // (เชื่อมแบบ Broadcast ทั้งฐานลูกค้าเท่านั้น เหมือน CommInbox.js) จึงแจ้งตรงไปตรงมาแทนอ้างว่าส่งแล้ว
+      // sendEmail() (utils/comms.js) เมื่อกรอกอีเมลผู้รับ, "LINE" (v1.0.1276) คัดลอกข้อความไปวางในแชตลูกค้า
       openModal({
         title: '📤 ส่งใบเปรียบเทียบให้ลูกค้า',
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="qc-name"></div>
-          <div class="input-group"><label class="input-label">ส่งทาง</label><select class="input" id="qc-ch"><option value="line">LINE</option><option value="email">อีเมล</option><option value="print">พิมพ์เอกสาร</option></select></div>
+          <div class="input-group"><label class="input-label">ส่งทาง</label><select class="input" id="qc-ch"><option value="line">LINE (คัดลอกข้อความไปวาง)</option><option value="email">อีเมล</option><option value="print">พิมพ์เอกสาร</option></select></div>
           <div class="input-group" id="qc-email-group"><label class="input-label">อีเมลผู้รับ (สำหรับส่งทางอีเมล)</label><input class="input" id="qc-email" placeholder="name@email.com"></div>
         </div>`,
         confirmText: '📤 ส่ง',
@@ -154,7 +170,7 @@ export default async function QuotationComparePage(container) {
               `<p>ลูกค้า: ${esc(name)}</p>` +
               `<table style="width:100%;border-collapse:collapse;margin-top:10px">
                 <tr>${chosen.map(v => `<th style="border:1px solid #ccc;padding:6px;text-align:left">${esc(v.brand || '')} ${esc(v.model || '')}</th>`).join('')}</tr>
-                <tr>${chosen.map(v => `<td style="border:1px solid #ccc;padding:6px">${formatCurrency(Math.round(v.price * (1 - PROMO_DISCOUNT)))} (ดาวน์ ${downPct}% / ${term} เดือน: ${formatCurrency(monthly(Math.round(v.price * (1 - PROMO_DISCOUNT) * (1 - downPct / 100))))}/ด.)</td>`).join('')}</tr>
+                <tr>${chosen.map(v => `<td style="border:1px solid #ccc;padding:6px">${formatCurrency(net(v))} (ดาวน์ ${downPct}% / ${term} เดือน: ${formatCurrency(monthly(Math.round(net(v) * (1 - downPct / 100))))}/ด.)</td>`).join('')}</tr>
               </table>` + docFooter()
             printDocument(html, { title: 'ใบเปรียบเทียบรุ่นรถ ' + name })
             showToast(`🖨️ เปิดหน้าต่างพิมพ์ใบเปรียบเทียบ ${chosen.length} รุ่นสำหรับ ${name} แล้ว`, 'success')
@@ -162,15 +178,15 @@ export default async function QuotationComparePage(container) {
           }
           if (ch === 'email') {
             if (!email) { showToast('❗ กรุณากรอกอีเมลผู้รับ', 'error'); return false }
-            const bodyText = chosen.map(v => `${v.brand || ''} ${v.model || ''} — ${formatCurrency(Math.round(v.price * (1 - PROMO_DISCOUNT)))} (ดาวน์ ${downPct}% / ${term} เดือน)`).join('\n')
+            const bodyText = compareText(chosen, name)
             try {
               await sendEmail([email], 'ใบเปรียบเทียบรุ่นรถสำหรับคุณ ' + name, bodyText)
               showToast(`✅ ส่งอีเมลใบเปรียบเทียบให้ ${name} แล้ว`, 'success')
             } catch (e) { showToast('❌ ส่งอีเมลไม่สำเร็จ: ' + e.message, 'error'); return false }
             return
           }
-          // LINE — ไม่มีการเชื่อม DM รายบุคคลจริงในระบบนี้
-          showToast(`📝 LINE ยังไม่มีระบบส่งเจาะรายบุคคล (เชื่อมแบบ Broadcast ทั้งฐานลูกค้าเท่านั้น) — กรุณาส่งให้ ${name} ด้วยตนเอง`, 'warning')
+          // LINE — คัดลอกข้อความไปวางในแชต LINE ของลูกค้า (แตะเดียว)
+          await copyText(compareText(chosen, name), '📋 คัดลอกข้อความแล้ว — เปิดแชต LINE ของลูกค้าแล้ววางได้เลย')
         }
       })
     })
