@@ -107,7 +107,9 @@ const QUICK_LINKS = [
 function formatThaiDate() {
   const d = new Date()
   const days = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์']
-  return `วัน${days[d.getDay()]}ที่ ${fmtDMY(d)}`
+  // (v1.0.1297) ชื่อวันตามเวลาไทย ให้ตรงกับวันที่ที่แสดง (เครื่องที่ตั้งโซนเวลาอื่นเคยได้ "วันอาทิตย์ที่ 23/11" ทั้งที่เป็นวันจันทร์)
+  const wd = new Date(todayBangkok() + 'T00:00:00Z').getUTCDay()
+  return `วัน${days[wd]}ที่ ${fmtDMY(d)}`
 }
 
 export default async function DashboardPage(container) {
