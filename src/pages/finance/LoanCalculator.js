@@ -4,7 +4,8 @@
  */
 import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
+import { openModal } from '../../utils/modal.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
@@ -19,6 +20,8 @@ const MODELS = {
   'BYD Han': 2099000,
 }
 
+// อัตราตัวอย่าง — ใช้เฉพาะตอนยังไม่ได้ตั้งอัตราจริง (หน้าจอบอกชัดว่าเป็นตัวอย่าง) · ตั้งอัตราจริงได้ที่ปุ่ม ✏️ ตั้งอัตราดอกเบี้ย
+export const TERMS = [48, 60, 72, 84]
 const BANKS = [
   { name: 'กรุงศรี ออโต้', rates: { 48: 2.59, 60: 2.79, 72: 2.99, 84: 3.19 } },
   { name: 'ธนชาต DRIVE', rates: { 48: 2.49, 60: 2.69, 72: 2.89, 84: 3.09 } },
@@ -76,24 +79,60 @@ export default async function LoanCalculatorPage(container) {
   let banks = BANKS.map(b => ({ ...b, rates: { ...b.rates } }))
   let dataSource = 'demo'
 
-  try {
-    const docs = await listDocs('finance_banks', [], 'name', 'asc', 50).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map(d => ({
-        name: d.name || d.bankName || 'ธนาคาร',
-        rates: d.rates || { 48: d.rate48||2.99, 60: d.rate60||3.19, 72: d.rate72||3.39, 84: d.rate84||3.59 },
+  // (v1.0.1278) เดิมต้องมีอย่างน้อย 2 ไฟแนนซ์ถึงใช้ของจริง แล้วยังปนกับอัตราตัวอย่าง 4 เจ้า (ชื่อธนาคารจริง ตัวเลขสมมติ)
+  // ซึ่งถูกคัดลอกส่งลูกค้า — และในแอปไม่มีที่ให้ตั้งอัตราจริงเลย · ตอนนี้มีปุ่มตั้งอัตรา และมีของจริงเมื่อไหร่ใช้ของจริงอย่างเดียว
+  async function loadBanks() {
+    const docs = (await listDocs('finance_banks', [], 'name', 'asc', 50).catch(() => [])).filter(d => !d.deleted)
+    if (docs.length) {
+      banks = docs.map(d => ({
+        id: d.id, name: d.name || d.bankName || 'ธนาคาร',
+        rates: Object.fromEntries(TERMS.map(t => [t, Number(d.rates?.[t] ?? d['rate' + t]) || null])),
       }))
-      banks = [...mapped, ...BANKS]
       dataSource = 'live'
-    }
-  } catch {}
+    } else { banks = BANKS.map(b => ({ ...b, rates: { ...b.rates } })); dataSource = 'demo' }
+  }
+  try { await loadBanks() } catch {}
+  if (container.__routerGen !== myGen) return
+
+  function openRatesEditor() {
+    const rows = dataSource === 'live' ? banks : []
+    const rowHtml = (b = {}) => `<div class="lc-rate-row" data-id="${__escA(b.id || '')}" style="display:grid;grid-template-columns:minmax(110px,1.6fr) repeat(4,minmax(54px,1fr));gap:6px;align-items:center">
+      <input class="input lc-r-name" placeholder="ชื่อไฟแนนซ์" value="${__escA(b.name || '')}">
+      ${TERMS.map(t => `<input class="input lc-r-rate" data-t="${t}" type="number" step="0.01" min="0" max="15" inputmode="decimal" placeholder="%" value="${b.rates?.[t] ?? ''}">`).join('')}
+    </div>`
+    const { el, close } = openModal({
+      title: '✏️ ตั้งอัตราดอกเบี้ยไฟแนนซ์ (flat % ต่อปี)', size: 'md',
+      body: `<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px">ใส่ตามเรทชีตเดือนนี้ · ลบชื่อออก = เอาไฟแนนซ์นั้นออก · ช่องว่าง = ไม่มีเรทงวดนั้น</div>
+        <div style="display:grid;grid-template-columns:minmax(110px,1.6fr) repeat(4,minmax(54px,1fr));gap:6px;font-size:0.7rem;color:var(--text-muted);margin-bottom:4px"><span>ไฟแนนซ์</span>${TERMS.map(t => `<span>${t} งวด</span>`).join('')}</div>
+        <div id="lc-rate-rows" style="display:flex;flex-direction:column;gap:6px;overflow-x:auto">${(rows.length ? rows : [{}, {}]).map(rowHtml).join('')}</div>
+        <button class="btn btn-ghost btn-sm" id="lc-rate-add" style="margin-top:8px">➕ เพิ่มไฟแนนซ์</button>`,
+      confirmText: '💾 บันทึก',
+      async onConfirm() {
+        const list = [...el.querySelectorAll('.lc-rate-row')].map(r => ({
+          id: r.dataset.id, name: r.querySelector('.lc-r-name').value.trim(),
+          rates: Object.fromEntries([...r.querySelectorAll('.lc-r-rate')].map(i => [i.dataset.t, i.value === '' ? null : Math.round(parseFloat(i.value) * 100) / 100])),
+        }))
+        const bad = list.find(b => b.name && Object.values(b.rates).some(v => v !== null && !(v >= 0 && v <= 15)))
+        if (bad) { showToast(`❗ อัตราของ ${bad.name} ต้องอยู่ระหว่าง 0–15%`, 'error'); return false }
+        try {
+          for (const b of list) {
+            const has = b.name && Object.values(b.rates).some(v => v !== null)
+            if (b.id && !has) await softDelete('finance_banks', b.id)
+            else if (b.id) await updateDocData('finance_banks', b.id, { name: b.name, rates: b.rates })
+            else if (has) await createDoc('finance_banks', { name: b.name, rates: b.rates })
+          }
+          await loadBanks(); showToast('✅ บันทึกอัตราดอกเบี้ยแล้ว', 'success'); renderPage()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ: ' + (e?.message || ''), 'error'); return false }
+      },
+    })
+    el.querySelector('#lc-rate-add')?.addEventListener('click', () => el.querySelector('#lc-rate-rows').insertAdjacentHTML('beforeend', rowHtml()))
+  }
 
   function renderPage() {
     const price = customPrice ?? models[model]
     const downAmt = Math.round(price * downPct / 100)
     const principal = price - downAmt
-    const results = banks.map(b => ({
+    const results = banks.filter(b => b.rates[term] > 0).map(b => ({
       ...b, rate: b.rates[term], pay: monthly(principal, b.rates[term], term),
       totalInterest: monthly(principal, b.rates[term], term) * term - principal
     })).sort((a, b) => a.pay - b.pay)
@@ -104,9 +143,10 @@ export default async function LoanCalculatorPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🧮 คำนวณค่างวด</div>
-            <div class="page-subtitle">คำนวณค่างวด — เทียบ ${banks.length} ไฟแนนซ์${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">คำนวณค่างวด — เทียบ ${results.length} ไฟแนนซ์${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● อัตราที่ตั้งไว้</span>' : ' <span style="color:var(--warning);font-size:0.75rem">⚠️ อัตราตัวอย่าง ยังไม่ได้ตั้งอัตราจริง</span>'}</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="lc-rates-btn">✏️ ตั้งอัตราดอกเบี้ย</button>
             <button class="btn btn-primary" id="send-btn">📤 ส่งให้ลูกค้า</button>
           </div>
         </div>
@@ -158,7 +198,7 @@ export default async function LoanCalculatorPage(container) {
                 </div>
               `).join('')}
             </div>
-            <p style="font-size:0.7rem;color:var(--text-muted);margin-top:10px;padding-left:4px">💡 ${escHtml(best?.name)} ถูกสุดที่ ${formatCurrency(best?.pay)}/เดือน — อัตราจริงขึ้นกับเครดิตลูกค้า ใช้เป็นตัวเลขเบื้องต้นเท่านั้น</p>
+            ${best ? `<p style="font-size:0.7rem;color:var(--text-muted);margin-top:10px;padding-left:4px">💡 ${escHtml(best.name)} ถูกสุดที่ ${formatCurrency(best.pay)}/เดือน — อัตราจริงขึ้นกับเครดิตลูกค้า ใช้เป็นตัวเลขเบื้องต้นเท่านั้น</p>` : `<div class="card" style="padding:16px;color:var(--text-muted);font-size:0.85rem">ยังไม่มีอัตรา ${term} งวด — กด ✏️ ตั้งอัตราดอกเบี้ย</div>`}
           </div>
         </div>
       </div>
@@ -168,11 +208,14 @@ export default async function LoanCalculatorPage(container) {
     document.getElementById('lc-price')?.addEventListener('change', e => { customPrice = parseInt(e.target.value) || models[model]; renderPage() })
     document.getElementById('lc-down')?.addEventListener('input', e => { downPct = parseInt(e.target.value); renderPage() })
     container.querySelectorAll('.term-btn').forEach(b => b.addEventListener('click', () => { term = parseInt(b.dataset.t); renderPage() }))
+    document.getElementById('lc-rates-btn')?.addEventListener('click', openRatesEditor)
     document.getElementById('send-btn')?.addEventListener('click', () => {
       const price = customPrice ?? models[model]
       const principal = Math.round(price * (1 - downPct / 100))
-      const bestBank = banks.slice().sort((a, b) => (a.rates[term] || 99) - (b.rates[term] || 99))[0]
-      const rate = bestBank?.rates[term] || 3
+      const bestBank = banks.filter(b => b.rates[term] > 0).sort((a, b) => a.rates[term] - b.rates[term])[0]
+      if (!bestBank) { showToast(`ยังไม่มีอัตรา ${term} งวด — กด ✏️ ตั้งอัตราดอกเบี้ย ก่อน`, 'warning'); return }
+      if (dataSource !== 'live') { showToast('ยังเป็นอัตราตัวอย่าง — กด ✏️ ตั้งอัตราดอกเบี้ยจริงก่อนส่งตัวเลขให้ลูกค้า', 'warning'); return }
+      const rate = bestBank.rates[term]
       const pay = monthly(principal, rate, term)
       const summary = `ค่างวดโดยประมาณ ${model}\nราคา ${formatCurrency(price)} · ดาวน์ ${downPct}% (${formatCurrency(price * downPct / 100)})\nผ่อน ${term} งวด ประมาณ ฿${pay.toLocaleString()}/เดือน (ดอกเบี้ย ${rate}% ต่อปี)\n*ตัวเลขเบื้องต้น อัตราจริงขึ้นกับการอนุมัติของไฟแนนซ์`
       navigator.clipboard?.writeText(summary)
