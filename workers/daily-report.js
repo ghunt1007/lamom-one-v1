@@ -62,6 +62,7 @@ import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } f
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
 import { campaignLeads } from '../src/utils/campaignLeads.js'
 import { financeQueue, financeWaitAnswer } from '../src/utils/financeQueue.js'
+import { deliveryWeekAnswer } from '../src/utils/deliveryWeek.js'
 import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines, serviceJobsAnswer, serviceEveningLines, serviceWeekLines } from '../src/utils/apptFacts.js'
 import { officeDigestLines } from '../src/utils/aiAgents.js'
 
@@ -705,6 +706,18 @@ async function handleLineWebhook(request, env, cors) {
           reply = clipLine(financeWaitAnswer(rows, todayBangkok(), { mine }))
         } catch { reply = '⚠️ ดึงข้อมูลไฟแนนซ์ไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'deliveries') {
+      // (v1.0.1302) นัดส่งมอบ — เซลส์เห็นของตัวเอง / เจ้าของเห็นทั้งหมด · คนอื่นพิมพ์ = ข้อความปกติ
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      const isOwner = !!owner && owner === userId
+      if (me?.name || isOwner) {
+        try {
+          const rows = await runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'deliveryDate', 'deliveryTime', 'custName', 'model', 'salesName', 'deleted'])
+          const mine = isOwner ? () => true : b => normSalesName(b.salesName) === normSalesName(me.name)
+          reply = clipLine(deliveryWeekAnswer(rows, todayBangkok(), { mine }))
+        } catch { reply = '⚠️ ดึงนัดส่งมอบไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'forecast') {
       // (v1.0.1256) เฉพาะเจ้าของ (ปลายทางรายงาน) — การสั่งรถเป็นเรื่องของเจ้าของ คนอื่นพิมพ์ = ข้อความปกติ
       const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
@@ -781,6 +794,8 @@ export function parseLineCommand(text) {
   if (/^(?:ลีด|ลีดใหม่|ลีดค้าง|leads?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'leads' }
   if (/^(?:ครบระยะ|รถครบระยะ|due)$/i.test(t.replace(/\s+/g, ''))) return { type: 'due' }
   if (/^(?:ไฟแนนซ์|รอไฟแนนซ์|ไฟแนนท์|finance)$/i.test(t.replace(/\s+/g, ''))) return { type: 'finwait' }
+  // (v1.0.1302) นัดส่งมอบ 7 วันข้างหน้า + ที่เลยวันนัดแล้วยังไม่ส่ง
+  if (/^(?:ส่งมอบ|นัดส่งมอบ|deliver(?:y|ies)?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'deliveries' }
   // (v1.0.1256) เจ้าของดูคาดการณ์สั่งรถ 45 วัน (สูตรเดียวกับหน้าตารางสีรถ)
   if (/^(?:สั่งรถ|ควรสั่งรถ|คาดการณ์สั่งรถ|คาดการณ์|forecast)$/i.test(t.replace(/\s+/g, ''))) return { type: 'forecast' }
   return { type: 'none' }
@@ -1783,6 +1798,7 @@ export const LINE_HELP_TEXT = [
   '• ลีด — ลีด 3 วันล่าสุดที่ยังไม่มีใครติดต่อ',
   '• ครบระยะ — รถถึงกำหนดเช็คระยะที่ยังไม่ได้นัด',
   '• ไฟแนนซ์ — ใบจองที่ยังรอผลไฟแนนซ์/รอเซ็นสัญญา',
+  '• ส่งมอบ — นัดส่งมอบรถ 7 วันข้างหน้า + ที่เลยวันนัดแล้วยังไม่ส่ง',
   '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
   '• สั่งรถ — คาดการณ์ว่าควรสั่งรถรุ่น/สีไหน (เฉพาะเจ้าของ)',
   '• ลงทะเบียน ชื่อเซลส์ — รับงานค้างทุก 9 โมงเช้า',
