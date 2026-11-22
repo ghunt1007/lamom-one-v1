@@ -134,12 +134,13 @@ function renderAlerts(customers, sales) {
 }
 
 function kCard(icon, label, value, color, nav) {
-  const isLong = typeof value === 'string' && value.length > 10
+  // (v1.0.1297) ยอดเงิน ฿1,700,000 (10 ตัว) ใหญ่ 1.6rem ล้นการ์ดที่จอ 768px — ย่อเมื่อยาวเกิน 7 ตัว และให้ตัวเลขขึ้นบรรทัดใหม่ใต้ไอคอนเมื่อไม่พอ (ไม่ตัดตัวเลข)
+  const isLong = typeof value === 'string' && value.length > 7
   return `
     <div class="card card-lift" data-nav="${nav}" style="padding:16px 18px;cursor:pointer;border-left:3px solid var(--${color})">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <span style="font-size:1.3rem">${icon}</span>
-        <span style="font-size:${isLong ? '0.85rem' : '1.6rem'};font-weight:800;color:var(--${color})">${value}</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:2px 6px;margin-bottom:6px;min-width:0;overflow-x:visible">
+        <span style="font-size:1.3rem;flex-shrink:0">${icon}</span>
+        <span style="font-size:${isLong ? '1.1rem' : '1.6rem'};font-weight:800;color:var(--${color});white-space:nowrap">${value}</span>
       </div>
       <div style="font-size:0.78rem;color:var(--text-muted)">${label}</div>
     </div>
