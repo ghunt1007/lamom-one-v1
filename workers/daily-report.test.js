@@ -188,6 +188,12 @@ describe('daily-report worker — buildReport (pure, same definitions as Dashboa
   it('falls back to the default target when no unit target is set', () => {
     expect(buildReport({ ...data, teamTargets: [] }, { today, defaultTarget: 15 })).toContain('เป้าเดือนนี้: 15 คัน')
   })
+  it('adds the service section only when job cards exist (v1.0.1280)', () => {
+    expect(text).not.toContain('🔧 ศูนย์บริการ')
+    const t = buildReport({ ...data, jobCards: [{ status: 'done', createdAt: '2026-10-22T03:00:00Z' }] }, { today, defaultTarget: 15 })
+    expect(t).toContain('ใบงานใหม่วันนี้: 1 คัน')
+    expect(t).toContain('รถยังอยู่ที่ศูนย์: 1 คัน (เสร็จรอลูกค้ารับ 1)')
+  })
 })
 
 describe('buildMorningReminder (09:00 per-salesperson reminder)', () => {
