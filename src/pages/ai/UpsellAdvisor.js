@@ -8,6 +8,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
 import { sendSms } from '../../utils/comms.js'
+import { loadOptedOutPhones, phoneKey } from '../../utils/marketingOptOut.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml as esc } from '../../utils/escape.js'
 
@@ -143,22 +144,31 @@ export default async function UpsellAdvisorPage(container) {
       const o = c?.opportunities[+b.dataset.oi]
       if (c && o) openOfferModal(c, o)
     }))
-    document.getElementById('campaign-btn')?.addEventListener('click', () => {
+    document.getElementById('campaign-btn')?.addEventListener('click', async () => {
       const targets = []
-      customers.forEach(c => c.opportunities.forEach((o, i) => { if (OPP_TYPES[o.type].priority === 'high') targets.push({ c, o, i }) }))
+      const blocked = await loadOptedOutPhones() // (v1.0.1281) PDPA: ไม่ยินยอมรับข่าวสาร = ไม่ส่ง
+      // (v1.0.1281) ลูกค้าคนเดียวมีหลายโอกาส Priority สูง = ส่งข้อความเดียว (โอกาสแรก) — เดิมได้ SMS หลายข้อความติดกัน
+      const seenPhone = new Set()
+      customers.forEach(c => c.opportunities.forEach((o, i) => {
+        if (OPP_TYPES[o.type].priority !== 'high') return
+        const key = String(c.phone || '').replace(/\D/g, '') || 'name:' + c.name
+        if (seenPhone.has(key)) return
+        seenPhone.add(key); targets.push({ c, o, i })
+      }))
       openModal({
         title:'📤 ส่ง SMS Priority สูงทั้งหมด', size:'sm',
         body:`<div style="font-size:0.8rem">
           <p style="color:var(--text-muted);margin-bottom:10px">ส่ง SMS แจ้งโอกาส Priority สูงทั้งหมด ${targets.length} รายการ (ต้องมีเบอร์โทรจริง)</p>
           ${targets.map(({c,o})=>`
             <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.76rem">
-              <b>${esc(c.name)}</b> — ${OPP_TYPES[o.type].label} ${!c.phone ? '<span style="color:var(--danger)">(ไม่มีเบอร์โทร)</span>' : ''}
+              <b>${esc(c.name)}</b> — ${OPP_TYPES[o.type].label} ${!c.phone ? '<span style="color:var(--danger)">(ไม่มีเบอร์โทร)</span>' : blocked.has(phoneKey(c.phone)) ? '<span style="color:var(--warning)">(ไม่ยินยอมรับข่าวสาร — ข้าม)</span>' : ''}
             </div>`).join('')}`,
         confirmText:'📤 ส่ง SMS ทุกราย',
         async onConfirm() {
           let ok = 0, failed = 0
           for (const { c, o } of targets) {
             if (!c.phone) { failed++; continue }
+            if (blocked.has(phoneKey(c.phone))) continue
             try {
               const msg = buildMsg(c, o)
               await sendSms([c.phone], msg)
@@ -232,6 +242,7 @@ export default async function UpsellAdvisorPage(container) {
       confirmText: '📤 ส่ง SMS',
       async onConfirm() {
         if (!c.phone) { showToast('❗ ไม่มีเบอร์โทรลูกค้ารายนี้', 'error'); return false }
+        if ((await loadOptedOutPhones()).has(phoneKey(c.phone))) { showToast(`🔕 คุณ${c.name} ไม่ยินยอมรับข่าวสาร (PDPA) — ไม่ส่ง SMS`, 'warning'); return false }
         const msg = document.getElementById('offer-msg')?.value?.trim()
         try {
           await sendSms([c.phone], msg)
