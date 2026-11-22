@@ -60,7 +60,7 @@ export default async function EventManagementPage(container) {
   const myGen = container.__routerGen
   const today = todayBangkok()
   let events = []
-  let ref = { customers: [], bookings: [], testDrives: [] }
+  let ref = { customers: [], bookings: [], testDrives: [], visitors: [] }
   let tab = 'upcoming'
   let tabPicked = false
   let typeFilter = 'all'
@@ -101,8 +101,10 @@ export default async function EventManagementPage(container) {
     listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => []),
     listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => []),
     listDocs('test_drives', companyScopeFilters(), 'date', 'desc', 1000).catch(() => []),
-  ]).then(([customers, bookings, testDrives]) => {
-    ref = { customers: customers.filter(c => c.eventId), bookings, testDrives }
+    // (v1.0.1320) ผู้เยี่ยมชมที่เช็กอินในหน้าเช็กอินงาน → นับเป็นผู้เข้าชมของงานอัตโนมัติ
+    listDocs('event_visitors', [], 'time', 'desc', 2000).catch(() => []),
+  ]).then(([customers, bookings, testDrives, visitors]) => {
+    ref = { customers: customers.filter(c => c.eventId), bookings, testDrives, visitors: visitors.filter(v => v.eventId) }
     if (alive() && loaded) render()
   })
 

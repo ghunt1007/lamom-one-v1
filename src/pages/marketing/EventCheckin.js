@@ -36,7 +36,7 @@ export default async function EventCheckinPage(container) {
   async function loadData() {
     loading = true
     const [v, evs] = await Promise.all([
-      listDocs('event_visitors', [], 'time', 'asc', 500).catch(() => []),
+      listDocs('event_visitors', [], 'time', 'desc', 2000).then(r => r.reverse()).catch(() => []),
       listDocs('marketing_events', [], 'startDate', 'desc', 60).catch(() => []),
     ])
     visitors = v
