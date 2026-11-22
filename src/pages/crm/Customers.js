@@ -343,7 +343,7 @@ export default async function CustomersPage(container) {
           <div style="display:flex;align-items:center;gap:10px">
             <div class="avatar avatar-md cust-row-avatar" style="background:${avatarColor(c)};color:#fff">${escHtml(initials(c.firstName, c.lastName))}</div>
             <div>
-              <div style="font-weight:600;color:var(--text);white-space:nowrap">${escHtml(fullName(c))}${c.vip ? ' <span title="VIP">⭐</span>' : ''}</div>
+              <div style="font-weight:600;color:var(--text);white-space:nowrap">${escHtml(fullName(c))}${c.vip ? ' <span title="VIP">⭐</span>' : ''}${c.marketingConsent === 'no' ? ' <span title="ลูกค้าไม่รับข่าวสาร/โปรโมชัน (PDPA) — ส่งตามกลุ่มจะข้ามคนนี้">🔕</span>' : ''}</div>
               <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(c.email || '')}</div>
             </div>
           </div>

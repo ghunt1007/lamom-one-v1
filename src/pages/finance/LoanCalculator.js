@@ -198,7 +198,7 @@ export default async function LoanCalculatorPage(container) {
                 </div>
               `).join('')}
             </div>
-            ${best ? `<p style="font-size:0.7rem;color:var(--text-muted);margin-top:10px;padding-left:4px">💡 ${escHtml(best.name)} ถูกสุดที่ ${formatCurrency(best.pay)}/เดือน — อัตราจริงขึ้นกับเครดิตลูกค้า ใช้เป็นตัวเลขเบื้องต้นเท่านั้น</p>` : `<div class="card" style="padding:16px;color:var(--text-muted);font-size:0.85rem">ยังไม่มีอัตรา ${term} งวด — กด ✏️ ตั้งอัตราดอกเบี้ย</div>`}
+            ${best ? `<p style="font-size:0.7rem;color:var(--text-muted);margin-top:10px;padding-left:4px">💡 ${dataSource === 'live' ? '' : '(อัตราตัวอย่าง) '}${escHtml(best.name)} ถูกสุดที่ ${formatCurrency(best.pay)}/เดือน — อัตราจริงขึ้นกับเครดิตลูกค้า ใช้เป็นตัวเลขเบื้องต้นเท่านั้น</p>` : `<div class="card" style="padding:16px;color:var(--text-muted);font-size:0.85rem">ยังไม่มีอัตรา ${term} งวด — กด ✏️ ตั้งอัตราดอกเบี้ย</div>`}
           </div>
         </div>
       </div>
