@@ -64,6 +64,16 @@ export default async function MarketingDashboard(container) {
   // ROI ต่อแคมเปญคำนวณด้วยสูตรเดียวกับ CampaignBuilder.js (สมมติมูลค่าเฉลี่ยต่อการขาย 200,000 บาท/คัน)
   const roiOf = c => c.spent > 0 ? ((c.sales || 0) * 200000 - c.spent) / c.spent * 100 : 0
   const withSpend = campaigns.filter(c => c.spent > 0)
+  // (v1.0.1310) กรวยการขายเดิมใช้ Impressions 45,200 / Clicks 8,640 / Qualified 18 ที่แต่งขึ้น — ตอนนี้รวมจากแคมเปญจริง + ใบจองจริง
+  const sumOf = k => campaigns.reduce((t, c) => t + (Number(c[k]) || 0), 0)
+  const funnel = [
+    { label:'Reach', val:sumOf('reach'), color:'primary' },
+    { label:'Clicks', val:sumOf('clicks'), color:'accent' },
+    { label:'Leads', val:totalLeads, color:'warning' },
+    { label:'ยอดจอง', val:actualTotal, color:'success', real:true },
+    { label:'ส่งมอบแล้ว', val:actualDelivered, color:'success', real:true },
+  ].filter((f, i, a) => f.val > 0 || a.slice(0, i).some(x => x.val > 0))
+  const funnelMax = Math.max(1, ...funnel.map(f => f.val))
   const avgROI = withSpend.length ? Math.round(withSpend.reduce((s, c) => s + roiOf(c), 0) / withSpend.length) : 0
 
   container.innerHTML = `
@@ -83,7 +93,7 @@ export default async function MarketingDashboard(container) {
         ${kCard('📢', 'Campaigns Active', activeCampaigns.length + ' แคมเปญ', 'primary')}
         ${kCard('🧲', 'Leads รวม', totalLeads + ' คน', 'accent')}
         ${kCard('✅', 'ยอดจองจริง', actualTotal + ' ราย', 'success')}
-        ${kCard('📈', 'ROI เฉลี่ย', avgROI + '%', 'warning')}
+        ${kCard('📈', 'ROI เฉลี่ย', withSpend.length ? avgROI + '%' : '-', 'warning')}
       </div>
 
       <!-- Quick links -->
@@ -102,23 +112,17 @@ export default async function MarketingDashboard(container) {
       <div class="card" style="padding:16px 20px;margin-bottom:16px">
         <div style="font-weight:600;margin-bottom:14px;font-size:0.88rem">🔻 กรวยการขาย</div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          ${[
-            { label:'Impressions', val:45200, color:'primary', pct:100 },
-            { label:'Clicks / Reach', val:8640, color:'accent', pct:19 },
-            { label:'Leads', val:totalLeads, color:'warning', pct:Math.round(totalLeads / 45200 * 100) },
-            { label:'Qualified', val:18, color:'warning', pct:Math.round(18 / 45200 * 100) },
-            { label:'ยอดจอง (จริง)', val:actualTotal, color:'success', pct:Math.round(actualTotal / 45200 * 100 || 0), real:true },
-            { label:'ส่งมอบแล้ว (จริง)', val:actualDelivered, color:'success', pct:Math.round(actualDelivered / 45200 * 100 || 0), real:true },
-          ].map(f => `
+          ${funnel.length ? funnel.map(f => ({ ...f, pct: Math.max(f.val ? 1 : 0, Math.round(f.val / funnelMax * 100)) })).map(f => `
             <div style="display:flex;align-items:center;gap:12px">
-              <div style="width:150px;font-size:0.8rem;color:var(--text-muted)">${f.label}${f.real ? ' <span style="font-size:0.65rem;color:var(--success)">●live</span>' : ''}</div>
+              <div style="width:min(150px,32%);flex-shrink:0;font-size:0.8rem;color:var(--text-muted)">${f.label}${f.real ? ' <span style="font-size:0.65rem;color:var(--success)">●live</span>' : ''}</div>
               <div style="flex:1;height:18px;background:var(--surface-2);border-radius:4px;overflow:hidden">
                 <div style="height:100%;width:${f.pct}%;background:var(--${f.color});border-radius:4px;opacity:${f.real ? '0.85' : '1'}"></div>
               </div>
               <div style="width:68px;text-align:right;font-weight:700;font-size:0.82rem;color:var(--${f.color})">${f.val.toLocaleString()}</div>
             </div>
-          `).join('')}
+          `).join('') : '<div style="font-size:0.8rem;color:var(--text-muted)">ยังไม่มีข้อมูล — ใส่ยอด Reach/Clicks/ลีดในแคมเปญ หรือเพิ่มใบจอง แล้วกรวยจะขึ้นเอง</div>'}
         </div>
+        <div style="font-size:0.68rem;color:var(--text-muted);margin-top:8px">Reach / Clicks / Leads = ผลรวมที่บันทึกในแคมเปญ · ยอดจอง/ส่งมอบ = จากใบจองจริง</div>
       </div>
 
       <!-- Lead Source from real bookings -->
@@ -128,7 +132,7 @@ export default async function MarketingDashboard(container) {
         <div style="display:flex;flex-wrap:wrap;gap:8px">
           ${Object.entries(sourceBreakdown).sort((a, b) => b[1].count - a[1].count).map(([src, d]) => `
             <div style="padding:7px 12px;background:var(--surface-2);border-radius:var(--radius-md);font-size:0.8rem">
-              <span style="font-weight:700">${src}</span>
+              <span style="font-weight:700">${escHtml(src)}</span>
               <span style="color:var(--success);margin-left:8px">${d.count} ราย</span>
               <span style="color:var(--text-muted);margin-left:4px;font-size:0.72rem">${formatCurrency(d.value)}</span>
             </div>
