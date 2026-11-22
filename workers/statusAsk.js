@@ -48,6 +48,25 @@ export function dueAskReply({ reminders = [], name = '', today = '' } = {}) {
   return [`${n ? `สวัสดีครับคุณ${n}` : 'สวัสดีครับ'} กำหนดเข้าศูนย์ครั้งถัดไปครับ`, ...lines, anyOpen ? 'ต้องการนัดวันเวลา ตอบกลับข้อความนี้ได้เลย ทีมงานจะจองคิวให้ครับ 🙏' : 'ถ้าต้องการเปลี่ยนวันนัด พิมพ์มาได้เลยครับ 🙏'].join('\n')
 }
 
+// (v1.0.1288) ลูกค้าถามนัดของตัวเอง ("นัดวันไหน" "นัดกี่โมง" "นัดทดลองขับวันไหน") → ตอบนัดที่ยังไม่ถึงจากระบบ (ทดลองขับ/โชว์รูม/ศูนย์บริการ)
+export const APPT_ASK_RE = /นัด(?:ของ(?:ผม|ฉัน|หนู|เรา))?(?:ไว้)?(?:ทดลองขับ|เข้าโชว์รูม|เข้าศูนย์|เช็[คก]ระยะ|ดูรถ)?(?:ไว้)?(?:วันไหน|วันที่เท่าไหร่|วันที่เท่าไร|กี่โมง|เมื่อไหร่|เมื่อไร|วันอะไร|ตอนไหน)/
+export const isApptAsk = text => { const t = String(text || '').replace(/\s+/g, ''); return t.length > 0 && t.length <= 80 && APPT_ASK_RE.test(t) && !/รับรถ|ส่งมอบ/.test(t) }
+const APPT_DONE = ['cancelled', 'no_show', 'noshow', 'arrived', 'done', 'completed', 'inservice']
+const KIND_LABEL = { testdrive: 'ทดลองขับ', showroom: 'เข้าโชว์รูม', service: 'เข้าศูนย์บริการ' }
+/** ข้อความตอบนัด (ฟังก์ชันล้วน) — items: [{ kind, date, time, what }] ของลูกค้าคนนี้ · ไม่มีนัดที่ยังไม่ถึง = null */
+export function apptAskReply({ items = [], name = '', today = '' } = {}) {
+  const rows = items.filter(a => a && /^\d{4}-\d{2}-\d{2}/.test(String(a.date || '')) && String(a.date).slice(0, 10) >= today)
+    .sort((a, b) => (String(a.date).slice(0, 10) + (a.time || '')).localeCompare(String(b.date).slice(0, 10) + (b.time || '')))
+  if (!rows.length) return null
+  const n = String(name || '').trim().replace(/^คุณ/, '').split(/\s+/)[0]
+  const lines = rows.slice(0, 3).map(a => {
+    const d = String(a.date).slice(0, 10)
+    const t = /^\d{1,2}:\d{2}/.test(String(a.time || '')) ? ` เวลา ${String(a.time).slice(0, 5)} น.` : ''
+    return `📅 ${KIND_LABEL[a.kind] || 'นัดหมาย'}${a.what ? ` (${String(a.what).trim()})` : ''}: ${d === today ? 'วันนี้' : `วันที่ ${dmy(d)}`}${t}`
+  })
+  return [`${n ? `สวัสดีครับคุณ${n}` : 'สวัสดีครับ'} นัดหมายของคุณที่มีในระบบครับ`, ...lines, 'ถ้าต้องการเลื่อนนัด พิมพ์บอกวันเวลาที่สะดวกมาได้เลย ทีมงานจะยืนยันกลับครับ 🙏'].join('\n')
+}
+
 export const isStatusAsk = text => { const t = String(text || '').replace(/\s+/g, ''); return t.length > 0 && t.length <= 80 && STATUS_ASK_RE.test(t) }
 
 const dmy = d => /^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${Number(d.slice(0, 4)) + 543}` : ''
@@ -77,6 +96,10 @@ export function statusAskReply({ mine = [], all = [], vehicles = [], orders = []
 export async function handleStatusAsk(deps) {
   if (!deps?.enabled || !deps.userId) return false
   const q = (col, fields, eq) => deps.query(col, fields, eq).catch(() => [])
+  if (isApptAsk(deps.text) && !isStatusAsk(deps.text)) {
+    if (await handleApptAsk(deps, q)) return true
+    if (!isDueAsk(deps.text)) return false // ไม่มีนัดในระบบ → ให้ทีม/AI ตอบ · ถามเรื่องเข้าศูนย์ = ลองตอบวันครบกำหนดต่อ
+  }
   if (isDueAsk(deps.text) && !isStatusAsk(deps.text)) return handleDueAsk(deps, q)
   if (isJobAsk(deps.text) && !isStatusAsk(deps.text)) return handleJobAsk(deps, q)
   if (!isStatusAsk(deps.text)) return false
@@ -128,6 +151,30 @@ async function handleDueAsk(deps, q) {
   if (!phones.size) return false
   const all = await q('service_reminders', ['customer', 'phone', 'plate', 'model', 'detail', 'dueDate', 'booked', 'deleted'])
   const text = dueAskReply({ reminders: all.filter(r => phones.has(digitsOf(r.phone))), name: custs[0].firstName, today: deps.today })
+  if (!text) return false
+  if (!(await deps.send(text))) return false
+  await deps.record?.(text)
+  return true
+}
+
+// (v1.0.1288) นัดของลูกค้าที่ผูก LINE — ทดลองขับ (customerId หรือเบอร์) · นัดโชว์รูม/ศูนย์ (เบอร์) · ยกเลิก/มาแล้ว/ไม่มา ไม่นับ
+async function handleApptAsk(deps, q) {
+  const custs = (await q('customers', ['firstName', 'phone', 'lineUserId', 'deleted'], ['lineUserId', deps.userId])).filter(c => !c.deleted)
+  if (!custs.length) return false
+  const phones = new Set(custs.map(c => digitsOf(c.phone)).filter(p => p.length >= 9))
+  const ids = new Set(custs.map(c => c.id))
+  const [td, ap, sv] = await Promise.all([
+    q('test_drives', ['date', 'time', 'status', 'customerId', 'phone', 'model', 'deleted']),
+    phones.size ? q('appointments', ['date', 'time', 'status', 'phone', 'purpose', 'deleted']) : [],
+    phones.size ? q('service_appointments', ['date', 'time', 'status', 'phone', 'type', 'plate', 'deleted']) : [],
+  ])
+  const live = r => r && !r.deleted && !APPT_DONE.includes(r.status)
+  const items = [
+    ...td.filter(r => live(r) && (ids.has(r.customerId) || phones.has(digitsOf(r.phone)))).map(r => ({ kind: 'testdrive', date: r.date, time: r.time, what: r.model })),
+    ...ap.filter(r => live(r) && phones.has(digitsOf(r.phone))).map(r => ({ kind: 'showroom', date: r.date, time: r.time, what: r.purpose })),
+    ...sv.filter(r => live(r) && phones.has(digitsOf(r.phone))).map(r => ({ kind: 'service', date: r.date, time: r.time, what: [r.type, r.plate].filter(Boolean).join(' ') })),
+  ]
+  const text = apptAskReply({ items, name: custs[0].firstName, today: deps.today })
   if (!text) return false
   if (!(await deps.send(text))) return false
   await deps.record?.(text)
