@@ -87,7 +87,7 @@ export default async function LoyaltyTiersPage(container) {
             <div class="card" style="padding:14px;border-top:4px solid ${t.color}">
               <div style="font-size:1.4rem;margin-bottom:4px">${t.icon}</div>
               <div style="font-weight:700;font-size:0.88rem">${t.name}</div>
-              <div style="font-size:1.4rem;font-weight:900;color:${t.color};margin:4px 0">${t.count} คน</div>
+              <div style="font-size:1.4rem;font-weight:900;color:color-mix(in srgb, ${t.color} 60%, var(--text));margin:4px 0">${t.count} คน</div>
               <div style="font-size:0.66rem;color:var(--text-muted)">${t.minPts.toLocaleString()}–${t.maxPts===999999?'∞':t.maxPts.toLocaleString()} pts</div>
               <div style="font-size:0.7rem;margin-top:6px;color:var(--text-muted)">
                 ลด ${t.discount}% · เช็คฟรี ${t.freeService} ครั้ง/ปี<br>

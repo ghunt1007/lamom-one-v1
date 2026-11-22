@@ -939,3 +939,9 @@
   .modal-body [style*="grid-template-columns:repeat(2,1fr)"], .modal-body [style*="grid-template-columns:repeat(2, 1fr)"],
   .modal-body [style*="grid-template-columns:1fr 1fr 1fr"], .modal-body [style*="grid-template-columns:repeat(3,1fr)"] { grid-template-columns: 1fr !important; }
 }
+
+/* (v1.0.1306) โหมดมืด: ป้าย/แถบพื้นเขียว-ส้มสด + ตัวหนังสือขาว (inline style ในหลายหน้า) อ่านยาก (contrast ~1.9)
+   — เข้มพื้นขึ้น 30% แบบเดียวกับ .btn-success/.btn-warning · โหมดสว่างสีเข้มพออยู่แล้ว ไม่แตะ */
+:root:not([data-mode="light"]) :is([style*="background:var(--success)"], [style*="background: var(--success)"]):is([style*="color:#fff"], [style*="color: #fff"], [style*="color:white"], [style*="color: white"]) { background: color-mix(in srgb, var(--success) 70%, #000) !important; }
+:root:not([data-mode="light"]) :is([style*="background:var(--warning)"], [style*="background: var(--warning)"]):is([style*="color:#fff"], [style*="color: #fff"], [style*="color:white"], [style*="color: white"]) { background: color-mix(in srgb, var(--warning) 70%, #000) !important; }
+:root:not([data-mode="light"]) .solid-bar { background-image: linear-gradient(rgba(0,0,0,0.32), rgba(0,0,0,0.32)) !important; }

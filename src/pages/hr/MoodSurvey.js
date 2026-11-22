@@ -147,7 +147,7 @@ export default async function MoodSurveyPage(container) {
                 return `<div class="card" style="padding:10px 12px">
                   <div style="display:flex;justify-content:space-between;margin-bottom:5px">
                     <div style="font-size:0.78rem;font-weight:600">${d.dept}</div>
-                    <div style="font-size:0.78rem;font-weight:700;color:${m.color}">${m.emoji} ${d.avg} (${d.count} คน)</div>
+                    <div style="font-size:0.78rem;font-weight:700;color:color-mix(in srgb, ${m.color} 60%, var(--text))">${m.emoji} ${d.avg} (${d.count} คน)</div>
                   </div>
                   <div style="height:6px;background:var(--surface-2);border-radius:3px">
                     <div style="height:100%;width:${barW}%;background:${m.color};border-radius:3px;transition:width .3s"></div>
