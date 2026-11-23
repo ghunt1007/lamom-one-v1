@@ -317,8 +317,8 @@ export default async function WarrantyManagementPage(container) {
                 <div style="font-size:0.8rem;margin-top:6px">หมดอายุ: <strong>${formatDate(w.endDate)}</strong> · เหลือ <strong style="color:var(--warning)">${days} วัน</strong></div>
               </div>
               <div style="display:flex;gap:6px">
-                <button class="btn btn-sm btn-warning open-w-btn" data-id="${w.id}">ดูรายละเอียด</button>
-                <button class="btn btn-sm btn-primary">📞 แจ้งลูกค้า</button>
+                <button class="btn btn-sm btn-warning open-w-btn" data-id="${escHtml(w.id)}">ดูรายละเอียด</button>
+                ${w.phone ? callLink(w.phone, w.customerName, { icon: '📞 ' }) : '<span style="font-size:0.72rem;color:var(--text-muted)">ไม่มีเบอร์โทร</span>'}
               </div>
             </div>
           </div>`

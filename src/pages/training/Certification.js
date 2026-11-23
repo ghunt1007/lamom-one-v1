@@ -11,6 +11,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { printDocument, docHeader, docFooter, esc as pesc } from '../../utils/print.js'
 
 const CERT_STATUS = {
   active:  { label: 'ใช้งาน', color: 'success' },
@@ -24,6 +25,21 @@ const CERTS = [
   { id: 'C003', name: 'Sales Excellence Level 2', issuer: 'LAMOM Academy', level: 'Certified', icon: '📈', validMonths: 18 },
   { id: 'C004', name: 'Customer Service Pro', issuer: 'Thailand Automotive', level: 'Certified', icon: '🤝', validMonths: 12 },
 ]
+
+// (v1.0.1327) ปุ่ม "ดู" ของใบรับรองที่ใช้งานอยู่ เดิมกดแล้วไม่มีอะไรเกิดขึ้น — ตอนนี้เปิดใบรับรองพร้อมพิมพ์ได้จริง
+function printStaffCert(sc, cert) {
+  const row = (a, b) => '<tr><td class="lbl">' + a + '</td><td class="val">' + pesc(b == null || b === '' ? '-' : b) + '</td></tr>'
+  printDocument('<div class="doc">' + docHeader('ใบรับรองพนักงาน', sc.id) +
+    '<div style="text-align:center;margin:28px 0 18px"><div style="font-size:14px;color:#475569">ขอรับรองว่า</div>' +
+    '<div style="font-size:26px;font-weight:800;margin:8px 0">' + pesc(sc.staff || '') + '</div>' +
+    '<div style="font-size:14px;color:#475569">ผ่านการทดสอบและได้รับใบรับรอง</div>' +
+    '<div style="font-size:20px;font-weight:700;margin-top:8px">' + pesc(cert?.name || sc.certId || '') + '</div></div>' +
+    '<table class="kv"><tbody>' + row('ผู้ออกใบรับรอง', cert?.issuer) + row('ระดับ', cert?.level) +
+      row('คะแนน', sc.score != null ? sc.score + '%' : '') + row('วันที่ออก', sc.issueDate ? formatDate(sc.issueDate) : '') +
+      row('หมดอายุ', sc.expDate ? formatDate(sc.expDate) : '') + '</tbody></table>' +
+    '<div class="sign-row"><div class="sign-box"><div class="sign-line"></div><div class="sign-cap">ผู้จัดการ / ผู้ประเมิน</div></div></div>' +
+    docFooter() + '</div>', { title: pesc('ใบรับรอง ' + (sc.staff || '')) })
+}
 
 export default async function CertificationPage(container) {
   const myGen = container.__routerGen
@@ -103,7 +119,7 @@ export default async function CertificationPage(container) {
                 const st = CERT_STATUS[sc.status]
                 const daysLeft = sc.expDate ? Math.ceil((new Date(sc.expDate) - new Date()) / 86400000) : null
                 return `<tr style="border-bottom:1px solid var(--border)">
-                  <td style="padding:10px 14px;font-weight:600;font-size:0.85rem">${sc.staff}</td>
+                  <td style="padding:10px 14px;font-weight:600;font-size:0.85rem">${escHtml(sc.staff)}</td>
                   <td style="padding:10px 14px;font-size:0.83rem">
                     <span style="font-size:1.1rem">${cert?.icon}</span> ${cert?.name}
                     <div style="font-size:0.68rem;color:var(--text-muted)">${cert?.issuer} · ${cert?.level}</div>
@@ -114,9 +130,9 @@ export default async function CertificationPage(container) {
                   </td>
                   <td style="padding:10px 14px;text-align:center"><span class="badge badge-${st?.color}" style="font-size:0.62rem">${st?.label}</span></td>
                   <td style="padding:10px 14px;text-align:center">
-                    ${sc.status === 'expired' ? `<button class="btn btn-xs btn-warning renew-btn" data-id="${sc.id}">🔄 ต่ออายุ</button>` : ''}
-                    ${sc.status === 'pending' ? `<button class="btn btn-xs btn-primary exam-btn" data-id="${sc.id}">📝 บันทึกผล</button>` : ''}
-                    ${sc.status === 'active' ? `<button class="btn btn-xs btn-secondary view-btn" data-id="${sc.id}">ดู</button>` : ''}
+                    ${sc.status === 'expired' ? `<button class="btn btn-xs btn-warning renew-btn" data-id="${escHtml(sc.id)}">🔄 ต่ออายุ</button>` : ''}
+                    ${sc.status === 'pending' ? `<button class="btn btn-xs btn-primary exam-btn" data-id="${escHtml(sc.id)}">📝 บันทึกผล</button>` : ''}
+                    ${sc.status === 'active' ? `<button class="btn btn-xs btn-secondary view-btn" data-id="${escHtml(sc.id)}">🖨 ใบรับรอง</button>` : ''}
                   </td>
                 </tr>`
               }).join('')}
@@ -144,8 +160,12 @@ export default async function CertificationPage(container) {
     container.querySelectorAll('.renew-btn').forEach(b => b.addEventListener('click', async () => {
       try {
         await updateDocData('staff_certifications', b.dataset.id, { status: 'pending', issueDate: null, expDate: null, score: null })
-        showToast('✅ ส่งแจ้งเตือนต่ออายุแล้ว', 'success'); await loadData()
+        showToast('🔄 ตั้งเป็น "รอสอบ" แล้ว — บันทึกผลสอบใหม่เมื่อสอบเสร็จ', 'success'); await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
+    container.querySelectorAll('.view-btn').forEach(b => b.addEventListener('click', () => {
+      const sc = staffCerts.find(x => x.id === b.dataset.id)
+      if (sc) printStaffCert(sc, CERTS.find(c => c.id === sc.certId))
     }))
     container.querySelectorAll('.exam-btn').forEach(b => b.addEventListener('click', () => {
       const sc = staffCerts.find(x => x.id === b.dataset.id)
