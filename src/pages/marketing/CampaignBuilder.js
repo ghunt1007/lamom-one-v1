@@ -1,4 +1,4 @@
-import { formatCurrency, todayBangkok } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -136,7 +136,7 @@ export default async function CampaignBuilderPage(container) {
               <span class="badge badge-${st.color}" style="font-size:0.65rem">${st.label}</span>
               <span class="badge badge-${ct.color}" style="font-size:0.65rem">${ct.label}</span>
             </div>
-            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px">${escHtml(c.startDate)} → ${escHtml(c.endDate)} · 🎯 ${escHtml(c.target)}</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px">${formatDate(c.startDate)} → ${formatDate(c.endDate)} · 🎯 ${escHtml(c.target)}</div>
             <!-- Metrics -->
             <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:10px">
               ${metric('งบ', formatCurrency(c.budget))}

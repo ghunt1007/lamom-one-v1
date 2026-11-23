@@ -236,7 +236,7 @@ export default async function TestDrivePage(container) {
     const { el, close } = openModal({
       title: '✅ บันทึกผลทดลองขับ — ' + escHtml(t.customerName), size:'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
-        <div style="font-size:0.85rem;color:var(--text-muted)">${escHtml(t.model)} · ${escHtml(t.date)} ${escHtml(t.time)}</div>
+        <div style="font-size:0.85rem;color:var(--text-muted)">${escHtml(t.model)} · ${formatDate(t.date)} ${escHtml(t.time)}</div>
         <div class="input-group"><label class="input-label">สถานะ</label>
           <select class="input" id="tr-status">
             <option value="done">✅ เสร็จแล้ว</option>
