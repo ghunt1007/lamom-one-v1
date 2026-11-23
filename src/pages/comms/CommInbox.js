@@ -11,6 +11,8 @@ import { catalogContext } from '../../utils/salesAi.js'
 import { stockLine } from '../../utils/stockLine.js'
 import { maskContacts } from '../../utils/leadText.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
+import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
 import { sendSms, sendEmail } from '../../utils/comms.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { escHtml as __escA } from '../../utils/escape.js'
@@ -257,13 +259,14 @@ export default async function CommInboxPage(container) {
       async onConfirm() {
         const txt = document.getElementById('reply-text')?.value?.trim()
         if (!txt) { showToast('❗ กรุณาพิมพ์ข้อความ', 'error'); return false }
-        // (v1.0.349) ส่งจริงได้เฉพาะ SMS/Email ที่มีเบอร์โทร/อีเมลผู้รับบันทึกไว้จริงเท่านั้น (LINE เชื่อมแบบ
-        // Broadcast อย่างเดียว ไม่มี userId ต่อลูกค้าให้ DM ได้ Facebook/ภายใน ไม่มี integration เชื่อมจริงเลย)
+        // (v1.0.349) ส่งจริงได้เฉพาะ SMS/Email ที่มีเบอร์/อีเมล และ LINE ของลูกค้าที่ผูก LINE แล้ว — Facebook/ภายใน ยังไม่เชื่อม
         let sentReal = false
         let sendErr = ''
         try {
           if (m.channel === 'sms' && m.phone) { await sendSms([m.phone], txt); sentReal = true }
           else if (m.channel === 'email' && m.email) { await sendEmail([m.email], 'Re: ' + m.subject, txt); sentReal = true }
+          // (v1.0.1361) LINE: ลูกค้าที่ผูก LINE แล้ว (ตามเบอร์) ส่งถึงคนนั้นได้จริง
+          else if (m.channel === 'line' && m.phone) { const prefs = await loadContactPrefs(); if (lineUidFor(m.phone, prefs)) { await sendToCustomer(m.phone, txt, prefs); sentReal = true } }
         } catch (e) { sendErr = e.message }
         if (sendErr) { showToast('❌ ส่งไม่สำเร็จ: ' + sendErr, 'error'); return false }
         try {
@@ -318,6 +321,7 @@ export default async function CommInboxPage(container) {
         try {
           if (channel === 'sms' && phone) { await sendSms([phone], body); sentReal = true }
           else if (channel === 'email' && email) { await sendEmail([email], subject, body); sentReal = true }
+          else if (channel === 'line' && phone) { const prefs = await loadContactPrefs(); if (lineUidFor(phone, prefs)) { await sendToCustomer(phone, body, prefs); sentReal = true } }
         } catch (e) { sendErr = e.message }
         if (sendErr) { showToast('❌ ส่งไม่สำเร็จ: ' + sendErr, 'error'); return false }
         try {
