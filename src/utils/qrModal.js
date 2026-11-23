@@ -4,6 +4,7 @@ import { openModal } from './modal.js'
 import { escHtml as esc } from './escape.js'
 import { copyText } from './copyText.js'
 import { qrSvg, qrDownloadLink } from './qr.js'
+import { showToast } from '../core/store.js'
 
 // sms = ลิงก์ sms: ที่ทำไว้แล้ว (มีปุ่ม "📱 ส่งทาง SMS") — (v1.0.1235)
 export function openQrModal({ title = 'QR', url = '', filename = 'QR', note = '', poster = null, sms = '' } = {}) {
@@ -26,7 +27,7 @@ export function openQrModal({ title = 'QR', url = '', filename = 'QR', note = ''
   el.querySelector('[data-qr-copy]').addEventListener('click', () => copyText(url, '📋 คัดลอกลิงก์แล้ว'))
   el.querySelector('[data-qr-print]')?.addEventListener('click', () => {
     const w = window.open('', '_blank', 'width=600,height=800')
-    if (!w) return
+    if (!w) { showToast('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาตป๊อปอัปให้เว็บนี้แล้วกดใหม่', 'warning'); return }
     const lines = (poster.lines || []).map(l => `<p>${esc(l)}</p>`).join('')
     w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(poster.heading || title)}</title><style>body{font-family:sans-serif;text-align:center;padding:40px 24px}h1{font-size:36px;margin:0 0 6px}p{font-size:20px;color:#333;margin:6px 0}.qr{margin:24px auto}</style></head><body><h1>${esc(poster.heading || title)}</h1>${lines}<div class="qr">${qrSvg(url, { size: 380 })}</div>${posterFooter()}<script>window.print()<\/script></body></html>`)
     w.document.close()
