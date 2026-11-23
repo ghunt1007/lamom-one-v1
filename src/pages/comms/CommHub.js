@@ -75,6 +75,8 @@ export default async function CommHubPage(container) {
     const msgsEl = document.getElementById('chat-messages')
     if (!msgsEl) return
     msgsEl.innerHTML = renderMessages()
+    const bar = document.getElementById('pin-bar')
+    if (bar) { bar.outerHTML = renderPinned(); bindUnpin() }
     bindReactions()
     scrollToBottom()
   }
@@ -107,7 +109,7 @@ export default async function CommHubPage(container) {
               const name = u.displayName || u.email
               const chId = dmChannelId(myUid, u.uid)
               return `
-              <div class="dm-item" data-uid="${u.uid}" data-name="${escHtml(name)}" style="display:flex;align-items:center;gap:6px;margin-bottom:6px;cursor:pointer;padding:2px 4px;border-radius:6px;${activeChannel.id===chId?'background:var(--primary-dim)':''}">
+              <div class="dm-item" data-uid="${escHtml(u.uid)}" data-name="${escHtml(name)}" style="display:flex;align-items:center;gap:6px;margin-bottom:6px;cursor:pointer;padding:2px 4px;border-radius:6px;${activeChannel.id===chId?'background:var(--primary-dim)':''}">
                 <div style="position:relative">
                   <div style="width:26px;height:26px;border-radius:50%;background:var(--${avatarColor(name)}-dim);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;color:var(--${avatarColor(name)})">${initials(name)}</div>
                   ${isOnline(u) ? `<div style="position:absolute;bottom:0;right:0;width:8px;height:8px;border-radius:50%;background:var(--success);border:1px solid var(--surface-2)"></div>` : ''}
@@ -124,8 +126,8 @@ export default async function CommHubPage(container) {
           <div style="padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0">
             <span style="font-size:1.3rem">${activeChannel.emoji}</span>
             <div>
-              <div style="font-weight:700">${activeChannel.name}</div>
-              <div style="font-size:0.75rem;color:var(--text-muted)">${activeChannel.desc}</div>
+              <div style="font-weight:700">${escHtml(activeChannel.name)}</div>
+              <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(activeChannel.desc)}</div>
             </div>
             <div style="margin-left:auto">
               ${activeChannel.id === 'announcements'
@@ -135,6 +137,7 @@ export default async function CommHubPage(container) {
             </div>
           </div>
 
+          ${renderPinned()}
           <!-- Messages -->
           <div id="chat-messages" style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:2px">
             ${renderMessages()}
@@ -144,7 +147,7 @@ export default async function CommHubPage(container) {
           ${activeChannel.id !== 'announcements' ? `
             <div style="padding:12px 20px;border-top:1px solid var(--border);background:var(--surface)">
               <div style="display:flex;gap:8px;align-items:flex-end">
-                <textarea class="input" id="msg-input" rows="2" placeholder="ส่งข้อความไปที่ ${activeChannel.name}..." style="flex:1;resize:none;line-height:1.4"></textarea>
+                <textarea class="input" id="msg-input" rows="2" placeholder="ส่งข้อความไปที่ ${escHtml(activeChannel.name)}..." style="flex:1;resize:none;line-height:1.4"></textarea>
                 <button class="btn btn-primary" id="msg-send" style="flex-shrink:0">ส่ง</button>
               </div>
               <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px">Enter ส่ง • Shift+Enter ขึ้นบรรทัดใหม่</div>
@@ -167,7 +170,7 @@ export default async function CommHubPage(container) {
     if (!msgs.length) {
       return `<div style="text-align:center;padding:48px;color:var(--text-muted)">
         <div style="font-size:2.5rem;margin-bottom:8px">${activeChannel.emoji}</div>
-        <div>ยังไม่มีข้อความใน ${activeChannel.name}</div>
+        <div>ยังไม่มีข้อความใน ${escHtml(activeChannel.name)}</div>
         <div style="font-size:0.78rem;margin-top:4px">เริ่มสนทนาแรกได้เลย!</div>
       </div>`
     }
@@ -187,7 +190,7 @@ export default async function CommHubPage(container) {
       const isMe = m.author === myName
       const ac = avatarColor(m.author)
       return divider + `
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:4px 0;${isMe?'flex-direction:row-reverse':''}" class="msg-row" data-mid="${m.id}">
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:4px 0;${isMe?'flex-direction:row-reverse':''}" class="msg-row" data-mid="${escHtml(m.id)}">
           <div style="width:32px;height:32px;border-radius:50%;background:var(--${ac}-dim);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:var(--${ac});flex-shrink:0">
             ${initials(m.author)}
           </div>
@@ -206,6 +209,49 @@ export default async function CommHubPage(container) {
           </div>
         </div>`
     }).join('')
+  }
+
+  // (v1.0.1328) ปุ่ม 📌 ปักหมุด เดิมกดแล้วไม่มีอะไรเกิดขึ้น — ตอนนี้เลือกข้อความมาปักไว้บนสุดของห้องได้จริง (pinned:true)
+  function pinnedOf(chId) {
+    return getMessages(chId).filter(m => m.pinned).slice(-3).reverse()
+  }
+  function renderPinned() {
+    const pins = pinnedOf(activeChannel.id)
+    if (!pins.length) return '<div id="pin-bar"></div>'
+    return `<div id="pin-bar" style="padding:8px 20px;border-bottom:1px solid var(--border);background:var(--warning-dim, var(--surface-2));display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+      ${pins.map(m => `<div style="display:flex;gap:8px;align-items:flex-start;font-size:0.8rem;min-width:0">
+        <span>📌</span>
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${escHtml(m.author)}:</b> ${escHtml(m.content)}</span>
+        <button class="btn btn-ghost btn-xs unpin-btn" data-mid="${escHtml(m.id)}" title="เลิกปักหมุด" style="padding:0 6px">✕</button>
+      </div>`).join('')}
+    </div>`
+  }
+  async function setPinned(msgId, pinned) {
+    try {
+      await updateDocData('comm_messages', msgId, { pinned })
+      showToast(pinned ? '📌 ปักหมุดแล้ว' : 'เลิกปักหมุดแล้ว', 'success')
+    } catch { showToast('ปักหมุดไม่สำเร็จ', 'error') }
+  }
+  function openPinPicker() {
+    const recent = getMessages(activeChannel.id).slice(-30).reverse()
+    if (!recent.length) { showToast('ยังไม่มีข้อความให้ปักหมุด', 'info'); return }
+    const { el, close } = openModal({
+      title: '📌 เลือกข้อความที่จะปักหมุด', size: 'md',
+      body: `<div style="display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow-y:auto">
+        ${recent.map(m => `<button type="button" class="btn btn-secondary pin-pick" data-mid="${escHtml(m.id)}" style="text-align:left;justify-content:flex-start;white-space:normal;height:auto;padding:8px 10px;display:block">
+          ${m.pinned ? '📌 ' : ''}<b>${escHtml(m.author)}</b> <span style="font-size:0.7rem;color:var(--text-muted)">${timeAgo(m.createdAt)}</span><br>
+          <span style="font-size:0.82rem;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(m.content)}</span>
+        </button>`).join('')}
+      </div>`,
+      footer: `<button class="btn btn-secondary" id="pin-cancel">ปิด</button>`
+    })
+    el.querySelector('#pin-cancel')?.addEventListener('click', close)
+    el.querySelectorAll('.pin-pick').forEach(b => b.addEventListener('click', async () => {
+      const m = recent.find(x => x.id === b.dataset.mid)
+      if (!m) return
+      close()
+      await setPinned(m.id, !m.pinned)
+    }))
   }
 
   function scrollToBottom() {
@@ -258,7 +304,14 @@ export default async function CommHubPage(container) {
       })
     })
 
+    document.getElementById('pin-msg-btn')?.addEventListener('click', openPinPicker)
+    bindUnpin()
+
     bindReactions()
+  }
+
+  function bindUnpin() {
+    container.querySelectorAll('.unpin-btn').forEach(b => b.addEventListener('click', () => setPinned(b.dataset.mid, false)))
   }
 
   function bindReactions() {
