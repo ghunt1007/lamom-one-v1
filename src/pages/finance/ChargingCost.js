@@ -71,8 +71,9 @@ export default async function ChargingCostPage(container) {
     const prev = MONTHLY_USAGE[MONTHLY_USAGE.length - 2] || { peak: 0, offpeak: 0 }
     const prevCost = prev.peak * RATE_PEAK + prev.offpeak * RATE_OFFPEAK
     const chg = prevCost ? Math.round((lastCost - prevCost) / prevCost * 100) : 0
-    const totalKwh = last.peak + last.offpeak || 1
-    const offpeakPct = Math.round(last.offpeak / totalKwh * 100)
+    // (v1.0.1350) เดิมเดือนที่ไม่มีข้อมูลโชว์ "ใช้ไฟ 1 หน่วย" (ค่ากันหารศูนย์หลุดมาแสดง) — แสดง 0 จริง
+    const totalKwh = (Number(last.peak) || 0) + (Number(last.offpeak) || 0)
+    const offpeakPct = totalKwh ? Math.round(last.offpeak / totalKwh * 100) : 0
     const maxCost = Math.max(1, ...MONTHLY_USAGE.map(mo => mo.peak * RATE_PEAK + mo.offpeak * RATE_OFFPEAK))
     // saving potential: move all peak to offpeak
     const potentialSaving = Math.round(last.peak * (RATE_PEAK - RATE_OFFPEAK))
