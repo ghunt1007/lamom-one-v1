@@ -6,7 +6,8 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { addDays } from '../../utils/aheadBrief.js'
 import { nextAnniversary } from '../../utils/anniversary.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { loadOptedOutPhones, splitByConsent, phoneKey } from '../../utils/marketingOptOut.js'
+import { loadContactPrefs, splitByConsent, phoneKey } from '../../utils/marketingOptOut.js'
+import { lineReply } from '../../utils/socialApi.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
@@ -148,38 +149,49 @@ export default async function BirthdayGreetingsPage(container) {
         return
       }
       // (v1.0.1281) ข้ามลูกค้าที่ไม่ยินยอมรับข่าวสาร (PDPA)
-      const { keep: withPhone, skipped } = splitByConsent(targets.filter(e => e.phone), await loadOptedOutPhones())
+      const prefs = await loadContactPrefs()
+      const { keep: withPhone, skipped } = splitByConsent(targets.filter(e => e.phone), prefs.optedOut)
       if (!withPhone.length) { showToast(skipped.length ? `❗ ลูกค้ากลุ่มนี้ ${skipped.length} ราย ไม่ยินยอมรับข่าวสาร — ไม่ส่ง` : '❗ ไม่มีเบอร์โทรลูกค้ากลุ่มนี้ในระบบ', 'warning'); return }
+      const lineN = withPhone.filter(e => prefs.line.has(phoneKey(e.phone))).length
+      const via = [lineN ? `LINE ${lineN} ราย` : '', withPhone.length - lineN ? `SMS ${withPhone.length - lineN} ราย` : ''].filter(Boolean).join(' · ')
       // (v1.0.1275) ถามก่อนส่งจริง พร้อมตัวอย่างข้อความ — ส่งแล้วเรียกคืนไม่ได้
-      if (!await confirmDialog({ title: '📤 ส่ง SMS อวยพร', message: `ส่ง SMS จริงถึง ${withPhone.length} ราย${skipped.length ? ` (ข้าม ${skipped.length} รายที่ไม่ยินยอมรับข่าวสาร)` : ''} ตัวอย่าง: "${buildGreetingMsg(withPhone[0])}"`, confirmText: `ส่ง ${withPhone.length} ราย` })) return
+      if (!await confirmDialog({ title: '📤 ส่งคำอวยพร', message: `ส่งจริงถึง ${withPhone.length} ราย (${via})${skipped.length ? ` ข้าม ${skipped.length} รายที่ไม่ยินยอมรับข่าวสาร` : ''} ตัวอย่าง: "${buildGreetingMsg(withPhone[0])}"`, confirmText: `ส่ง ${withPhone.length} ราย` })) return
       let ok = 0
       for (const e of withPhone) {
-        const msg = buildGreetingMsg(e)
-        try {
-          await sendSms([e.phone], msg)
-          await createDoc('greeting_sends', { customer: e.customer, phone: e.phone, eventDate: e.date, type: e.type, channel: 'SMS', sentAt: new Date().toISOString(), companyId: myEffectiveCompanyId() })
-          e.sent = true; e.channel = 'SMS'; ok++
-        } catch { /* ส่งไม่สำเร็จรายนี้ ข้ามไปรายต่อไป */ }
+        try { await sendGreeting(e, buildGreetingMsg(e), prefs.line.get(phoneKey(e.phone))); ok++ }
+        catch { /* ส่งไม่สำเร็จรายนี้ ข้ามไปรายต่อไป */ }
       }
-      showToast(ok ? `📤 ส่งคำอวยพรสำเร็จ ${ok}/${withPhone.length} ราย` : '❗ ส่งไม่สำเร็จเลย — ตรวจสอบว่าตั้งค่าผู้ให้บริการ SMS แล้วหรือยัง', ok ? 'success' : 'error')
+      showToast(ok ? `📤 ส่งคำอวยพรสำเร็จ ${ok}/${withPhone.length} ราย` : '❗ ส่งไม่สำเร็จเลย — ตรวจสอบการตั้งค่า SMS / LINE OA', ok ? 'success' : 'error')
       renderPage()
     })
+  }
+
+  // (v1.0.1355) ลูกค้าที่ผูก LINE แล้ว ส่งทาง LINE รายคนได้ (ฟรี) — ไม่ได้ผูก/เลิกรับ LINE ใช้ SMS เหมือนเดิม
+  async function sendGreeting(e, msg, lineUid) {
+    if (lineUid) await lineReply('line_' + String(lineUid).replace(/[^A-Za-z0-9-]/g, ''), msg)
+    else await sendSms([e.phone], msg)
+    const channel = lineUid ? 'LINE' : 'SMS'
+    await createDoc('greeting_sends', { customer: e.customer, phone: e.phone, eventDate: e.date, type: e.type, channel, sentAt: new Date().toISOString(), companyId: myEffectiveCompanyId() })
+    e.sent = true; e.channel = channel
+    return channel
   }
 
   function buildGreetingMsg(e) {
     return GREETING_TEMPLATES[e.type].replace('[ชื่อ]', (e.customer || '').split(' ')[0] || 'คุณลูกค้า').replace('[รุ่นรถ]', e.model || '').replace('[ปี]', e.note?.match(/\d+/)?.[0] || '1')
   }
 
-  function openSendModal(e) {
+  async function openSendModal(e) {
     const tpl = buildGreetingMsg(e)
     const isLive = dataSource === 'live'
+    const prefs = isLive ? await loadContactPrefs() : { optedOut: new Set(), line: new Map() }
+    const lineUid = isLive && e.phone ? prefs.line.get(phoneKey(e.phone)) : null
     openModal({
       title: '📤 ส่งคำอวยพร: ' + escHtml(e.customer),
       size: 'sm',
       body: `<div style="display:grid;gap:10px">
         <div class="input-group"><label class="input-label">ช่องทาง</label>
           ${isLive
-            ? `<input class="input" value="SMS" disabled><div style="font-size:0.68rem;color:var(--text-muted);margin-top:4px">ส่งเจาะจงถึงลูกค้ารายนี้ได้แค่ SMS เท่านั้น — LINE ในระบบตอนนี้รองรับแค่ broadcast ถึงลูกค้าทั้งหมด ยังส่งเฉพาะรายคนไม่ได้ ถ้าใช้ LINE จะกลายเป็นส่งอวยพรคนนี้ไปให้ลูกค้าทุกคนโดยไม่ตั้งใจ</div>`
+            ? `<input class="input" value="${lineUid ? 'LINE (ผูก LINE แล้ว)' : 'SMS'}" disabled><div style="font-size:0.68rem;color:var(--text-muted);margin-top:4px">${lineUid ? 'ลูกค้ารายนี้ผูก LINE กับร้านแล้ว ส่งถึงคนนี้คนเดียวทาง LINE (ไม่เสียค่า SMS)' : 'ลูกค้ารายนี้ยังไม่ได้ผูก LINE (หรือเลิกรับ LINE) จึงส่งทาง SMS — ผูก LINE ได้จากปุ่ม 🔗 ผูก LINE ในหน้าลูกค้า'}</div>`
             : `<select class="input" id="gr-channel"><option ${e.channel==='LINE'?'selected':''}>LINE</option><option ${e.channel==='SMS'?'selected':''}>SMS</option></select>`}
         </div>
         <div class="input-group"><label class="input-label">ข้อความ</label>
@@ -196,13 +208,11 @@ export default async function BirthdayGreetingsPage(container) {
           return
         }
         if (!e.phone) { showToast('❗ ไม่มีเบอร์โทรลูกค้ารายนี้', 'error'); return false }
-        if ((await loadOptedOutPhones()).has(phoneKey(e.phone))) { showToast(`🔕 ${e.customer} ไม่ยินยอมรับข่าวสาร (PDPA) — ไม่ส่ง SMS`, 'warning'); return false }
+        if (prefs.optedOut.has(phoneKey(e.phone))) { showToast(`🔕 ${e.customer} ไม่ยินยอมรับข่าวสาร (PDPA) — ไม่ส่ง`, 'warning'); return false }
         try {
-          await sendSms([e.phone], msg)
-          await createDoc('greeting_sends', { customer: e.customer, phone: e.phone, eventDate: e.date, type: e.type, channel: 'SMS', sentAt: new Date().toISOString(), companyId: myEffectiveCompanyId() })
-          e.sent = true; e.channel = 'SMS'
-          showToast(`✅ ส่งคำอวยพรถึง ${e.customer} ทาง SMS แล้ว`, 'success')
-        } catch (err) { showToast('❗ ส่งไม่สำเร็จ — ' + (err.message || 'ตรวจสอบว่าตั้งค่าผู้ให้บริการ SMS แล้วหรือยัง'), 'error'); return false }
+          const ch = await sendGreeting(e, msg, lineUid)
+          showToast(`✅ ส่งคำอวยพรถึง ${e.customer} ทาง ${ch} แล้ว`, 'success')
+        } catch (err) { showToast('❗ ส่งไม่สำเร็จ — ' + (err.message || 'ตรวจสอบการตั้งค่า SMS / LINE OA'), 'error'); return false }
         renderPage()
       }
     })
