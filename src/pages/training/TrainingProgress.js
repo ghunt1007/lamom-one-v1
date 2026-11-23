@@ -74,7 +74,7 @@ export default async function TrainingProgressPage(container) {
         <div style="display:flex;flex-direction:column;gap:14px">
           ${staffProgress.map(s => {
             const completedCount = s.courses.filter(c => c.status === 'completed').length
-            const compPct = Math.round(completedCount / s.courses.length * 100)
+            const compPct = s.courses.length ? Math.round(completedCount / s.courses.length * 100) : 0
             return `<div class="card" style="padding:14px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
                 <div>
