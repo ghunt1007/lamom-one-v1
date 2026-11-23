@@ -2,7 +2,7 @@
  * Service Reminder — แจ้งเตือนเช็คระยะ
  * Route: /service/reminders
  */
-import { formatDate, todayBangkok } from '../../utils/format.js'
+import { formatDate, formatDateTime, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
@@ -12,7 +12,6 @@ import { callLink } from '../../utils/callLink.js'
 import { myEffectiveCompanyId } from '../../core/companyScope.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
-import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
 
 const REMINDER_TYPES = {
   mileage:  { label: 'ครบระยะ (km)', color: 'primary', icon: '🛣' },
@@ -84,11 +83,12 @@ export default async function ServiceReminderPage(container) {
                   <div style="font-weight:700;font-size:0.85rem;overflow-wrap:anywhere">${escHtml(r.customer)} <span style="font-size:0.7rem;color:var(--text-muted)">${callLink(r.phone, r.customer)}</span></div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">🚗 ${escHtml(r.plate)}${r.model ? ' · ' + escHtml(r.model) : ''}</div>
                   <div style="font-size:0.72rem;color:var(--${isOverdue?'danger':'text-muted'})">${rt?.icon || ''} ${escHtml(r.detail)} · กำหนด ${formatDate(r.dueDate)}${isOverdue?' ❗ เกินกำหนด':''}${r.booked && r.bookedDate ? ` · นัดเข้า ${formatDate(r.bookedDate)} ${escHtml(r.bookedTime || '')}` : ''}</div>
+                  ${r.contacted && !r.booked && String(r.lastContactAt || '').includes('T') ? `<div style="font-size:0.68rem;color:var(--text-muted)">📞 ติดต่อล่าสุด ${formatDateTime(r.lastContactAt)}</div>` : ''}
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
                   <span class="badge badge-${rt?.color}" style="font-size:0.6rem">${rt?.icon} ${rt?.label}</span>
                   ${r.booked ? '<span class="badge badge-success" style="font-size:0.6rem">📅 จองคิวแล้ว</span>'
-                    : r.contacted ? '<span class="badge badge-warning" style="font-size:0.6rem">📞 ติดต่อแล้ว</span>'
+                    : r.contacted ? `<span class="badge badge-warning" style="font-size:0.6rem">📞 ติดต่อแล้ว${Number(r.contactCount) > 1 ? ` ${Number(r.contactCount)} ครั้ง` : ''}</span>`
                     : '<span class="badge badge-secondary" style="font-size:0.6rem">⏳ รอติดต่อ</span>'}
                   ${r.lineDueSent && r.lineDueSent === r.dueDate && !r.booked ? '<span class="badge badge-primary" style="font-size:0.6rem" title="ระบบส่งข้อความเตือนทาง LINE ให้ลูกค้าแล้ว">💬 เตือน LINE แล้ว</span>' : ''}
                 </div>
@@ -110,7 +110,7 @@ export default async function ServiceReminderPage(container) {
       const r = reminders.find(x => x.id === b.dataset.id)
       if (!r) return
       try {
-        await updateDocData('service_reminders', r.id, { contacted: true })
+        await updateDocData('service_reminders', r.id, { contacted: true, contactCount: Math.max(1, Number(r.contactCount) || 0), lastContactAt: new Date().toISOString() })
         showToast(`✓ บันทึกว่าติดต่อ ${r.customer} แล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -118,8 +118,9 @@ export default async function ServiceReminderPage(container) {
     container.querySelectorAll('.recontact-btn').forEach(b => b.addEventListener('click', async () => {
       const r = reminders.find(x => x.id === b.dataset.id)
       if (!r) return
-      const contactCount = (r.contactCount || 1) + 1
-      const lastContactAt = fmtHM()
+      // (v1.0.1354) เดิมเก็บ lastContactAt เป็นแค่ "HH:MM" (ไม่มีวันที่) และไม่ได้แสดงที่ไหน — ตอนนี้เก็บวันเวลาเต็ม แสดงบนการ์ด
+      const contactCount = (Number(r.contactCount) || 1) + 1
+      const lastContactAt = new Date().toISOString()
       try {
         await updateDocData('service_reminders', r.id, { contactCount, lastContactAt })
         showToast(`📞 ติดตามครั้งที่ ${contactCount} — ${r.customer} (${r.phone}) บันทึกแล้ว`, 'success')
