@@ -2,7 +2,7 @@
  * Service Package — แพ็กเกจบริการ
  * Route: /service/packages
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -38,8 +38,11 @@ export default async function ServicePackagePage(container) {
       return
     }
     const list = packages.filter(p => typeFilter === 'all' || p.type === typeFilter)
-    const totalRevenue = packages.reduce((a, p) => a + p.price * p.soldCount, 0)
-    const topPkg = packages.reduce((top, p) => p.soldCount > top.soldCount ? p : top, packages[0])
+    // (v1.0.1353) soldCount เดิมตั้ง 0 ตอนสร้างแล้วไม่มีจุดไหนเพิ่มเลย (ขายแล้ว 0 ครั้ง / รายได้ 0 ตลอด) — ตอนนี้กด
+    // "🧾 บันทึกขาย 1 ครั้ง" ในรายละเอียดแพ็กเกจ · ยังไม่มีการขาย = ขายมากสุดแสดง "—"
+    const sold = p => Number(p.soldCount) || 0
+    const totalRevenue = packages.reduce((a, p) => a + (Number(p.price) || 0) * sold(p), 0)
+    const topPkg = packages.filter(p => sold(p) > 0).sort((a, b) => sold(b) - sold(a))[0] || null
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -56,7 +59,7 @@ export default async function ServicePackagePage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('📦 แพ็กเกจทั้งหมด', packages.length, 'primary')}
           ${kpi('✅ ใช้งาน', packages.filter(p=>p.active).length, 'success')}
-          ${kpi('🏆 ขายมากสุด', esc(topPkg?.name?.slice(0,15))+'...', 'warning')}
+          ${kpi('🏆 ขายมากสุด', topPkg ? esc(String(topPkg.name || '').slice(0, 15)) + (String(topPkg.name || '').length > 15 ? '...' : '') : '—', 'warning')}
           ${kpi('💰 รายได้รวม', formatCurrency(totalRevenue), 'success')}
         </div>
 
@@ -74,7 +77,7 @@ export default async function ServicePackagePage(container) {
                   <div>
                     <div style="font-size:1.2rem">${t?.icon}</div>
                     <div style="font-weight:700;font-size:0.9rem;margin-top:4px">${esc(p.name)}</div>
-                    <div style="font-size:0.72rem;color:var(--text-muted)">⏱ ${p.duration} นาที · ขายแล้ว ${p.soldCount} ครั้ง</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted)">⏱ ${p.duration} นาที · ขายแล้ว ${Number(p.soldCount) || 0} ครั้ง</div>
                   </div>
                   <div style="text-align:right">
                     <div style="font-size:1.2rem;font-weight:900;color:var(--${t?.color})">${formatCurrency(p.price)}</div>
@@ -122,13 +125,22 @@ export default async function ServicePackagePage(container) {
         </div>
         ${row('ราคา', formatCurrency(p.price))}
         ${row('ระยะเวลา', p.duration + ' นาที')}
-        ${row('ขายไปแล้ว', p.soldCount + ' ครั้ง')}
-        ${row('รายได้รวม', formatCurrency(p.price * p.soldCount))}
+        ${row('ขายไปแล้ว', (Number(p.soldCount) || 0) + ' ครั้ง' + (p.lastSoldAt ? ` · ล่าสุด ${formatDate(p.lastSoldAt)}` : ''))}
+        ${row('รายได้รวม', formatCurrency((Number(p.price) || 0) * (Number(p.soldCount) || 0)))}
         <div style="margin-top:12px">
           <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:6px">📋 รายการที่ครอบคลุม</div>
-          ${p.items.map(item => `<div style="font-size:0.82rem;padding:4px 0;border-bottom:1px solid var(--border)">✓ ${esc(item)}</div>`).join('')}
+          ${(p.items || []).map(item => `<div style="font-size:0.82rem;padding:4px 0;border-bottom:1px solid var(--border)">✓ ${esc(item)}</div>`).join('')}
         </div>
-      `
+      `,
+      confirmText: '🧾 บันทึกขาย 1 ครั้ง',
+      cancelText: 'ปิด',
+      async onConfirm() {
+        try {
+          await updateDocData('service_packages', p.id, { soldCount: (Number(p.soldCount) || 0) + 1, lastSoldAt: todayBangkok() })
+          showToast('✅ บันทึกการขายแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+      }
     })
   }
 
