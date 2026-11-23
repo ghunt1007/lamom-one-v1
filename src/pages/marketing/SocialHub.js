@@ -4,6 +4,11 @@ import { listDocs, createDoc, softDelete, seedDemoData } from '../../core/db.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { navigate } from '../../core/router.js'
+import { formatDate, formatDateTime, todayBangkok, nowBangkokTime } from '../../utils/format.js'
+
+// (v1.0.1343) เวลาโพสต์เก็บเป็นเวลาไทยแบบ 'YYYY-MM-DDTHH:MM' (จากช่องเลือกวันเวลา) → แสดงเป็น วัน/เดือน/ปี 24 ชม.
+// เดิมแสดงสตริงดิบ และปุ่ม "เผยแพร่ทันที" บันทึกเวลา UTC (ช้ากว่าเวลาไทย 7 ชม.)
+const whenTxt = v => { const m = String(v || '').match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/); return m ? formatDate(m[1]) + ' ' + m[2] : formatDateTime(v) }
 
 // ป้องกัน XSS — เนื้อหา Post เป็น textarea ที่ผู้ใช้พิมพ์ได้อิสระ ไม่จำกัด HTML ต้อง escape ก่อนแสดงผลเสมอ
 
@@ -147,7 +152,7 @@ export default async function SocialHubPage(container) {
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
                 <span class="badge badge-${st.color}" style="font-size:0.65rem">${st.label}</span>
-                ${p.scheduledAt ? `<span style="font-size:0.72rem;color:var(--text-muted)">📅 ${p.scheduledAt}</span>` : ''}
+                ${p.scheduledAt ? `<span style="font-size:0.72rem;color:var(--text-muted)">📅 ${esc(whenTxt(p.scheduledAt))}</span>` : ''}
               </div>
               <div style="font-size:0.83rem;white-space:pre-line;line-height:1.4;overflow:hidden;max-height:60px">${esc(p.content.slice(0, 120))}${p.content.length > 120 ? '...' : ''}</div>
             </div>
@@ -358,7 +363,7 @@ export default async function SocialHubPage(container) {
     document.getElementById('publish-now-btn')?.addEventListener('click', async () => {
       const content = ta.value.trim()
       if (!content) return showToast('❗ กรุณาเขียนเนื้อหา', 'warning')
-      const now = new Date().toISOString().slice(0,16).replace('T',' ')
+      const now = todayBangkok() + 'T' + nowBangkokTime()
       try {
         await createDoc('social_posts', { content, platforms: getSelectedPlatforms(), status:'published', scheduledAt:now, publishedAt:now, likes:0, comments:0, shares:0, reach:0 })
         showToast('📝 บันทึกในระบบแล้ว — ยังไม่เชื่อมต่อ API เพื่อโพสต์อัตโนมัติ กรุณาโพสต์เองบน Platform จริง', 'success'); tab = 'calendar'; await loadData()
@@ -387,7 +392,7 @@ export default async function SocialHubPage(container) {
             `).join('')}
           </div>
         ` : ''}
-        ${p.scheduledAt ? `<div style="font-size:0.8rem;color:var(--text-muted)">📅 กำหนดเผยแพร่: ${p.scheduledAt}</div>` : ''}
+        ${p.scheduledAt ? `<div style="font-size:0.8rem;color:var(--text-muted)">📅 กำหนดเผยแพร่: ${esc(whenTxt(p.scheduledAt))}</div>` : ''}
       </div>`,
       footer: `${p.status !== 'published' ? `<button class="btn btn-danger" id="post-del-btn">🗑 ลบ</button>` : ''}`
     })

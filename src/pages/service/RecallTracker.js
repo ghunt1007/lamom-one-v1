@@ -305,7 +305,7 @@ export default async function RecallTrackerPage(container) {
               <div style="font-size:0.72rem;color:var(--text-muted)">สถานะ: <span style="color:${st.color||'inherit'}">${escHtml(st.label||v.status[rid])}</span></div>
             </div>`
           }).join('')}
-          ${v.completedDate ? `<div style="font-size:0.74rem;color:var(--text-muted)">✅ เข้ารับบริการ ${escHtml(v.completedDate)}${v.completedTech?' · ช่าง '+escHtml(v.completedTech):''}${v.completedNote?'<br>หมายเหตุ: '+escHtml(v.completedNote):''}</div>` : ''}
+          ${v.completedDate ? `<div style="font-size:0.74rem;color:var(--text-muted)">✅ เข้ารับบริการ ${escHtml(formatDate(v.completedDate))}${v.completedTech?' · ช่าง '+escHtml(v.completedTech):''}${v.completedNote?'<br>หมายเหตุ: '+escHtml(v.completedNote):''}</div>` : ''}
         </div>`,
         footer: `<button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">ปิด</button>`,
       })
