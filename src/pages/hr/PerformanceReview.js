@@ -109,7 +109,7 @@ export default async function PerformanceReviewPage(container) {
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${st?.color})">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
                 <div>
-                  <div style="font-weight:700;font-size:0.9rem">${r.staff}</div>
+                  <div style="font-weight:700;font-size:0.9rem">${escHtml(r.staff)}</div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">${r.dept} · ${r.period}</div>
                 </div>
                 <div style="display:flex;gap:6px;align-items:center">

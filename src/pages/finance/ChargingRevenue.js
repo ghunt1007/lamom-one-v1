@@ -142,7 +142,7 @@ export default async function ChargingRevenuePage(container) {
                 <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:0.76rem">
                   <span style="font-size:1.1rem">${s.type === 'DC Fast' ? '⚡' : '🔌'}</span>
                   <div style="flex:1">
-                    <div style="font-weight:600">${s.name}</div>
+                    <div style="font-weight:600">${escHtml(s.name)}</div>
                     <div style="font-size:0.66rem;color:var(--text-muted)">${s.location} · ${s.port} · ${s.rate} บ/kWh</div>
                   </div>
                   <span style="font-size:0.62rem;background:${TODAY_SESSIONS.some(x => x.stationId === s.id && x.status === 'charging') ? 'var(--success)' : 'var(--surface-2)'};color:${TODAY_SESSIONS.some(x => x.stationId === s.id && x.status === 'charging') ? '#fff' : 'var(--text-muted)'};padding:2px 8px;border-radius:10px">${TODAY_SESSIONS.some(x => x.stationId === s.id && x.status === 'charging') ? '⚡ ชาร์จอยู่' : 'ว่าง'}</span>
@@ -212,7 +212,7 @@ export default async function ChargingRevenuePage(container) {
       body: `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group"><label class="input-label">สถานี *</label>
-            <select class="input" id="cs-station">${STATIONS.map(s => `<option value="${__escA(s.id)}">${s.name}</option>`).join('')}</select>
+            <select class="input" id="cs-station">${STATIONS.map(s => `<option value="${__escA(s.id)}">${escHtml(s.name)}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">รถ/ทะเบียน *</label><input class="input" id="cs-vehicle" placeholder="เช่น BYD Atto 3"></div>
           <div class="input-group"><label class="input-label">ประเภทการใช้งาน</label>

@@ -158,7 +158,7 @@ export default function BreakEvenPage(container) {
                   <thead><tr><th>ชื่อ</th><th>BE (คัน)</th><th>ยอดขาย</th><th>กำไร</th></tr></thead>
                   <tbody>
                     ${scenarios.map(s => `<tr>
-                      <td>${s.name}</td>
+                      <td>${escHtml(s.name)}</td>
                       <td style="font-weight:700;color:var(--primary)">${s.beUnits}</td>
                       <td>${s.actualSales}</td>
                       <td style="color:${s.profitNow>=0?'var(--success)':'var(--danger)'}">${s.profitNow>=0?'+':''}${formatCurrency(s.profitNow)}</td>

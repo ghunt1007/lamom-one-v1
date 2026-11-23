@@ -147,7 +147,7 @@ export default async function SmsOtpPage(container) {
                   <div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:var(--radius-sm);border:2px solid ${p.id===active.id?'var(--primary)':'var(--border)'};background:${p.id===active.id?'var(--primary)11':'var(--surface-2)'}">
                     <span style="font-size:1.3rem">${p.logo}</span>
                     <div style="flex:1">
-                      <div style="font-weight:700;font-size:0.82rem">${p.name}</div>
+                      <div style="font-weight:700;font-size:0.82rem">${escHtml(p.name)}</div>
                       <div style="font-size:0.68rem;color:var(--text-muted)">${p.price} · ${p.latency} · ${p.coverage}</div>
                     </div>
                     ${p.id===active.id

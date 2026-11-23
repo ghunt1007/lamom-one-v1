@@ -194,7 +194,7 @@ export default async function EvRangePlannerPage(container) {
               ${points.length === 0 ? `<div style="font-size:0.74rem;color:var(--text-muted);padding:8px 0">ยังไม่มีจุดชาร์จในระบบ</div>` : points.map(p=>`
                 <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
                   <div style="flex:1">
-                    <div style="font-size:0.78rem;font-weight:600">${p.name}</div>
+                    <div style="font-size:0.78rem;font-weight:600">${escHtml(p.name)}</div>
                     <div style="font-size:0.68rem;color:var(--text-muted)">~${p.dist} km · ${p.kw}kW · ${formatCurrency(p.price)}/kWh${p.note ? ' · '+p.note : ''}</div>
                     <div style="font-size:0.62rem;color:var(--text-muted)">${p.updatedByName ? `แก้ไขล่าสุดโดย ${p.updatedByName} · ${timeAgo(p.updatedAt)}` : 'ข้อมูลตัวอย่างเริ่มต้น'}</div>
                   </div>

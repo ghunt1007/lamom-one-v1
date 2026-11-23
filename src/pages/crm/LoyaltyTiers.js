@@ -86,7 +86,7 @@ export default async function LoyaltyTiersPage(container) {
           ${counts.map(t => `
             <div class="card" style="padding:14px;border-top:4px solid ${t.color}">
               <div style="font-size:1.4rem;margin-bottom:4px">${t.icon}</div>
-              <div style="font-weight:700;font-size:0.88rem">${t.name}</div>
+              <div style="font-weight:700;font-size:0.88rem">${escHtml(t.name)}</div>
               <div style="font-size:1.4rem;font-weight:900;color:color-mix(in srgb, ${t.color} 60%, var(--text));margin:4px 0">${t.count} คน</div>
               <div style="font-size:0.66rem;color:var(--text-muted)">${t.minPts.toLocaleString()}–${t.maxPts===999999?'∞':t.maxPts.toLocaleString()} pts</div>
               <div style="font-size:0.7rem;margin-top:6px;color:var(--text-muted)">
@@ -121,7 +121,7 @@ export default async function LoyaltyTiersPage(container) {
                 const ptsToNext = nextTier ? (nextTier.minPts - m.pts).toLocaleString() : '—'
                 return `<tr style="border-bottom:1px solid var(--border);font-size:0.78rem">
                   <td style="padding:9px 12px;font-weight:700">${escHtml(m.name)}</td>
-                  <td style="text-align:center"><span style="font-size:0.8rem">${tier.icon}</span> <span style="font-size:0.72rem;font-weight:700;color:${tier.color}">${tier.name}</span></td>
+                  <td style="text-align:center"><span style="font-size:0.8rem">${tier.icon}</span> <span style="font-size:0.72rem;font-weight:700;color:${tier.color}">${escHtml(tier.name)}</span></td>
                   <td style="text-align:right;font-weight:700">${m.pts.toLocaleString()}</td>
                   <td style="min-width:180px;padding:0 12px">
                     <div style="height:6px;background:var(--surface-2);border-radius:3px;margin-bottom:3px">
@@ -172,7 +172,7 @@ export default async function LoyaltyTiersPage(container) {
         size: 'sm',
         body: `
           <div style="font-size:0.78rem;margin-bottom:10px">
-            <span style="background:${tier.color};color:#fff;padding:2px 10px;border-radius:10px;font-size:0.72rem">${tier.name}</span>
+            <span style="background:${tier.color};color:#fff;padding:2px 10px;border-radius:10px;font-size:0.72rem">${escHtml(tier.name)}</span>
           </div>
           <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:6px">📖 ประวัติคะแนน</div>
           ${m.history.map(h=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.76rem">

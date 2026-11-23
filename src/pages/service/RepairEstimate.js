@@ -85,7 +85,7 @@ export default async function RepairEstimatePage(container) {
               ${PARTS_CATALOG.map((p, i) => `
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 8px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.78rem">
                   <div>
-                    <div style="font-weight:600">${p.name}</div>
+                    <div style="font-weight:600">${escHtml(p.name)}</div>
                     <div style="font-size:0.65rem;color:var(--text-muted)">${formatCurrency(p.price)} + แรง ${p.hours} ชม.</div>
                   </div>
                   <button class="btn btn-xs btn-primary add-item-btn" data-i="${i}">+</button>

@@ -170,7 +170,7 @@ export default async function MarketingROIPage(container) {
         <!-- AI Insight -->
         <div style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--primary);border-radius:var(--radius-sm);margin-bottom:14px;font-size:0.8rem">
           🤖 <strong>LAMI วิเคราะห์:</strong>
-          ${best ? `${best.icon} <strong>${best.name}</strong> ROI ดีที่สุด (${best.roiPct}%)` : 'ยังไม่ได้ใส่งบการตลาด กด ✏️ แก้ไขงบ เพื่อดู ROI แต่ละช่องทาง'}
+          ${best ? `${best.icon} <strong>${escHtml(best.name)}</strong> ROI ดีที่สุด (${best.roiPct}%)` : 'ยังไม่ได้ใส่งบการตลาด กด ✏️ แก้ไขงบ เพื่อดู ROI แต่ละช่องทาง'}
           ${worst && worst.id !== best?.id ? ` · ${worst.icon} ${worst.name} ROI ต่ำสุด (${worst.roiPct}%) ควรปรับกลยุทธ์` : ''}
           ${totalLeads > 0 ? ` · CPL เฉลี่ย ${formatCurrency(Math.round(totalSpend / totalLeads))} · Conversion ${Math.round(totalCustomers / totalLeads * 1000) / 10}%` : ''}
         </div>

@@ -202,7 +202,7 @@ export default async function KpiManagementPage(container) {
               const pct = kpiPct(k)
               return `<div style="margin-bottom:6px">
                 <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:var(--text-muted);margin-bottom:2px">
-                  <span>${k.name}</span><span>${k.actual ?? 'ยังไม่มีข้อมูล'}${k.actual!=null?'/'+k.target:''}</span>
+                  <span>${escHtml(k.name)}</span><span>${k.actual ?? 'ยังไม่มีข้อมูล'}${k.actual!=null?'/'+k.target:''}</span>
                 </div>
                 <div style="height:4px;background:var(--surface-3);border-radius:99px"><div style="height:100%;width:${pct ?? 0}%;background:${pct==null?'var(--surface-3)':pct>=90?'var(--success)':pct>=60?'var(--warning)':'var(--danger)'};border-radius:99px"></div></div>
               </div>`
@@ -221,7 +221,7 @@ export default async function KpiManagementPage(container) {
             <tr>
               <th>พนักงาน</th>
               <th>แผนก</th>
-              ${scores[0]?.kpis.map(k => `<th class="text-right" style="font-size:0.75rem">${k.name}<br><span style="color:var(--text-muted)">(${k.weight}%)</span></th>`).join('')||''}
+              ${scores[0]?.kpis.map(k => `<th class="text-right" style="font-size:0.75rem">${escHtml(k.name)}<br><span style="color:var(--text-muted)">(${k.weight}%)</span></th>`).join('')||''}
               <th class="text-right">คะแนนรวม</th>
             </tr>
           </thead>

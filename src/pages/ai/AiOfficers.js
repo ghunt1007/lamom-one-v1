@@ -229,7 +229,7 @@ export default async function AiOfficersPage(container) {
             <div style="font-size:2rem">${activeOfficer.emoji}</div>
             <div>
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-weight:700">${activeOfficer.name}</span>
+                <span style="font-weight:700">${escHtml(activeOfficer.name)}</span>
                 <span style="font-size:0.68rem;color:${isAiEnabled() ? 'var(--success)' : 'var(--warning)'}">${isAiEnabled() ? '🟢 Gemini AI' : '🟡 Demo Mode'}</span>
               </div>
               <div style="font-size:0.78rem;color:var(--${activeOfficer.color})">${activeOfficer.title}</div>
@@ -265,7 +265,7 @@ export default async function AiOfficersPage(container) {
       ">
         <span style="font-size:1.4rem">${o.emoji}</span>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:0.85rem;color:var(--${o.color})">${o.name}</div>
+          <div style="font-weight:600;font-size:0.85rem;color:var(--${o.color})">${escHtml(o.name)}</div>
           <div style="font-size:0.7rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.title}</div>
         </div>
         ${history.length > 0 ? `<span style="font-size:0.7rem;color:var(--text-muted)">${history.length}</span>` : ''}

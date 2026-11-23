@@ -6,6 +6,7 @@ import { getSalesData, getCommissionData, listDocs } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { saleCost } from '../../utils/saleCost.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 
 const REPORT_CATEGORIES = {
@@ -198,7 +199,7 @@ export default async function ReportCenterPage(container) {
             <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
               <div style="width:36px;height:36px;border-radius:var(--radius-sm);background:var(--${cat.color}-dim);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">${cat.icon}</div>
               <div>
-                <div style="font-weight:700;font-size:0.88rem">${r.name}</div>
+                <div style="font-weight:700;font-size:0.88rem">${escHtml(r.name)}</div>
                 <span class="badge badge-${cat.color}" style="font-size:0.62rem">${cat.label}</span>
               </div>
             </div>
@@ -223,7 +224,7 @@ export default async function ReportCenterPage(container) {
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md)">
           <div style="font-size:1.5rem">${cat.icon}</div>
           <div>
-            <div style="font-weight:700;font-size:1rem">${r.name}</div>
+            <div style="font-weight:700;font-size:1rem">${escHtml(r.name)}</div>
             <div style="font-size:0.78rem;color:var(--text-muted)">${r.desc}
               ${isLive ? ' <span style="color:var(--success);font-size:0.7rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--text-muted);font-size:0.7rem">● ตัวอย่างข้อมูล — รายงานนี้ยังไม่เชื่อมข้อมูลจริง</span>'}
             </div>

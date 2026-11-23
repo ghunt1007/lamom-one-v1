@@ -184,7 +184,7 @@ export default async function QualityCompliancePage(container) {
             <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
               <span class="badge badge-${tp?.badge||'primary'}">${tp?.label||t.type}</span>
             </div>
-            <div style="font-weight:700;margin-bottom:10px">${t.name}</div>
+            <div style="font-weight:700;margin-bottom:10px">${escHtml(t.name)}</div>
             <div style="font-size:0.83rem;color:var(--text-muted);margin-bottom:12px">${t.items.length} รายการ</div>
             <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:14px">
               ${t.items.map(i => `<div style="font-size:0.78rem;display:flex;gap:6px"><span>☐</span><span>${i}</span></div>`).join('')}

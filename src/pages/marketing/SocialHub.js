@@ -239,7 +239,7 @@ export default async function SocialHubPage(container) {
             <div style="font-weight:700;font-size:0.82rem;margin-bottom:8px">⚡ เทมเพลตด่วน</div>
             ${CONTENT_TEMPLATES.slice(0, 3).map(t => `
               <div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-                <span style="font-size:0.78rem">${t.name}</span>
+                <span style="font-size:0.78rem">${escHtml(t.name)}</span>
                 <button class="btn btn-xs btn-secondary use-template-btn" data-id="${t.id}">ใช้</button>
               </div>
             `).join('')}
@@ -254,7 +254,7 @@ export default async function SocialHubPage(container) {
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px, 100%),1fr));gap:12px">
         ${CONTENT_TEMPLATES.map(t => `
           <div class="card" style="padding:16px">
-            <div style="font-weight:700;margin-bottom:8px;font-size:0.9rem">${t.name}</div>
+            <div style="font-weight:700;margin-bottom:8px;font-size:0.9rem">${escHtml(t.name)}</div>
             <div style="font-size:0.78rem;white-space:pre-line;color:var(--text-muted);background:var(--surface-2);padding:10px;border-radius:var(--radius-sm);margin-bottom:12px;line-height:1.5;max-height:120px;overflow:hidden">${t.body}</div>
             <button class="btn btn-sm btn-primary use-template-btn" data-id="${t.id}" style="width:100%">✍️ ใช้ Template นี้</button>
           </div>

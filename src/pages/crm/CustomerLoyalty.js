@@ -244,7 +244,7 @@ export default async function CustomerLoyaltyPage(container) {
         ${REDEEM_CATALOG.map(item => `
           <div class="card" style="padding:16px;text-align:center">
             <div style="font-size:2rem;margin-bottom:8px">${item.icon}</div>
-            <div style="font-weight:700;font-size:0.88rem;margin-bottom:6px">${item.name}</div>
+            <div style="font-weight:700;font-size:0.88rem;margin-bottom:6px">${escHtml(item.name)}</div>
             <div style="font-size:1.2rem;font-weight:900;color:var(--primary);margin-bottom:10px">${item.points.toLocaleString()} คะแนน</div>
             <button class="btn btn-sm btn-primary redeem-btn" data-id="${item.id}" style="width:100%">แลกรับ</button>
           </div>
@@ -376,7 +376,7 @@ export default async function CustomerLoyaltyPage(container) {
       size: 'sm',
       body: `<div style="text-align:center;padding:10px 0">
         <div style="font-size:3rem;margin-bottom:8px">${item.icon}</div>
-        <div style="font-size:1.2rem;font-weight:700;margin-bottom:4px">${item.name}</div>
+        <div style="font-size:1.2rem;font-weight:700;margin-bottom:4px">${escHtml(item.name)}</div>
         <div style="font-size:1.5rem;font-weight:900;color:var(--primary);margin-bottom:16px">${item.points.toLocaleString()} คะแนน</div>
         <div class="input-group"><label class="input-label">เลือกสมาชิก *</label>
           <select class="input" id="rd-member">
