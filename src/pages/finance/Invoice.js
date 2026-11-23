@@ -154,7 +154,7 @@ export default async function InvoicePage(container) {
                   <td><span class="badge badge-${dt.color}" style="font-size:0.68rem">${dt.label}</span></td>
                   <td style="font-size:0.85rem">${escHtml(d.custName)}</td>
                   <td style="font-size:0.8rem">${formatDate(d.date)}</td>
-                  <td style="font-size:0.8rem;color:${isOverdue?'var(--danger)':'inherit'}">${escHtml(d.dueDate)} ${isOverdue?'⚠️':''}</td>
+                  <td style="font-size:0.8rem;color:${isOverdue?'var(--danger)':'inherit'}">${formatDate(d.dueDate)} ${isOverdue?'⚠️':''}</td>
                   <td class="text-right" style="font-weight:700">${formatCurrency(total)}</td>
                   <td><span class="badge badge-${st.color}">${st.label}</span></td>
                   <td>

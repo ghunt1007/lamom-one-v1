@@ -1,5 +1,5 @@
 import { showToast, getState } from '../../core/store.js'
-import { todayBangkok } from '../../utils/format.js'
+import { todayBangkok, formatDate } from '../../utils/format.js'
 import { getCommissionData, listDocs, updateDocData, createDoc } from '../../core/db.js'
 import { getCurrentUser, getMyTotalPoints, getRealLeaderboard, computeMyBadges } from './gamificationData.js'
 import { escHtml as esc } from '../../utils/escape.js'
@@ -301,7 +301,7 @@ export default async function GamificationDashboard(container) {
                   const mo = MOODS.find(x => x.value === m.value) || MOODS[2]
                   const h = Math.round(m.value / 5 * 70)
                   return `<div style="flex:1;min-width:8px;display:flex;flex-direction:column;align-items:center">
-                    <div style="width:100%;height:${h}px;background:var(--${mo.color});border-radius:2px 2px 0 0;opacity:0.8" title="${m.date}: ${mo.label}"></div>
+                    <div style="width:100%;height:${h}px;background:var(--${mo.color});border-radius:2px 2px 0 0;opacity:0.8" title="${formatDate(m.date)}: ${mo.label}"></div>
                   </div>`
                 }).join('')}
               </div>

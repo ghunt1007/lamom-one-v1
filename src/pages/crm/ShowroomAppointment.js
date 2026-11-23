@@ -234,7 +234,7 @@ export default async function ShowroomAppointmentPage(container) {
           ${list.map(a => {
             const st = APPT_STATUS[a.status] || APPT_STATUS.scheduled
             return `<tr class="appt-row" data-id="${a.id}" style="cursor:pointer">
-              <td style="font-size:0.8rem;white-space:nowrap">${escHtml(a.date)}<br><span style="color:var(--primary);font-weight:700">${escHtml(a.time)}</span></td>
+              <td style="font-size:0.8rem;white-space:nowrap">${formatDate(a.date)}<br><span style="color:var(--primary);font-weight:700">${escHtml(a.time)}</span></td>
               <td><div style="font-weight:600;font-size:0.85rem">${escHtml(a.custName)}</div><div style="font-size:0.72rem;color:var(--text-muted)">${callLink(a.phone, a.custName)}</div></td>
               <td style="font-size:0.82rem">${escHtml(a.purpose)}</td>
               <td style="font-size:0.82rem">${escHtml(a.interestedIn)}</td>
@@ -332,7 +332,7 @@ export default async function ShowroomAppointmentPage(container) {
       body: `<div style="display:flex;flex-direction:column;gap:10px;font-size:0.85rem">
         <span class="badge badge-${st.color}">${st.label}</span>
         <div class="grid-2" style="gap:8px">
-          <div>${callLink(a.phone)}</div><div>📅 ${escHtml(a.date)} ${escHtml(a.time)}</div>
+          <div>${callLink(a.phone)}</div><div>📅 ${formatDate(a.date)} ${escHtml(a.time)}</div>
           <div>🎯 ${escHtml(a.purpose)}</div><div>🚗 ${escHtml(a.interestedIn)}</div>
           <div>👤 ${escHtml(a.salesperson)}</div><div>📣 ${escHtml(a.source)}</div>
         </div>
