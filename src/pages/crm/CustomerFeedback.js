@@ -4,6 +4,8 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc } from '../../core/db.js'
 import { sendSms } from '../../utils/comms.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
+import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
@@ -295,7 +297,7 @@ export default async function CustomerFeedbackPage(container) {
           <textarea class="input" id="resp-text" rows="4" placeholder="พิมพ์ข้อความตอบกลับ...">${f.score >= 4 ? 'ขอบคุณมากครับสำหรับ Feedback ดีๆ ยินดีให้บริการเสมอครับ 😊' : 'ขออภัยในความไม่สะดวกครับ ทีมงานจะรีบดำเนินการแก้ไขและติดต่อกลับโดยเร็วครับ'}</textarea>
         </div>
         <div style="margin-top:10px;display:flex;gap:8px">
-          <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer"><input type="checkbox" id="resp-sms" ${f.phone?'checked':'disabled'}> ส่ง SMS${f.phone?'':' (ไม่มีเบอร์โทร)'}</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer"><input type="checkbox" id="resp-sms" ${f.phone?'checked':'disabled'}> ส่งคำตอบให้ลูกค้า${f.phone?' (ผูก LINE แล้วส่ง LINE ไม่งั้น SMS)':' (ไม่มีเบอร์โทร)'}</label>
         </div>
       `,
       confirmLabel: '💬 บันทึกคำตอบ',
@@ -309,14 +311,14 @@ export default async function CustomerFeedbackPage(container) {
         const wantSms = document.getElementById('resp-sms')?.checked && f.phone
         try {
           await createDoc('feedback_responses', { feedbackId: f.id, customerName: f.customerName, response: txt, companyId: myEffectiveCompanyId() })
-          let smsOk = false
+          let smsOk = false, ch = ''
           if (wantSms) {
-            try { await sendSms([f.phone], txt); smsOk = true } catch { /* แจ้งด้านล่าง */ }
+            try { ch = await sendToCustomer(f.phone, txt, await loadContactPrefs()); smsOk = true } catch { /* แจ้งด้านล่าง */ }
           }
           f.responded = true; f.response = txt
           // (v1.0.1273) เดิมส่ง SMS ไม่สำเร็จแล้วยังขึ้น "ส่ง SMS แล้ว" ทับข้อความเตือน
-          if (wantSms && !smsOk) showToast(`บันทึกคำตอบให้ ${f.customerName} แล้ว แต่ส่ง SMS ไม่สำเร็จ — กรุณาโทรแจ้งเอง`, 'error')
-          else showToast(`✅ บันทึกคำตอบให้ ${f.customerName} แล้ว${wantSms ? ' และส่ง SMS แล้ว' : ''}`, 'success')
+          if (wantSms && !smsOk) showToast(`บันทึกคำตอบให้ ${f.customerName} แล้ว แต่ส่งข้อความไม่สำเร็จ — กรุณาโทรแจ้งเอง`, 'error')
+          else showToast(`✅ บันทึกคำตอบให้ ${f.customerName} แล้ว${wantSms ? ` และส่ง ${ch} แล้ว` : ''}`, 'success')
           renderPage()
         } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
@@ -388,10 +390,7 @@ export default async function CustomerFeedbackPage(container) {
       return
     }
     if (e.target.id === 'send-survey-btn') {
-      // (v1.0.xxx) เดิม toast "(Demo)" เฉยๆ ไม่ส่งจริงเลยไม่ว่าเลือกช่องทางไหน — ตอนนี้ SMS ส่งจริงผ่าน
-      // comms.js ไปยังเบอร์โทรลูกค้าจริงที่มีอยู่ในรายการ feedbacks ที่โหลดมา ส่วน LINE/Email ระบบนี้ยังไม่มี
-      // การส่งเจาะรายบุคคลจริง (LINE เชื่อมแบบ Broadcast ทั้งฐานเท่านั้น เหมือน CommInbox.js, และหน้านี้ไม่ได้
-      // เก็บอีเมลลูกค้าไว้เลย) จึงแจ้งตรงไปตรงมาแทนอ้างว่าส่งแล้ว
+      // SMS/LINE ส่งจริง · Email หน้านี้ไม่ได้เก็บอีเมลลูกค้า จึงแจ้งตรงๆ
       const channels = Array.from(container.querySelectorAll('.sv-channel:checked')).map(c => c.value)
       if (!channels.length) { showToast('❗ กรุณาเลือกช่องทางอย่างน้อย 1 ช่องทาง', 'error'); return }
       const msg = bulkText(container.querySelector('#sv-msg')?.value?.trim() || '')
@@ -401,15 +400,23 @@ export default async function CustomerFeedbackPage(container) {
       btn.disabled = true
       const results = []
       try {
+        // (v1.0.1359) LINE ส่งจริงรายคนถึงลูกค้าที่ผูก LINE แล้ว · เลือกทั้ง LINE+SMS = คนที่ได้ LINE แล้วไม่ส่ง SMS ซ้ำ
+        const prefs = channels.includes('line') ? await loadContactPrefs() : null
+        let linePhones = []
+        if (prefs) {
+          const linked = phones.filter(p => lineUidFor(p, prefs))
+          for (const p of linked) { try { await sendToCustomer(p, msg, prefs); linePhones.push(p) } catch {} }
+          results.push(linked.length ? `✅ ส่ง LINE ถึง ${linePhones.length}/${linked.length} รายที่ผูก LINE แล้ว` : '⚠️ ลูกค้าในรายการยังไม่มีใครผูก LINE')
+        }
         if (channels.includes('sms')) {
-          if (phones.length) {
-            try { await sendSms(phones, msg); results.push(`✅ ส่ง SMS จริงถึง ${phones.length} เบอร์`) }
+          const smsPhones = phones.filter(p => !linePhones.includes(p))
+          if (smsPhones.length) {
+            try { await sendSms(smsPhones, msg); results.push(`✅ ส่ง SMS จริงถึง ${smsPhones.length} เบอร์`) }
             catch (err) { results.push('❌ ส่ง SMS ไม่สำเร็จ: ' + err.message) }
-          } else {
+          } else if (!linePhones.length) {
             results.push('⚠️ ไม่มีเบอร์โทรลูกค้าในรายการปัจจุบันให้ส่ง SMS')
           }
         }
-        if (channels.includes('line')) results.push('📝 LINE: ยังไม่มีระบบส่งเจาะรายบุคคล (เชื่อมแบบ Broadcast ทั้งฐานลูกค้าเท่านั้น) — กรุณาส่งเอง')
         if (channels.includes('email')) results.push('📝 Email: หน้านี้ยังไม่มีการเก็บอีเมลลูกค้า — กรุณาส่งเอง')
         showToast(results.join(' · '), results.some(r => r.startsWith('❌')) ? 'error' : 'success')
       } finally { btn.disabled = false }
