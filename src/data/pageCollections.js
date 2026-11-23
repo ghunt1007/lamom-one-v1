@@ -493,7 +493,8 @@ export const PAGE_COLLECTIONS = {
   "debts",
   "job_cards",
   "staff",
-  "vehicle_models"
+  "vehicle_models",
+  "vehicles"
  ],
  "/documents/contracts": [
   "contracts"
