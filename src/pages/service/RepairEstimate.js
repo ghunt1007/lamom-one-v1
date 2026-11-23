@@ -6,7 +6,8 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, softDelete } from '../../core/db.js'
-import { sendSms } from '../../utils/comms.js'
+import { sendToCustomer } from '../../utils/customerSend.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { printRepairEstimate } from '../../utils/repairEstimateDoc.js'
@@ -186,15 +187,15 @@ export default async function RepairEstimatePage(container) {
         let smsSent = false
         if (phone) {
           try {
-            await sendSms([phone], `ใบประเมินราคาซ่อม LAMOM: ${formatCurrency(grand)} (รวม VAT) กรุณาโทรกลับเพื่อยืนยันการซ่อม`)
+            await sendToCustomer(phone, `ใบประเมินราคาซ่อม LAMOM: ${formatCurrency(grand)} (รวม VAT) กรุณาโทรกลับเพื่อยืนยันการซ่อม`, await loadContactPrefs()) // (v1.0.1357) ผูก LINE แล้ว = LINE
             smsSent = true
           } catch {}
         }
         showToast(
           smsSent
-            ? `📤 บันทึกใบประเมิน ${formatCurrency(grand)} และส่ง SMS แจ้ง ${customer} แล้ว — รอโทรยืนยัน`
+            ? `📤 บันทึกใบประเมิน ${formatCurrency(grand)} และส่งข้อความแจ้ง ${customer} แล้ว (LINE ถ้าผูกไว้ ไม่งั้น SMS) — รอโทรยืนยัน`
             : phone
-              ? `⚠️ บันทึกใบประเมินแล้ว แต่ส่ง SMS แจ้ง ${customer} ไม่สำเร็จ — กรุณาโทรแจ้งเอง`
+              ? `⚠️ บันทึกใบประเมินแล้ว แต่ส่งข้อความแจ้ง ${customer} ไม่สำเร็จ — กรุณาโทรแจ้งเอง`
               : `📤 บันทึกใบประเมิน ${formatCurrency(grand)} แล้ว — ไม่มีเบอร์โทร กรุณาแจ้งลูกค้าเอง`,
           smsSent || !phone ? 'success' : 'error'
         )

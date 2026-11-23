@@ -6,7 +6,8 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { sendSms } from '../../utils/comms.js'
+import { sendToCustomer } from '../../utils/customerSend.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
 import { notifyTeam } from '../../utils/teamNotify.js'
@@ -166,9 +167,9 @@ export default async function InstallmentPage(container) {
       )
       if (p.phone) {
         try {
-          await sendSms([p.phone], `LAMOM แจ้งคุณ${p.customer}: ค้างชำระค่างวด ${p.model} มา ${deriveOverdueDays(p)} วัน กรุณาชำระ ${(p.monthly||0).toLocaleString()} บาทโดยเร็ว`)
-          showToast('📱 ส่ง SMS ทวงถาม ' + p.customer + ' แล้ว', 'success')
-        } catch { showToast('⚠️ ส่ง SMS ให้ ' + p.customer + ' ไม่สำเร็จ', 'error') }
+          const ch = await sendToCustomer(p.phone, `LAMOM แจ้งคุณ${p.customer}: ค้างชำระค่างวด ${p.model} มา ${deriveOverdueDays(p)} วัน กรุณาชำระ ${(p.monthly||0).toLocaleString()} บาทโดยเร็ว`, await loadContactPrefs()) // (v1.0.1357) ผูก LINE แล้ว = LINE
+          showToast('📱 ส่ง ' + ch + ' ทวงถาม ' + p.customer + ' แล้ว', 'success')
+        } catch { showToast('⚠️ ส่งข้อความให้ ' + p.customer + ' ไม่สำเร็จ', 'error') }
       } else {
         showToast('⚠️ ' + p.customer + ' ไม่มีเบอร์โทรในระบบ — แจ้งพนักงานให้ติดตามแทน', 'error')
       }
@@ -213,13 +214,14 @@ export default async function InstallmentPage(container) {
       )
       const withPhone = overduePlans.filter(p => p.phone)
       let sent = 0
+      const prefs = await loadContactPrefs()
       for (const p of withPhone) {
         try {
-          await sendSms([p.phone], `LAMOM แจ้งคุณ${p.customer}: ค้างชำระค่างวด ${p.model} มา ${deriveOverdueDays(p)} วัน กรุณาชำระ ${(p.monthly||0).toLocaleString()} บาทโดยเร็ว`)
+          await sendToCustomer(p.phone, `LAMOM แจ้งคุณ${p.customer}: ค้างชำระค่างวด ${p.model} มา ${deriveOverdueDays(p)} วัน กรุณาชำระ ${(p.monthly||0).toLocaleString()} บาทโดยเร็ว`, prefs)
           sent++
         } catch {}
       }
-      showToast(`📱 ส่ง SMS ทวงถาม ${sent}/${overduePlans.length} รายที่ค้างชำระแล้ว${overduePlans.length > sent ? ` — ${overduePlans.length - sent} รายไม่มีเบอร์โทร/ส่งไม่สำเร็จ` : ''}`, sent ? 'success' : 'error')
+      showToast(`📱 ส่งข้อความทวงถาม ${sent}/${overduePlans.length} รายที่ค้างชำระแล้ว${overduePlans.length > sent ? ` — ${overduePlans.length - sent} รายไม่มีเบอร์โทร/ส่งไม่สำเร็จ` : ''}`, sent ? 'success' : 'error')
     })
 
     document.getElementById('add-plan-btn')?.addEventListener('click', openAddForm)
