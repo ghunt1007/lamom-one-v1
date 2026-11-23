@@ -10,6 +10,8 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { carOf } from '../../utils/carLabel.js'
 import { callLink } from '../../utils/callLink.js'
+import { nextDocNo } from '../../utils/nextDocNo.js'
+import { printJobCard } from '../../utils/jobCardDoc.js'
 
 const JOB_STATUS = {
   waiting:    { label: '⏳ รอรับรถ',      badge: 'primary' },
@@ -32,7 +34,6 @@ const JOB_TYPE = {
 
 const BAYS = ['เบย์ 1', 'เบย์ 2', 'เบย์ 3', 'เบย์ 4', 'เบย์ลิฟต์', 'เบย์ล้าง']
 
-let jobCounter = 5
 
 // (v1.0.459) หน้าลูกค้า (Customers.js) เขียน sessionStorage key นี้เป็น JSON {customerId, custName, phone}
 // แล้ว navigate('/service/jobs') มา — หน้านี้จะอ่านค่า, ลบ key ทิ้งทันที, แล้วเปิดฟอร์ม "เปิด Job Card ใหม่"
@@ -253,6 +254,7 @@ export default async function JobCardsPage(container) {
         </div>
       `,
       footer: `<button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">ปิด</button>
+               <button class="btn btn-secondary" id="j-print">🖨 พิมพ์ใบรับรถ</button>
                <button class="btn btn-secondary" id="j-edit">✏️ แก้ไข</button>
                <button class="btn btn-danger" id="j-delete">🗑️ ลบ</button>`
     })
@@ -265,6 +267,7 @@ export default async function JobCardsPage(container) {
         if (next === 'delivered') setNextServiceReminder(j)
       } catch { showToast('เกิดข้อผิดพลาด','error') }
     })
+    document.getElementById('j-print')?.addEventListener('click', () => printJobCard(j, { typeLabel: JOB_TYPE[j.type] || '', statusLabel: st.label }))
     document.getElementById('j-edit')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openForm(j) })
     document.getElementById('j-delete')?.addEventListener('click', () => deleteJob(j))
   }
@@ -324,7 +327,8 @@ export default async function JobCardsPage(container) {
       if (!cust) { el.querySelector('#jf-cust-e').textContent = 'กรุณาระบุ'; return }
       if (!desc) { el.querySelector('#jf-desc-e').textContent = 'กรุณาระบุ'; return }
       const btn = el.querySelector('#jfs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
-      const jobNo = isEdit ? existing.jobNo : `JOB-${new Date().getFullYear()}-${String(jobCounter).padStart(3,'0')}`
+      // (v1.0.1339) เดิมตัวนับเริ่มที่ 5 ทุกครั้งที่เปิดหน้า → ใบงานใหม่ได้เลขซ้ำกัน · ตอนนี้ใช้เลขมากสุดของปีนั้น +1
+      const jobNo = isEdit ? existing.jobNo : nextDocNo('JOB', jobs.map(x => x.jobNo))
       const data = {
         // (v1.0.474) ติด companyId ตอนสร้างใหม่เท่านั้น (isEdit ไม่ต้องเติม — updateDocData merge ไม่ทับ
         // companyId เดิมอยู่แล้วถ้าไม่ส่งไป) แพทเทิร์นเดียวกับที่แก้ไว้แล้วใน Bookings.js/Customers.js (v1.0.472)
@@ -342,7 +346,7 @@ export default async function JobCardsPage(container) {
       }
       try {
         if (isEdit) { await updateDocData('job_cards', existing.id, data); Object.assign(existing, data) }
-        else { const id = await createDoc('job_cards', data); jobs.unshift({ ...data, id }); jobCounter++ }
+        else { const id = await createDoc('job_cards', data); jobs.unshift({ ...data, id }) }
         showToast(isEdit ? 'แก้ไขแล้ว' : '✅ เปิด Job Card แล้ว', 'success')
         close(); updateStats(); applyFilter()
       } catch { showToast('บันทึกไม่สำเร็จ','error') }
