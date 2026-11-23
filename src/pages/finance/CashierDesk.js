@@ -11,6 +11,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { myName } from '../../utils/myName.js'
+import { printCashierReceipt } from '../../utils/cashierReceipt.js'
 
 
 // วันที่ (Asia/Bangkok) ของ timestamp ใดๆ — ใช้กรอง "วันนี้" ให้ตรงเวลาไทยจริง ไม่ผูกกับ timezone เครื่อง
@@ -132,7 +133,7 @@ export default async function CashierDeskPage(container) {
                   <td style="padding:8px 10px;text-align:center"><span class="badge badge-secondary" style="font-size:0.6rem">${pm?.icon} ${pm?.label}</span></td>
                   <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--success)">${formatCurrency(p.amount)}</td>
                   <td style="padding:8px 14px;text-align:right;font-size:0.68rem;color:var(--text-muted)">${timeAgo(p.time)}</td>
-                  <td style="padding:8px 14px;text-align:right"><button class="btn btn-xs btn-secondary">🖨 ใบเสร็จ</button></td>
+                  <td style="padding:8px 14px;text-align:right"><button class="btn btn-xs btn-secondary receipt-btn" data-id="${escHtml(p.id)}">🖨 ใบเสร็จ</button></td>
                 </tr>`
               }).join('')}
             </tbody>
@@ -141,6 +142,10 @@ export default async function CashierDeskPage(container) {
       </div>
     `
 
+    container.querySelectorAll('.receipt-btn').forEach(b => b.addEventListener('click', () => {
+      const p = payments.find(x => x.id === b.dataset.id)
+      if (p) printCashierReceipt(p)
+    }))
     container.querySelectorAll('.collect-btn').forEach(b => b.addEventListener('click', () => {
       const bill = pending.find(x => x.id === b.dataset.id)
       if (bill) openCollect(bill)
@@ -208,7 +213,8 @@ export default async function CashierDeskPage(container) {
         const amount = parseInt(document.getElementById('py-amount')?.value) || 0
         if (!customer || amount <= 0) { showToast('❗ กรอกชื่อและจำนวนเงิน', 'error'); return false }
         try {
-          await createDoc('cashier_payments', { customer, ref:bill?.id||'MISC', desc:document.getElementById('py-desc')?.value||'—', amount, method:document.getElementById('py-method')?.value||'cash', time:new Date().toISOString(), cashier: myName(), invoiceId: bill?.invoiceId || null, companyId: myEffectiveCompanyId() })
+          const pay = { customer, ref:bill?.id||'MISC', desc:document.getElementById('py-desc')?.value||'—', amount, method:document.getElementById('py-method')?.value||'cash', time:new Date().toISOString(), cashier: myName(), invoiceId: bill?.invoiceId || null, companyId: myEffectiveCompanyId() }
+          const newId = await createDoc('cashier_payments', pay)
           if (bill) await softDelete('cashier_pending_bills', bill.id)
           // (v1.0.462) บิลที่ส่งมาจากใบแจ้งหนี้จริง (มี invoiceId ผูกไว้) — เก็บเงินที่นี่แล้วย้อนไปอัปเดต
           // ใบแจ้งหนี้ต้นทางเป็น "ชำระแล้ว" อัตโนมัติ ปิดช่องรั่วเดิมที่กระทบยอดกันไม่ได้ (จ่ายแล้วใบแจ้งหนี้
@@ -216,7 +222,8 @@ export default async function CashierDeskPage(container) {
           if (bill?.invoiceId) {
             try { await updateDocData('invoices', bill.invoiceId, { status: 'paid', paidDate: todayBangkok() }) } catch { /* ไม่ critical — เงินบันทึกแล้ว แค่ใบแจ้งหนี้ต้นทางอาจต้องอัปเดตเอง */ }
           }
-          showToast(`✅ รับชำระ ${formatCurrency(amount)} — พิมพ์ใบเสร็จแล้ว`, 'success')
+          printCashierReceipt({ ...pay, id: typeof newId === 'string' ? newId : (newId?.id || '') })
+          showToast(`✅ รับชำระ ${formatCurrency(amount)} แล้ว — เปิดหน้าพิมพ์ใบเสร็จ`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
