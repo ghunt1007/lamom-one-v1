@@ -6,6 +6,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { escHtml } from '../../utils/escape.js'
 
 const QUIZ_SETS = [
   {
@@ -103,7 +104,7 @@ export default async function TrainingQuizPage(container) {
                 <div style="display:flex;gap:8px;align-items:center">
                   <span>${['🥇','🥈','🥉','4.'][i]}</span>
                   <div>
-                    <div style="font-size:0.8rem;font-weight:600">${l.name}</div>
+                    <div style="font-size:0.8rem;font-weight:600">${escHtml(l.name)}</div>
                     <div style="font-size:0.65rem;color:var(--text-muted)">${l.quizzes} ชุด</div>
                   </div>
                 </div>

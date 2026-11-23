@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { BADGE_CATEGORIES, BADGE_RARITY, computeMyBadges } from './gamificationData.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { escHtml } from '../../utils/escape.js'
 
 export default async function BadgesPage(container) {
   const myGen = container.__routerGen
@@ -72,7 +73,7 @@ export default async function BadgesPage(container) {
             const owned = MY_BADGES.includes(b.id)
             return `<div class="card badge-card" data-id="${b.id}" style="padding:16px;text-align:center;cursor:pointer;${!owned?'opacity:0.5;filter:grayscale(0.7)':''}border-top:3px solid ${rar.color}">
               <div style="font-size:2.5rem;margin-bottom:6px">${b.icon}</div>
-              <div style="font-weight:700;font-size:0.87rem;margin-bottom:2px">${b.name}</div>
+              <div style="font-weight:700;font-size:0.87rem;margin-bottom:2px">${escHtml(b.name)}</div>
               <div style="font-size:0.7rem;color:${rar.color};margin-bottom:6px">${rar.star} ${rar.label}</div>
               <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:8px">${b.desc}</div>
               <div style="font-size:0.75rem;font-weight:700;color:var(--warning)">+${b.points} pts</div>

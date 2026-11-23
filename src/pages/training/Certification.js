@@ -147,7 +147,7 @@ export default async function CertificationPage(container) {
           ${CERTS.map(c => `
             <div class="card" style="padding:12px 14px">
               <div style="font-size:1.4rem">${c.icon}</div>
-              <div style="font-weight:700;font-size:0.85rem;margin:4px 0">${c.name}</div>
+              <div style="font-weight:700;font-size:0.85rem;margin:4px 0">${escHtml(c.name)}</div>
               <div style="font-size:0.72rem;color:var(--text-muted)">${c.issuer} · ${c.level} · ${c.validMonths} เดือน</div>
             </div>
           `).join('')}

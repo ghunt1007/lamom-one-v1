@@ -3,6 +3,7 @@ import { todayBangkok } from '../../utils/format.js'
 import { getCommissionData, listDocs, updateDocData, createDoc } from '../../core/db.js'
 import { getCurrentUser, getMyTotalPoints, getRealLeaderboard, computeMyBadges } from './gamificationData.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
 const LEVELS = [
   { min:0,    max:999,   name:'🌱 Rookie',     color:'primary' },
@@ -162,7 +163,7 @@ export default async function GamificationDashboard(container) {
             <div style="width:60px;height:60px;border-radius:50%;background:var(--${topLevel.color}-dim);display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;color:var(--${topLevel.color})">${(myName||'?').charAt(0)}</div>
             <div>
               <div style="font-weight:700;font-size:1.1rem">${myName}</div>
-              <div style="font-size:1rem;color:var(--${topLevel.color});font-weight:600">${topLevel.name}</div>
+              <div style="font-size:1rem;color:var(--${topLevel.color});font-weight:600">${escHtml(topLevel.name)}</div>
             </div>
             <div style="margin-left:auto;text-align:center">
               <div style="font-size:1.8rem;font-weight:700;color:var(--accent)">${xp.toLocaleString()}</div>
@@ -171,7 +172,7 @@ export default async function GamificationDashboard(container) {
           </div>
           ${nextLevel ? `
             <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">
-              <span>${topLevel.name}</span>
+              <span>${escHtml(topLevel.name)}</span>
               <span>อีก ${xpToNext.toLocaleString()} XP → ${nextLevel.name}</span>
             </div>
             <div style="height:12px;background:var(--surface-2);border-radius:10px;overflow:hidden">
@@ -220,7 +221,7 @@ export default async function GamificationDashboard(container) {
           ${myBadges.map(b => `
             <div class="card" style="padding:14px;text-align:center;${!b.unlocked?'opacity:0.4':'border:1px solid var(--success)'}">
               <div style="font-size:2.2rem;margin-bottom:6px">${b.icon}</div>
-              <div style="font-weight:700;font-size:0.85rem">${b.name}</div>
+              <div style="font-weight:700;font-size:0.85rem">${escHtml(b.name)}</div>
               <div style="font-size:0.7rem;color:var(--text-muted);margin-top:3px">${b.desc}</div>
               <div style="font-size:0.72rem;color:var(--accent);margin-top:6px">+${b.points} XP</div>
               ${b.unlocked ? '<div style="font-size:0.7rem;color:var(--success);margin-top:4px">🔓 Unlocked</div>' : '<div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px">🔒 ล็อค</div>'}
@@ -332,7 +333,7 @@ export default async function GamificationDashboard(container) {
               <div style="width:38px;height:38px;border-radius:50%;background:var(--${p.color}-dim);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;color:var(--${p.color})">${p.avatar}</div>
               <div style="flex:1">
                 <div style="font-weight:600">${esc(p.name)}</div>
-                <div style="font-size:0.75rem;color:var(--${lv.color})">${lv.name}</div>
+                <div style="font-size:0.75rem;color:var(--${lv.color})">${escHtml(lv.name)}</div>
               </div>
               <div style="text-align:right">
                 <div style="font-weight:700;color:var(--accent)">${p.xp.toLocaleString()} XP</div>

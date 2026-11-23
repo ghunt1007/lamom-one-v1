@@ -1,5 +1,6 @@
 import { showToast } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
+import { escHtml } from '../../utils/escape.js'
 
 const MODULES = [
   { icon:'👥', name:'CRM & การขาย', pages:37, color:'primary' },
@@ -140,7 +141,7 @@ export default function AboutPage(container) {
               <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface-2);border-radius:var(--radius-sm)">
                 <div style="font-size:1.3rem">${t.icon}</div>
                 <div>
-                  <div style="font-size:0.78rem;font-weight:700">${t.name}</div>
+                  <div style="font-size:0.78rem;font-weight:700">${escHtml(t.name)}</div>
                   <div style="font-size:0.68rem;color:var(--text-muted)">${t.desc}</div>
                 </div>
               </div>

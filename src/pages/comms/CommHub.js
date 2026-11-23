@@ -96,7 +96,7 @@ export default async function CommHubPage(container) {
                 border-radius:0;
               ">
                 <span>${ch.emoji}</span>
-                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ch.name}</span>
+                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(ch.name)}</span>
                 ${getMessages(ch.id).length ? `<span style="font-size:0.7rem;color:var(--text-muted)">${getMessages(ch.id).length}</span>` : ''}
               </div>
             `).join('')}

@@ -5,6 +5,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 
 const CATEGORIES = {
@@ -227,7 +228,7 @@ export default async function BudgetPlanningPage(container) {
                   const rowTotal = sumRow(row, 'budgets')
                   const rowActual = sumRow(row, 'actuals')
                   return `<tr>
-                    <td style="font-size:0.82rem;padding-left:20px">${row.name}</td>
+                    <td style="font-size:0.82rem;padding-left:20px">${escHtml(row.name)}</td>
                     ${row.budgets.map((b, mi) => {
                       const a = row.actuals[mi]
                       const hasActual = a > 0
@@ -321,7 +322,7 @@ export default async function BudgetPlanningPage(container) {
                     const pct = b ? (diff / b * 100).toFixed(1) : 0
                     const isGood = cat === 'revenue' ? diff >= 0 : diff <= 0
                     return `<tr>
-                      <td style="font-size:0.82rem;padding-left:20px">${row.name}</td>
+                      <td style="font-size:0.82rem;padding-left:20px">${escHtml(row.name)}</td>
                       <td class="text-right" style="font-size:0.82rem">${formatCurrency(b)}</td>
                       <td class="text-right" style="font-size:0.82rem;font-weight:600">${a ? formatCurrency(a) : '<span style="color:var(--text-muted)">-</span>'}</td>
                       <td class="text-right" style="font-size:0.82rem;color:${a && !isGood?'var(--danger)':a?'var(--success)':'var(--text-muted)'}">${a ? (diff >= 0 ? '+' : '') + (diff/1000).toFixed(0) + 'K' : '-'}</td>

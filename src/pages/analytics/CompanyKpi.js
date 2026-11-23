@@ -5,6 +5,7 @@ import { getSalesData, listDocs } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { loadSalesBudget, sumMonths } from '../../utils/salesBudget.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
 // เป้าหมายอ้างอิงมาตรฐานอุตสาหกรรม — หมวดที่ไม่มี ✅ ยังไม่มีข้อมูลจริงเชื่อมในระบบ (Service/HR/Finance/Marketing)
 // แสดงเป็น "เป้าหมายอ้างอิง" เท่านั้น ไม่นับรวมใน Overall Score เพื่อไม่ให้ปนกับหมวดที่มีข้อมูลจริง (Sales/CRM)
@@ -271,7 +272,7 @@ export default async function CompanyKpiPage(container) {
                     const arrowColor = isGood == null ? 'var(--text-muted)' : (isGood ? 'var(--success)' : 'var(--danger)')
                     return `<tr>
                       <td>
-                        <div style="font-weight:600;font-size:0.85rem">${k.name}</div>
+                        <div style="font-weight:600;font-size:0.85rem">${escHtml(k.name)}</div>
                         <div style="font-size:0.7rem;color:var(--text-muted)">${k.unit}</div>
                       </td>
                       <td class="text-right" style="font-size:0.83rem">${k.fromBudget && !k.target ? '<a href="/finance/sales-budget" onclick="navigate(\'/finance/sales-budget\');return false" style="font-size:0.75rem">ยังไม่ตั้งเป้า →</a>' : fmtVal(k, k.target)}</td>
