@@ -243,15 +243,16 @@ export default async function AiAssistantChatPage(container) {
     return getState('user')?.uid || null
   }
 
+  // (v1.0.1330) 500 ข้อความล่าสุด (เดิมเรียงเก่าสุดก่อน — คุยเกิน 500 ข้อความแล้วข้อความใหม่จะไม่ขึ้นเลย; ไม่มี index ก็เรียงในเครื่องแทนได้)
   async function loadData() {
     loading = true
     try {
       const uid = currentUid()
       const filters = uid ? [['uid', '==', uid]] : []
-      messages = (await listDocs('chat_ai_assistant', filters, 'createdAt', 'asc', 500)).filter(m => !m.deleted)
+      messages = (await listDocs('chat_ai_assistant', filters, 'createdAt', 'desc', 500)).reverse().filter(m => !m.deleted)
       if (!messages.length) {
         await createDoc('chat_ai_assistant', { role:'ai', text: GREETING, time: now(), uid })
-        messages = (await listDocs('chat_ai_assistant', filters, 'createdAt', 'asc', 500)).filter(m => !m.deleted)
+        messages = (await listDocs('chat_ai_assistant', filters, 'createdAt', 'desc', 500)).reverse().filter(m => !m.deleted)
       }
     } catch (e) { messages = [] }
     loading = false
