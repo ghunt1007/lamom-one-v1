@@ -54,7 +54,7 @@ export default async function ChecklistEnginePage(container) {
 
   function renderActive(cl) {
     const done = cl.progress.filter(Boolean).length
-    const pct = Math.round(done / cl.items.length * 100)
+    const pct = cl.items.length ? Math.round(done / cl.items.length * 100) : 0
 
     const itemsHtml = cl.items.map((item, i) =>
       '<label style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border-subtle);cursor:pointer;background:' + (cl.progress[i] ? 'var(--success)11' : 'transparent') + '">' +
