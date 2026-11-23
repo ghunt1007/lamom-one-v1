@@ -7,6 +7,8 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { sendSms } from '../../utils/comms.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
+import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 
@@ -197,10 +199,7 @@ export default async function CsatPage(container) {
         body: `<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:10px">
           <div>
             <label style="font-size:0.72rem;color:var(--text-muted)">ช่องทางส่ง</label>
-            <div style="display:flex;gap:12px;margin-top:6px">
-              <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:0.78rem"><input type="radio" name="csat-ch" value="sms" checked> 📱 SMS</label>
-              <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:0.78rem"><input type="radio" name="csat-ch" value="line"> 💚 LINE</label>
-            </div>
+            <div style="font-size:0.78rem;margin-top:4px">💚 ลูกค้าที่ผูก LINE แล้วส่งทาง LINE (ฟรี) · 📱 ที่เหลือส่ง SMS</div>
           </div>
           <div>
             <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">ผู้รับ (${liveRecent.length} ราย)</div>
@@ -215,27 +214,28 @@ export default async function CsatPage(container) {
         </div>`,
         confirmText: '📤 ส่งแบบสำรวจ',
         async onConfirm() {
-          // (v1.0.xxx) เดิมแค่ set surveyed:true ใน Firestore แต่ toast อ้างว่า "ส่งทาง SMS/LINE แล้ว" ทั้งที่
-          // ไม่มีการเรียกช่องทางส่งจริงเลยสักครั้ง — ตอนนี้ SMS เรียก sendSms() จริง (utils/comms.js) เฉพาะ
-          // ลูกค้าที่มีเบอร์โทรในเรคคอร์ดจริง ส่วน LINE ยังไม่มีการเชื่อม DM รายบุคคลจริงในระบบนี้ (เชื่อมแบบ
-          // Broadcast ทั้งฐานเท่านั้น เหมือน CommInbox.js) จึงแจ้งตรงไปตรงมาแทนอ้างว่าส่งแล้ว
-          const ch = document.querySelector('input[name="csat-ch"]:checked')?.value || 'sms'
-          const withPhone = liveRecent.filter(r => r.phone)
+          // เดิมแค่ set surveyed:true แต่ toast อ้างว่าส่งแล้ว — ตอนนี้ส่งจริง
+          // (v1.0.1358) ผูก LINE แล้ว = ส่ง LINE รายคน · ที่เหลือส่ง SMS ครั้งเดียวหลายเบอร์ · เบอร์ซ้ำส่งครั้งเดียว
+          const seen = new Set()
+          const withPhone = liveRecent.filter(r => { const k = String(r.phone || '').replace(/\D/g, ''); return k.length >= 9 && !seen.has(k) && seen.add(k) })
+          let ok = false
           try {
             let msg = ''
-            if (ch === 'sms') {
-              if (withPhone.length) {
-                await sendSms(withPhone.map(r => r.phone), CSAT_SMS)
-                msg = `✅ ส่ง SMS จริงถึงลูกค้า ${withPhone.length} ราย`
-                if (withPhone.length < liveRecent.length) msg += ` (อีก ${liveRecent.length - withPhone.length} ราย ไม่มีเบอร์โทรในระบบ — ยังส่งไม่ได้)`
-              } else {
-                msg = '⚠️ ไม่มีเบอร์โทรลูกค้ารายใดในระบบ — ส่ง SMS จริงไม่ได้'
-              }
+            if (withPhone.length) {
+              const prefs = await loadContactPrefs()
+              const viaLine = withPhone.filter(r => lineUidFor(r.phone, prefs))
+              const viaSms = withPhone.filter(r => !lineUidFor(r.phone, prefs))
+              let lineOk = 0
+              for (const r of viaLine) { try { await sendToCustomer(r.phone, CSAT_SMS, prefs); lineOk++ } catch { viaSms.push(r) } }
+              if (viaSms.length) await sendSms(viaSms.map(r => r.phone), CSAT_SMS)
+              msg = `✅ ส่งแบบสำรวจถึงลูกค้า ${lineOk + viaSms.length} ราย (${[lineOk ? `LINE ${lineOk}` : '', viaSms.length ? `SMS ${viaSms.length}` : ''].filter(Boolean).join(' · ')})`
+              if (withPhone.length < liveRecent.length) msg += ` · อีก ${liveRecent.length - withPhone.length} รายไม่มีเบอร์โทร/เบอร์ซ้ำ`
+              ok = true
             } else {
-              msg = '📝 LINE: ยังไม่มีระบบส่งเจาะรายบุคคล (เชื่อมแบบ Broadcast ทั้งฐานลูกค้าเท่านั้น) — บันทึกสถานะไว้แล้ว กรุณาส่งเอง'
+              msg = '⚠️ ไม่มีเบอร์โทรลูกค้ารายใดในระบบ — ส่งไม่ได้'
             }
             await Promise.all(liveRecent.map(r => updateDocData('csat', r.id, { surveyed: true })))
-            showToast(msg, ch === 'sms' && withPhone.length ? 'success' : 'warning')
+            showToast(msg, ok ? 'success' : 'warning')
             await loadData()
           } catch (e) { showToast('ส่งไม่สำเร็จ: ' + e.message, 'error') }
         }
