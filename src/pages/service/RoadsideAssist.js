@@ -49,7 +49,10 @@ export default async function RoadsideAssistPage(container) {
     }
     const active = cases.filter(c => !['resolved'].includes(c.status))
     const newCases = cases.filter(c => c.status === 'new')
-    const avgResponse = 22 // นาที
+    // (v1.0.1346) เดิมตายตัว 22 นาที — ตอนนี้คิดจริง: เวลาจากรับแจ้งถึงส่งทีม (dispatchedAt) ของเคสเดือนนี้ ไม่มีข้อมูล = '—'
+    const respMins = cases.filter(c => c.dispatchedAt && c.reported && isMonthBangkok(c.reported))
+      .map(c => (new Date(c.dispatchedAt) - new Date(c.reported)) / 60000).filter(m => Number.isFinite(m) && m >= 0)
+    const avgResponse = respMins.length ? Math.round(respMins.reduce((a, m) => a + m, 0) / respMins.length) : null
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -66,7 +69,7 @@ export default async function RoadsideAssistPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('🚨 เคส active', active.length, active.length > 0 ? 'danger' : 'success')}
           ${kpi('🆕 รอส่งทีม', newCases.length, newCases.length > 0 ? 'danger' : 'success')}
-          ${kpi('⏱ Response เฉลี่ย', avgResponse + ' นาที', avgResponse <= 30 ? 'success' : 'warning')}
+          ${kpi('⏱ ส่งทีมเฉลี่ย (เดือนนี้)', avgResponse == null ? '—' : avgResponse + ' นาที', avgResponse == null ? 'secondary' : avgResponse <= 30 ? 'success' : 'warning')}
           ${kpi('✅ ช่วยแล้วเดือนนี้', cases.filter(c => c.status === 'resolved' && isMonthBangkok(c.resolvedAt || c.updatedAt || c.reported)).length + ' เคส', 'primary')}
         </div>
 
@@ -118,7 +121,7 @@ export default async function RoadsideAssistPage(container) {
           const team = document.getElementById('ra-team')?.value || '—'
           const eta = parseInt(document.getElementById('ra-eta')?.value) || 30
           try {
-            await updateDocData('roadside_cases', c.id, { team, eta, status: 'dispatched' })
+            await updateDocData('roadside_cases', c.id, { team, eta, status: 'dispatched', dispatchedAt: new Date().toISOString() })
             showToast(`🚐 ส่งทีมแล้ว — ETA ${eta} นาที`, 'warning')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

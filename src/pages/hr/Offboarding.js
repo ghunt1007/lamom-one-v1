@@ -68,7 +68,7 @@ export default async function OffboardingPage(container) {
 
         <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
           ${kpi('👋 กำลังดำเนินการ', active, active > 0 ? 'warning' : 'success')}
-          ${kpi('📊 Turnover ปีนี้', '3 คน (18%)', 'secondary')}
+          ${kpi('📊 ลาออกปีนี้', list.filter(x => String(x.lastDay || '').slice(0, 4) === todayBangkok().slice(0, 4)).length + ' คน', 'secondary')}
           ${kpi('✅ เสร็จสมบูรณ์', list.length - active, 'success')}
         </div>
 
