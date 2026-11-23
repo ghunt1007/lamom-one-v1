@@ -7,6 +7,7 @@ import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { numVal } from '../../utils/numInput.js'
 import { callLink } from '../../utils/callLink.js'
+import { printLoanerAgreement } from '../../utils/loanerDoc.js'
 
 const CAR_STATUS = {
   available: { label: 'พร้อมให้ยืม', color: 'success' },
@@ -107,6 +108,10 @@ export default async function LoanerCarPage(container) {
         try { await updateDocData('loaner_cars', car.id, { status: car.status }) } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     })
+    document.querySelectorAll('.loan-print-btn').forEach(btn => btn.addEventListener('click', () => {
+      const l = loans.find(x => x.id === btn.dataset.id)
+      if (l) printLoanerAgreement(l)
+    }))
     document.querySelectorAll('.return-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const loan = loans.find(l => l.id === btn.dataset.id)
@@ -165,10 +170,10 @@ export default async function LoanerCarPage(container) {
               </td>
               <td style="font-size:0.83rem">${escHtml(l.carModel)}<br><span style="font-size:0.73rem;color:var(--text-muted)">${escHtml(l.carPlate)}</span></td>
               <td style="font-size:0.8rem">${escHtml(l.jobCard)}</td>
-              <td style="font-size:0.8rem">${escHtml(l.loanDate)}</td>
-              <td style="font-size:0.8rem;color:${isOverdue?'var(--danger)':'inherit'}">${escHtml(l.returnDate)} ${isOverdue?'⚠️':''}</td>
+              <td style="font-size:0.8rem">${escHtml(formatDate(l.loanDate))}</td>
+              <td style="font-size:0.8rem;color:${isOverdue?'var(--danger)':'inherit'}">${escHtml(formatDate(l.returnDate))} ${isOverdue?'⚠️':''}</td>
               <td><span class="badge badge-${l.status==='returned'?'success':'warning'}">${l.status==='returned'?'คืนแล้ว':'กำลังยืม'}</span></td>
-              <td>${l.status === 'active' ? `<button class="btn btn-xs btn-success return-btn" data-id="${l.id}">รับคืน</button>` : ''}</td>
+              <td style="white-space:nowrap"><button class="btn btn-xs btn-secondary loan-print-btn" data-id="${l.id}" title="พิมพ์ใบยืมรถ">🖨</button> ${l.status === 'active' ? `<button class="btn btn-xs btn-success return-btn" data-id="${l.id}">รับคืน</button>` : ''}</td>
             </tr>`
           }).join('')}
         </tbody>
