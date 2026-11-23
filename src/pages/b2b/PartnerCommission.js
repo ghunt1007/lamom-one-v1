@@ -2,7 +2,7 @@
  * Partner Commission — ค่าคอมพาร์ทเนอร์/นายหน้า
  * Route: /b2b/partner-commission
  */
-import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok, isMonthBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -50,7 +50,7 @@ export default async function PartnerCommissionPage(container) {
     const list = items.filter(c => statusFilter === 'all' || c.status === statusFilter)
     const pendingAmt = items.filter(c => c.status === 'pending').reduce((a, c) => a + commAmt(c), 0)
     const approvedAmt = items.filter(c => c.status === 'approved').reduce((a, c) => a + commAmt(c), 0)
-    const paidAmt = items.filter(c => c.status === 'paid').reduce((a, c) => a + commAmt(c), 0)
+    const paidAmt = items.filter(c => c.status === 'paid' && isMonthBangkok(c.paidAt || c.updatedAt || c.date)).reduce((a, c) => a + commAmt(c), 0)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -147,7 +147,7 @@ export default async function PartnerCommissionPage(container) {
       })
       if (!ok) return
       try {
-        await updateDocData('partner_commissions', c.id, { status: 'paid' })
+        await updateDocData('partner_commissions', c.id, { status: 'paid', paidAt: todayBangkok() })
         showToast(`📝 บันทึกสถานะ "จ่ายแล้ว" ${formatCurrency(commAmt(c))} ให้ ${c.partner} ในระบบแล้ว (ไม่ได้โอนเงินจริงผ่านระบบนี้)`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

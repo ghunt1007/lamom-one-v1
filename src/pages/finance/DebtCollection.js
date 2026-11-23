@@ -2,7 +2,7 @@
  * Debt Collection — ติดตามหนี้ค้างชำระ
  * Route: /finance/debt
  */
-import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
+import { formatCurrency, formatDate, timeAgo, todayBangkok, isMonthBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -43,7 +43,9 @@ export default async function DebtCollectionPage(container) {
     const outstanding = debts.filter(d => d.status !== 'paid').reduce((a, d) => a + d.amount, 0)
     const critical = debts.filter(d => d.status === 'overdue90')
     const criticalAmt = critical.reduce((a, d) => a + d.amount, 0)
-    const collected = debts.filter(d => d.status === 'paid').reduce((a, d) => a + d.amount, 0)
+    // (v1.0.1345) เดิมรวมยอดหนี้ที่ปิดแล้วทุกเดือน และผ่อนจนครบ (ยอดเหลือ 0) นับเป็น 0 — ตอนนี้นับเงินที่รับเดือนนี้ (paidThisMonth)
+    const ymNow = todayBangkok().slice(0, 7)
+    const collected = debts.reduce((a, d) => a + (d.paidMonth === ymNow ? (Number(d.paidThisMonth) || 0) : (d.status === 'paid' && !d.paidMonth && isMonthBangkok(d.updatedAt) ? (Number(d.amount) || 0) : 0)), 0)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -132,7 +134,8 @@ export default async function DebtCollectionPage(container) {
       const d = debts.find(x => x.id === b.dataset.id)
       if (!d) return
       try {
-        await updateDocData('debts', d.id, { status: 'paid', note: 'จ่ายครบแล้ว' })
+        const ym = todayBangkok().slice(0, 7)
+        await updateDocData('debts', d.id, { status: 'paid', note: 'จ่ายครบแล้ว', paidMonth: ym, paidThisMonth: (d.paidMonth === ym ? (Number(d.paidThisMonth) || 0) : 0) + (Number(d.amount) || 0) })
         showToast(`✅ รับชำระ ${formatCurrency(d.amount)} แล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -151,7 +154,8 @@ export default async function DebtCollectionPage(container) {
           if (amt <= 0 || amt > d.amount) { showToast('❗ จำนวนไม่ถูกต้อง', 'error'); return false }
           const newAmount = d.amount - amt
           try {
-            await updateDocData('debts', d.id, { amount: newAmount, status: newAmount === 0 ? 'paid' : d.status })
+            const ym = todayBangkok().slice(0, 7)
+            await updateDocData('debts', d.id, { amount: newAmount, status: newAmount === 0 ? 'paid' : d.status, paidMonth: ym, paidThisMonth: (d.paidMonth === ym ? (Number(d.paidThisMonth) || 0) : 0) + amt })
             showToast(`💸 รับชำระ ${formatCurrency(amt)} — คงเหลือ ${formatCurrency(newAmount)}`, 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

@@ -2,7 +2,7 @@
  * Expense Approval — อนุมัติค่าใช้จ่าย
  * Route: /finance/expenses
  */
-import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
+import { formatCurrency, formatDate, timeAgo, isMonthBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -89,7 +89,7 @@ export default async function ExpenseApprovalPage(container) {
           ${kpi('📋 รายการทั้งหมด', expenses.length, 'primary')}
           ${kpi('⏳ รออนุมัติ', pending + ' (' + formatCurrency(pendingAmount) + ')', pending > 0 ? 'warning' : 'secondary')}
           ${kpi('✅ อนุมัติแล้ว', formatCurrency(approvedAmount), 'success')}
-          ${kpi('💰 เดือนนี้รวม', formatCurrency(expenses.reduce((a,e)=>a+e.amount,0)), 'primary')}
+          ${kpi('💰 เดือนนี้รวม', formatCurrency(expenses.filter(e => e.status !== 'rejected' && isMonthBangkok(e.submitDate || e.createdAt)).reduce((a,e)=>a+(Number(e.amount)||0),0)), 'primary')}
         </div>
 
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">

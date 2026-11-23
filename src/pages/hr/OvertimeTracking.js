@@ -82,8 +82,9 @@ export default async function OvertimeTrackingPage(container) {
     }
     const list = records.filter(o => statusFilter === 'all' || o.status === statusFilter)
     const pending = records.filter(o => o.status === 'pending')
-    const monthHours = records.filter(o => o.status !== 'rejected').reduce((a, o) => a + o.hours, 0)
-    const monthCost = records.filter(o => ['approved','paid'].includes(o.status)).reduce((a, o) => a + otPay(o), 0)
+    const ymNow = todayBangkok().slice(0, 7)
+    const monthHours = records.filter(o => o.status !== 'rejected' && (o.date || '').startsWith(ymNow)).reduce((a, o) => a + (Number(o.hours) || 0), 0)
+    const monthCost = records.filter(o => ['approved','paid'].includes(o.status) && (o.date || '').startsWith(ymNow)).reduce((a, o) => a + otPay(o), 0)
     const byStaff = monthlyHoursByStaff()
     const nearLimit = byStaff.filter(s => s.hours / s.limit >= 0.75)
 
@@ -102,7 +103,7 @@ export default async function OvertimeTrackingPage(container) {
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('⏱ OT เดือนนี้', monthHours + ' ชม.', 'primary')}
-          ${kpi('💰 ค่า OT', formatCurrency(monthCost), 'warning')}
+          ${kpi('💰 ค่า OT เดือนนี้', formatCurrency(monthCost), 'warning')}
           ${kpi('⏳ รออนุมัติ', pending.length, pending.length > 0 ? 'warning' : 'success')}
           ${kpi('⚠️ ใกล้เพดาน', nearLimit.length + ' คน', nearLimit.length > 0 ? 'danger' : 'success')}
         </div>
