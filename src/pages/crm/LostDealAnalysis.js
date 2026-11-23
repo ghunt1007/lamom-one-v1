@@ -131,7 +131,7 @@ export default async function LostDealAnalysisPage(container) {
           </div>
         </div>
 
-        <div style="font-size:0.72rem;color:${dealsLive?'var(--success)':'var(--text-muted)'};margin-bottom:8px">${dealsLive?'● ข้อมูลจริง':'● ตัวอย่างข้อมูล — ยังไม่มีดีลที่เสียจริงในระบบ'}</div>
+        <div style="font-size:0.72rem;color:${dealsLive?'var(--success)':'var(--text-muted)'};margin-bottom:8px">${dealsLive?'● ข้อมูลจริง':'● ยังไม่มีดีลที่เสียจริงในระบบ'}</div>
 
         <!-- KPI -->
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">

@@ -146,7 +146,7 @@ export default async function AnalyticsDashboard(container) {
           <div>
             <div class="page-title">📈 Analytics 360</div>
             <div class="page-subtitle">วิเคราะห์ธุรกิจเชิงลึก + พยากรณ์
-              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">● ตัวอย่างข้อมูล — ยังไม่มียอดขายจริงปีนี้</span>'}
+              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">● ยังไม่มียอดขายจริงปีนี้</span>'}
             </div>
           </div>
           <div class="page-actions">
@@ -337,7 +337,7 @@ export default async function AnalyticsDashboard(container) {
     const maxRev = Math.max(1, ...STAFF_PERF.map(s => s.revenue))
     return `
       <div class="card" style="padding:0;overflow:hidden">
-        <div style="padding:16px 20px;font-weight:700;border-bottom:1px solid var(--border)">🏆 Staff Performance ${YEAR}${dataSource !== 'live' ? ' (ตัวอย่างข้อมูล)' : ''}</div>
+        <div style="padding:16px 20px;font-weight:700;border-bottom:1px solid var(--border)">🏆 Staff Performance ${YEAR}${dataSource !== 'live' ? ' (ยังไม่มีข้อมูลจริง)' : ''}</div>
         <div class="table-wrap"><table class="table">
           <thead>
             <tr>
