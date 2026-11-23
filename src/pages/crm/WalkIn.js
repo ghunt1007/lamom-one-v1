@@ -2,7 +2,7 @@
  * Walk-In Traffic — บันทึกลูกค้าเดินเข้า
  * Route: /crm/walkin
  */
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, ymdBangkok, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
@@ -89,7 +89,7 @@ export default async function WalkInPage(container) {
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:16px">
-          ${kpi('🚶 Walk-In วันนี้', walkins.length + ' คน', 'primary')}
+          ${kpi('🚶 Walk-In วันนี้', walkins.filter(w => w.visitTime && ymdBangkok(w.visitTime) === todayBangkok()).length + ' คน', 'primary')}
           ${kpi('🔥 ลีดร้อน', hot, hot > 0 ? 'danger' : 'secondary')}
           ${kpi('🎯 จองแล้ว', booked, 'success')}
           ${kpi('📊 อัตราจอง', convRate + '%', convRate >= 30 ? 'success' : 'warning')}
