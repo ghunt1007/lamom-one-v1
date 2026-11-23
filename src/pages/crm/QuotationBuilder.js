@@ -135,7 +135,7 @@ export default async function QuotationBuilderPage(container) {
       return
     }
     const list = filtered()
-    const totalValue = quotes.filter(q => q.status === 'accepted').reduce((a, q) => a + q.finalPrice, 0)
+    const totalValue = quotes.filter(q => q.status === 'accepted').reduce((a, q) => a + (Number(q.finalPrice) || 0), 0)
     const convRate = quotes.length ? Math.round(quotes.filter(q => q.status === 'accepted').length / quotes.filter(q => q.status !== 'draft').length * 100) : 0
 
     container.innerHTML = `
