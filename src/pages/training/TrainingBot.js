@@ -43,7 +43,7 @@ export default async function TrainingBotPage(container) {
   let loading = false
 
   async function loadTopicMessages(topicId) {
-    try { return (await listDocs('chat_training_bot', [['topic', '==', topicId]], 'createdAt', 'desc', 200)).reverse() } // (v1.0.1330) 200 ข้อความล่าสุด ไม่ใช่เก่าสุด catch (e) { return [] }
+    try { return (await listDocs('chat_training_bot', [['topic', '==', topicId]], 'createdAt', 'desc', 200)).reverse() } /* (v1.0.1330) 200 ข้อความล่าสุด ไม่ใช่เก่าสุด */ catch (e) { return [] }
   }
 
   function msgBubble(msg) {
