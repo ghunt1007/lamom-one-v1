@@ -13,6 +13,8 @@ import { heuristicScore } from './LeadScoring.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { inStockByModel } from '../../utils/stockAnalysis.js'
+import { modelKey as vModelKey } from '../../utils/orderNeeds.js'
 
 // (v1.0.341) เดิม status/accuracy ต่อ Skill เป็นตัวเลข hardcode ล้วน ไม่มีระบบวัดความแม่นยำจริงในระบบเลย
 // (ต้องมี ground-truth ผลจริงเทียบคำแนะนำ AI ถึงจะวัดได้ — งานสร้างระบบวัดผลใหม่ทั้งหมด ไม่ใช่ scope การแก้
@@ -135,7 +137,7 @@ export default async function LamiBrainPage(container) {
 
   async function loadInsights() {
     try {
-      const [leadsRaw, vehicleModels, jobCards, complaintsList, salesRows, debts, csat, staff] = await Promise.all([
+      const [leadsRaw, vehicleModelsRaw, jobCards, complaintsList, salesRows, debts, csat, staff, vehicles] = await Promise.all([
         listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
         listDocs('vehicle_models', [], 'brand', 'asc', 200).catch(() => []),
         listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
@@ -144,22 +146,26 @@ export default async function LamiBrainPage(container) {
         listDocs('debts', companyScopeFilters(), 'dueDate', 'asc', 200).catch(() => []),
         listDocs('csat', [], 'createdAt', 'desc', 100).catch(() => []),
         listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 200).catch(() => []),
+        listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 1000).catch(() => null),
       ])
+      // (v1.0.1352) สต็อกต่อรุ่นนับจากรถจริงใน 'vehicles' — field stock ใน vehicle_models พิมพ์เองตอนเพิ่มรุ่นแล้วไม่เคยอัปเดต
+      const realStock = vehicles ? inStockByModel(vehicles) : null
+      const vehicleModels = realStock ? vehicleModelsRaw.map(m => ({ ...m, stock: realStock.get(vModelKey(m)) || 0 })) : vehicleModelsRaw
       const leads = leadsRaw.filter(c => !c.deleted && (c.stage === 'lead' || c.stage === 'pp') && c.status !== 'lost')
       hotLeadCount = leads.filter(c => heuristicScore(c).score >= 80).length
       insights = computeInsights({ leads, vehicleModels, jobCards: jobCards.filter(j => !j.deleted), complaintsList, salesRows })
-      businessContext = buildBusinessContext({ leads, vehicleModels, jobCards, salesRows, debts, csat, staff })
+      businessContext = buildBusinessContext({ leads, vehicleModels, vehicles, jobCards, salesRows, debts, csat, staff })
     } catch (e) { insights = [] }
   }
 
   // (v1.0.428) เดิม askLami(text, chatHistory) ในหน้าแชทของ LAMI Brain เองก็ไม่เคยส่ง context เลยเหมือนกับ
   // AiAssistantChat.js — ใช้ข้อมูลที่ loadInsights() ดึงมาแล้ว (ไม่ต้อง query ซ้ำ) มาแปลงเป็นบริบทให้ askLami()
-  function buildBusinessContext({ leads, vehicleModels, jobCards, salesRows, debts, csat, staff }) {
+  function buildBusinessContext({ leads, vehicleModels, vehicles, jobCards, salesRows, debts, csat, staff }) {
     try {
       const today = todayBangkok()
       const thisMonth = today.slice(0, 7)
       const monthSales = salesRows.filter(s => (s.date || '').startsWith(thisMonth))
-      const activeStock = vehicleModels.reduce((sum, m) => sum + (m.stock || 0), 0)
+      const activeStock = vehicles ? vehicles.filter(v => v && !v.deleted && !['sold', 'ขายแล้ว', 'delivered', 'ส่งมอบแล้ว'].includes(v.status)).length : vehicleModels.reduce((sum, m) => sum + (m.stock || 0), 0)
       const hotLeads = leads.filter(c => heuristicScore(c).score >= 80).length
       const openDebts = debts.filter(d => !d.deleted && d.status !== 'paid')
       const overdueAmount = openDebts.reduce((sum, d) => sum + (d.amount || 0), 0)
