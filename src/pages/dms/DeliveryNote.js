@@ -4,11 +4,12 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getBranches, getSalesStaff } from '../../data/masterData.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, readDoc, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
 import { callLink } from '../../utils/callLink.js'
+import { printBookingForm } from '../../utils/bookingDocsMenu.js'
 
 const BOOKING_TO_DN = {
   'รอส่งมอบ': 'pending',
@@ -259,11 +260,19 @@ export default async function DeliveryNotePage(container) {
         </div>
         ${n.notes ? `<div style="margin-top:12px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.82rem;color:var(--text-muted)">📌 ${escHtml(n.notes)}</div>` : ''}
       `,
-      footer: n.status !== 'done' && n.status !== 'cancelled'
+      // (v1.0.1337) พิมพ์ใบส่งมอบรถ (ฟอร์มจริงของโชว์รูม ชุดเดียวกับหน้าใบจอง) ได้จากหน้านี้เลย — เดิมต้องย้อนไปหน้าใบจอง
+      footer: (n._fbId ? `<button class="btn btn-secondary print-dn-btn" style="margin-right:6px">🖨 พิมพ์ใบส่งมอบ</button>` : '') + (n.status !== 'done' && n.status !== 'cancelled'
         ? `<button class="btn btn-primary schedule-modal-btn" style="margin-right:6px">📅 นัดส่งมอบ</button><button class="btn btn-success confirm-modal-btn">✓ ยืนยันส่งมอบ</button>`
-        : ''
+        : '')
     })
     setTimeout(() => {
+      document.querySelector('.modal .print-dn-btn')?.addEventListener('click', async () => {
+        try {
+          const b = await readDoc('bookings', n._fbId)
+          if (!b) { showToast('ไม่พบใบจองของรายการนี้', 'error'); return }
+          await printBookingForm({ id: n._fbId, ...b }, 'delivery')
+        } catch { showToast('เปิดใบส่งมอบไม่สำเร็จ', 'error') }
+      })
       document.querySelector('.modal .schedule-modal-btn')?.addEventListener('click', () => { document.querySelector('.modal-close-btn')?.click(); openScheduleForm(n) })
       document.querySelector('.modal .confirm-modal-btn')?.addEventListener('click', () => { document.querySelector('.modal-close-btn')?.click(); openDeliveryConfirm(n) })
     }, 50)
