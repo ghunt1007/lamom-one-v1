@@ -6,6 +6,8 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
+import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
 import { sendSms, sendEmail } from '../../utils/comms.js'
 import { copyText } from '../../utils/copyText.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
@@ -207,11 +209,8 @@ export default async function ReceiptAutoPage(container) {
     })
   }
 
-  // เดิม "ส่งเลย"/"Retry" แค่ flip status เป็น 'sent' ไม่เคยเรียกผู้ให้บริการจริงเลย (ใบเสร็จไม่ถึงมือลูกค้าจริง
-  // แต่ระบบขึ้นว่า "ส่งแล้ว") แก้ให้เรียก sendSms/sendEmail จริงผ่าน src/utils/comms.js (pattern เดียวกับ
-  // Installment.js) จับคู่เบอร์โทร/อีเมลจาก r.phone/r.email ที่กรอกตอนออกใบเสร็จ — ช่องทาง LINE ที่เชื่อมจริง
-  // เป็น broadcast ทั้งฐานลูกค้าเท่านั้น (sendLineBroadcast) ส่งเจาะรายบุคคลไม่ได้ จึงยังไม่มี API ส่งเฉพาะคน
-  // สำหรับ LINE — คงพฤติกรรมเดิม (mark sent) ไว้เฉพาะช่องทางนี้เท่านั้น พร้อม comment อธิบายไว้ตรงนี้
+  // เดิม "ส่งเลย"/"Retry" แค่ flip status เป็น 'sent' ไม่เคยเรียกผู้ให้บริการจริง — ตอนนี้ส่ง SMS/อีเมลจริง
+  // และ LINE ส่งจริงถึงลูกค้าที่ผูก LINE แล้ว (ไม่ได้ผูก = คัดลอกข้อความให้)
   async function sendReceipt(r) {
     try {
       if (r.channel === 'sms') {
@@ -231,11 +230,17 @@ export default async function ReceiptAutoPage(container) {
         }
         await sendEmail([r.email], `ใบเสร็จ ${r.number}`, `เรียนคุณ ${r.customer}\n\nใบเสร็จเลขที่ ${r.number} ยอด ${formatCurrency(r.amount)}\nขอบคุณที่ใช้บริการ LAMOM`)
       }
-      // channel === 'line' — ยังไม่มี API ส่งเฉพาะคนจริง (ดู comment ด้านบน) คงพฤติกรรมเดิม
+      // (v1.0.1360) channel 'line': ลูกค้าผูก LINE แล้ว (ตามเบอร์) = ส่ง LINE จริงถึงคนนั้น · ไม่ได้ผูก = คัดลอกข้อความให้วางส่งเอง
+      const txt = `LAMOM ใบเสร็จ ${r.number} — ${r.customer} ยอด ${formatCurrency(r.amount)} ขอบคุณที่ใช้บริการ`
+      let linePushed = false
+      if (r.channel === 'line' && r.phone) {
+        const prefs = await loadContactPrefs()
+        if (lineUidFor(r.phone, prefs)) { await sendToCustomer(r.phone, txt, prefs); linePushed = true }
+      }
       await updateDocData('auto_receipts', r.id, { status: 'sent', sent: true })
-      if (r.channel === 'line' || !['sms', 'email'].includes(r.channel)) {
-        await copyText(`LAMOM ใบเสร็จ ${r.number} — ${r.customer} ยอด ${formatCurrency(r.amount)} ขอบคุณที่ใช้บริการ`, '📋 คัดลอกข้อความใบเสร็จแล้ว — วางส่งใน LINE ลูกค้าได้เลย')
-      } else showToast('📤 ส่งใบเสร็จ ' + r.number + ' แล้ว', 'success')
+      if (!linePushed && (r.channel === 'line' || !['sms', 'email'].includes(r.channel))) {
+        await copyText(txt, '📋 ลูกค้ายังไม่ได้ผูก LINE — คัดลอกข้อความใบเสร็จแล้ว วางส่งใน LINE ลูกค้าได้เลย')
+      } else showToast('📤 ส่งใบเสร็จ ' + r.number + (linePushed ? ' ทาง LINE' : '') + ' แล้ว', 'success')
       await loadData()
     } catch (e) {
       await updateDocData('auto_receipts', r.id, { status: 'failed' }).catch(() => {})
