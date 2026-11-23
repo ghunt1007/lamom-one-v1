@@ -7,11 +7,10 @@ import { addDays } from '../../utils/aheadBrief.js'
 import { nextAnniversary } from '../../utils/anniversary.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { loadContactPrefs, splitByConsent, phoneKey } from '../../utils/marketingOptOut.js'
-import { lineReply } from '../../utils/socialApi.js'
+import { sendToCustomer } from '../../utils/customerSend.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
-import { sendSms } from '../../utils/comms.js'
 import { escHtml } from '../../utils/escape.js'
 import { callLink } from '../../utils/callLink.js'
 import { kpi } from '../../utils/kpiCard.js'
@@ -168,9 +167,7 @@ export default async function BirthdayGreetingsPage(container) {
 
   // (v1.0.1355) ลูกค้าที่ผูก LINE แล้ว ส่งทาง LINE รายคนได้ (ฟรี) — ไม่ได้ผูก/เลิกรับ LINE ใช้ SMS เหมือนเดิม
   async function sendGreeting(e, msg, lineUid) {
-    if (lineUid) await lineReply('line_' + String(lineUid).replace(/[^A-Za-z0-9-]/g, ''), msg)
-    else await sendSms([e.phone], msg)
-    const channel = lineUid ? 'LINE' : 'SMS'
+    const channel = await sendToCustomer(e.phone, msg, { line: new Map(lineUid ? [[phoneKey(e.phone), lineUid]] : []) })
     await createDoc('greeting_sends', { customer: e.customer, phone: e.phone, eventDate: e.date, type: e.type, channel, sentAt: new Date().toISOString(), companyId: myEffectiveCompanyId() })
     e.sent = true; e.channel = channel
     return channel
