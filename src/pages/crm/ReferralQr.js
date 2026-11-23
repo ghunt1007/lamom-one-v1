@@ -7,7 +7,8 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
-import { sendSms } from '../../utils/comms.js'
+import { sendToCustomer } from '../../utils/customerSend.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
 import { referralUrl, newReferralCode, referralStats, referrerTotals, REFERRAL_RATE } from '../../utils/publicLinks.js'
@@ -130,9 +131,9 @@ export default async function ReferralQrPage(container) {
       // เดิมอ้างว่าส่งทาง LINE แต่ไม่มีการส่งจริง — ผู้แนะนำมีเบอร์โทรเก็บไว้อยู่แล้ว แก้ให้ส่ง SMS จริง
       if (r.phone) {
         try {
-          await sendSms([r.phone], `LAMOM: นี่คือลิงก์แนะนำเพื่อนของคุณ ${r.qrUrl} — แนะนำเพื่อนซื้อรถรับค่าคอมมิชชั่นทันที!`)
-          showToast(`📤 ส่ง SMS ลิงก์ ${r.qrUrl} ให้ ${r.name} แล้ว`, 'success')
-        } catch { showToast(`⚠️ ส่ง SMS ให้ ${r.name} ไม่สำเร็จ`, 'error') }
+          const ch = await sendToCustomer(r.phone, `LAMOM: นี่คือลิงก์แนะนำเพื่อนของคุณ ${r.qrUrl} — แนะนำเพื่อนซื้อรถรับค่าคอมมิชชั่นทันที!`, await loadContactPrefs()) // (v1.0.1357) ผูก LINE แล้ว = LINE
+          showToast(`📤 ส่ง ${ch} ลิงก์ ${r.qrUrl} ให้ ${r.name} แล้ว`, 'success')
+        } catch { showToast(`⚠️ ส่งข้อความให้ ${r.name} ไม่สำเร็จ`, 'error') }
       } else {
         showToast(`⚠️ ${r.name} ไม่มีเบอร์โทรในระบบ — กรุณาส่งลิงก์เอง: ${r.qrUrl}`, 'error')
       }

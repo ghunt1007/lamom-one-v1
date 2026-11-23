@@ -6,7 +6,8 @@ import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
-import { sendSms } from '../../utils/comms.js'
+import { sendToCustomer } from '../../utils/customerSend.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
 import { escHtml } from '../../utils/escape.js'
 
 // NCB schedule ตามมาตรฐาน คปภ.
@@ -128,9 +129,9 @@ export default async function NoClaimPage(container) {
       const msg = `LAMOM แจ้งคุณ${p.customer}: ประกันรถ ${p.plate} จะหมดอายุใน ${daysUntil(p.renewDate)} วัน (NCB ${ncbOf(p).pct}%) กรุณาติดต่อต่ออายุ`
       if (p.phone) {
         try {
-          await sendSms([p.phone], msg)
-          showToast(`📱 ส่ง SMS แจ้ง ${p.customer} แล้ว · NCB ${ncbOf(p).pct}%`, 'success')
-        } catch { showToast(`⚠️ ส่ง SMS แจ้ง ${p.customer} ไม่สำเร็จ`, 'error') }
+          const ch = await sendToCustomer(p.phone, msg, await loadContactPrefs()) // (v1.0.1357) ผูก LINE แล้ว = LINE
+          showToast(`📱 ส่ง ${ch} แจ้ง ${p.customer} แล้ว · NCB ${ncbOf(p).pct}%`, 'success')
+        } catch { showToast(`⚠️ ส่งข้อความแจ้ง ${p.customer} ไม่สำเร็จ`, 'error') }
       } else {
         showToast(`⚠️ ${p.customer} ไม่มีเบอร์โทรในระบบ — กรุณาติดต่อเอง`, 'error')
       }
