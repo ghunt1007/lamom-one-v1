@@ -25,6 +25,7 @@ import { escHtml } from '../../utils/escape.js'
 import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { quoteText } from '../../utils/quoteText.js'
+import { printVehicleQuote } from '../../utils/vehicleQuoteDoc.js'
 import { copyText } from '../../utils/copyText.js'
 import { callLink } from '../../utils/callLink.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
@@ -279,7 +280,7 @@ export default async function QuotationBuilderPage(container) {
     const { el } = openModal({
       title: '📄 ใบเสนอราคา — ' + escHtml(q.customerName || 'ลูกค้า'), // (v1.0.1072) เดิมโชว์ไอดีระบบยาวๆ อ่านไม่ออก
       size: 'lg',
-      footer: `<button class="btn btn-secondary" id="qt-copy">📋 คัดลอกส่งลูกค้า</button>${q.status === 'draft' ? '<button class="btn btn-primary" id="qt-send">📤 ส่ง LINE + บันทึกว่าส่งแล้ว</button>' : ''}${q.status === 'sent' ? '<button class="btn btn-success" id="qt-accept">✓ ลูกค้ายอมรับ</button>' : ''}${q.status !== 'rejected' ? `<button class="btn btn-success" id="qt-book">${q.bookingId ? '📝 เปิดใบจอง' : '📝 ทำใบจอง'}</button>` : ''}`,
+      footer: `<button class="btn btn-secondary" id="qt-print">🖨 พิมพ์</button><button class="btn btn-secondary" id="qt-copy">📋 คัดลอกส่งลูกค้า</button>${q.status === 'draft' ? '<button class="btn btn-primary" id="qt-send">📤 ส่ง LINE + บันทึกว่าส่งแล้ว</button>' : ''}${q.status === 'sent' ? '<button class="btn btn-success" id="qt-accept">✓ ลูกค้ายอมรับ</button>' : ''}${q.status !== 'rejected' ? `<button class="btn btn-success" id="qt-book">${q.bookingId ? '📝 เปิดใบจอง' : '📝 ทำใบจอง'}</button>` : ''}`,
       body: `
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:14px;margin-bottom:14px">
           <div>
@@ -324,6 +325,7 @@ export default async function QuotationBuilderPage(container) {
       `
     })
 
+    el.querySelector('#qt-print')?.addEventListener('click', () => printVehicleQuote(q, accItems))
     el.querySelector('#qt-copy')?.addEventListener('click', () => copyText(quoteText(q, accItems), '📋 คัดลอกแล้ว วางใน LINE ส่งลูกค้าได้เลย'))
     el.querySelector('#qt-send')?.addEventListener('click', async () => { el.remove(); await markSent(q) })
     el.querySelector('#qt-accept')?.addEventListener('click', async () => {
