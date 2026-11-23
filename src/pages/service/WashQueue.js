@@ -2,7 +2,7 @@
  * Wash & Detailing Queue — คิวล้างรถ/ดีเทลลิ่ง
  * Route: /service/wash
  */
-import { formatCurrency, timeAgo } from '../../utils/format.js'
+import { formatCurrency, timeAgo, ymdBangkok, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -48,8 +48,8 @@ export default async function WashQueuePage(container) {
     }
     const waiting = queue.filter(q => q.status === 'waiting')
     const washing = queue.filter(q => q.status === 'washing')
-    const revenue = queue.filter(q => !q.isFree && ['done','delivered'].includes(q.status)).reduce((a, q) => a + WASH_SERVICES[q.service].price, 0)
-    const estWait = waiting.reduce((a, q) => a + WASH_SERVICES[q.service].mins, 0)
+    const revenue = queue.filter(q => !q.isFree && ['done','delivered'].includes(q.status) && ymdBangkok(q.startTime || q.updatedAt || q.createdAt) === todayBangkok()).reduce((a, q) => a + (WASH_SERVICES[q.service]?.price || 0), 0)
+    const estWait = waiting.reduce((a, q) => a + (WASH_SERVICES[q.service]?.mins || 0), 0)
 
     container.innerHTML = `
       <div class="page-content animate-slide">

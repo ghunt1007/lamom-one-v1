@@ -2,7 +2,7 @@
  * Pickup & Delivery — บริการรับ-ส่งรถลูกค้า
  * Route: /service/pickup
  */
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, ymdBangkok, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -56,7 +56,7 @@ export default async function CourtesyCarPage(container) {
       return
     }
     const active = jobs.filter(j => j.status !== 'completed').length
-    const todayJobs = jobs.length
+    const todayJobs = jobs.filter(j => j.scheduledAt && ymdBangkok(j.scheduledAt) === todayBangkok()).length
     const totalKm = jobs.reduce((a, j) => a + j.distance * (j.type === 'both' ? 2 : 1), 0)
 
     container.innerHTML = `

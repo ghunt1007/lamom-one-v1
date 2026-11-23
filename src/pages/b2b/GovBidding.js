@@ -42,7 +42,8 @@ export default async function GovBiddingPage(container) {
     const list = bids.filter(b => statusFilter === 'all' || b.status === statusFilter)
     const active = bids.filter(b => ['watching','preparing','submitted'].includes(b.status))
     const pipeline = active.reduce((a, b) => a + b.budget, 0)
-    const wonValue = bids.filter(b => b.status === 'won').reduce((a, b) => a + b.ourBid, 0)
+    const yearNow = todayBangkok().slice(0, 4)
+    const wonValue = bids.filter(b => b.status === 'won' && String(b.deadline || '').slice(0, 4) === yearNow).reduce((a, b) => a + (Number(b.ourBid) || 0), 0)
     const winRate = Math.round(bids.filter(b => b.status === 'won').length / bids.filter(b => ['won','lost'].includes(b.status)).length * 100) || 0
 
     container.innerHTML = `

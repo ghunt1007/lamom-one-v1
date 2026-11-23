@@ -2,7 +2,7 @@
  * Call Log — บันทึกสายโทรเข้า-ออก
  * Route: /comms/calls
  */
-import { timeAgo } from '../../utils/format.js'
+import { timeAgo, ymdBangkok, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -70,7 +70,7 @@ export default async function CallLogPage(container) {
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('☎️ สายวันนี้', calls.length, 'primary')}
+          ${kpi('☎️ สายวันนี้', calls.filter(c => c.time && ymdBangkok(c.time) === todayBangkok()).length, 'primary')}
           ${kpi('📵 ไม่ได้รับ', missed, missed > 0 ? 'danger' : 'success')}
           ${kpi('📞 รอ Follow-up', needFollow, needFollow > 0 ? 'warning' : 'success')}
           ${kpi('⏱ เวลาสายรวม', Math.round(totalDur/60) + ' นาที', 'secondary')}
