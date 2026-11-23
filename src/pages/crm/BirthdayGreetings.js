@@ -92,7 +92,7 @@ export default async function BirthdayGreetingsPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🎂 Birthday & Anniversary</div>
-            <div class="page-subtitle">ส่งคำอวยพร — รักษาความสัมพันธ์ลูกค้า${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ครบรอบจากใบจองจริง</span>' : ' <span style="color:var(--warning);font-size:0.75rem">● ตัวอย่างข้อมูล — ยังไม่มีใบจองที่ส่งมอบแล้ว</span>'}</div>
+            <div class="page-subtitle">ส่งคำอวยพร — รักษาความสัมพันธ์ลูกค้า${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ครบรอบจากใบจองจริง</span>' : ' <span style="color:var(--warning);font-size:0.75rem">● ยังไม่มีใบจองที่ส่งมอบแล้ว</span>'}</div>
           </div>
           <div class="page-actions">
             ${unsentToday > 0 ? `<button class="btn btn-primary" id="send-all-btn">📤 ส่งทั้งหมดวันนี้ (${unsentToday})</button>` : ''}

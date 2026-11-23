@@ -226,7 +226,7 @@ export default async function ReportCenterPage(container) {
           <div>
             <div style="font-weight:700;font-size:1rem">${escHtml(r.name)}</div>
             <div style="font-size:0.78rem;color:var(--text-muted)">${r.desc}
-              ${isLive ? ' <span style="color:var(--success);font-size:0.7rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--text-muted);font-size:0.7rem">● ตัวอย่างข้อมูล — รายงานนี้ยังไม่เชื่อมข้อมูลจริง</span>'}
+              ${isLive ? ' <span style="color:var(--success);font-size:0.7rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--text-muted);font-size:0.7rem">● รายงานนี้ยังไม่เชื่อมข้อมูลจริง</span>'}
             </div>
           </div>
           <!-- Date range — มีผลเฉพาะรายงานที่มีข้อมูลจริงตามวันที่ (R001) -->

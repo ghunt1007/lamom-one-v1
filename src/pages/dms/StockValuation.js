@@ -95,7 +95,7 @@ export default async function StockValuationPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📦 Stock Valuation</div>
-            <div class="page-subtitle">มูลค่าสินค้าคงคลัง — รถยนต์ในสต็อก${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--warning);font-size:0.75rem">● ตัวอย่างข้อมูล — ยังไม่มีรถในสต็อกจริง</span>'}</div>
+            <div class="page-subtitle">มูลค่าสินค้าคงคลัง — รถยนต์ในสต็อก${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--warning);font-size:0.75rem">● ยังไม่มีรถในสต็อกจริง</span>'}</div>
           </div>
           <div class="page-actions">
             <div style="display:flex;gap:6px">
