@@ -8,6 +8,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { carOf } from '../../utils/carLabel.js'
+import { printInspection } from '../../utils/inspectionDoc.js'
 
 const INSPECTION_TYPES = {
   pdi:       { label: 'Pre-Delivery (PDI)', icon: '🚗', color: 'primary' },
@@ -225,10 +226,11 @@ export default async function VehicleInspectionPage(container) {
         <div style="margin-top:14px">
           <div class="input-group"><label class="input-label">หมายเหตุรวม</label><textarea class="input" id="ins-overall-note" rows="2" placeholder="สรุปผลการตรวจ...">${escHtml(ins.notes)}</textarea></div>
         </div>`,
-      footer: `<div style="display:flex;gap:8px">
+      footer: `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
         <button class="btn btn-success" id="ins-pass-btn">✅ บันทึก — ผ่าน</button>
         <button class="btn btn-danger" id="ins-fail-btn">❌ บันทึก — ไม่ผ่าน</button>
         <button class="btn btn-secondary" id="ins-save-btn">💾 บันทึกร่าง</button>
+        <button class="btn btn-secondary" id="ins-print-btn">🖨 พิมพ์</button>
       </div>`
     })
 
@@ -276,6 +278,11 @@ export default async function VehicleInspectionPage(container) {
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
 
+      document.getElementById('ins-print-btn')?.addEventListener('click', () => {
+        const notes = document.getElementById('ins-overall-note')?.value ?? ins.notes
+        const sections = Object.entries(CHECKLIST_TEMPLATE).map(([k, sec]) => ({ label: sec.label, items: ins.items[k] || [] }))
+        printInspection({ ...ins, notes }, sections, { typeLabel: tp?.label || '' })
+      })
       document.getElementById('ins-pass-btn')?.addEventListener('click', () => saveIns('pass'))
       document.getElementById('ins-fail-btn')?.addEventListener('click', () => saveIns('fail'))
       document.getElementById('ins-save-btn')?.addEventListener('click', async () => {
