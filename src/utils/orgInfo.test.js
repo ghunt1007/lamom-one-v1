@@ -9,3 +9,13 @@ describe('orgFromCompany (v1.0.1323)', () => {
     expect(orgFromCompany(null)).toEqual({})
   })
 })
+
+describe('getOrgInfo fallback (v1.0.1334)', () => {
+  it('uses the real showroom details when the company profile is not filled', async () => {
+    const { getOrgInfo, showroomOrg } = await import('./print.js')
+    const o = getOrgInfo()
+    expect(o.name).toBe(showroomOrg().name)
+    expect(o.taxId).toBe(showroomOrg().taxId)
+    expect(o.name).not.toBe('LAMOM ONE')
+  })
+})

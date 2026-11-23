@@ -1,4 +1,5 @@
 import { dmy as fmtDMY, hm as fmtHM } from './format.js'
+import { SHOWROOM_DEFAULT } from './showroomDefault.js'
 // Print utility — พิมพ์เอกสาร A4 ที่จัดรูปแบบสวยงาม (ใบจอง/ใบถอนจอง/สลิปเงินเดือน/สลิปคอมฯ)
 // ใช้ hidden iframe เพื่อไม่ให้โดน popup blocker และไม่กระทบหน้าจอหลัก
 
@@ -15,8 +16,15 @@ export function getOrgInfo() {
   // อ่านค่าทับจาก localStorage ได้ (ตั้งใน Settings ภายหลัง)
   try {
     const saved = JSON.parse(localStorage.getItem('lamom_org') || '{}')
-    return { ...ORG, ...saved }
-  } catch (e) { return { ...ORG } }
+    return { ...ORG, ...(saved && saved.name ? {} : showroomOrg()), ...saved }
+  } catch (e) { return { ...ORG, ...showroomOrg() } }
+}
+
+// (v1.0.1334) ยังไม่ได้กรอกหน้า "ข้อมูลบริษัท" → หัวเอกสารใช้ข้อมูลโชว์รูมจริง (ชุดเดียวกับฟอร์มใบจอง/ใบส่งมอบ)
+// แทนคำว่า "LAMOM ONE" ที่ไม่มีที่อยู่/เบอร์/เลขผู้เสียภาษี — กรอกหน้าข้อมูลบริษัทเมื่อไหร่ ค่านั้นจะทับทันที
+export function showroomOrg() {
+  const d = SHOWROOM_DEFAULT
+  return { name: d.name, addr: d.address, phone: d.phone, taxId: d.taxId, sub: 'ตัวแทนจำหน่าย ' + d.brand + (d.branchLabel ? ' · ' + d.branchLabel : '') }
 }
 
 // (v1.0.1323) หัวเอกสารที่พิมพ์ (ใบจอง/ใบถอนจอง/สลิป/เอกสารจากแม่แบบ) ใช้ข้อมูลจากหน้า "ข้อมูลบริษัท" จริง —
