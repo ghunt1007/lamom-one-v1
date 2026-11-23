@@ -1,5 +1,5 @@
 import { carOf } from '../../utils/carLabel.js'
-import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok, ymdBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
@@ -65,7 +65,7 @@ export default async function FollowUpPage(container) {
           .filter(b => { const d = String(b.actualDeliveryDate || b.cutDate || ''); return !/^\d{4}-\d{2}-\d{2}/.test(d) || d.slice(0, 10) >= windowFrom })
           .map(b => {
             const deliveryDate = b.actualDeliveryDate
-              || (b.updatedAt?.toDate ? b.updatedAt.toDate().toISOString().slice(0, 10) : null)
+              || (b.updatedAt ? ymdBangkok(b.updatedAt) || null : null)
               || today
             const dueDate = (() => {
               const d = new Date(deliveryDate); d.setUTCDate(d.getUTCDate() + 7); return d.toISOString().slice(0, 10)

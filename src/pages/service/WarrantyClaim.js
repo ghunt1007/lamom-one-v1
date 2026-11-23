@@ -2,7 +2,8 @@
  * Warranty Claim — เคลมประกันรถ/อะไหล่จากค่าย
  * Route: /service/warranty-claim
  */
-import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
+import { formatCurrency, formatDate, timeAgo, todayBangkok, monthBangkok } from '../../utils/format.js'
+import { printWarrantyClaim, warrantyClaimValue } from '../../utils/warrantyClaimDoc.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -48,7 +49,7 @@ export default async function WarrantyClaimPage(container) {
     if (container.__routerGen === myGen) renderPage()
   }
 
-  function claimValue(c) { return c.partCost + Math.round(c.laborHrs * LABOR_RATE) }
+  function claimValue(c) { return warrantyClaimValue(c, LABOR_RATE) }
 
   function renderPage() {
     if (loading) {
@@ -58,7 +59,9 @@ export default async function WarrantyClaimPage(container) {
     const list = claims.filter(c => statusFilter === 'all' || c.status === statusFilter)
     const pending = claims.filter(c => c.status === 'submitted')
     const pendingValue = pending.reduce((a, c) => a + claimValue(c), 0)
-    const reimbursed = claims.filter(c => c.status === 'reimbursed').reduce((a, c) => a + claimValue(c), 0)
+    // (v1.0.1344) "รับคืนแล้ว (เดือนนี้)" เดิมรวมทุกเดือน — ตอนนี้นับเฉพาะที่รับเงินคืนเดือนนี้ (ใบเก่าที่ไม่มีวันรับคืน ใช้วันส่งเคลมแทน)
+    const thisMonth = monthBangkok()
+    const reimbursed = claims.filter(c => c.status === 'reimbursed' && String(c.reimbursedAt || c.submitted || '').slice(0, 7) === thisMonth).reduce((a, c) => a + claimValue(c), 0)
     const approveRate = Math.round(claims.filter(c => ['approved','reimbursed'].includes(c.status)).length / claims.filter(c => c.status !== 'submitted' && c.status !== 'draft').length * 100) || 0
 
     container.innerHTML = `
@@ -101,9 +104,10 @@ export default async function WarrantyClaimPage(container) {
                   <div style="font-size:0.88rem;font-weight:700;color:var(--success)">${formatCurrency(claimValue(c))}</div>
                 </div>
               </div>
-              <div style="display:flex;gap:6px">
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
                 ${next ? `<button class="btn btn-xs btn-${WC_STATUS[next]?.color} next-btn" data-id="${c.id}">${WC_STATUS[next]?.icon} → ${WC_STATUS[next]?.label}</button>` : ''}
                 ${c.status === 'submitted' ? `<button class="btn btn-xs btn-danger reject-btn" data-id="${c.id}">❌ ค่ายปฏิเสธ</button>` : ''}
+                <button class="btn btn-xs btn-secondary wc-print-btn" data-id="${c.id}" title="พิมพ์ใบสรุปเคลม">🖨 พิมพ์</button>
               </div>
             </div>`
           }).join('')}
@@ -117,10 +121,14 @@ export default async function WarrantyClaimPage(container) {
       if (!c) return
       const status = NEXT[c.status]
       try {
-        await updateDocData('warranty_claims', c.id, { status })
+        await updateDocData('warranty_claims', c.id, { status, ...(status === 'reimbursed' ? { reimbursedAt: todayBangkok() } : {}) })
         showToast(`${WC_STATUS[status]?.icon} ${WC_STATUS[status]?.label}`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
+    container.querySelectorAll('.wc-print-btn').forEach(b => b.addEventListener('click', () => {
+      const c = claims.find(x => x.id === b.dataset.id)
+      if (c) printWarrantyClaim(c, { laborRate: LABOR_RATE, statusLabel: WC_STATUS[c.status]?.label || '' })
     }))
     container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
       const c = claims.find(x => x.id === b.dataset.id)
