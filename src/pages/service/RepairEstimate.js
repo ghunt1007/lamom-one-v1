@@ -9,6 +9,7 @@ import { listDocs, createDoc, softDelete } from '../../core/db.js'
 import { sendSms } from '../../utils/comms.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { printRepairEstimate } from '../../utils/repairEstimateDoc.js'
 
 const LABOR_RATE = 500 // บาท/ชม.
 
@@ -50,6 +51,7 @@ export default async function RepairEstimatePage(container) {
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <strong style="color:var(--success)">${formatCurrency(e.grand)}</strong>
+        <button class="btn btn-xs btn-secondary print-est-btn" data-id="${e.id}" title="พิมพ์ใบประเมิน">🖨</button>
         <button class="btn btn-xs btn-secondary del-est-btn" data-id="${e.id}" title="ลบ" style="color:var(--danger)">🗑</button>
       </div>
     </div>`
@@ -203,6 +205,10 @@ export default async function RepairEstimatePage(container) {
         if (btn) { btn.disabled = false; btn.textContent = '📤 ส่งให้ลูกค้าอนุมัติ' }
       }
     })
+    container.querySelectorAll('.print-est-btn').forEach(b => b.addEventListener('click', () => {
+      const e = pastEstimates.find(x => x.id === b.dataset.id)
+      if (e) printRepairEstimate(e)
+    }))
     container.querySelectorAll('.del-est-btn').forEach(b => b.addEventListener('click', async () => {
       const id = b.dataset.id
       if (!await confirmDialog({ title: 'ลบใบประเมิน', message: 'ยืนยันลบใบประเมินนี้? ไม่สามารถกู้คืนได้', confirmText: 'ลบ', danger: true })) return
