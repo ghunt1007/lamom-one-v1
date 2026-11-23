@@ -10,6 +10,8 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { inStockByModel } from '../../utils/stockAnalysis.js'
+import { modelKey } from '../../utils/orderNeeds.js'
 
 const BRANDS = ['BYD', 'MG', 'Neta']
 const TYPES = { EV: 'EV', PHEV: 'PHEV', HEV: 'HEV' }
@@ -32,7 +34,13 @@ export default async function PriceListPage(container) {
     // ของจริงเลย ไม่ได้สะท้อนสต็อกจริงในโชว์รูม แก้ให้คำนวณสดจากจำนวนรถจริงใน 'vehicles' แทน (รวมทุกรุ่น
     // ไม่แยกต่อโมเดล เพราะชื่อรุ่นใน vehicle_models เป็น free text ไม่ได้ผูก id กับ vehicles.model จริง —
     // การจับคู่ต่อรุ่นแม่นยำต้องทำ data-model merge ที่ใหญ่กว่านี้)
-    try { realStockCount = (await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500)).filter(v => !v.deleted && v.status !== 'sold').length }
+    try {
+      const vs = await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 1000)
+      realStockCount = vs.filter(v => !v.deleted && v.status !== 'sold').length
+      // (v1.0.1351) สต็อกต่อรุ่นนับจากรถจริงด้วย (จับคู่รุ่นแบบเดียวกับตารางสีรถ/วิเคราะห์สต็อก) แทน field stock ที่พิมพ์เอง
+      const byModel = inStockByModel(vs)
+      models = models.map(m => ({ ...m, stock: byModel.get(modelKey(m)) || 0 }))
+    }
     catch (e) { realStockCount = null }
     loading = false
     if (container.__routerGen === myGen) renderPage()
@@ -178,8 +186,7 @@ export default async function PriceListPage(container) {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label style="font-size:0.74rem;color:var(--text-muted)">สีที่มี (คั่นจุลภาค)</label>
               <input id="am-colors" class="input" placeholder="ขาว, ดำ, ฟ้า..."></div>
-            <div><label style="font-size:0.74rem;color:var(--text-muted)">สต็อก (คัน)</label>
-              <input id="am-stock" type="number" class="input" value="0"></div>
+            <div style="font-size:0.72rem;color:var(--text-muted);align-self:end">📦 สต็อกนับจากรถจริงในหน้าสต็อกให้เอง</div>
           </div>
         </div>
       `,
@@ -211,7 +218,6 @@ export default async function PriceListPage(container) {
           color: '#3b82f6',
           colors: colorsRaw ? colorsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [],
           active: true,
-          stock: parseInt(document.getElementById('am-stock')?.value) || 0,
         })
         document.querySelector('.modal-overlay')?.remove()
         showToast('✅ เพิ่ม ' + brand + ' ' + modelName + ' ใน Price List แล้ว', 'success')

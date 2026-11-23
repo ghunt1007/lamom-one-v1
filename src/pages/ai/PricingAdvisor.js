@@ -7,6 +7,9 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, getSalesData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { inStockByModel } from '../../utils/stockAnalysis.js'
+import { modelKey } from '../../utils/orderNeeds.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 const DEMAND_COLORS = { high: 'success', medium: 'warning', low: 'secondary' }
 const DEMAND_LABELS = { high: 'สูง', medium: 'ปานกลาง', low: 'ต่ำ' }
@@ -53,9 +56,12 @@ export default async function PricingAdvisorPage(container) {
 
   async function loadData() {
     loading = true
-    let vModels = [], sales = []
+    let vModels = [], sales = [], vehicles = null
     try { vModels = await listDocs('vehicle_models', [], 'basePrice', 'asc', 200) } catch {}
     try { sales = await getSalesData() } catch {}
+    // (v1.0.1351) สต็อกนับจากรถจริงใน 'vehicles' ต่อรุ่น — เดิมใช้ field stock ที่พิมพ์เองตอนเพิ่มรุ่น (ไม่เคยอัปเดต)
+    try { vehicles = await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 1000) } catch { vehicles = null }
+    const realStock = vehicles ? inStockByModel(vehicles) : null
     if (container.__routerGen !== myGen) return
     const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30)
     models = vModels.filter(m => !m.deleted).map(m => {
@@ -63,7 +69,8 @@ export default async function PricingAdvisorPage(container) {
       const sold30 = matched.filter(s => s.date && new Date(s.date) >= cutoff).length
       const withCost = matched.filter(s => s.salePrice > 0 && s.cost > 0)
       const marginPct = withCost.length ? Math.round(withCost.reduce((a, s) => a + (s.salePrice - s.cost) / s.salePrice * 100, 0) / withCost.length) : null
-      return { ...m, sold30, marginPct, demand: demandLevel(sold30, m.stock || 0) }
+      const stock = realStock ? (realStock.get(modelKey(m)) || 0) : (Number(m.stock) || 0)
+      return { ...m, stock, sold30, marginPct, demand: demandLevel(sold30, stock) }
     })
     loading = false
     if (container.__routerGen === myGen) renderPage()
@@ -95,7 +102,7 @@ export default async function PricingAdvisorPage(container) {
             return `<div class="card" style="padding:14px">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
                 <div>
-                  <div style="font-weight:700;font-size:0.93rem">${m.brand} ${m.model}</div>
+                  <div style="font-weight:700;font-size:0.93rem">${__escA(m.brand || '')} ${__escA(m.model || '')}</div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">
                     📦 สต็อก ${m.stock || 0} · ขาย 30 วัน ${m.sold30} คัน ·
                     <span class="badge badge-${DEMAND_COLORS[m.demand]}" style="font-size:0.6rem"> Demand ${DEMAND_LABELS[m.demand]}</span>

@@ -35,3 +35,21 @@ describe('stockAnalysis', () => {
     expect(r.aging.every(a => a.count === 0 && a.pct === 0)).toBe(true)
   })
 })
+
+import { inStockByModel } from './stockAnalysis.js'
+import { modelKey } from './orderNeeds.js'
+describe('inStockByModel', () => {
+  it('counts unsold vehicles per model key', () => {
+    const m = inStockByModel([
+      { brand: 'DEEPAL', model: 'S07', status: 'available' },
+      { brand: 'Deepal', model: 'Deepal S07', status: 'reserved' },
+      { brand: 'DEEPAL', model: 'S07', status: 'sold' },
+      { brand: 'DEEPAL', model: 'S07', deleted: true },
+      { brand: 'AION', model: 'V', status: 'transit' },
+      null,
+    ])
+    expect(m.get(modelKey({ brand: 'Deepal', model: 'S07' }))).toBe(2)
+    expect(m.get(modelKey({ brand: 'AION', model: 'AION V' }))).toBe(1)
+    expect(m.get('x')).toBeUndefined()
+  })
+})

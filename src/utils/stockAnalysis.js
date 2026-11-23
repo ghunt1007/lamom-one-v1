@@ -54,3 +54,16 @@ export function stockAnalysis({ vehicles = [], bookings = [], today } = {}) {
   aging.forEach(a => { a.pct = aged ? Math.round(a.count / aged * 100) : 0 })
   return { models, aging, noDate: onSite.length - aged }
 }
+
+// (v1.0.1351) จำนวนรถในสต็อกจริงต่อรุ่น (key = modelKey) — ใช้แทน field `stock` ที่แอดมินพิมพ์เองใน vehicle_models
+// (ไม่มีจุดไหนอัปเดตให้ตรงของจริง) · รวมรถจองแล้ว/กำลังขนส่ง ไม่รวมรถขายแล้ว/ลบแล้ว
+export function inStockByModel(vehicles = []) {
+  const out = new Map()
+  for (const v of vehicles || []) {
+    if (!v || v.deleted || SOLD.includes(v.status)) continue
+    const k = modelKey(v)
+    if (!k) continue
+    out.set(k, (out.get(k) || 0) + 1)
+  }
+  return out
+}
