@@ -9,6 +9,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { printBillingRun } from '../../utils/financeDocs.js'
 
 // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
 // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
@@ -146,7 +147,7 @@ export default async function BillingRunPage(container) {
   function openDetailModal(r) {
     const items = invoices.filter(i => (r.invoiceIds||[]).includes(i.id))
     openModal({
-      title: '📑 ' + r.runNo + ' — ' + r.customerName,
+      title: '📑 ' + esc(r.runNo) + ' — ' + esc(r.customerName),
       size: 'md',
       body: `
         <table class="table" style="font-size:0.8rem">
@@ -155,7 +156,7 @@ export default async function BillingRunPage(container) {
           <tfoot><tr style="font-weight:700"><td colspan="2">รวมทั้งสิ้น</td><td class="text-right" style="color:var(--primary)">${formatCurrency(r.totalAmount)}</td></tr></tfoot>
         </table>
       `,
-      confirmText: '🖨 พิมพ์', onConfirm: () => { window.print(); return false }
+      confirmText: '🖨 พิมพ์ใบวางบิล', onConfirm: () => { printBillingRun(r, items); return false }
     })
   }
 

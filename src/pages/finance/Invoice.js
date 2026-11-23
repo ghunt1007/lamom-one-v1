@@ -9,6 +9,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { calcDoc, printFinanceDoc } from '../../utils/financeDocs.js'
 
 const DOC_TYPES = {
   quotation:    { label: 'ใบเสนอราคา', short: 'QT', color: 'primary' },
@@ -24,14 +25,6 @@ const DOC_STATUS = {
   paid:     { label: 'ชำระแล้ว', color: 'success' },
   overdue:  { label: 'เกินกำหนด', color: 'danger' },
   cancelled:{ label: 'ยกเลิก', color: 'danger' },
-}
-
-function calcDoc(doc) {
-  const r2 = n => Math.round(n * 100) / 100
-  const subtotal = r2(doc.items.reduce((a, i) => a + i.qty * i.price, 0))
-  const vat = r2(doc.items.reduce((a, i) => a + i.qty * i.price * (i.vat / 100), 0))
-  // ราคาจากใบจองรวม VAT แล้ว → ยอดรวม = ราคาเดิมพอดี (ไม่ปัดเศษเพี้ยน)
-  return { subtotal, vat, total: doc.grossTotal != null ? doc.grossTotal : r2(subtotal + vat) }
 }
 
 const PAY_ROLES = ['finance', 'manager', 'owner', 'admin']
@@ -160,7 +153,7 @@ export default async function InvoicePage(container) {
                   <td style="font-family:monospace;font-size:0.8rem">${escHtml(d.no)}</td>
                   <td><span class="badge badge-${dt.color}" style="font-size:0.68rem">${dt.label}</span></td>
                   <td style="font-size:0.85rem">${escHtml(d.custName)}</td>
-                  <td style="font-size:0.8rem">${escHtml(d.date)}</td>
+                  <td style="font-size:0.8rem">${formatDate(d.date)}</td>
                   <td style="font-size:0.8rem;color:${isOverdue?'var(--danger)':'inherit'}">${escHtml(d.dueDate)} ${isOverdue?'⚠️':''}</td>
                   <td class="text-right" style="font-weight:700">${formatCurrency(total)}</td>
                   <td><span class="badge badge-${st.color}">${st.label}</span></td>
@@ -256,7 +249,7 @@ export default async function InvoicePage(container) {
       title: '🧾 ' + dt.label + ' ' + escHtml(d.no), size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px;font-size:0.85rem">
         <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="badge badge-${dt.color}">${dt.label}</span><span class="badge badge-${st.color}">${st.label}</span></div>
-        <div class="grid-2"><div>👤 ${escHtml(d.custName)}</div><div>📅 ${escHtml(d.date)}</div><div>📋 ครบกำหนด: ${escHtml(d.dueDate)}</div>${d.paidDate?`<div>✅ ชำระวันที่: ${escHtml(d.paidDate)}</div>`:''}</div>
+        <div class="grid-2"><div>👤 ${escHtml(d.custName)}</div><div>📅 ${formatDate(d.date)}</div><div>📋 ครบกำหนด: ${formatDate(d.dueDate)}</div>${d.paidDate?`<div>✅ ชำระวันที่: ${formatDate(d.paidDate)}</div>`:''}</div>
         <table class="table" style="font-size:0.8rem">
           <thead><tr><th>รายการ</th><th class="text-right">จำนวน</th><th class="text-right">ราคา/หน่วย</th><th class="text-right">VAT</th><th class="text-right">รวม</th></tr></thead>
           <tbody>${d.items.map(i=>`<tr><td>${escHtml(i.desc)}</td><td class="text-right">${i.qty}</td><td class="text-right">${formatCurrency(i.price)}</td><td class="text-right">${i.vat}%</td><td class="text-right">${formatCurrency(i.qty*i.price*(1+i.vat/100))}</td></tr>`).join('')}</tbody>
@@ -271,8 +264,9 @@ export default async function InvoicePage(container) {
       footer: `${!d._live&&d.status!=='paid'&&d.status!=='cancelled'&&d.type==='invoice'&&!d.sentToCashier&&canPay?`<button class="btn btn-secondary" id="detail-cashier-btn">📤 ส่งไปเก็บที่แคชเชียร์</button>`:''}
                ${!d._live&&d.sentToCashier&&d.status!=='paid'?`<span style="font-size:0.76rem;color:var(--primary);align-self:center">📤 ส่งแคชเชียร์แล้ว — รอเก็บเงิน</span>`:''}
                ${!d._live&&d.status!=='paid'&&d.type==='invoice'&&canPay?`<button class="btn btn-success" id="detail-pay-btn">✅ บันทึกรับชำระ</button>`:''}
-               <button class="btn btn-primary" onclick="window.print()">🖨 พิมพ์</button>`
+               <button class="btn btn-primary" id="detail-print-btn">🖨 พิมพ์</button>`
     })
+    document.getElementById('detail-print-btn')?.addEventListener('click', () => printFinanceDoc(d, dt?.label || 'เอกสาร'))
     document.getElementById('detail-pay-btn')?.addEventListener('click', async () => {
       try {
         await updateDocData('invoices', d.id, { status: 'paid', paidDate: todayBangkok() })
