@@ -2,7 +2,7 @@
  * Team Meeting — ประชุมทีม + บันทึก Action Items
  * Route: /hr/meetings
  */
-import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok, isMonthBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -57,7 +57,7 @@ export default async function TeamMeetingPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
           ${kpi('📅 นัดที่จะถึง', upcoming, 'primary')}
           ${kpi('📋 Action ค้าง', openActions, openActions > 0 ? 'warning' : 'success')}
-          ${kpi('✅ ประชุมเดือนนี้', meetings.filter(m => m.done).length + ' ครั้ง', 'secondary')}
+          ${kpi('✅ ประชุมเดือนนี้', meetings.filter(m => m.done && isMonthBangkok(m.date)).length + ' ครั้ง', 'secondary')}
         </div>
 
         <div style="display:flex;flex-direction:column;gap:12px">

@@ -3,7 +3,7 @@ import { carOf } from '../../utils/carLabel.js'
  * Delivery Calendar — ปฏิทินส่งมอบรถ
  * Route: /dms/delivery-calendar
  */
-import { formatDate, todayBangkok } from '../../utils/format.js'
+import { formatDate, todayBangkok, isMonthBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, listAllDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -77,7 +77,7 @@ export default async function DeliveryCalendarPage(container) {
     const todayList = deliveries.filter(d => d.date === today && d.status !== 'delivered')
     const overdue = deliveries.filter(d => d.date < today && d.status !== 'delivered')
     const upcoming = deliveries.filter(d => d.date > today)
-    const done = deliveries.filter(d => d.status === 'delivered')
+    const done = deliveries.filter(d => d.status === 'delivered' && isMonthBangkok(d.raw?.actualDeliveryDate || d.date))
     const notReady = todayList.filter(d => d.status === 'preparing').length
 
     container.innerHTML = `

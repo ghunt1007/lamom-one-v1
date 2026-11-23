@@ -2,7 +2,7 @@
  * Roadside Assist — ช่วยเหลือฉุกเฉิน 24 ชม.
  * Route: /service/roadside
  */
-import { timeAgo } from '../../utils/format.js'
+import { timeAgo, isMonthBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -67,7 +67,7 @@ export default async function RoadsideAssistPage(container) {
           ${kpi('🚨 เคส active', active.length, active.length > 0 ? 'danger' : 'success')}
           ${kpi('🆕 รอส่งทีม', newCases.length, newCases.length > 0 ? 'danger' : 'success')}
           ${kpi('⏱ Response เฉลี่ย', avgResponse + ' นาที', avgResponse <= 30 ? 'success' : 'warning')}
-          ${kpi('✅ ช่วยแล้วเดือนนี้', '23 เคส', 'primary')}
+          ${kpi('✅ ช่วยแล้วเดือนนี้', cases.filter(c => c.status === 'resolved' && isMonthBangkok(c.resolvedAt || c.updatedAt || c.reported)).length + ' เคส', 'primary')}
         </div>
 
         <div style="display:flex;flex-direction:column;gap:10px">
@@ -134,7 +134,7 @@ export default async function RoadsideAssistPage(container) {
       const c = cases.find(x => x.id === b.dataset.id)
       if (!c) return
       try {
-        await updateDocData('roadside_cases', c.id, { status: 'resolved' })
+        await updateDocData('roadside_cases', c.id, { status: 'resolved', resolvedAt: new Date().toISOString() })
         showToast('✅ ปิดเคสแล้ว', 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
