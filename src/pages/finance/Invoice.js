@@ -9,6 +9,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { nextDocNo } from '../../utils/nextDocNo.js'
 import { calcDoc, printFinanceDoc } from '../../utils/financeDocs.js'
 
 const DOC_TYPES = {
@@ -229,7 +230,7 @@ export default async function InvoicePage(container) {
       if (!custName) return showToast('❗ ระบุชื่อลูกค้า', 'warning')
       const type = el.querySelector('#dc-type').value
       const types = { quotation:'QT', invoice:'INV', receipt:'REC', tax_invoice:'TAX', credit_note:'CN' }
-      const no = types[type] + '-' + new Date().getFullYear() + '-' + String(docs.length + 1).padStart(3, '0')
+      const no = nextDocNo(types[type], docs.map(d => d.no))
       const items = [{ desc: el.querySelector('#item-desc-0').value||'รายการ', qty: +el.querySelector('#item-qty-0').value||1, unit:'ชิ้น', price: +el.querySelector('#item-price-0').value||0, vat: +el.querySelector('#item-vat-0').value }]
       // เดิมปุ่มนี้ไม่ disable ระหว่างรอบันทึก กดซ้ำเร็วๆจะสร้างเอกสารซ้ำ 2 ใบจากคลิกครั้งเดียว
       const btn = e.currentTarget
