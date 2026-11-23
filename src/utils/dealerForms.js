@@ -48,16 +48,8 @@ const nOrBlank = v => (v === '' || v == null ? '' : (isNaN(Number(String(v).repl
 const car = b => carOf(b)
 const today = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10)
 
-// ข้อมูลโชว์รูมตามตัวอย่างเอกสารจริงที่คุณกอล์ฟส่งมา (ข้อมูลบริษัท ไม่ใช่ข้อมูลลูกค้า)
-// ใช้เมื่อใบจองยังไม่ได้ผูกบริษัท หรือบริษัทที่ผูกยังไม่ได้กรอกช่องนั้น — แก้ทับได้ที่ ระบบ › บริษัทในเครือ
-export const SHOWROOM_DEFAULT = {
-  name: 'บริษัท เอส.เค.ออโต้ กรุ๊ป จำกัด',
-  address: '63/8 หมู่ที่ 13 ต.บางบัวทอง อ.บางบัวทอง จ.นนทบุรี 11110',
-  phone: '02-147-4888', taxId: '0125566041271', branchLabel: 'สำนักงานใหญ่',
-  brand: 'DEEPAL', logoUrl: '/forms/deepal-logo.png', groupLogoUrl: '/forms/sk-logo.png', slogan: 'Bangbuathong',
-  bankName: 'ธนาคารไทยพาณิชย์', bankAccount: '284-248-163-4', bankAccountName: 'บริษัท เอส.เค. ออโต้ กรุ๊ป จำกัด',
-  signerName: 'คุณสมโชค โกฎมณี', signerTitle: 'กรรมการบริษัท',
-}
+import { SHOWROOM_DEFAULT } from './showroomDefault.js'
+export { SHOWROOM_DEFAULT }
 
 export function companyOf(co = {}) {
   // บริษัทอื่น (ชื่อไม่ตรงโชว์รูม) ใช้ข้อมูลของตัวเองล้วน ไม่เอาบัญชี/ผู้ลงนามของโชว์รูมไปปน
