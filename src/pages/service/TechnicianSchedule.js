@@ -63,7 +63,9 @@ export default async function TechnicianSchedulePage(container) {
         listDocs('technician_schedule', [], 'name', 'asc', 200),
         listDocs('tech_shifts', [], 'weekStart', 'desc', 500),
       ])
-      techs = t
+      // (v1.0.1348) jobsToday เดิมบวกสะสมไม่เคยรีเซ็ต "งานวันนี้" จึงโตทุกวัน — นับเฉพาะเมื่อ jobsDate เป็นวันนี้
+      const todayStr = todayBangkok()
+      techs = t.map(x => ({ ...x, jobsToday: x.jobsDate === todayStr ? (Number(x.jobsToday) || 0) : 0 }))
       shiftDocs = s
     } catch (e) { techs = []; shiftDocs = [] }
     loading = false
@@ -255,7 +257,7 @@ export default async function TechnicianSchedulePage(container) {
         const jobType = document.getElementById('as-type')?.value || ''
         const plate = document.getElementById('as-plate')?.value.trim() || ''
         try {
-          await updateDocData('technician_schedule', t.id, { jobsToday: t.jobsToday + 1, lastAssignedType: jobType, lastAssignedPlate: plate })
+          await updateDocData('technician_schedule', t.id, { jobsToday: t.jobsToday + 1, jobsDate: todayBangkok(), lastAssignedType: jobType, lastAssignedPlate: plate })
           showToast(`✅ มอบงานให้ ${t.name} แล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
