@@ -662,7 +662,8 @@ export const PAGE_COLLECTIONS = {
   "onboarding_staff"
  ],
  "/ai/pricing": [
-  "vehicle_models"
+  "vehicle_models",
+  "vehicles"
  ],
  "/service/ev-battery": [
   "ev_battery_vehicles"
