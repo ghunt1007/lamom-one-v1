@@ -7,8 +7,8 @@ import { formatCurrency, formatDate, todayBangkok, toDate } from '../../utils/fo
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
-import { sendSms } from '../../utils/comms.js'
-import { loadOptedOutPhones, phoneKey } from '../../utils/marketingOptOut.js'
+import { loadContactPrefs, phoneKey } from '../../utils/marketingOptOut.js'
+import { sendToCustomer, lineUidFor, viaSummary } from '../../utils/customerSend.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml as esc } from '../../utils/escape.js'
 
@@ -146,7 +146,8 @@ export default async function UpsellAdvisorPage(container) {
     }))
     document.getElementById('campaign-btn')?.addEventListener('click', async () => {
       const targets = []
-      const blocked = await loadOptedOutPhones() // (v1.0.1281) PDPA: ไม่ยินยอมรับข่าวสาร = ไม่ส่ง
+      const prefs = await loadContactPrefs()
+      const blocked = prefs.optedOut // (v1.0.1281) PDPA: ไม่ยินยอมรับข่าวสาร = ไม่ส่ง
       // (v1.0.1281) ลูกค้าคนเดียวมีหลายโอกาส Priority สูง = ส่งข้อความเดียว (โอกาสแรก) — เดิมได้ SMS หลายข้อความติดกัน
       const seenPhone = new Set()
       customers.forEach(c => c.opportunities.forEach((o, i) => {
@@ -156,14 +157,14 @@ export default async function UpsellAdvisorPage(container) {
         seenPhone.add(key); targets.push({ c, o, i })
       }))
       openModal({
-        title:'📤 ส่ง SMS Priority สูงทั้งหมด', size:'sm',
+        title:'📤 ส่งข้อความ Priority สูงทั้งหมด', size:'sm',
         body:`<div style="font-size:0.8rem">
-          <p style="color:var(--text-muted);margin-bottom:10px">ส่ง SMS แจ้งโอกาส Priority สูงทั้งหมด ${targets.length} รายการ (ต้องมีเบอร์โทรจริง)</p>
+          <p style="color:var(--text-muted);margin-bottom:10px">ส่งข้อความแจ้งโอกาส Priority สูงทั้งหมด ${targets.length} รายการ (ต้องมีเบอร์โทรจริง) · ${viaSummary(targets.filter(t => t.c.phone && !blocked.has(phoneKey(t.c.phone))), prefs, t => t.c.phone) || '-'} — ผูก LINE แล้วส่งทาง LINE</p>
           ${targets.map(({c,o})=>`
             <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.76rem">
               <b>${esc(c.name)}</b> — ${OPP_TYPES[o.type].label} ${!c.phone ? '<span style="color:var(--danger)">(ไม่มีเบอร์โทร)</span>' : blocked.has(phoneKey(c.phone)) ? '<span style="color:var(--warning)">(ไม่ยินยอมรับข่าวสาร — ข้าม)</span>' : ''}
             </div>`).join('')}`,
-        confirmText:'📤 ส่ง SMS ทุกราย',
+        confirmText:'📤 ส่งทุกราย',
         async onConfirm() {
           let ok = 0, failed = 0
           for (const { c, o } of targets) {
@@ -171,12 +172,12 @@ export default async function UpsellAdvisorPage(container) {
             if (blocked.has(phoneKey(c.phone))) continue
             try {
               const msg = buildMsg(c, o)
-              await sendSms([c.phone], msg)
-              await createDoc('upsell_offers', { customer: c.name, phone: c.phone, type: o.type, channel: 'sms', message: msg, sentAt: new Date().toISOString() })
+              const ch = await sendToCustomer(c.phone, msg, prefs)
+              await createDoc('upsell_offers', { customer: c.name, phone: c.phone, type: o.type, channel: ch.toLowerCase(), message: msg, sentAt: new Date().toISOString() })
               ok++
             } catch { failed++ }
           }
-          showToast(failed ? `📤 ส่งสำเร็จ ${ok} ราย — พลาด ${failed} ราย` : `📤 ส่ง SMS สำเร็จทั้งหมด ${ok} ราย`, failed ? 'error' : 'success')
+          showToast(failed ? `📤 ส่งสำเร็จ ${ok} ราย — พลาด ${failed} ราย` : `📤 ส่งสำเร็จทั้งหมด ${ok} ราย`, failed ? 'error' : 'success')
         }
       })
     })
@@ -235,19 +236,21 @@ export default async function UpsellAdvisorPage(container) {
           </div>
           <div style="margin-bottom:8px"><b>ราคา:</b> ${o.price > 0 ? formatCurrency(o.price) : 'ยังไม่มีข้อมูลราคา — เจ้าหน้าที่เสนอราคาตอนติดต่อ'}</div>
           <div style="margin-bottom:8px"><b>เหตุผล:</b><br>${esc(o.reason)}</div>
-          <div style="margin-top:10px"><label style="font-size:0.72rem;color:var(--text-muted)">ข้อความ SMS</label>
+          <div style="margin-top:10px"><label style="font-size:0.72rem;color:var(--text-muted)">ข้อความ (ผูก LINE แล้วส่งทาง LINE ไม่ได้ผูกส่ง SMS)</label>
             <textarea class="input" id="offer-msg" style="width:100%;height:80px;margin-top:4px;font-size:0.76rem">${esc(buildMsg(c, o))}</textarea>
           </div>
         </div>`,
-      confirmText: '📤 ส่ง SMS',
+      confirmText: '📤 ส่ง',
       async onConfirm() {
         if (!c.phone) { showToast('❗ ไม่มีเบอร์โทรลูกค้ารายนี้', 'error'); return false }
-        if ((await loadOptedOutPhones()).has(phoneKey(c.phone))) { showToast(`🔕 คุณ${c.name} ไม่ยินยอมรับข่าวสาร (PDPA) — ไม่ส่ง SMS`, 'warning'); return false }
+        const prefs = await loadContactPrefs()
+        if (prefs.optedOut.has(phoneKey(c.phone))) { showToast(`🔕 คุณ${c.name} ไม่ยินยอมรับข่าวสาร (PDPA) — ไม่ส่ง`, 'warning'); return false }
         const msg = document.getElementById('offer-msg')?.value?.trim()
+        if (!msg) { showToast('❗ กรุณาใส่ข้อความ', 'error'); return false }
         try {
-          await sendSms([c.phone], msg)
-          await createDoc('upsell_offers', { customer: c.name, phone: c.phone, type: o.type, channel: 'sms', message: msg, sentAt: new Date().toISOString() })
-          showToast(`📤 ส่ง SMS ถึงคุณ${c.name} แล้ว`, 'success')
+          const ch = await sendToCustomer(c.phone, msg, prefs)
+          await createDoc('upsell_offers', { customer: c.name, phone: c.phone, type: o.type, channel: ch.toLowerCase(), message: msg, sentAt: new Date().toISOString() })
+          showToast(`📤 ส่ง ${ch} ถึงคุณ${c.name} แล้ว`, 'success')
         } catch { showToast('ส่งไม่สำเร็จ', 'error'); return false }
       }
     })

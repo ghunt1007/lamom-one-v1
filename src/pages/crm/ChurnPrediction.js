@@ -5,10 +5,10 @@
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData } from '../../core/db.js'
-import { sendSms } from '../../utils/comms.js'
 import { escHtml } from '../../utils/escape.js'
 import { confirmDialog } from '../../utils/modal.js'
-import { loadOptedOutPhones, splitByConsent, phoneKey } from '../../utils/marketingOptOut.js'
+import { loadContactPrefs, splitByConsent, phoneKey } from '../../utils/marketingOptOut.js'
+import { sendToCustomer, lineUidFor, viaSummary } from '../../utils/customerSend.js'
 
 // (v1.0.1281) เดิมข้อความบอกลูกค้าว่า "มีโปรพิเศษสำหรับคุณ ... เพื่อรับสิทธิ์" ทั้งที่ร้านอาจไม่มีโปร — ใช้ข้อความกลางๆ แทน
 export const retainSms = c => `LAMOM: สวัสดีคุณ${c.name} ขอบคุณที่เป็นลูกค้าเราครับ หากสนใจรุ่นใหม่ ประเมินราคาเทิร์นรถ หรือนัดเช็คระยะ ติดต่อเซลส์${c.sales ? ' ' + c.sales + ' ' : ''}ได้เลยครับ`
@@ -120,12 +120,14 @@ export default async function ChurnPredictionPage(container) {
       if (!c) return
       const r = RISK[risk(c.score)]
       if (dataSource === 'live' && c.phone) {
-        if ((await loadOptedOutPhones()).has(phoneKey(c.phone))) { showToast(`🔕 ${c.name} ไม่ยินยอมรับข่าวสาร (PDPA) — ไม่ส่ง SMS ควรโทรคุยแทน`, 'warning'); return }
-        if (!await confirmDialog({ title: '📱 ส่ง SMS ถึง ' + c.name, message: `ข้อความ: "${escHtml(retainSms(c))}" — ส่งแล้วเรียกคืนไม่ได้`, confirmText: 'ส่ง SMS' })) return
+        const prefs = await loadContactPrefs()
+        if (prefs.optedOut.has(phoneKey(c.phone))) { showToast(`🔕 ${c.name} ไม่ยินยอมรับข่าวสาร (PDPA) — ไม่ส่ง ควรโทรคุยแทน`, 'warning'); return }
+        const ch = lineUidFor(c.phone, prefs) ? 'LINE' : 'SMS'
+        if (!await confirmDialog({ title: `📱 ส่ง ${ch} ถึง ` + c.name, message: `ข้อความ: "${escHtml(retainSms(c))}" — ส่งแล้วเรียกคืนไม่ได้`, confirmText: `ส่ง ${ch}` })) return
         try {
-          await sendSms([c.phone], retainSms(c))
-          showToast(`📱 ส่ง SMS Retention Campaign ให้ ${c.name} แล้ว · ${r.action}`, 'success')
-        } catch { showToast(`⚠️ ส่ง SMS ให้ ${c.name} ไม่สำเร็จ`, 'error') }
+          await sendToCustomer(c.phone, retainSms(c), prefs)
+          showToast(`📱 ส่ง ${ch} Retention Campaign ให้ ${c.name} แล้ว · ${r.action}`, 'success')
+        } catch { showToast(`⚠️ ส่ง ${ch} ให้ ${c.name} ไม่สำเร็จ`, 'error') }
       } else if (dataSource === 'live') {
         showToast(`⚠️ ${c.name} ไม่มีเบอร์โทรในระบบ — กรุณาติดต่อเอง · ${r.action}`, 'error')
       } else {
@@ -139,15 +141,16 @@ export default async function ChurnPredictionPage(container) {
         const seen = new Set()
         const phoned = high.filter(c => { const k = String(c.phone || '').replace(/\D/g, ''); return k.length >= 9 && !seen.has(k) && seen.add(k) })
         // (v1.0.1281) ข้ามลูกค้าที่ไม่ยินยอมรับข่าวสาร (PDPA)
-        const { keep: withPhone, skipped } = splitByConsent(phoned, await loadOptedOutPhones())
+        const prefs = await loadContactPrefs()
+        const { keep: withPhone, skipped } = splitByConsent(phoned, prefs.optedOut)
         if (!withPhone.length) { showToast(skipped.length ? `ลูกค้าเสี่ยงสูงที่มีเบอร์ ${skipped.length} ราย ไม่ยินยอมรับข่าวสาร — ไม่ส่ง` : 'ลูกค้าเสี่ยงสูงยังไม่มีเบอร์โทรในระบบ — ส่งไม่ได้', 'warning'); return }
-        const ok = await confirmDialog({ title: '📱 ส่ง SMS ถึงลูกค้าเสี่ยงสูง', message: `ส่ง SMS จริง ${withPhone.length} เบอร์${skipped.length ? ` (ข้าม ${skipped.length} รายที่ไม่ยินยอมรับข่าวสาร)` : ''} ตัวอย่างข้อความ: "${escHtml(retainSms(withPhone[0]))}" — ส่งแล้วเรียกคืนไม่ได้`, confirmText: `ส่ง ${withPhone.length} เบอร์` })
+        const ok = await confirmDialog({ title: '📱 ส่งข้อความถึงลูกค้าเสี่ยงสูง', message: `ส่งจริง ${withPhone.length} เบอร์ (${viaSummary(withPhone, prefs)})${skipped.length ? ` (ข้าม ${skipped.length} รายที่ไม่ยินยอมรับข่าวสาร)` : ''} ตัวอย่างข้อความ: "${escHtml(retainSms(withPhone[0]))}" — ส่งแล้วเรียกคืนไม่ได้`, confirmText: `ส่ง ${withPhone.length} เบอร์` })
         if (!ok) return
         let sent = 0
         for (const c of withPhone) {
-          try { await sendSms([c.phone], retainSms(c)); sent++ } catch {}
+          try { await sendToCustomer(c.phone, retainSms(c), prefs); sent++ } catch {}
         }
-        showToast(`🤖 ส่ง SMS Retention Campaign ให้ ${sent}/${high.length} ราย (เสี่ยงสูง) แล้ว${high.length > sent ? ` — ${high.length - sent} รายไม่มีเบอร์โทร/ส่งไม่สำเร็จ` : ''}`, sent ? 'success' : 'error')
+        showToast(`🤖 ส่ง Retention Campaign ให้ ${sent}/${high.length} ราย (เสี่ยงสูง) แล้ว${high.length > sent ? ` — ${high.length - sent} รายไม่มีเบอร์โทร/ส่งไม่สำเร็จ` : ''}`, sent ? 'success' : 'error')
       } else {
         showToast('ยังไม่มีข้อมูลลูกค้าจริง — ส่งไม่ได้', 'warning')
       }
