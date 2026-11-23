@@ -9,6 +9,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { nextDocNo } from '../../utils/nextDocNo.js'
 import { printBillingRun } from '../../utils/financeDocs.js'
 
 // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
@@ -181,7 +182,7 @@ export default async function BillingRunPage(container) {
         const items = unbilled.filter(i => checked.includes(i.id))
         const totalAmount = items.reduce((a, i) => a + (i.items||[]).reduce((s,x)=>s+x.qty*x.price*(1+x.vat/100),0), 0)
         try {
-          const runNo = 'BR-' + new Date().getFullYear() + '-' + String(runs.length + 1).padStart(4, '0')
+          const runNo = nextDocNo('BR', runs.map(r => r.runNo), { pad: 4 })
           await createDoc('billing_runs', {
             runNo, customerName, invoiceIds: checked, totalAmount,
             submittedDate: today(), dueDate: document.getElementById('br-due')?.value || today(),

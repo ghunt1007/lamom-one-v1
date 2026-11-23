@@ -396,7 +396,7 @@ export default async function DeliveryNotePage(container) {
         // เดิม onConfirm() ไม่ async และไม่เคยเรียก Firestore เลย — แค่ notes.unshift() เก็บในหน่วยความจำของ
         // หน้าเฉยๆ แล้ว toast ว่าสำเร็จ ปิด/รีเฟรชหน้าแล้วข้อมูลหายทันที แก้ให้ createDoc จริงลง 'delivery_notes'
         const data = {
-          dnNo: `DN${String(notes.length+1).padStart(3,'0')}`,
+          dnNo: `DN${String(Math.max(0, ...notes.map(n => parseInt(String(n.dnNo || '').replace(/^DN/, ''), 10)).filter(Number.isFinite)) + 1).padStart(3,'0')}`, // (v1.0.1335) ต่อจากเลขสูงสุด ไม่ใช่จำนวนรายการ (กันเลขซ้ำ)
           customerName:name, phone:document.getElementById('df-phone')?.value||'',
           brand:brand||'', model:rest.join(' ')||model, variant:'', color:document.getElementById('df-color')?.value||'',
           vin:document.getElementById('df-vin')?.value||'', plate:'', price:+(document.getElementById('df-price')?.value||0),

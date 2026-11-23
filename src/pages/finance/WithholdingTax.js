@@ -11,6 +11,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { nextDocNo } from '../../utils/nextDocNo.js'
 
 function today() { return todayBangkok() }
 function myName() {
@@ -136,7 +137,7 @@ export default async function WithholdingTaxPage(container) {
         const taxRate = rateInput ? +rateInput : INCOME_TYPES[incomeType].rate
         const taxWithheld = Math.round(amountPaid * taxRate / 100)
         try {
-          const certNo = 'WHT-' + new Date().getFullYear() + '-' + String(certs.length + 1).padStart(4, '0')
+          const certNo = nextDocNo('WHT', certs.map(c => c.certNo), { pad: 4 })
           await createDoc('withholding_tax_certs', {
             certNo, payeeName,
             payeeTaxId: document.getElementById('wt-taxid')?.value?.trim() || '',

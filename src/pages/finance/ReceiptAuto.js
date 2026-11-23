@@ -11,6 +11,7 @@ import { copyText } from '../../utils/copyText.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { nextDocNo } from '../../utils/nextDocNo.js'
 
 const STATUS_CFG = {
   sent:    { label:'ส่งแล้ว',    bg:'var(--success)',     icon:'✅' },
@@ -247,7 +248,8 @@ export default async function ReceiptAutoPage(container) {
     // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
     // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
     const today = todayBangkok()
-    const nextNum = 'REC-' + new Date().getFullYear() + '-' + String(RECEIPTS.length + 541 + 1).padStart(4,'0')
+    // (v1.0.1335) เดิม = จำนวนใบ + 541 (ตัวเลขสมมติ) — เลขซ้ำ/กระโดดได้ ตอนนี้ต่อจากเลขล่าสุดจริง
+    const nextNum = nextDocNo('REC', RECEIPTS.map(r => r.number), { pad: 4 })
     openModal({
       title: '🧾 ออกใบเสร็จด่วน',
       size: 'md',
