@@ -87,7 +87,7 @@ export default async function TrainingCoursePage(container) {
                 <div style="font-size:1.2rem">${ct?.icon}</div>
                 <span class="badge badge-${ct?.color}">${ct?.label}</span>
               </div>
-              <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">${c.title}</div>
+              <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">${escHtml(c.title)}</div>
               <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px">${c.description||''}</div>
               <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;font-size:0.75rem">
                 <span>👨‍🏫 ${c.instructor}</span>

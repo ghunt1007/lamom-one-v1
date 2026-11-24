@@ -299,7 +299,7 @@ export default async function RecruitmentPage(container) {
       title: '+ เพิ่มใบสมัคร',
       size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
-        ${!jobId ? `<div class="input-group"><label class="input-label">ตำแหน่งที่สมัคร</label><select class="input" id="af-job">${jobs.filter(j=>j.status==='open').map(j=>`<option value="${__escA(j.id)}">${j.title}</option>`).join('')}</select></div>` : `<div style="font-size:0.85rem;padding:8px;background:var(--surface-2);border-radius:var(--radius-sm)">${jobs.find(j=>j.id===jobId)?.title||''}</div>`}
+        ${!jobId ? `<div class="input-group"><label class="input-label">ตำแหน่งที่สมัคร</label><select class="input" id="af-job">${jobs.filter(j=>j.status==='open').map(j=>`<option value="${__escA(j.id)}">${escHtml(j.title)}</option>`).join('')}</select></div>` : `<div style="font-size:0.85rem;padding:8px;background:var(--surface-2);border-radius:var(--radius-sm)">${escHtml(jobs.find(j=>j.id===jobId)?.title||'')}</div>`}
         <div class="input-group"><label class="input-label">ชื่อ-นามสกุล *</label><input class="input" id="af-name" placeholder="ชื่อ-นามสกุล"></div>
         <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="af-phone" placeholder="08x-xxx-xxxx"></div>
         <div class="input-group"><label class="input-label">อีเมล</label><input class="input" id="af-email" placeholder="email@example.com"></div>

@@ -202,7 +202,7 @@ export default async function GamificationDashboard(container) {
             <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;${m.done?'opacity:0.7':''}">
               <div style="font-size:1.5rem">${m.icon||'🎯'}</div>
               <div style="flex:1">
-                <div style="font-weight:600;${m.done?'text-decoration:line-through':''}">${m.title}</div>
+                <div style="font-weight:600;${m.done?'text-decoration:line-through':''}">${escHtml(m.title)}</div>
                 <div style="font-size:0.78rem;color:var(--accent)">+${m.xp} XP</div>
               </div>
               <button class="btn btn-sm ${m.done?'btn-success':'btn-primary'} mission-btn" data-mid="${m.id}" ${m.done?'disabled':''}>

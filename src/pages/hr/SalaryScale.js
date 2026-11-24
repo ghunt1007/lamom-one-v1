@@ -112,8 +112,8 @@ export default async function SalaryScalePage(container) {
               return `<div class="card" style="padding:12px 14px">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                   <div>
-                    <span style="font-weight:700;font-size:0.88rem">${g.grade}</span>
-                    <span style="font-size:0.78rem;color:var(--text-muted);margin-left:8px">${g.title}</span>
+                    <span style="font-weight:700;font-size:0.88rem">${escHtml(g.grade)}</span>
+                    <span style="font-size:0.78rem;color:var(--text-muted);margin-left:8px">${escHtml(g.title)}</span>
                   </div>
                   <div style="font-size:0.75rem;color:var(--text-muted)">${headcount} คน</div>
                 </div>
