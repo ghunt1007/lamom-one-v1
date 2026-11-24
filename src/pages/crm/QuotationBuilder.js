@@ -26,6 +26,8 @@ import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { quoteText } from '../../utils/quoteText.js'
 import { printVehicleQuote } from '../../utils/vehicleQuoteDoc.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
+import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
 import { copyText } from '../../utils/copyText.js'
 import { callLink } from '../../utils/callLink.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
@@ -258,11 +260,20 @@ export default async function QuotationBuilderPage(container) {
   // (v1.0.1072) "ส่ง" = คัดลอกข้อความใบเสนอราคา (วางใน LINE ได้ทันที) + บันทึกว่าส่งแล้ว + นัดโทรถามผล — แตะครั้งเดียว
   // คัดลอกก่อน await อื่น เพื่อให้เบราว์เซอร์มือถือยังนับว่าเป็นการกดของผู้ใช้
   async function markSent(q) {
-    const copied = await copyText(quoteText(q, normalizeAccessories(q.accessories)), '', '')
+    // (v1.0.1365) ปุ่มชื่อ "ส่ง LINE" แต่เดิมแค่คัดลอก — ตอนนี้ลูกค้าผูก LINE กับร้านแล้ว (ตามเบอร์ในใบเสนอราคา) ส่งเข้า LINE ให้เลย
+    const txt = quoteText(q, normalizeAccessories(q.accessories))
+    let pushed = false
+    if (q.phone) {
+      try {
+        const prefs = await loadContactPrefs()
+        if (lineUidFor(q.phone, prefs)) { await sendToCustomer(q.phone, txt, prefs); pushed = true }
+      } catch { showToast('❌ ส่ง LINE ไม่สำเร็จ — คัดลอกข้อความให้แทน', 'error') }
+    }
+    const copied = pushed || await copyText(txt, '', '')
     try {
-      if (q.status === 'draft') await updateDocData('quotations', q.id, { status: 'sent', sentDate: todayBangkok() })
+      if (q.status === 'draft') await updateDocData('quotations', q.id, { status: 'sent', sentDate: todayBangkok(), ...(pushed ? { sentVia: 'LINE' } : {}) })
       const fu = q.status === 'draft' ? await scheduleQuoteFollowup(q) : null
-      showToast(`${copied ? '📋 คัดลอกใบเสนอราคาแล้ว วางใน LINE ส่งลูกค้าได้เลย' : '📤 บันทึกว่าส่งแล้ว (คัดลอกไม่สำเร็จ กดเปิดใบเสนอราคาเพื่อคัดลอกเอง)'}${fu ? ' · นัดโทรถามผลอีก 2 วัน' : ''}`, copied ? 'success' : 'warning')
+      showToast(`${pushed ? `💚 ส่งใบเสนอราคาเข้า LINE ของ ${q.customerName || 'ลูกค้า'} แล้ว` : copied ? '📋 ลูกค้ายังไม่ได้ผูก LINE กับร้าน — คัดลอกใบเสนอราคาแล้ว วางใน LINE ส่งลูกค้าได้เลย' : '📤 บันทึกว่าส่งแล้ว (คัดลอกไม่สำเร็จ กดเปิดใบเสนอราคาเพื่อคัดลอกเอง)'}${fu ? ' · นัดโทรถามผลอีก 2 วัน' : ''}`, copied ? 'success' : 'warning')
       await loadData()
     } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
   }

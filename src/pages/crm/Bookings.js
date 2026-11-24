@@ -31,6 +31,7 @@ import { bookingNextStep, bookingNextAction } from '../../utils/bookingNext.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { copyText } from '../../utils/copyText.js'
+import { canPushLine, pushLineToCustomer, lineSendBtnHtml } from '../../utils/customerLinePush.js'
 import { escHtml } from '../../utils/escape.js'
 import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
 import { SHEET_COLUMNS, patchForCell, sheetExportRows, sheetFieldList, sheetYesChips } from '../../utils/sheetColumns.js'
@@ -847,11 +848,20 @@ export default async function BookingsPage(container) {
       body: `<div style="font-size:0.76rem;color:var(--text-muted);margin-bottom:6px">ลูกค้าจะได้ไม่ต้องโทรถามว่ารถถึงไหนแล้ว · แก้ข้อความได้ก่อนคัดลอก</div>
         ${b.lineUserId ? `<div style="font-size:0.74rem;margin-bottom:6px">${escHtml(lineLinkState(b).label)} — ถ้าเปิด "แจ้งสถานะรถทาง LINE อัตโนมัติ" ไว้ ระบบส่งให้เองภายใน 10 นาที</div>` : ''}
         <textarea class="input" id="bk-notice" data-no-mic rows="5" style="width:100%;font-size:16px">${escHtml(msg)}</textarea>`,
-      footer: `<button class="btn btn-secondary" id="bk-notice-skip">ไม่ต้อง</button><button class="btn btn-primary" id="bk-notice-copy">📋 คัดลอกไปส่ง</button>`,
+      footer: `<button class="btn btn-secondary" id="bk-notice-skip">ไม่ต้อง</button><button class="btn btn-${canPushLine(b) ? 'secondary' : 'primary'}" id="bk-notice-copy">📋 คัดลอกไปส่ง</button>${lineSendBtnHtml(b, 'bk-notice-line').replace('btn-xs', '')}`,
     })
     el.querySelector('#bk-notice-skip').addEventListener('click', close)
     el.querySelector('#bk-notice-copy').addEventListener('click', async () => {
       if (await copyText(el.querySelector('#bk-notice').value, '📋 คัดลอกแล้ว วางในแชท LINE ของลูกค้าได้เลย', 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง')) close()
+    })
+    // (v1.0.1365) ใบจองผูก LINE แล้ว = ส่งเข้า LINE ให้เลย + จดว่าแจ้งสถานะนี้แล้ว (ระบบแจ้งอัตโนมัติจะไม่ส่งซ้ำ)
+    el.querySelector('#bk-notice-line')?.addEventListener('click', async e => {
+      const btn = e.currentTarget
+      btn.disabled = true
+      try { await pushLineToCustomer(b, el.querySelector('#bk-notice').value) } catch (err) { btn.disabled = false; showToast('❌ ส่ง LINE ไม่สำเร็จ: ' + (err?.message || err), 'error'); return }
+      close()
+      showToast(`💚 ส่งเข้า LINE ของ ${b.custName || 'ลูกค้า'} แล้ว`, 'success')
+      updateDocData('bookings', b.id, { statusLineSent: status, statusLineSentAt: new Date().toISOString() }).catch(() => {})
     })
   }
 

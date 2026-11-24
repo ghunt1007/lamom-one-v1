@@ -25,6 +25,7 @@ import { revisitMessage } from '../../utils/bookingNotify.js'
 import { classifyLostReason } from '../../utils/lostReason.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 import { copyText } from '../../utils/copyText.js'
+import { canPushLine, pushLineToCustomer, lineSendBtnHtml } from '../../utils/customerLinePush.js'
 import { escHtml } from '../../utils/escape.js'
 import { openQuickDatePop } from '../../utils/quickDatePop.js'
 import { normalizeProgram, nextMonthGap, monthLabelTh, programEarnings, myBonusProgress } from '../../utils/salesPrograms.js'
@@ -236,6 +237,16 @@ export default async function MyDayPage(container) {
 
   let promoRows = []
   let lastDay = { stale: [], revisit: [] }
+  // (v1.0.1365) ลูกค้าที่ผูก LINE แล้ว = ปุ่ม 💚 ส่ง LINE ส่งเข้าแชตให้เลย + บันทึกว่าติดต่อแล้ว (พนักงานกดเองเท่านั้น)
+  const rawCust = id => (data.customers || []).find(x => x.id === id)
+  async function pushAndTouch(id, text, btn) {
+    const c = rawCust(id)
+    if (btn) btn.disabled = true
+    try { await pushLineToCustomer(c, text) } catch (e) { if (btn) btn.disabled = false; showToast('❌ ส่ง LINE ไม่สำเร็จ: ' + (e?.message || e), 'error'); return false }
+    showToast(`💚 ส่งเข้า LINE ของ ${c.firstName || 'ลูกค้า'} แล้ว`, 'success')
+    if (await touchCustomerContact(id)) { c.updatedAt = new Date().toISOString(); c.lastContactAt = c.updatedAt }
+    return true
+  }
   // AI ร่างข้อความ LINE ทักลูกค้าที่เงียบหลายคนพร้อมกัน — เซลส์อ่าน/แก้ แล้วคัดลอกไปส่งเอง (ไม่ส่งอัตโนมัติ)
   async function openNudgeDrafts(list) {
     if (!list.length) return
@@ -262,6 +273,7 @@ export default async function MyDayPage(container) {
         <textarea class="input nd-msg" data-i="${i}" rows="3" style="width:100%;font-size:0.84rem">${escHtml(msg)}</textarea>
         <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px">
           <button class="btn btn-secondary btn-xs nd-copy" data-i="${i}">📋 คัดลอก</button>
+          ${canPushLine(rawCust(c.id)) ? `<button class="btn btn-primary btn-xs nd-line" data-i="${i}">💚 ส่ง LINE</button>` : ''}
           <button class="btn btn-success btn-xs nd-sent" data-i="${i}">✅ ส่งแล้ว</button>
         </div>
       </div>`
@@ -269,6 +281,16 @@ export default async function MyDayPage(container) {
     body.querySelectorAll('.nd-copy').forEach(b => b.addEventListener('click', async () => {
       const t = body.querySelector(`.nd-msg[data-i="${b.dataset.i}"]`)?.value || ''
       await copyText(t, '📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง')
+    }))
+    body.querySelectorAll('.nd-line').forEach(b => b.addEventListener('click', async () => {
+      const c = list[Number(b.dataset.i) - 1]
+      const t = body.querySelector(`.nd-msg[data-i="${b.dataset.i}"]`)?.value || ''
+      if (await pushAndTouch(c.id, t, b)) {
+        b.textContent = '✔ ส่งแล้ว'
+        const done = body.querySelector(`.nd-sent[data-i="${b.dataset.i}"]`)
+        if (done) { done.disabled = true; done.textContent = '✔ บันทึกแล้ว' }
+        render()
+      }
     }))
     body.querySelectorAll('.nd-sent').forEach(b => b.addEventListener('click', async () => {
       const c = list[Number(b.dataset.i) - 1]
@@ -494,12 +516,13 @@ export default async function MyDayPage(container) {
       const { el, close } = openModal({
         title: `💬 ทักกลับ ${escHtml(c.name)}`, size: 'sm',
         body: `<div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:6px">เหตุผลเดิม: ${escHtml(c.lostReason || '-')} · แก้ข้อความได้ก่อนคัดลอก</div><textarea class="input" id="rv-msg" data-no-mic rows="4" style="width:100%;font-size:16px">${escHtml(revisitMessage(c, classifyLostReason(c.lostReason)))}</textarea>`,
-        footer: `<button class="btn btn-secondary" id="rv-close">ปิด</button><button class="btn btn-primary" id="rv-copy">📋 คัดลอกไปส่ง</button>`,
+        footer: `<button class="btn btn-secondary" id="rv-close">ปิด</button><button class="btn btn-${canPushLine(rawCust(c.id)) ? 'secondary' : 'primary'}" id="rv-copy">📋 คัดลอกไปส่ง</button>${lineSendBtnHtml(rawCust(c.id), 'rv-line').replace('btn-xs', '')}`,
       })
       el.querySelector('#rv-close').addEventListener('click', close)
       el.querySelector('#rv-copy').addEventListener('click', async () => {
         if (await copyText(el.querySelector('#rv-msg').value, '📋 คัดลอกแล้ว ส่งแล้วกด ✅ ติดต่อแล้ว', 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง')) close()
       })
+      el.querySelector('#rv-line')?.addEventListener('click', async e => { if (await pushAndTouch(c.id, el.querySelector('#rv-msg').value, e.currentTarget)) { close(); render() } })
     }))
     $$('.md-promo').forEach(b => b.addEventListener('click', () => {
       const r = promoRows.find(x => x.c.id === b.dataset.id)
@@ -507,13 +530,21 @@ export default async function MyDayPage(container) {
       const { el, close } = openModal({
         title: `🎁 บอกโปร ${escHtml(r.name)}`, size: 'sm',
         body: `<div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:6px">${escHtml(r.list.map(p => p.title).join(' · '))} · แก้ข้อความได้ก่อนคัดลอก</div><textarea class="input" id="pm-msg" data-no-mic rows="6" style="width:100%;font-size:16px">${escHtml(campaignMessage(r))}</textarea>`,
-        footer: `<button class="btn btn-secondary" id="pm-close">ปิด</button><button class="btn btn-primary" id="pm-copy">📋 คัดลอกไปส่ง</button>`,
+        footer: `<button class="btn btn-secondary" id="pm-close">ปิด</button><button class="btn btn-${canPushLine(r.c) ? 'secondary' : 'primary'}" id="pm-copy">📋 คัดลอกไปส่ง</button>${lineSendBtnHtml(r.c, 'pm-line').replace('btn-xs', '')}`,
       })
       el.querySelector('#pm-close').addEventListener('click', close)
       el.querySelector('#pm-copy').addEventListener('click', async () => {
         if (!(await copyText(el.querySelector('#pm-msg').value, '📋 คัดลอกแล้ว วางในแชต LINE ของลูกค้าได้เลย', 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง'))) return
         close()
         // ส่งแล้ว = ติดต่อลูกค้าวันนี้ (ไม่ต้องกดบันทึกอีกรอบ)
+        if (await touchCustomerContact(r.c.id)) { r.c.updatedAt = new Date().toISOString(); r.c.lastContactAt = r.c.updatedAt; render() }
+      })
+      el.querySelector('#pm-line')?.addEventListener('click', async e => {
+        const btn = e.currentTarget
+        btn.disabled = true
+        try { await pushLineToCustomer(r.c, el.querySelector('#pm-msg').value) } catch (err) { btn.disabled = false; showToast('❌ ส่ง LINE ไม่สำเร็จ: ' + (err?.message || err), 'error'); return }
+        close()
+        showToast(`💚 ส่งโปรเข้า LINE ของ ${r.name} แล้ว`, 'success')
         if (await touchCustomerContact(r.c.id)) { r.c.updatedAt = new Date().toISOString(); r.c.lastContactAt = r.c.updatedAt; render() }
       })
     }))
