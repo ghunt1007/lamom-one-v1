@@ -6,7 +6,7 @@ import { formatDate, formatDateTime, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
-import { TARGET_SEGMENTS, getSegmentMembers, getSegmentCount, reachableMembers } from '../../core/segments.js'
+import { TARGET_SEGMENTS, getSegmentMembers, getSegmentCount, reachableMembers, lineReachable } from '../../core/segments.js'
 import { sendSms, sendEmail, sendPush } from '../../utils/comms.js'
 import { lineMulticast, lineBroadcastAll, lineSchedule, lineUnschedule } from '../../utils/socialApi.js'
 import { escHtml as __escA } from '../../utils/escape.js'
@@ -130,7 +130,7 @@ export default async function BroadcastPage(container) {
       if (bc.channel === 'line') {
         if (bc.target !== 'all') {
           // (v1.0.1023) ส่งเฉพาะกลุ่ม = ลูกค้าในกลุ่มที่เคยทัก LINE OA (มี lineUserId) ผ่าน multicast
-          reachable = (await getSegmentMembers(bc.target)).filter(m => m.lineUserId)
+          reachable = lineReachable(await getSegmentMembers(bc.target))
           if (!reachable.length) {
             showToast('❗ ยังไม่มีลูกค้าในกลุ่มนี้ที่เคยทัก LINE OA (ส่ง LINE เฉพาะกลุ่มได้เฉพาะคนที่ทักมาแล้ว) — เลือก "ลูกค้าทั้งหมด" เพื่อส่งถึงเพื่อน OA ทุกคน', 'error')
             return
@@ -212,7 +212,7 @@ export default async function BroadcastPage(container) {
           if (auto) {
             let ids = null
             if (bc.target !== 'all') {
-              ids = (await getSegmentMembers(bc.target)).filter(m => m.lineUserId).map(m => m.lineUserId)
+              ids = lineReachable(await getSegmentMembers(bc.target)).map(m => m.lineUserId)
               if (!ids.length) { showToast('❗ ยังไม่มีลูกค้าในกลุ่มนี้ที่เคยทัก LINE OA — เลือกกลุ่ม "ทั้งหมด" หรือกลุ่มอื่น', 'error', 7000); return false }
               recipients = ids.length
             }
@@ -314,7 +314,7 @@ export default async function BroadcastPage(container) {
       if (channel === 'line') {
         if (target === 'all') { hintEl.textContent = '💬 LINE Broadcast ส่งถึงเพื่อน OA ทั้งหมด'; return }
         hintEl.textContent = 'กำลังคำนวณจำนวนผู้รับจริง...'
-        const n = (await getSegmentMembers(target)).filter(m => m.lineUserId).length
+        const n = lineReachable(await getSegmentMembers(target)).length
         hintEl.textContent = `💬 LINE เฉพาะกลุ่ม: ส่งได้จริง ${n.toLocaleString()} ราย (ลูกค้าในกลุ่มที่เคยทัก LINE OA)`
         return
       }

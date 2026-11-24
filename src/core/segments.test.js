@@ -105,3 +105,39 @@ describe('PDPA marketingConsent (v1.0.1285)', () => {
     expect(m.find(x => x.id === 'y')).toMatchObject({ phone: '0899999999', lineUserId: 'U2' })
   })
 })
+
+describe('opt-out and duplicates (v1.0.1376)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('sends one SMS per phone number even when several customer docs share it', () => {
+    const m = [{ id: 'a', phone: '081-234-5678' }, { id: 'b', phone: '0812345678' }, { id: 'c', phone: '+66812345678' }, { id: 'd', phone: '0899999999' }]
+    expect(reachableMembers(m, 'sms').map(x => x.id)).toEqual(['a', 'd'])
+  })
+
+  it('sends one email per address, ignoring case', () => {
+    const m = [{ id: 'a', email: 'A@x.com' }, { id: 'b', email: 'a@x.com ' }, { id: 'c', email: '' }]
+    expect(reachableMembers(m, 'email').map(x => x.id)).toEqual(['a'])
+  })
+
+  it('blocks every doc using a phone that any doc opted out on', async () => {
+    listDocs.mockResolvedValue([
+      { id: '1', phone: '0811111111', email: 'p@x.com', lineUserId: 'U' + '1'.repeat(32), stage: 'lead' },
+      { id: '2', phone: '081-111-1111', marketingConsent: 'no', stage: 'lead' },
+      { id: '3', phone: '0822222222', stage: 'lead' },
+    ])
+    const members = await getSegmentMembers('all')
+    const one = members.find(m => m.id === '1')
+    expect(one.phone).toBe('')
+    expect(one.email).toBe('')
+    expect(one.lineUserId).toBe('')
+    expect(members.find(m => m.id === '3').phone).toBe('0822222222')
+  })
+
+  it('drops opted-out owners from the warranty segment', async () => {
+    listDocs.mockImplementation(async col => col === 'customers'
+      ? [{ id: 'c', phone: '0811111111', marketingConsent: 'no' }]
+      : [{ id: 'v1', owner: 'A', phone: '0811111111', status: 'expiring' }, { id: 'v2', owner: 'B', phone: '0822222222', status: 'expiring' }])
+    const members = await getSegmentMembers('expiring_warranty')
+    expect(reachableMembers(members, 'sms').map(m => m.id)).toEqual(['v2'])
+  })
+})
