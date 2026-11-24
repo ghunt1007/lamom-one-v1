@@ -30,7 +30,13 @@ export const metaPostUnschedule = id => call('/social/meta/post/unschedule', { i
 export const metaPostScheduled = () => call('/social/meta/post/scheduled')
 export const metaAds = () => call('/social/meta/ads')
 export const metaAdsUpdate = payload => call('/social/meta/ads/update', payload)
-export const lineReply = (threadId, text) => call('/social/line/reply', { threadId, text })
+// (v1.0.1367) เซิร์ฟเวอร์ตอบ { configured:false } (ไม่ได้ throw) เมื่อยังไม่ใส่คีย์ LINE OA — เดิมทุกหน้าที่ส่ง LINE รายคน
+// (หน้าลูกค้า/ใบจอง/อวยพรวันเกิด/ปลุกลีดเก่า ฯลฯ) ขึ้น "ส่งแล้ว" ทั้งที่ไม่มีอะไรออกไป → ตอนนี้แจ้ง error จริง
+export async function lineReply(threadId, text) {
+  const r = await call('/social/line/reply', { threadId, text })
+  if (r?.configured === false) throw new Error('ยังไม่ได้ตั้งค่า LINE OA — ใส่คีย์ LINE ในหน้า 🔑 คีย์เชื่อมต่อก่อน')
+  return r
+}
 export const lineMulticast = (userIds, text) => call('/social/line/multicast', { userIds, text })
 export const lineBroadcastAll = text => call('/social/line/broadcast', { text })
 // (v1.0.1143) ตั้งเวลาให้ระบบส่ง LINE เองตามเวลา — userIds = null คือส่งถึงเพื่อน OA ทั้งหมด
