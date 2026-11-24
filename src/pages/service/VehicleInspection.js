@@ -210,7 +210,7 @@ export default async function VehicleInspectionPage(container) {
                   <button class="btn btn-xs item-btn ${item.status==='fail'?'btn-danger':'btn-secondary'}" data-sec="${sectionKey}" data-i="${idx}" data-v="fail">❌</button>
                   <button class="btn btn-xs item-btn ${item.status==='na'?'btn-secondary':''}" data-sec="${sectionKey}" data-i="${idx}" data-v="na">⬜</button>
                 </div>
-                <span style="flex:1;font-size:0.82rem;${item.status==='fail'?'color:var(--danger);font-weight:600':''}">${item.text}</span>
+                <span style="flex:1;font-size:0.82rem;${item.status==='fail'?'color:var(--danger);font-weight:600':''}">${escHtml(item.text)}</span>
                 ${item.status === 'fail' ? `<input class="input fail-note" data-sec="${sectionKey}" data-i="${idx}" value="${escHtml(item.note)}" placeholder="หมายเหตุ..." style="width:160px;font-size:0.78rem;padding:4px 8px">` : ''}
               </div>
             `).join('')}

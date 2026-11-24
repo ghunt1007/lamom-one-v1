@@ -266,7 +266,7 @@ export default async function AiOfficersPage(container) {
         <span style="font-size:1.4rem">${o.emoji}</span>
         <div style="flex:1;min-width:0">
           <div style="font-weight:600;font-size:0.85rem;color:var(--${o.color})">${escHtml(o.name)}</div>
-          <div style="font-size:0.7rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.title}</div>
+          <div style="font-size:0.7rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(o.title)}</div>
         </div>
         ${history.length > 0 ? `<span style="font-size:0.7rem;color:var(--text-muted)">${history.length}</span>` : ''}
       </div>`
