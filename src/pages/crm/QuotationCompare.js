@@ -11,6 +11,8 @@ import { printDocument, docHeader, docFooter, esc } from '../../utils/print.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { copyText } from '../../utils/copyText.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
+import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
 
 
 export default async function QuotationComparePage(container) {
@@ -156,7 +158,8 @@ export default async function QuotationComparePage(container) {
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="qc-name"></div>
-          <div class="input-group"><label class="input-label">ส่งทาง</label><select class="input" id="qc-ch"><option value="line">LINE (คัดลอกข้อความไปวาง)</option><option value="email">อีเมล</option><option value="print">พิมพ์เอกสาร</option></select></div>
+          <div class="input-group"><label class="input-label">ส่งทาง</label><select class="input" id="qc-ch"><option value="line">LINE</option><option value="email">อีเมล</option><option value="print">พิมพ์เอกสาร</option></select></div>
+          <div class="input-group"><label class="input-label">เบอร์ลูกค้า (ผูก LINE แล้ว = ส่งเข้า LINE ให้เลย)</label><input class="input" id="qc-phone" inputmode="tel" placeholder="08x-xxx-xxxx"></div>
           <div class="input-group" id="qc-email-group"><label class="input-label">อีเมลผู้รับ (สำหรับส่งทางอีเมล)</label><input class="input" id="qc-email" placeholder="name@email.com"></div>
         </div>`,
         confirmText: '📤 ส่ง',
@@ -185,8 +188,20 @@ export default async function QuotationComparePage(container) {
             } catch (e) { showToast('❌ ส่งอีเมลไม่สำเร็จ: ' + e.message, 'error'); return false }
             return
           }
-          // LINE — คัดลอกข้อความไปวางในแชต LINE ของลูกค้า (แตะเดียว)
-          await copyText(compareText(chosen, name), '📋 คัดลอกข้อความแล้ว — เปิดแชต LINE ของลูกค้าแล้ววางได้เลย')
+          // LINE — (v1.0.1363) ลูกค้าผูก LINE กับ OA แล้ว = ส่งเข้า LINE ให้เลย · ยังไม่ผูก/ไม่ใส่เบอร์ = คัดลอกข้อความไปวาง
+          const phone = document.getElementById('qc-phone')?.value?.trim() || ''
+          const txt = compareText(chosen, name)
+          if (phone) {
+            try {
+              const prefs = await loadContactPrefs()
+              if (lineUidFor(phone, prefs)) {
+                await sendToCustomer(phone, txt, prefs)
+                showToast(`💚 ส่งใบเปรียบเทียบเข้า LINE ของ ${name} แล้ว`, 'success')
+                return
+              }
+            } catch (e) { showToast('❌ ส่ง LINE ไม่สำเร็จ: ' + (e?.message || e) + ' — คัดลอกข้อความให้แทน', 'error') }
+          }
+          await copyText(txt, phone ? '📋 ลูกค้ายังไม่ได้ผูก LINE กับร้าน — คัดลอกข้อความแล้ว เปิดแชต LINE ของลูกค้าแล้ววางได้เลย' : '📋 คัดลอกข้อความแล้ว — เปิดแชต LINE ของลูกค้าแล้ววางได้เลย')
         }
       })
     })

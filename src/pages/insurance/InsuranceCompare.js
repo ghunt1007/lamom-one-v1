@@ -17,6 +17,8 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { getInsurers } from '../../data/masterData.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
+import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
@@ -139,21 +141,34 @@ export default async function InsuranceComparePage(container) {
         body: `<div style="display:grid;gap:10px">
           <div style="font-size:0.82rem">🏢 <strong>${escHtml(name)}</strong> — ${escHtml(vehicleLabel(vehicle))}<br>เบี้ยประมาณการ <strong style="color:var(--primary)">${formatCurrency(est.premium)}</strong>/ปี</div>
           <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="ins-customer"></div>
+          <div class="input-group"><label class="input-label">เบอร์ลูกค้า (ผูก LINE แล้ว = ส่งเข้า LINE ให้เลย)</label><input class="input" id="ins-phone" inputmode="tel" placeholder="08x-xxx-xxxx"></div>
           <div class="input-group"><label class="input-label">ส่งทาง</label>
             <select class="input" id="ins-channel"><option>LINE</option><option>อีเมล</option><option>พิมพ์เอกสาร</option></select>
           </div>
         </div>`,
-        confirmText: '💾 บันทึก + คัดลอกข้อความ',
+        confirmText: '💾 บันทึก + ส่ง',
         async onConfirm() {
           const custName = document.getElementById('ins-customer')?.value?.trim()
           const channel = document.getElementById('ins-channel')?.value || 'LINE'
           if (!custName) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+          const phone = document.getElementById('ins-phone')?.value?.trim() || ''
+          const txt = `เรียนคุณ${custName}\nใบเสนอประกันรถ ${vehicleLabel(vehicle)}\nบริษัท ${name} · เบี้ยประมาณการ ${formatCurrency(est.premium)}\n(ราคาจริงตามที่บริษัทประกันยืนยัน)`
           try {
+            // (v1.0.1363) เลือก LINE + ใส่เบอร์ที่ลูกค้าผูก LINE กับร้านแล้ว = ส่งเข้า LINE ให้เลย ไม่ต้องคัดลอกไปวาง
+            let pushed = false
+            if (channel === 'LINE' && phone) {
+              try {
+                const prefs = await loadContactPrefs()
+                if (lineUidFor(phone, prefs)) { await sendToCustomer(phone, txt, prefs); pushed = true }
+              } catch (e) { showToast('❌ ส่ง LINE ไม่สำเร็จ — คัดลอกข้อความให้แทน', 'error') }
+            }
             await createDoc('insurance_proposals', {
               insurer: name, vehicleId: vehicle.id, vehicleLabel: vehicleLabel(vehicle),
-              premium: est.premium, custName, channel, status: 'sent', sentAt: new Date().toISOString(),
+              premium: est.premium, custName, ...(phone ? { phone } : {}), channel, status: 'sent', sentAt: new Date().toISOString(),
+              ...(pushed ? { linePushed: true } : {}),
             })
-            await copyText(`เรียนคุณ${custName}\nใบเสนอประกันรถ ${vehicleLabel(vehicle)}\nบริษัท ${name} · เบี้ยประมาณการ ${formatCurrency(est.premium)}\n(ราคาจริงตามที่บริษัทประกันยืนยัน)`,
+            if (pushed) showToast(`💾 บันทึกใบเสนอแล้ว · 💚 ส่งเข้า LINE ของคุณ${custName} แล้ว`, 'success')
+            else await copyText(txt,
               `💾 บันทึกใบเสนอแล้ว · คัดลอกข้อความให้แล้ว วางส่ง${channel === 'พิมพ์เอกสาร' ? '' : 'ทาง ' + channel} ให้คุณ${custName} ได้เลย`)
           } catch {
             showToast('❗ บันทึกใบเสนอไม่สำเร็จ', 'error')
