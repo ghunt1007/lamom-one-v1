@@ -17,7 +17,7 @@ import { staffChoices, findStaffCompany, assignCustomer } from '../../utils/lead
 import { bangkokDate, buildMyDay, spokenBriefing, topPriorities, teamToday, leadWait, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS, FINANCE_WAIT_DAYS } from '../../utils/myDay.js'
 import { followupWindowFilters } from '../../utils/customerFollowups.js'
 import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal.js'
-import { touchCustomerContact } from '../../utils/customerContact.js'
+import { touchCustomerContact, logLineSent } from '../../utils/customerContact.js'
 import { armCallLog } from '../../utils/callLogger.js'
 import { lineNameKey } from '../../utils/lineRegistration.js'
 import { buildBatchNudgePrompt, parseBatchNudgeReply } from '../../utils/salesAi.js'
@@ -244,7 +244,7 @@ export default async function MyDayPage(container) {
     if (btn) btn.disabled = true
     try { await pushLineToCustomer(c, text) } catch (e) { if (btn) btn.disabled = false; showToast('❌ ส่ง LINE ไม่สำเร็จ: ' + (e?.message || e), 'error'); return false }
     showToast(`💚 ส่งเข้า LINE ของ ${c.firstName || 'ลูกค้า'} แล้ว`, 'success')
-    if (await touchCustomerContact(id)) { c.updatedAt = new Date().toISOString(); c.lastContactAt = c.updatedAt }
+    if (await logLineSent(id, text)) { c.updatedAt = new Date().toISOString(); c.lastContactAt = c.updatedAt }
     return true
   }
   // AI ร่างข้อความ LINE ทักลูกค้าที่เงียบหลายคนพร้อมกัน — เซลส์อ่าน/แก้ แล้วคัดลอกไปส่งเอง (ไม่ส่งอัตโนมัติ)
@@ -545,7 +545,7 @@ export default async function MyDayPage(container) {
         try { await pushLineToCustomer(r.c, el.querySelector('#pm-msg').value) } catch (err) { btn.disabled = false; showToast('❌ ส่ง LINE ไม่สำเร็จ: ' + (err?.message || err), 'error'); return }
         close()
         showToast(`💚 ส่งโปรเข้า LINE ของ ${r.name} แล้ว`, 'success')
-        if (await touchCustomerContact(r.c.id)) { r.c.updatedAt = new Date().toISOString(); r.c.lastContactAt = r.c.updatedAt; render() }
+        if (await logLineSent(r.c.id, el.querySelector('#pm-msg')?.value)) { r.c.updatedAt = new Date().toISOString(); r.c.lastContactAt = r.c.updatedAt; render() }
       })
     }))
     $$('.md-replan').forEach(btn => btn.addEventListener('click', () => {

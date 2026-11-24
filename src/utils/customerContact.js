@@ -14,3 +14,20 @@ export async function touchCustomerContact(customerId, now = new Date().toISOStr
   } catch { /* อ่านไม่ได้ — บันทึกแค่ lastContactAt */ }
   try { await updateDocData('customers', customerId, patch); return true } catch { return false }
 }
+
+// (v1.0.1370) ส่ง LINE ถึงลูกค้าจากในแอปแล้ว → ลงไทม์ไลน์การติดต่อ (comm_logs) ให้เห็นว่าส่งอะไรไปเมื่อไหร่ ใครส่ง
+// + บันทึกว่าติดต่อแล้ววันนี้ · ไม่ throw (ส่งไปแล้ว บันทึกไม่ได้ก็ไม่ควรทำให้ดูเหมือนส่งไม่สำเร็จ)
+export async function logLineSent(customerId, text) {
+  if (!customerId) return false
+  try {
+    const [{ createDoc }, { getState }, { myEffectiveCompanyId }] = await Promise.all([
+      import('../core/db.js'), import('../core/store.js'), import('../core/companyScope.js'),
+    ])
+    const me = getState('user') || {}
+    await createDoc('comm_logs', {
+      customerId, type: 'line', note: '💚 ส่ง LINE: ' + String(text || '').trim().slice(0, 300),
+      createdBy: me.displayName || me.email || me.uid || '', companyId: myEffectiveCompanyId(),
+    })
+  } catch { /* ข้าม */ }
+  return touchCustomerContact(customerId)
+}
