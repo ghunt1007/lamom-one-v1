@@ -11,6 +11,8 @@ import { scheduleTestDriveFollowup } from '../../utils/testDriveFollowup.js'
 import { testDriveThanks } from '../../utils/bookingNotify.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { copyText } from '../../utils/copyText.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
+import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
 import { escHtml } from '../../utils/escape.js'
 import { callLink } from '../../utils/callLink.js'
 import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
@@ -288,6 +290,21 @@ export default async function TestDrivePage(container) {
     el.querySelector('#tdt-copy').addEventListener('click', async () => {
       if (await copyText(el.querySelector('#td-thanks').value, '📋 คัดลอกแล้ว', 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง')) close()
     })
+    // (v1.0.1366) ลูกค้าผูก LINE กับร้านแล้ว (ตามเบอร์) = ปุ่ม 💚 ส่ง LINE ส่งเข้าแชตให้เลย (พนักงานกดเองเท่านั้น)
+    if (t.phone) loadContactPrefs().then(prefs => {
+      if (!lineUidFor(t.phone, prefs) || !el.isConnected) return
+      const copyBtn = el.querySelector('#tdt-copy')
+      if (!copyBtn) return
+      copyBtn.className = 'btn btn-secondary'
+      copyBtn.insertAdjacentHTML('afterend', '<button class="btn btn-primary" id="tdt-line">💚 ส่ง LINE</button>')
+      el.querySelector('#tdt-line').addEventListener('click', async e => {
+        const btn = e.currentTarget
+        btn.disabled = true
+        try { await sendToCustomer(t.phone, el.querySelector('#td-thanks').value, prefs) } catch (err) { btn.disabled = false; showToast('❌ ส่ง LINE ไม่สำเร็จ: ' + (err?.message || err), 'error'); return }
+        close()
+        showToast(`💚 ส่งข้อความขอบคุณเข้า LINE ของ ${t.customerName || 'ลูกค้า'} แล้ว`, 'success')
+      })
+    }).catch(() => {})
   }
 
   function openNewForm() {
