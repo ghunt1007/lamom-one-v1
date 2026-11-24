@@ -26,11 +26,19 @@ async function callComms(path, payload) {
   return data
 }
 
-export function sendSms(recipients, message) {
-  return callComms('/send/sms', { recipients, message })
+// (v1.0.1368) Worker ตอบ { configured:false } หรือ { sent:0, failed:n } ด้วย HTTP 200 — เดิมหน้าที่ส่งรายคน
+// (ใบเสร็จ, แจ้งลิงก์ผูก LINE, ตอบกล่องข้อความ, CSAT, ส่งลูกค้าทาง SMS ฯลฯ) เข้าใจว่าส่งสำเร็จทั้งที่ไม่มีอะไรออกไป
+// → ถือว่าล้มเหลว (throw) เมื่อยังไม่ตั้งค่า หรือไม่สำเร็จเลยสักรายการ · สำเร็จบางส่วน = คืนผลให้ผู้เรียกดูตัวเลขเอง
+export function assertDelivered(r, what = 'ส่ง') {
+  if (r?.configured === false) throw new Error(r.error || `${what}ยังไม่ได้ตั้งค่า`)
+  if (r && Number(r.sent) === 0 && Number(r.failed) > 0) throw new Error(`${what}ไม่สำเร็จ: ${r.errors?.[0]?.error || 'ผู้ให้บริการปฏิเสธ'}`)
+  return r
 }
-export function sendEmail(recipients, subject, message) {
-  return callComms('/send/email', { recipients, subject, message })
+export async function sendSms(recipients, message) {
+  return assertDelivered(await callComms('/send/sms', { recipients, message }), 'SMS ')
+}
+export async function sendEmail(recipients, subject, message) {
+  return assertDelivered(await callComms('/send/email', { recipients, subject, message }), 'อีเมล ')
 }
 export function sendLineBroadcast(message) {
   return callComms('/send/line', { message })
