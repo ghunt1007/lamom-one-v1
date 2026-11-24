@@ -6,6 +6,8 @@ import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
+import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
@@ -218,9 +220,33 @@ export default async function LoanCalculatorPage(container) {
       const rate = bestBank.rates[term]
       const pay = monthly(principal, rate, term)
       const summary = `ค่างวดโดยประมาณ ${model}\nราคา ${formatCurrency(price)} · ดาวน์ ${downPct}% (${formatCurrency(price * downPct / 100)})\nผ่อน ${term} งวด ประมาณ ฿${pay.toLocaleString()}/เดือน (ดอกเบี้ย ${rate}% ต่อปี)\n*ตัวเลขเบื้องต้น อัตราจริงขึ้นกับการอนุมัติของไฟแนนซ์`
-      navigator.clipboard?.writeText(summary)
+      // (v1.0.1378) ใส่เบอร์ลูกค้าที่ผูก LINE แล้ว = ส่งเข้า LINE ให้เลย · ไม่ใส่/ยังไม่ผูก = คัดลอกไปวางเอง (เหมือนเดิม)
+      const copy = () => navigator.clipboard?.writeText(summary)
         .then(() => showToast(`📤 Copy สรุปค่างวดแล้ว — วางใน LINE ได้เลย`, 'success'))
         .catch(() => showToast('คัดลอกไม่สำเร็จ — จดตัวเลขจากหน้าจอแทน', 'warning'))
+      openModal({
+        title: '📤 ส่งสรุปค่างวดให้ลูกค้า', size: 'sm',
+        body: `<div style="display:grid;gap:10px">
+          <div style="background:var(--surface-2);border-radius:var(--radius-sm);padding:10px;font-size:0.8rem;white-space:pre-wrap;overflow-wrap:anywhere">${escHtml(summary)}</div>
+          <div class="input-group"><label class="input-label">เบอร์ลูกค้า (ผูก LINE แล้ว = ส่งเข้า LINE ให้เลย · เว้นว่าง = คัดลอก)</label><input class="input" id="lc-phone" inputmode="tel" placeholder="08x-xxx-xxxx"></div>
+        </div>`,
+        confirmText: '📤 ส่ง / คัดลอก',
+        async onConfirm() {
+          const phone = document.getElementById('lc-phone')?.value?.trim() || ''
+          if (phone) {
+            try {
+              const prefs = await loadContactPrefs()
+              if (lineUidFor(phone, prefs)) {
+                await sendToCustomer(phone, summary, prefs)
+                showToast('💚 ส่งสรุปค่างวดเข้า LINE ลูกค้าแล้ว', 'success')
+                return
+              }
+              showToast('📋 ลูกค้ายังไม่ได้ผูก LINE กับร้าน — คัดลอกให้แทน', 'warning')
+            } catch (e) { showToast('❌ ส่ง LINE ไม่สำเร็จ: ' + (e?.message || e) + ' — คัดลอกให้แทน', 'error') }
+          }
+          copy()
+        },
+      })
     })
   }
 

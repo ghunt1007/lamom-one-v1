@@ -174,7 +174,7 @@ export default async function PdpaConsentPage(container) {
     }))
     container.querySelectorAll('.done-dsr-btn').forEach(b => b.addEventListener('click', async () => {
       await updateDocData('pdpa_dsr_requests', b.dataset.id, { status: 'done' })
-      showToast('✅ ปิดคำขอ DSR แล้ว — แจ้งลูกค้าทางอีเมล', 'success'); await loadData()
+      showToast('✅ ปิดคำขอ DSR แล้ว — อย่าลืมแจ้งผลให้ลูกค้าทางอีเมล', 'success'); await loadData()
     }))
     document.getElementById('add-dsr-btn')?.addEventListener('click', openAddDsrForm)
     document.getElementById('add-consent-btn')?.addEventListener('click', openAddConsentForm)
