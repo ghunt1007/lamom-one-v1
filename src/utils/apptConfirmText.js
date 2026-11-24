@@ -10,11 +10,21 @@ export function addDaysYmd(ymd, n) {
   const d = new Date(ymd + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)
 }
 
-export function serviceApptText(a, today) {
-  const date = String(a?.date || '').slice(0, 10)
-  const name = firstName(a?.custName), time = hhmm(a?.time)
-  const what = [a?.type, a?.model, a?.plate].map(x => String(x || '').trim()).filter(Boolean).join(' · ')
-  if (date && date === addDaysYmd(today, 1)) return remindText('service', { name, date, time, what })
-  const when = date === today ? `วันนี้ ${dmyTh(date)}` : `วันที่ ${dmyTh(date)}`
-  return `${name ? `สวัสดีครับคุณ${name}` : 'สวัสดีครับ'} ขอยืนยันนัดเข้าศูนย์บริการ${what ? ` (${what})` : ''} ${when}${time ? ` เวลา ${time} น.` : ''} ครับ 🔧\nถ้าต้องการเลื่อนนัด ตอบกลับข้อความนี้ได้เลยครับ`
+const LABEL = { service: 'นัดเข้าศูนย์บริการ', testdrive: 'นัดทดลองขับ', showroom: 'นัดเข้าโชว์รูม' }
+const ICON = { service: ' 🔧', testdrive: ' 🚗', showroom: '' }
+
+// kind: service | testdrive | showroom · a: { date, time, name, what }
+export function apptText(kind, { date = '', time = '', name = '', what = '' } = {}, today) {
+  const d = String(date || '').slice(0, 10)
+  const n = firstName(name), t = hhmm(time), w = String(what || '').trim()
+  if (d && d === addDaysYmd(today, 1)) return remindText(kind, { name: n, date: d, time: t, what: w })
+  const when = d === today ? `วันนี้ ${dmyTh(d)}` : `วันที่ ${dmyTh(d)}`
+  return `${n ? `สวัสดีครับคุณ${n}` : 'สวัสดีครับ'} ขอยืนยัน${LABEL[kind] || 'นัดหมาย'}${w ? ` (${w})` : ''} ${when}${t ? ` เวลา ${t} น.` : ''} ครับ${ICON[kind] || ''}\nถ้าต้องการเลื่อนนัด ตอบกลับข้อความนี้ได้เลยครับ`
 }
+
+export function serviceApptText(a, today) {
+  const what = [a?.type, a?.model, a?.plate].map(x => String(x || '').trim()).filter(Boolean).join(' · ')
+  return apptText('service', { date: a?.date, time: a?.time, name: a?.custName, what }, today)
+}
+
+export const testDriveApptText = (t, today) => apptText('testdrive', { date: t?.date, time: t?.time, name: t?.customerName, what: t?.model }, today)
