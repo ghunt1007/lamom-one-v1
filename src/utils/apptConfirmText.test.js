@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { serviceApptText, testDriveApptText, addDaysYmd } from './apptConfirmText.js'
+import { serviceApptText, testDriveApptText, showroomApptText, addDaysYmd } from './apptConfirmText.js'
 
 describe('serviceApptText', () => {
   it('uses the tomorrow reminder wording when the date is tomorrow', () => {
@@ -17,5 +17,8 @@ describe('serviceApptText', () => {
   it('test drive text', () => {
     expect(testDriveApptText({ date: '2026-11-28', time: '10:00', customerName: 'สมชาย', model: 'Deepal S07' }, '2026-11-25')).toContain('ขอยืนยันนัดทดลองขับ (Deepal S07) วันที่ 28/11/2569 เวลา 10:00 น.')
     expect(testDriveApptText({ date: '2026-11-26', customerName: 'สมชาย', model: 'S07' }, '2026-11-25')).toContain('ขอเตือนนัดทดลองขับ S07 พรุ่งนี้')
+  })
+  it('showroom text', () => {
+    expect(showroomApptText({ date: '2026-11-29', time: '14:00', custName: 'คุณวิชัย', purpose: 'ดูรถ' }, '2026-11-25')).toContain('สวัสดีครับคุณวิชัย ขอยืนยันนัดเข้าโชว์รูม (ดูรถ) วันที่ 29/11/2569 เวลา 14:00 น.')
   })
 })

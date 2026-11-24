@@ -28,3 +28,5 @@ export function serviceApptText(a, today) {
 }
 
 export const testDriveApptText = (t, today) => apptText('testdrive', { date: t?.date, time: t?.time, name: t?.customerName, what: t?.model }, today)
+
+export const showroomApptText = (a, today) => apptText('showroom', { date: a?.date, time: a?.time, name: a?.custName, what: a?.purpose || a?.interestedIn }, today)
