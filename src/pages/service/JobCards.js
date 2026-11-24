@@ -12,6 +12,9 @@ import { carOf } from '../../utils/carLabel.js'
 import { callLink } from '../../utils/callLink.js'
 import { nextDocNo } from '../../utils/nextDocNo.js'
 import { printJobCard } from '../../utils/jobCardDoc.js'
+import { jobReadyText } from '../../../workers/jobReadyLine.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
+import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
 
 const JOB_STATUS = {
   waiting:    { label: '⏳ รอรับรถ',      badge: 'primary' },
@@ -254,6 +257,7 @@ export default async function JobCardsPage(container) {
         </div>
       `,
       footer: `<button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">ปิด</button>
+               ${j.status === 'done' && !j.lineReadySent && j.phone ? '<button class="btn btn-success" id="j-ready">💬 แจ้งลูกค้ารถเสร็จ</button>' : ''}
                <button class="btn btn-secondary" id="j-print">🖨 พิมพ์ใบรับรถ</button>
                <button class="btn btn-secondary" id="j-edit">✏️ แก้ไข</button>
                <button class="btn btn-danger" id="j-delete">🗑️ ลบ</button>`
@@ -266,6 +270,26 @@ export default async function JobCardsPage(container) {
         document.querySelector('.modal-overlay')?.remove(); updateStats(); applyFilter()
         if (next === 'delivered') setNextServiceReminder(j)
       } catch { showToast('เกิดข้อผิดพลาด','error') }
+    })
+    // (v1.0.1372) รถเสร็จแล้ว → แจ้งลูกค้าเองได้ทันที (ผูก LINE = ส่ง LINE ฟรี · ไม่ผูก = SMS) แม้ยังไม่เปิดสวิตช์แจ้งอัตโนมัติ
+    // จด lineReadySent ไว้ → ระบบแจ้งอัตโนมัติจะไม่ส่งซ้ำ
+    document.getElementById('j-ready')?.addEventListener('click', async e => {
+      const btn = e.currentTarget
+      btn.disabled = true
+      let prefs = null
+      try { prefs = await loadContactPrefs() } catch { prefs = null }
+      const via = lineUidFor(j.phone, prefs) ? 'LINE' : 'SMS'
+      const name = String(j.custName || '').trim().replace(/^คุณ/, '').split(/\s+/)[0]
+      const text = jobReadyText({ name: /^ลูกค้า/.test(name) ? '' : name, model: [j.brand, j.model].filter(Boolean).join(' ').trim(), plate: j.plate })
+      const ok = await confirmDialog({ title: '💬 แจ้งลูกค้ารถเสร็จ', message: `ส่งทาง ${via} ถึง ${j.custName || j.phone}:\n\n${text}`, confirmText: `ส่ง ${via}` })
+      if (!ok) { btn.disabled = false; return }
+      try {
+        const used = await sendToCustomer(j.phone, text, prefs)
+        await updateDocData('job_cards', j.id, { lineReadySent: true, readyNotifiedVia: used, readyNotifiedAt: new Date().toISOString() }).catch(() => {})
+        j.lineReadySent = true
+        btn.remove()
+        showToast(`✅ แจ้งลูกค้าทาง ${used} แล้ว`, 'success')
+      } catch (err) { btn.disabled = false; showToast('❌ ส่งไม่สำเร็จ: ' + (err?.message || err), 'error') }
     })
     document.getElementById('j-print')?.addEventListener('click', () => printJobCard(j, { typeLabel: JOB_TYPE[j.type] || '', statusLabel: st.label }))
     document.getElementById('j-edit')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openForm(j) })
