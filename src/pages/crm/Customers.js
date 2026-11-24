@@ -49,6 +49,7 @@ import { openTestDriveForm, loadUpcomingTestDrive, loadTestDrivesFor, mentionsTe
 import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { copyText } from '../../utils/copyText.js'
+import { pushLineToCustomer, lineSendBtnHtml } from '../../utils/customerLinePush.js'
 import { escHtml } from '../../utils/escape.js'
 import { quickChips } from '../../utils/lamiCommands.js'
 import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
@@ -83,7 +84,17 @@ function calcHtml(c) {
     <div id="wk-calc-out" style="margin-top:6px"></div>
   </div>`
 }
-function bindCalc(root) {
+// (v1.0.1364) ปุ่ม 💚 ส่ง LINE ข้างปุ่มคัดลอก — ลูกค้าผูก LINE แล้วส่งเข้าแชตให้เลย ไม่ต้องคัดลอกไปวาง (พนักงานกดเองเท่านั้น)
+async function sendLineFromDetail(c, text, btn) {
+  if (btn) btn.disabled = true
+  try {
+    await pushLineToCustomer(c, text)
+    showToast(`💚 ส่งเข้า LINE ของ ${c.firstName || 'ลูกค้า'} แล้ว`, 'success')
+    touchCustomerContact(c.id)
+  } catch (e) { showToast('❌ ส่ง LINE ไม่สำเร็จ: ' + (e?.message || e), 'error') }
+  finally { if (btn) btn.disabled = false }
+}
+function bindCalc(root, c) {
   const box = root.querySelector('#wk-calc')
   if (!box) return
   const $ = id => box.querySelector('#' + id)
@@ -92,10 +103,11 @@ function bindCalc(root) {
     const price = Number(sel?.dataset.p) || 0
     const r = flatMonthly(price, $('wk-calc-d').value, $('wk-calc-m').value, $('wk-calc-r').value)
     const txt = `${sel?.textContent.split(' · ')[0] || ''} ราคา ${price.toLocaleString('en-US')} บาท\nดาวน์ ${$('wk-calc-d').value}% (${r.down.toLocaleString('en-US')} บาท) ผ่อน ${$('wk-calc-m').value} งวด\nประมาณเดือนละ ${r.monthly.toLocaleString('en-US')} บาท (ดอกเบี้ย ${$('wk-calc-r').value}% ต่อปี)\n*ตัวเลขเบื้องต้น อัตราจริงขึ้นกับการอนุมัติของไฟแนนซ์`
-    $('wk-calc-out').innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div>ยอดจัด ${r.loan.toLocaleString('en-US')} · <b style="font-size:1rem;color:var(--primary)">≈ ${r.monthly.toLocaleString('en-US')} บาท/เดือน</b></div><button type="button" class="btn btn-secondary btn-xs" id="wk-calc-copy">📋 คัดลอกส่งลูกค้า</button></div>`
+    $('wk-calc-out').innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div>ยอดจัด ${r.loan.toLocaleString('en-US')} · <b style="font-size:1rem;color:var(--primary)">≈ ${r.monthly.toLocaleString('en-US')} บาท/เดือน</b></div><span style="display:flex;gap:6px"><button type="button" class="btn btn-secondary btn-xs" id="wk-calc-copy">📋 คัดลอกส่งลูกค้า</button>${lineSendBtnHtml(c, 'wk-calc-line')}</span></div>`
     $('wk-calc-copy').addEventListener('click', async () => {
       await copyText(txt, '📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'คัดลอกไม่สำเร็จ')
     })
+    $('wk-calc-line')?.addEventListener('click', e => sendLineFromDetail(c, txt, e.currentTarget))
   }
   ;['wk-calc-v', 'wk-calc-d', 'wk-calc-m', 'wk-calc-r'].forEach(id => $(id).addEventListener('input', run))
   run()
@@ -527,7 +539,7 @@ export default async function CustomersPage(container) {
                   : `<span style="color:var(--text-muted)">รับได้</span> <button class="btn btn-ghost btn-xs" id="wk-consent" data-v="no" title="ลูกค้าแจ้งว่าไม่ต้องการรับข่าวสาร/โปรโมชัน (PDPA)">🔕 ลูกค้าขอไม่รับ</button>`)}
                 ${c.email ? detail('📧 Email', (() => { const h = mailHref(c.email, { subject: `สวัสดีคุณ${c.firstName || fullName(c)} — ${c.interestedModel ? 'ข้อมูลรถ ' + c.interestedModel : 'จากโชว์รูม'}`, body: `สวัสดีคุณ${c.firstName || fullName(c)}\n\n` }); return h ? `<a href="${escHtml(h)}" style="color:var(--primary);overflow-wrap:anywhere" title="เปิดแอปอีเมลพร้อมหัวเรื่อง">${escHtml(c.email)}</a> <a class="btn btn-ghost btn-xs" href="${escHtml(h)}">✉️ ส่งอีเมล</a>` : escHtml(c.email) })()) : ''}
                 ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-') + (c.isLost ? '' : ' <button class="btn btn-ghost btn-xs" id="wk-td-btn" title="นัดลูกค้ามาทดลองขับ">🚙 นัดทดลองขับ</button>'))}
-                ${(() => { const f = c.interestedModel ? modelFacts(c.interestedModel, getVehicles(), 4) : []; return f.length ? `<details style="margin:-2px 0 2px;font-size:0.76rem"><summary style="cursor:pointer;color:var(--primary)">📋 ราคา/สเปครุ่นนี้ (ไว้ตอบลูกค้า)</summary><div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${f.map(x => `<div style="padding:6px 8px;border-radius:8px;background:var(--surface-2);line-height:1.45">${escHtml(x)}</div>`).join('')}<div id="wk-promos"></div><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.66rem;color:var(--text-muted)">ราคาตั้งจากฐานข้อมูลรถ</span><button type="button" class="btn btn-secondary btn-xs" id="wk-facts-copy">📋 คัดลอกสเปคส่งลูกค้า</button></div>${calcHtml(c)}</div></details>` : '' })()}
+                ${(() => { const f = c.interestedModel ? modelFacts(c.interestedModel, getVehicles(), 4) : []; return f.length ? `<details style="margin:-2px 0 2px;font-size:0.76rem"><summary style="cursor:pointer;color:var(--primary)">📋 ราคา/สเปครุ่นนี้ (ไว้ตอบลูกค้า)</summary><div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${f.map(x => `<div style="padding:6px 8px;border-radius:8px;background:var(--surface-2);line-height:1.45">${escHtml(x)}</div>`).join('')}<div id="wk-promos"></div><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.66rem;color:var(--text-muted)">ราคาตั้งจากฐานข้อมูลรถ</span><span style="display:flex;gap:6px"><button type="button" class="btn btn-secondary btn-xs" id="wk-facts-copy">📋 คัดลอกสเปคส่งลูกค้า</button>${lineSendBtnHtml(c, 'wk-facts-line')}</span></div>${calcHtml(c)}</div></details>` : '' })()}
                 ${c.budget ? detail('💰 งบประมาณ', formatCurrency(c.budget)) : ''}
                 ${c.occupation ? detail('💼 อาชีพ', escHtml(c.occupation)) : ''}
                 ${c.monthlyIncome ? detail('💵 รายได้ต่อเดือน', formatCurrency(c.monthlyIncome)) : ''}
@@ -616,16 +628,19 @@ export default async function CustomersPage(container) {
       `,
     })
 
-    bindCalc(el)
+    bindCalc(el, c)
     fillPromos(el, c)
     // ส่งราคา/สเปครุ่นที่สนใจให้ลูกค้าทาง LINE ในคลิกเดียว (ข้อมูลเดียวกับที่โชว์ ไม่มีข้อมูลลูกค้าปน)
-    el.querySelector('#wk-facts-copy')?.addEventListener('click', async () => {
+    const factsText = () => {
       const lines = modelFacts(c.interestedModel, getVehicles(), 4)
       let promo = []
       try { promo = JSON.parse(el.querySelector('#wk-promos')?.dataset.lines || '[]') } catch { promo = [] }
-      const text = [`ข้อมูล ${c.interestedModel} ครับ`, ...lines.map(x => '• ' + x), ...(promo.length ? ['', '🎁 โปรเดือนนี้', ...promo.map(x => '• ' + x), '*เงื่อนไขเป็นไปตามที่บริษัทกำหนด'] : ['*ราคาตั้ง ยังไม่รวมโปรโมชั่น สอบถามโปรล่าสุดได้เลยครับ'])].join('\n')
-      await copyText(text, '📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'คัดลอกไม่สำเร็จ')
+      return [`ข้อมูล ${c.interestedModel} ครับ`, ...lines.map(x => '• ' + x), ...(promo.length ? ['', '🎁 โปรเดือนนี้', ...promo.map(x => '• ' + x), '*เงื่อนไขเป็นไปตามที่บริษัทกำหนด'] : ['*ราคาตั้ง ยังไม่รวมโปรโมชั่น สอบถามโปรล่าสุดได้เลยครับ'])].join('\n')
+    }
+    el.querySelector('#wk-facts-copy')?.addEventListener('click', async () => {
+      await copyText(factsText(), '📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'คัดลอกไม่สำเร็จ')
     })
+    el.querySelector('#wk-facts-line')?.addEventListener('click', e => sendLineFromDetail(c, factsText(), e.currentTarget))
     el.querySelector('#wk-td-btn')?.addEventListener('click', () => openTestDriveForm(c, { onSaved: showTd }))
     // ถ้ามีนัดลองขับอยู่แล้ว ให้เห็นทันทีว่านัดวันไหน (ไม่ต้องไปเปิดหน้า Test Drive)
     function showTd(t) {
@@ -927,11 +942,12 @@ export default async function CustomersPage(container) {
         if (!draft) { out.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI ร่างไม่สำเร็จ ลองใหม่อีกครั้ง</div>`; return }
         out.innerHTML = `<div class="card" style="padding:10px 12px;margin-top:6px;background:var(--primary-dim);border:1px solid var(--primary)">
           <div id="wk-ai-reply-text" style="font-size:0.84rem;line-height:1.55;white-space:pre-wrap">${escHtml(draft)}</div>
-          <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px"><button class="btn btn-secondary btn-xs" id="wk-ai-reply-copy">📋 คัดลอกไปวางใน LINE</button></div>
+          <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px"><button class="btn btn-secondary btn-xs" id="wk-ai-reply-copy">📋 คัดลอกไปวางใน LINE</button>${lineSendBtnHtml(c, 'wk-ai-reply-line')}</div>
         </div>`
         document.getElementById('wk-ai-reply-copy')?.addEventListener('click', async () => {
           await copyText(draft, '📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง')
         })
+        document.getElementById('wk-ai-reply-line')?.addEventListener('click', e => sendLineFromDetail(c, draft, e.currentTarget))
       } catch { if (out) out.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI ร่างไม่สำเร็จ ลองใหม่อีกครั้ง</div>` }
       finally { if (document.getElementById('wk-ai-reply-btn')) { btn.disabled = false; btn.innerHTML = '✨ ร่างคำตอบ' } }
     })
@@ -966,7 +982,7 @@ export default async function CustomersPage(container) {
           ${r.lineMessage ? `<div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted)">💚 ข้อความ LINE ที่ส่งได้เลย (แก้ได้):</div>
             <textarea class="input" id="wk-ai-line" rows="3" style="width:100%;margin-top:3px;font-size:0.8rem">${escHtml(r.lineMessage)}</textarea>` : ''}
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-            ${r.lineMessage ? `<button class="btn btn-primary btn-xs" id="wk-ai-copy">📋 คัดลอกข้อความ</button>` : ''}
+            ${r.lineMessage ? `<button class="btn ${lineSendBtnHtml(c, 'x') ? 'btn-secondary' : 'btn-primary'} btn-xs" id="wk-ai-copy">📋 คัดลอกข้อความ</button>${lineSendBtnHtml(c, 'wk-ai-line-send')}` : ''}
             ${!c.isLost && mentionsTestDrive(r.nextAction + ' ' + (r.when || '')) ? `<button class="btn btn-secondary btn-xs" id="wk-ai-td">🚙 นัดทดลองขับเลย</button>` : ''}
             ${!c.isLost && r.followUpDays !== null ? `<button class="btn btn-secondary btn-xs" id="wk-ai-plan">📅 นัดตามที่ AI แนะนำ (${r.followUpDays === 0 ? 'วันนี้' : `อีก ${r.followUpDays} วัน`})</button>` : ''}
           </div>
@@ -975,6 +991,7 @@ export default async function CustomersPage(container) {
           const text = box.querySelector('#wk-ai-line')?.value || r.lineMessage
           await copyText(text, '📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง')
         })
+        box.querySelector('#wk-ai-line-send')?.addEventListener('click', e => sendLineFromDetail(c, box.querySelector('#wk-ai-line')?.value || r.lineMessage, e.currentTarget))
         // AI แนะนำให้ชวนลองขับ → เปิดฟอร์มนัดที่เติมวันจากคำแนะนำ (เช่น "พรุ่งนี้" "เสาร์นี้") ให้เลย
         box.querySelector('#wk-ai-td')?.addEventListener('click', () => openTestDriveForm(c, { hint: `ลองขับ ${r.when || ''}` }))
         box.querySelector('#wk-ai-plan')?.addEventListener('click', () => openAddFollowup(c, {
