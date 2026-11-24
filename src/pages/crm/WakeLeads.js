@@ -168,7 +168,7 @@ export default async function WakeLeadsPage(container) {
         await lineReply('line_' + String(r.c.lineUserId).replace(/[^A-Za-z0-9-]/g, ''), drafts.get(r.c.id))
         okN++
         await markSent(r, 'LINE')
-      } catch (e) { err = e?.message || 'ส่งไม่สำเร็จ'; if (/โควตา|quota/i.test(err)) break }
+      } catch (e) { err = e?.message || 'ส่งไม่สำเร็จ'; if (/โควตา|quota|ตั้งค่า LINE OA/i.test(err)) break }
     }
     busy = false
     showToast(err ? `ส่งแล้ว ${okN}/${list.length} คน · ${err}` : `✅ ส่งแล้ว ${okN} คน`, err ? 'warning' : 'success')
