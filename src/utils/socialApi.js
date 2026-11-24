@@ -17,19 +17,27 @@ async function call(path, body = {}) {
   return data
 }
 
+// (v1.0.1369) คำสั่งที่ "ทำจริง" (ตอบแชต/โพสต์/แก้โฆษณา) — เซิร์ฟเวอร์ตอบ { configured:false } แบบไม่ error เมื่อยังไม่ใส่คีย์
+// ถ้าไม่เช็ค หน้าจอจะเงียบหรือขึ้นว่าทำแล้วทั้งที่ไม่มีอะไรเกิดขึ้น → แปลงเป็น error ที่บอกว่าต้องใส่คีย์ก่อน
+const META_OFF = 'ยังไม่ได้เชื่อม Facebook/Instagram — ใส่โทเคน Meta ในหน้า 🔑 คีย์เชื่อมต่อก่อน'
+async function callStrict(path, body, offMsg) {
+  const r = await call(path, body)
+  if (r?.configured === false) throw new Error(r.error || offMsg)
+  return r
+}
 // (v1.0.1141) กุญแจเชื่อมต่อจากในแอป (เจ้าของโปรแกรมเท่านั้น) — ค่าจริงส่งไปอย่างเดียว ไม่มีทางอ่านกลับ
 export const secretsCall = body => call('/social/secrets', body)
 export const WORKER_URL = URL_
 export const socialStatus = () => call('/social/status')
 export const metaInbox = (pageId, platform) => call('/social/meta/inbox', { pageId, platform })
-export const metaReply = (pageId, recipientId, text) => call('/social/meta/reply', { pageId, recipientId, text })
-export const metaPost = payload => call('/social/meta/post', payload)
+export const metaReply = (pageId, recipientId, text) => callStrict('/social/meta/reply', { pageId, recipientId, text }, META_OFF)
+export const metaPost = payload => callStrict('/social/meta/post', payload, META_OFF)
 // (v1.0.1152) ตั้งเวลาโพสต์ — ดู workers/scheduledPost.js
 export const metaPostSchedule = payload => call('/social/meta/post/schedule', payload)
 export const metaPostUnschedule = id => call('/social/meta/post/unschedule', { id })
 export const metaPostScheduled = () => call('/social/meta/post/scheduled')
 export const metaAds = () => call('/social/meta/ads')
-export const metaAdsUpdate = payload => call('/social/meta/ads/update', payload)
+export const metaAdsUpdate = payload => callStrict('/social/meta/ads/update', payload, META_OFF)
 // (v1.0.1367) เซิร์ฟเวอร์ตอบ { configured:false } (ไม่ได้ throw) เมื่อยังไม่ใส่คีย์ LINE OA — เดิมทุกหน้าที่ส่ง LINE รายคน
 // (หน้าลูกค้า/ใบจอง/อวยพรวันเกิด/ปลุกลีดเก่า ฯลฯ) ขึ้น "ส่งแล้ว" ทั้งที่ไม่มีอะไรออกไป → ตอนนี้แจ้ง error จริง
 export async function lineReply(threadId, text) {
