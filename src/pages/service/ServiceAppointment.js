@@ -7,6 +7,9 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { callLink } from '../../utils/callLink.js'
+import { serviceApptText, addDaysYmd } from '../../utils/apptConfirmText.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
+import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
 
 const APPT_STATUS = {
   scheduled: { label: 'นัดแล้ว', color: 'primary' },
@@ -270,6 +273,7 @@ export default async function ServiceAppointmentPage(container) {
           ${a.note ? `<div style="background:var(--surface-2);padding:10px;border-radius:var(--radius-sm);font-size:0.83rem">📝 ${escHtml(a.note)}</div>` : ''}
           <div style="display:flex;gap:6px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--border)">
             ${Object.entries(APPT_STATUS).filter(([k])=>k!==a.status).map(([k,v])=>`<button class="btn btn-sm btn-secondary status-change-btn" data-s="${k}">${v.label}</button>`).join('')}
+            ${a.phone && ['scheduled','confirmed'].includes(a.status) && String(a.date || '') >= todayBangkok() ? `<button class="btn btn-sm btn-success appt-notify-btn">💬 ส่งยืนยันนัดให้ลูกค้า${a.confirmSentAt ? ' (ส่งแล้ว)' : ''}</button>` : ''}
             <button class="btn btn-sm btn-primary edit-btn" style="margin-left:auto">✏️ แก้ไข</button>
           </div>
         </div>`,
@@ -286,6 +290,27 @@ export default async function ServiceAppointmentPage(container) {
       })
     })
     document.querySelector('.edit-btn')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openApptForm(a) })
+    // (v1.0.1373) ส่งยืนยันนัดให้ลูกค้าเอง — ผูก LINE = LINE (ฟรี) · ไม่ผูก = SMS · วันนัดคือพรุ่งนี้ = จด lineRemindFor ระบบเตือน 17:00 จะไม่ส่งซ้ำ
+    document.querySelector('.appt-notify-btn')?.addEventListener('click', async e => {
+      const btn = e.currentTarget
+      btn.disabled = true
+      const today = todayBangkok()
+      let prefs = null
+      try { prefs = await loadContactPrefs() } catch { prefs = null }
+      const via = lineUidFor(a.phone, prefs) ? 'LINE' : 'SMS'
+      const text = serviceApptText(a, today)
+      const ok = await confirmDialog({ title: '💬 ส่งยืนยันนัดให้ลูกค้า', message: `ส่งทาง ${via} ถึง ${a.custName || a.phone}:\n\n${text}`, confirmText: `ส่ง ${via}` })
+      if (!ok) { btn.disabled = false; return }
+      try {
+        const used = await sendToCustomer(a.phone, text, prefs)
+        const patch = { confirmSentAt: new Date().toISOString(), confirmSentVia: used }
+        if (String(a.date || '').slice(0, 10) === addDaysYmd(today, 1)) patch.lineRemindFor = String(a.date).slice(0, 10)
+        await updateDocData('service_appointments', a.id, patch).catch(() => {})
+        Object.assign(a, patch)
+        btn.textContent = '✔ ส่งแล้ว'
+        showToast(`✅ ส่งยืนยันนัดทาง ${used} แล้ว`, 'success')
+      } catch (err) { btn.disabled = false; showToast('❌ ส่งไม่สำเร็จ: ' + (err?.message || err), 'error') }
+    })
   }
 
   await loadData()
