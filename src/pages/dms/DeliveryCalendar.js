@@ -4,7 +4,7 @@ import { carOf } from '../../utils/carLabel.js'
  * Route: /dms/delivery-calendar
  */
 import { formatDate, todayBangkok, isMonthBangkok } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, listAllDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
@@ -18,6 +18,9 @@ import { addDaysBangkok as addDays } from '../../utils/format.js'
 import { myName } from '../../utils/myName.js'
 import { openQuickDatePop } from '../../utils/quickDatePop.js'
 import { callLink } from '../../utils/callLink.js'
+import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
+import { deliveryApptText, addDaysYmd } from '../../utils/apptConfirmText.js'
 
 
 const DLV_STATUS = {
@@ -147,10 +150,11 @@ export default async function DeliveryCalendarPage(container) {
                     </label>
                   `).join('')}
                 </div>
-                <div style="display:flex;gap:6px">
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
                   ${d.status === 'ready' ? `<button class="btn btn-xs btn-success deliver-btn" data-id="${d.id}">🎉 ส่งมอบ + ถ่ายรูป</button>` : ''}
                   ${d.status === 'preparing' && prepPct === 100 ? `<button class="btn btn-xs btn-primary ready-btn" data-id="${d.id}">✅ พร้อมส่งมอบ</button>` : ''}
                   <button class="btn btn-xs btn-secondary postpone-btn" data-id="${d.id}">📅 เลื่อนนัด</button>
+                  ${d.phone && /^\d{4}-\d{2}-\d{2}/.test(d.raw.deliveryDate || '') && String(d.raw.deliveryDate).slice(0, 10) >= todayBangkok() ? `<button class="btn btn-xs btn-success dc-confirm-send" data-id="${d.id}">💬 ส่งยืนยันนัด${d.raw.deliveryConfirmSentAt ? ' (ส่งแล้ว)' : ''}</button>` : ''}
                 </div>
               ` : `<div style="font-size:0.72rem;color:var(--success)">🎉 ส่งมอบเรียบร้อย — นัดโทรดูแลหลังการขาย (7 / 30 วัน) และเตือนเช็กระยะครั้งแรก 6 เดือน อยู่ในหน้าติดตามลูกค้าและหน้าแจ้งเตือนเช็คระยะ</div>`}
             </div>`
@@ -192,6 +196,29 @@ export default async function DeliveryCalendarPage(container) {
         if (needsIncome(bk)) await askDeliveryIncome(bk, { title: '🎉 ส่งมอบแล้ว — กรอกรายได้คันนี้' })
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
+    // (v1.0.1377) ส่งยืนยันนัดรับรถให้ลูกค้า — ผูก LINE = LINE · ไม่ผูก = SMS · นัดพรุ่งนี้ = จด lineRemindFor (ระบบเตือน 17:00 ไม่ส่งซ้ำ)
+    container.querySelectorAll('.dc-confirm-send').forEach(btn => btn.addEventListener('click', async () => {
+      const d = deliveries.find(x => x.id === btn.dataset.id)
+      if (!d) return
+      btn.disabled = true
+      const today = todayBangkok()
+      let prefs = null
+      try { prefs = await loadContactPrefs() } catch { prefs = null }
+      const via = lineUidFor(d.phone, prefs) ? 'LINE' : 'SMS'
+      const text = deliveryApptText(d.raw, today)
+      const ok = await confirmDialog({ title: '💬 ส่งยืนยันนัดรับรถ', message: `ส่งทาง ${via} ถึง ${d.customer || d.phone}:\n\n${text}`, confirmText: `ส่ง ${via}` })
+      if (!ok) { btn.disabled = false; return }
+      try {
+        const used = await sendToCustomer(d.phone, text, prefs)
+        const day = String(d.raw.deliveryDate || '').slice(0, 10)
+        const patch = { deliveryConfirmSentAt: new Date().toISOString(), deliveryConfirmVia: used }
+        if (day === addDaysYmd(today, 1)) patch.lineRemindFor = day
+        await updateDocData('bookings', d.id, patch).catch(() => {})
+        Object.assign(d.raw, patch)
+        btn.textContent = '✔ ส่งแล้ว'
+        showToast(`✅ ส่งยืนยันนัดรับรถทาง ${used} แล้ว`, 'success')
+      } catch (err) { btn.disabled = false; showToast('❌ ส่งไม่สำเร็จ: ' + (err?.message || err), 'error') }
+    }))
     container.querySelectorAll('.postpone-btn').forEach(b => b.addEventListener('click', () => {
       const d = deliveries.find(x => x.id === b.dataset.id)
       if (d) openModal({
@@ -205,8 +232,8 @@ export default async function DeliveryCalendarPage(container) {
           const deliveryDate = document.getElementById('pp-date')?.value || d.date
           const deliveryTime = document.getElementById('pp-time')?.value || d.time
           try {
-            await updateDocData('bookings', d.id, { deliveryDate, deliveryTime })
-            showToast('📅 เลื่อนนัดแล้ว — แจ้งลูกค้าทาง LINE', 'primary')
+            await updateDocData('bookings', d.id, { deliveryDate, deliveryTime, deliveryConfirmSentAt: null, deliveryConfirmVia: null })
+            showToast('📅 เลื่อนนัดแล้ว — กด 💬 ส่งยืนยันนัด เพื่อแจ้งลูกค้าวันใหม่', 'primary')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
