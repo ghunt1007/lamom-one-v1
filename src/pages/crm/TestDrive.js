@@ -13,6 +13,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { copyText } from '../../utils/copyText.js'
 import { loadContactPrefs } from '../../utils/marketingOptOut.js'
 import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
+import { testDriveApptText, addDaysYmd } from '../../utils/apptConfirmText.js'
 import { escHtml } from '../../utils/escape.js'
 import { callLink } from '../../utils/callLink.js'
 import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
@@ -230,7 +231,28 @@ export default async function TestDrivePage(container) {
         ${t.duration ? dr('⏱','ระยะเวลา',t.duration+' นาที') : ''}
         ${t.notes ? `<div style="background:var(--surface-2);padding:10px;border-radius:var(--radius-md);font-size:0.85rem">${escHtml(t.notes)}</div>` : ''}
       </div>`,
-      footer: `<button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">ปิด</button>`
+      footer: `<button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">ปิด</button>${t.phone && !['done', 'completed', 'cancelled', 'no_show', 'in_progress'].includes(t.status) && String(t.date || '') >= todayBangkok() ? `<button class="btn btn-success" id="td-confirm">💬 ส่งยืนยันนัด${t.confirmSentAt ? ' (ส่งแล้ว)' : ''}</button>` : ''}`
+    })
+    // (v1.0.1374) ส่งยืนยันนัดทดลองขับให้ลูกค้า — ผูก LINE = LINE · ไม่ผูก = SMS · นัดพรุ่งนี้ = จด lineRemindFor (ระบบเตือน 17:00 ไม่ส่งซ้ำ)
+    document.getElementById('td-confirm')?.addEventListener('click', async e => {
+      const btn = e.currentTarget
+      btn.disabled = true
+      const today = todayBangkok()
+      let prefs = null
+      try { prefs = await loadContactPrefs() } catch { prefs = null }
+      const via = lineUidFor(t.phone, prefs) ? 'LINE' : 'SMS'
+      const text = testDriveApptText(t, today)
+      const ok = await confirmDialog({ title: '💬 ส่งยืนยันนัดทดลองขับ', message: `ส่งทาง ${via} ถึง ${t.customerName || t.phone}:\n\n${text}`, confirmText: `ส่ง ${via}` })
+      if (!ok) { btn.disabled = false; return }
+      try {
+        const used = await sendToCustomer(t.phone, text, prefs)
+        const patch = { confirmSentAt: new Date().toISOString(), confirmSentVia: used }
+        if (String(t.date || '').slice(0, 10) === addDaysYmd(today, 1)) patch.lineRemindFor = String(t.date).slice(0, 10)
+        await updateDocData('test_drives', t.id, patch).catch(() => {})
+        Object.assign(t, patch)
+        btn.textContent = '✔ ส่งแล้ว'
+        showToast(`✅ ส่งยืนยันนัดทาง ${used} แล้ว`, 'success')
+      } catch (err) { btn.disabled = false; showToast('❌ ส่งไม่สำเร็จ: ' + (err?.message || err), 'error') }
     })
   }
 
