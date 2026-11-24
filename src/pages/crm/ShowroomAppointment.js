@@ -13,6 +13,9 @@ import { kpi } from '../../utils/kpiCard.js'
 import { findDuplicate } from '../../utils/quickLead.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
 import { scheduleNoShowFollowup } from '../../utils/showroomFollowup.js'
+import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
+import { showroomApptText, addDaysYmd } from '../../utils/apptConfirmText.js'
 
 // (v1.0.1013) ลูกค้ามาถึงโชว์รูม → ถ้ามีในรายชื่อลูกค้าแล้ว บันทึกว่าติดต่อวันนี้ (หลุดจาก "Lead เงียบ") ·
 // ถ้ายังไม่มี เปิดฟอร์ม + Lead ที่กรอกชื่อ/เบอร์/รุ่นให้แล้ว กดบันทึกทีเดียว
@@ -339,6 +342,7 @@ export default async function ShowroomAppointmentPage(container) {
         ${a.note ? `<div style="background:var(--surface-2);padding:10px;border-radius:var(--radius-sm)">📝 ${escHtml(a.note)}</div>` : ''}
         <div style="display:flex;gap:6px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--border)">
           ${Object.entries(APPT_STATUS).filter(([k]) => k !== a.status).map(([k,v]) => `<button class="btn btn-xs btn-secondary det-status-btn" data-s="${k}">${v.label}</button>`).join('')}
+          ${a.phone && ['scheduled', 'confirmed'].includes(a.status || 'scheduled') && String(a.date || '') >= todayBangkok() ? `<button class="btn btn-xs btn-success" id="sa-confirm-send">💬 ส่งยืนยันนัด${a.confirmSentAt ? ' (ส่งแล้ว)' : ''}</button>` : ''}
           <button class="btn btn-xs btn-primary edit-det-btn" style="margin-left:auto">✏️</button>
         </div>
       </div>`, footer: ''
@@ -353,6 +357,27 @@ export default async function ShowroomAppointmentPage(container) {
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }) })
     document.querySelector('.edit-det-btn')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openForm(a) })
+    // (v1.0.1375) ส่งยืนยันนัดเข้าโชว์รูมให้ลูกค้า — ผูก LINE = LINE · ไม่ผูก = SMS · นัดพรุ่งนี้ = จด lineRemindFor (ระบบเตือนไม่ส่งซ้ำ)
+    document.getElementById('sa-confirm-send')?.addEventListener('click', async e => {
+      const btn = e.currentTarget
+      btn.disabled = true
+      const today = todayBangkok()
+      let prefs = null
+      try { prefs = await loadContactPrefs() } catch { prefs = null }
+      const via = lineUidFor(a.phone, prefs) ? 'LINE' : 'SMS'
+      const text = showroomApptText(a, today)
+      const ok = await confirmDialog({ title: '💬 ส่งยืนยันนัดเข้าโชว์รูม', message: `ส่งทาง ${via} ถึง ${a.custName || a.phone}:\n\n${text}`, confirmText: `ส่ง ${via}` })
+      if (!ok) { btn.disabled = false; return }
+      try {
+        const used = await sendToCustomer(a.phone, text, prefs)
+        const patch = { confirmSentAt: new Date().toISOString(), confirmSentVia: used }
+        if (String(a.date || '').slice(0, 10) === addDaysYmd(today, 1)) patch.lineRemindFor = String(a.date).slice(0, 10)
+        await updateDocData('appointments', a.id, patch).catch(() => {})
+        Object.assign(a, patch)
+        btn.textContent = '✔ ส่งแล้ว'
+        showToast(`✅ ส่งยืนยันนัดทาง ${used} แล้ว`, 'success')
+      } catch (err) { btn.disabled = false; showToast('❌ ส่งไม่สำเร็จ: ' + (err?.message || err), 'error') }
+    })
   }
 
   await loadData()

@@ -8,7 +8,7 @@ export const APPT_REMIND_MAX = 40
 const UID = /^U[0-9a-f]{10,40}$/i
 const DONE_BOOKING = ['ส่งมอบแล้ว', 'ถอนจอง', 'ยกเลิก']
 const DONE_TD = ['done', 'cancelled', 'no_show', 'completed']
-const DONE_APPT = ['cancelled', 'no_show', 'arrived', 'done', 'completed']
+const DONE_APPT = ['cancelled', 'no_show', 'noshow', 'arrived', 'done', 'completed']
 const DONE_SVC = ['cancelled', 'noshow', 'no_show', 'inservice', 'done', 'completed']
 const digits = s => String(s || '').replace(/\D/g, '').replace(/^66/, '0')
 const day = v => String(v || '').slice(0, 10)
