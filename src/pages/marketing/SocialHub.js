@@ -45,6 +45,10 @@ export default async function SocialHubPage(container) {
   let tab = 'calendar' // calendar | composer | templates | analytics
   let statusFilter = 'all'
   let loading = true
+  // (v1.0.1362) ร่างที่ส่งมาจากปฏิทินคอนเทนต์ (ContentCalendar → "📣 ไปเขียนโพสต์") — เปิดแท็บเขียนโพสต์พร้อมข้อความ
+  let pendingDraft = ''
+  try { pendingDraft = sessionStorage.getItem('lamom_social_draft') || ''; sessionStorage.removeItem('lamom_social_draft') } catch {}
+  if (pendingDraft) tab = 'composer'
 
   async function loadData() {
     loading = true
@@ -128,6 +132,11 @@ export default async function SocialHubPage(container) {
 
     // Composer logic
     setupComposer()
+    if (pendingDraft && tab === 'composer') {
+      const ta = document.getElementById('post-content')
+      if (ta) { ta.value = pendingDraft; ta.dispatchEvent(new Event('input')) }
+      pendingDraft = ''
+    }
   }
 
   function renderCalendar() {

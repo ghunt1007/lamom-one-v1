@@ -9,6 +9,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { navigate } from '../../core/router.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 // ป้องกัน XSS — ชื่อ Content (title) เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
@@ -136,7 +137,7 @@ export default async function ContentCalendarPage(container) {
 
               <!-- Tags -->
               <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
-                ${c.tags.map(t => `<span style="font-size:0.62rem;padding:2px 6px;background:var(--surface-2);border-radius:10px;color:var(--text-muted)">#${t}</span>`).join('')}
+                ${(c.tags || []).map(t => `<span style="font-size:0.62rem;padding:2px 6px;background:var(--surface-2);border-radius:10px;color:var(--text-muted)">#${esc(t)}</span>`).join('')}
               </div>
 
               <div style="display:flex;gap:6px">
@@ -161,7 +162,7 @@ export default async function ContentCalendarPage(container) {
       const newDate = addDays(0)
       c.status = 'published'; c.publishDate = newDate
       renderPage()
-      showToast(`📝 บันทึกในระบบแล้ว — ยังไม่เชื่อมต่อ API เพื่อโพสต์อัตโนมัติ กรุณาโพสต์ "${c.title}" เองบน Platform จริง`, 'success')
+      showToast(`📝 บันทึกว่าเผยแพร่ "${c.title}" แล้ว · โพสต์จริงลง Facebook/IG ได้จากรายละเอียด → 📣 ไปเขียนโพสต์ใน Social Hub`, 'success')
       try { await updateDocData('content_calendar', c.id, { status: 'published', publishDate: newDate }) } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
@@ -184,9 +185,17 @@ export default async function ContentCalendarPage(container) {
         ${c.likes > 0 ? row('Likes', c.likes.toLocaleString()) : ''}
         ${c.shares > 0 ? row('Shares', c.shares.toLocaleString()) : ''}
         <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
-          ${c.tags.map(t => `<span style="font-size:0.72rem;padding:3px 8px;background:var(--surface-2);border-radius:10px;color:var(--text-muted)">#${t}</span>`).join('')}
+          ${(c.tags || []).map(t => `<span style="font-size:0.72rem;padding:3px 8px;background:var(--surface-2);border-radius:10px;color:var(--text-muted)">#${esc(t)}</span>`).join('')}
         </div>
-      `
+      `,
+      // (v1.0.1362) เดิมต้องไปพิมพ์โพสต์ใหม่เองบน Platform — ตอนนี้ส่งหัวข้อ+แฮชแท็กไปหน้า Social Hub ที่โพสต์/ตั้งเวลาลง Facebook/IG ได้จริง
+      confirmText: '📣 ไปเขียนโพสต์ใน Social Hub',
+      cancelText: 'ปิด',
+      onConfirm() {
+        const draft = [c.title || '', (c.tags || []).map(t => '#' + String(t).replace(/^#/, '')).join(' ')].filter(Boolean).join('\n\n')
+        try { sessionStorage.setItem('lamom_social_draft', draft) } catch {}
+        navigate('/marketing/social')
+      }
     })
   }
 
