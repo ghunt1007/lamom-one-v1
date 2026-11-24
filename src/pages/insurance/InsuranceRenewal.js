@@ -3,7 +3,10 @@
  * Route: /insurance/renewal
  */
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
+import { renewalStatus, daysToExpiry, renewalNoticeText, RENEW_WARN_DAYS } from '../../utils/insuranceRenewal.js'
+import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
+import { loadContactPrefs, phoneKey } from '../../utils/marketingOptOut.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getInsurers } from '../../data/masterData.js'
@@ -23,7 +26,7 @@ const INS_TYPE = {
 }
 
 const RENEWAL_STATUS = {
-  upcoming:  { label: 'ใกล้หมดอายุ', color: 'warning' },
+  upcoming:  { label: `ใกล้หมดอายุ (≤${RENEW_WARN_DAYS} วัน)`, color: 'warning' },
   expired:   { label: 'หมดอายุแล้ว', color: 'danger' },
   renewed:   { label: 'ต่อแล้ว', color: 'success' },
   cancelled: { label: 'ยกเลิก', color: 'secondary' },
@@ -46,12 +49,14 @@ export default async function InsuranceRenewalPage(container) {
   async function loadData() {
     loading = true
     try { policies = await listDocs('insurance_renewals', [], 'expiryDate', 'asc', 300) } catch (e) { policies = [] }
+    // (v1.0.1380) สถานะจากวันหมดอายุจริง (เดิมค่าที่บันทึกไว้ไม่เคยเปลี่ยนเอง) — ไม่เขียนกลับฐานข้อมูล
+    policies = policies.filter(p => !p.deleted).map(p => ({ ...p, savedStatus: p.status, status: renewalStatus(p, today) }))
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
 
   function daysUntilExpiry(p) {
-    return Math.ceil((new Date(p.expiryDate) - new Date(today)) / 86400000)
+    return daysToExpiry(p.expiryDate, today) ?? 9999
   }
 
   function filtered() {
@@ -66,7 +71,7 @@ export default async function InsuranceRenewalPage(container) {
     const list = filtered()
     const expired = policies.filter(p => p.status === 'expired').length
     const upcoming30 = policies.filter(p => p.status === 'upcoming' && daysUntilExpiry(p) <= 30).length
-    const totalPremium = policies.filter(p => p.status === 'renewed').reduce((a, p) => a + p.premium, 0)
+    const totalPremium = policies.filter(p => p.status === 'renewed').reduce((a, p) => a + (Number(p.premium) || 0), 0)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -125,6 +130,7 @@ export default async function InsuranceRenewalPage(container) {
                 </div>
                 <div style="display:flex;flex-direction:column;gap:4px">
                   <button class="btn btn-xs btn-secondary open-ins-btn" data-id="${p.id}">ดู</button>
+                  ${p.phone && (p.status === 'upcoming' || p.status === 'expired') ? `<button class="btn btn-xs btn-primary notice-ins-btn" data-id="${p.id}" title="${p.renewNoticeAt ? 'แจ้งล่าสุด ' + __escA(formatDate(p.renewNoticeAt)) : ''}">💬 แจ้งลูกค้า${p.renewNoticeAt ? ' ✓' : ''}</button>` : ''}
                   ${p.status !== 'renewed' && p.status !== 'cancelled' ? `<button class="btn btn-xs btn-success renew-ins-btn" data-id="${p.id}">✓ ต่อแล้ว</button>` : ''}
                 </div>
               </div>
@@ -143,6 +149,28 @@ export default async function InsuranceRenewalPage(container) {
     })
     container.querySelectorAll('.open-ins-btn').forEach(b => b.addEventListener('click', () => {
       const p = policies.find(x => x.id === b.dataset.id); if (p) openDetail(p)
+    }))
+    // (v1.0.1380) แจ้งลูกค้าว่าประกันใกล้หมด/หมดแล้ว — พนักงานกดเอง · ผูก LINE = LINE · ไม่ผูก = SMS · ลูกค้าที่ปฏิเสธข่าวสารไม่ส่ง
+    container.querySelectorAll('.notice-ins-btn').forEach(b => b.addEventListener('click', async () => {
+      const p = policies.find(x => x.id === b.dataset.id)
+      if (!p?.phone) return
+      b.disabled = true
+      let prefs = null
+      try { prefs = await loadContactPrefs() } catch { prefs = null }
+      if (prefs?.optedOut?.has(phoneKey(p.phone))) { b.disabled = false; showToast('ลูกค้ารายนี้ปฏิเสธรับข่าวสาร — โทรแจ้งเองแทน', 'warning'); return }
+      const via = lineUidFor(p.phone, prefs) ? 'LINE' : 'SMS'
+      const text = renewalNoticeText(p, today)
+      const ok = await confirmDialog({ title: '💬 แจ้งลูกค้าต่อประกัน', message: `ส่งทาง ${via} ถึง ${p.customerName || p.phone}:\n\n${text}`, confirmText: `ส่ง ${via}` })
+      if (!ok) { b.disabled = false; return }
+      try {
+        const used = await sendToCustomer(p.phone, text, prefs)
+        const patch = { renewNoticeAt: new Date().toISOString(), renewNoticeVia: used }
+        await updateDocData('insurance_renewals', p.id, patch).catch(() => {})
+        Object.assign(p, patch)
+        b.textContent = '💬 แจ้งลูกค้า ✓'
+        showToast(`✅ แจ้ง ${p.customerName || 'ลูกค้า'} ทาง ${used} แล้ว`, 'success')
+      } catch (err) { showToast('❌ ส่งไม่สำเร็จ: ' + (err?.message || err), 'error') }
+      finally { b.disabled = false }
     }))
     container.querySelectorAll('.renew-ins-btn').forEach(b => b.addEventListener('click', () => {
       const p = policies.find(x => x.id === b.dataset.id)
@@ -203,7 +231,7 @@ export default async function InsuranceRenewalPage(container) {
             <select class="input" id="rn-type">${Object.entries(INS_TYPE).map(([k,v]) => `<option value="${__escA(k)}" ${p.type===k?'selected':''}>${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">เบี้ยประกัน (บาท)</label><input type="number" class="input" id="rn-premium" value="${__escA(p.premium)}"></div>
-          <div class="input-group"><label class="input-label">วันเริ่มกรมธรรม์ใหม่</label><input type="date" class="input" id="rn-start" value="${__escA(today)}"></div>
+          <div class="input-group"><label class="input-label">วันเริ่มกรมธรรม์ใหม่ (ต่อจากวันหมดอายุเดิม)</label><input type="date" class="input" id="rn-start" value="${__escA(/^\d{4}-\d{2}-\d{2}/.test(p.expiryDate || '') && String(p.expiryDate).slice(0, 10) > today ? String(p.expiryDate).slice(0, 10) : today)}"></div>
         </div>
       `,
       confirmText: '✅ บันทึกการต่อประกัน',
