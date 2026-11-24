@@ -43,7 +43,7 @@ import { pendingFollowupsFor, followupWindowFilters, followupStatusByCustomer, m
 import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
 import { mailHref } from '../../utils/callLink.js'
 import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal.js'
-import { touchCustomerContact } from '../../utils/customerContact.js'
+import { touchCustomerContact, logLineSent } from '../../utils/customerContact.js'
 import { armCallLog } from '../../utils/callLogger.js'
 import { openTestDriveForm, loadUpcomingTestDrive, loadTestDrivesFor, mentionsTestDrive } from '../../utils/testDriveForm.js'
 import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
@@ -90,7 +90,7 @@ async function sendLineFromDetail(c, text, btn) {
   try {
     await pushLineToCustomer(c, text)
     showToast(`💚 ส่งเข้า LINE ของ ${c.firstName || 'ลูกค้า'} แล้ว`, 'success')
-    touchCustomerContact(c.id)
+    logLineSent(c.id, text)
   } catch (e) { showToast('❌ ส่ง LINE ไม่สำเร็จ: ' + (e?.message || e), 'error') }
   finally { if (btn) btn.disabled = false }
 }
