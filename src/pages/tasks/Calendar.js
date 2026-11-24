@@ -16,6 +16,9 @@ import { offerNextFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
 import { KINDS, KIND_ORDER, buildWorkItems, groupByDate, summarize, addDaysYmd } from '../../utils/workCalendar.js'
 import { dmy as fmtDMY, hm as fmtHM } from '../../utils/format.js'
+import { pickTomorrowConfirms, confirmPatch } from '../../utils/tomorrowConfirm.js'
+import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
+import { loadContactPrefs } from '../../utils/marketingOptOut.js'
 
 const EVENT_TYPES = {
   customer: '🤝 นัดลูกค้า',
@@ -74,7 +77,7 @@ export default async function CalendarPage(container) {
           <div class="page-title">📅 ปฏิทินงาน</div>
           <div class="page-subtitle">นัดลูกค้า · ส่งมอบ · ตรวจรถ · ไฟแนนซ์ · ตามลูกค้า · งาน — รวมไว้ที่เดียว กดรายการเพื่อจดโน้ต บันทึกการติดตาม หรือนัดต่อ</div>
         </div>
-        <div class="page-actions"><button class="btn btn-primary" id="wc-add">➕ เพิ่มนัดหมาย</button></div>
+        <div class="page-actions"><button class="btn btn-success" id="wc-confirm" style="display:none">💬 ยืนยันนัดพรุ่งนี้</button><button class="btn btn-primary" id="wc-add">➕ เพิ่มนัดหมาย</button></div>
       </div>
       <div class="wc-sum" id="wc-sum"></div>
       <div class="wc-bar">
@@ -185,6 +188,9 @@ export default async function CalendarPage(container) {
     const list = shown()
     const [from, to] = range()
     const s = summarize(list, today)
+    const nConfirm = pickTomorrowConfirms(items.filter(passWho), today).length
+    const cb = $('#wc-confirm')
+    if (cb) { cb.style.display = nConfirm ? '' : 'none'; cb.textContent = `💬 ยืนยันนัดพรุ่งนี้ (${nConfirm})` }
 
     $('#wc-sum').innerHTML = `
       <button type="button" class="wc-tile" data-jump="today"><span>วันนี้</span><b>${s.today}</b></button>
@@ -462,6 +468,7 @@ export default async function CalendarPage(container) {
     if (e.target.closest('#wc-next')) return shift(1)
     if (e.target.closest('#wc-today')) return goToday(view)
     if (e.target.closest('#wc-add')) return openEventForm(null, view === 'month' ? selected : today)
+    if (e.target.closest('#wc-confirm')) return openTomorrowConfirm()
   })
   container.addEventListener('keydown', e => {
     if ((e.key === 'Enter' || e.key === ' ') && e.target.classList?.contains('wc-item')) { e.preventDefault(); openItem(e.target.dataset.key) }
@@ -481,6 +488,54 @@ export default async function CalendarPage(container) {
   }
 
   // ── นัดหมายที่เพิ่มเอง (calendar_events) ──
+  // (v1.0.1379) ส่งยืนยันนัดพรุ่งนี้ทั้งหมด — พนักงานเลือก/กดส่งเอง · ผูก LINE = LINE · ไม่ผูก = SMS
+  async function openTomorrowConfirm() {
+    const list = pickTomorrowConfirms(items.filter(passWho), today)
+    if (!list.length) { showToast('ไม่มีนัดพรุ่งนี้ที่ต้องส่งยืนยัน', 'primary'); return }
+    let prefs = null
+    try { prefs = await loadContactPrefs() } catch { prefs = null }
+    const via = r => lineUidFor(r.phone, prefs) ? 'LINE' : 'SMS'
+    const tomorrow = addDaysYmd(today, 1)
+    const { el, close } = openModal({
+      title: `💬 ส่งยืนยันนัดพรุ่งนี้ ${fmtDMY(tomorrow)}`, size: 'md',
+      body: `<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px">ลูกค้าที่ผูก LINE ได้ทาง LINE ที่เหลือทาง SMS · เอาเครื่องหมายออกถ้าไม่ต้องการส่ง</div>
+        <div style="display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow-y:auto">${list.map((r, i) => `
+          <label style="display:flex;gap:8px;align-items:flex-start;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer">
+            <input type="checkbox" class="tc-pick" data-i="${i}" checked style="margin-top:3px">
+            <div style="min-width:0;flex:1">
+              <div style="font-weight:600;font-size:0.85rem;overflow-wrap:anywhere">${r.time ? escHtml(r.time) + ' · ' : ''}${escHtml(r.name)} <span class="badge badge-${via(r) === 'LINE' ? 'success' : 'secondary'}" style="font-size:0.62rem">${via(r)}</span></div>
+              <div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(r.label)}${r.also.length ? ` +${r.also.length} นัด` : ''}</div>
+              <details style="font-size:0.72rem;color:var(--text-muted)"><summary>ดูข้อความ</summary><div style="white-space:pre-wrap;overflow-wrap:anywhere">${escHtml(r.text)}</div></details>
+            </div>
+          </label>`).join('')}</div>`,
+      footer: `<button class="btn btn-secondary" id="tc-cancel">ยกเลิก</button><button class="btn btn-success" id="tc-send">💬 ส่ง ${list.length} ราย</button>`,
+    })
+    const sendBtn = el.querySelector('#tc-send')
+    const picked = () => [...el.querySelectorAll('.tc-pick')].filter(c => c.checked).map(c => list[+c.dataset.i])
+    el.querySelectorAll('.tc-pick').forEach(c => c.addEventListener('change', () => { const n = picked().length; sendBtn.textContent = `💬 ส่ง ${n} ราย`; sendBtn.disabled = !n }))
+    el.querySelector('#tc-cancel').addEventListener('click', close)
+    sendBtn.addEventListener('click', async () => {
+      const go = picked()
+      if (!go.length) return
+      sendBtn.disabled = true
+      let ok = 0
+      const fails = []
+      for (const r of go) {
+        sendBtn.textContent = `⏳ กำลังส่ง ${ok + fails.length + 1}/${go.length}`
+        try {
+          const used = await sendToCustomer(r.phone, r.text, prefs)
+          ok++
+          for (const ref of [{ col: r.col, id: r.id }, ...r.also]) await updateDocData(ref.col, ref.id, confirmPatch(ref.col, used, tomorrow)).catch(() => {})
+        } catch (err) {
+          fails.push(`${r.name}: ${err?.message || err}`)
+          if (/โควตา|quota|ตั้งค่า/i.test(String(err?.message || ''))) break
+        }
+      }
+      close()
+      showToast(fails.length ? `ส่งแล้ว ${ok}/${go.length} ราย · ${fails[0]}` : `✅ ส่งยืนยันนัดพรุ่งนี้แล้ว ${ok} ราย`, fails.length ? 'warning' : 'success', 7000)
+    })
+  }
+
   function openEventForm(existing, defaultDate, link = null) {
     const isEdit = !!existing
     const user = getState('user')
