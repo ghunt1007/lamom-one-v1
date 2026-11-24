@@ -1,0 +1,17 @@
+import { describe, it, expect } from 'vitest'
+import { serviceApptText, addDaysYmd } from './apptConfirmText.js'
+
+describe('serviceApptText', () => {
+  it('uses the tomorrow reminder wording when the date is tomorrow', () => {
+    const t = serviceApptText({ date: '2026-11-26', time: '09:30', custName: 'คุณสมศรี ใจดี', type: 'เช็กระยะ', plate: 'กข 1234' }, '2026-11-25')
+    expect(t).toContain('สวัสดีครับคุณสมศรี')
+    expect(t).toContain('พรุ่งนี้ 26/11/2569 เวลา 09:30 น.')
+  })
+  it('states the exact date otherwise', () => {
+    expect(serviceApptText({ date: '2026-12-03', time: '13:00', custName: 'ลูกค้าใหม่' }, '2026-11-25')).toBe('สวัสดีครับ ขอยืนยันนัดเข้าศูนย์บริการ วันที่ 03/12/2569 เวลา 13:00 น. ครับ 🔧\nถ้าต้องการเลื่อนนัด ตอบกลับข้อความนี้ได้เลยครับ')
+    expect(serviceApptText({ date: '2026-11-25', custName: 'มานี' }, '2026-11-25')).toContain('วันนี้ 25/11/2569')
+  })
+  it('addDaysYmd crosses month ends', () => {
+    expect(addDaysYmd('2026-11-30', 1)).toBe('2026-12-01')
+  })
+})
