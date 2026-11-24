@@ -7,6 +7,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { getInsurers, getInsuranceTypes } from '../../data/masterData.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { policyStatusByDate } from '../../utils/insuranceRenewal.js'
 
 const INS_STATUS = {
   active:   { label: '✅ คุ้มครองอยู่',  badge: 'success' },
@@ -31,17 +32,9 @@ export default async function InsurancePage(container) {
 
   async function loadData() {
     try { policies = await listDocs('insurance_policies', [], 'endDate', 'asc', 500) } catch {}
-    // Auto-calculate status by date
-    const today = new Date()
-    const in30 = new Date(today.getTime() + 30 * 86400000)
-    policies.forEach(p => {
-      if (!p.status || p.status === 'active') {
-        const end = new Date(p.endDate)
-        if (end < today) p.status = 'expired'
-        else if (end < in30) p.status = 'expiring'
-        else p.status = 'active'
-      }
-    })
+    // สถานะจากวันสิ้นสุดจริง (เวลาไทย) — (v1.0.1381) คิดใหม่ทุกครั้งแม้ค่าที่บันทึกไว้จะเป็น "ใกล้หมด"/"หมดอายุ" แล้ว (เดิมคิดเฉพาะ active)
+    const t = todayBangkok()
+    policies = policies.filter(p => !p.deleted).map(p => ({ ...p, status: policyStatusByDate(p, 'endDate', t) }))
     updateStats(); applyFilter()
   }
 

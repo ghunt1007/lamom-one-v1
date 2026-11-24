@@ -30,3 +30,11 @@ export function renewalNoticeText(p, today) {
   const when = d == null ? '' : d < 0 ? `หมดอายุแล้วเมื่อ ${dmyTh(String(p.expiryDate).slice(0, 10))}` : `จะหมดอายุวันที่ ${dmyTh(String(p.expiryDate).slice(0, 10))}${d <= 30 ? ` (อีก ${d} วัน)` : ''}`
   return `${n ? `สวัสดีครับคุณ${n}` : 'สวัสดีครับ'} ${kind}${car ? ` ของรถ ${car}` : ''} ${when} ครับ\nถ้าต้องการให้เราเช็กเบี้ยและต่อประกันให้ ตอบกลับข้อความนี้ได้เลยครับ 🛡`
 }
+
+// (v1.0.1381) หน้ากรมธรรม์อื่น (active/expiring/expired) — สถานะจากวันสิ้นสุดจริงเสมอ · ยกเลิก = ยกเลิก · ไม่มีวันที่ = ค่าเดิม
+export function policyStatusByDate(p, endField, today, warnDays = 30) {
+  if (p?.status === 'cancelled') return 'cancelled'
+  const d = daysToExpiry(p?.[endField], today)
+  if (d == null) return p?.status || 'active'
+  return d < 0 ? 'expired' : d <= warnDays ? 'expiring' : 'active'
+}

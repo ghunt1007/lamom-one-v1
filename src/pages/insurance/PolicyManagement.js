@@ -6,6 +6,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { todayBangkok, daysFromToday } from '../../utils/format.js'
+import { policyStatusByDate } from '../../utils/insuranceRenewal.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 
@@ -55,6 +56,9 @@ export default async function PolicyManagementPage(container) {
   async function loadData() {
     loading = true
     try { policies = (await listDocs('policy_renewals', [], 'endDate', 'asc', 500)).filter(p => !p.deleted) } catch (e) { policies = [] }
+    // (v1.0.1381) สถานะจากวันสิ้นสุดจริง — เดิมเพิ่มแล้วเป็น "มีผล" ตลอดไป ไม่เคยขึ้นใกล้หมด/หมดอายุ
+    const t = todayBangkok()
+    policies = policies.map(p => ({ ...p, status: policyStatusByDate(p, 'endDate', t) }))
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -68,7 +72,7 @@ export default async function PolicyManagementPage(container) {
     const active = policies.filter(p => p.status === 'active').length
     const expiring = policies.filter(p => p.status === 'expiring').length
     const expired = policies.filter(p => p.status === 'expired').length
-    const totalPremium = policies.filter(p => p.status !== 'expired').reduce((s, p) => s + (p.premium||0), 0)
+    const totalPremium = policies.filter(p => p.status !== 'expired').reduce((s, p) => s + (Number(p.premium) || 0), 0)
 
     const filterBtns = [['all','ทั้งหมด'],['active','มีผล'],['expiring','ใกล้หมด'],['expired','หมดอายุ']].map(([k, l]) =>
       '<button class="btn btn-sm ' + (filter === k ? 'btn-primary' : 'btn-secondary') + ' filter-btn" data-f="' + k + '">' + l + '</button>'

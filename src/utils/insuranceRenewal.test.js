@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { renewalStatus, daysToExpiry, renewalNoticeText } from './insuranceRenewal.js'
+import { renewalStatus, daysToExpiry, renewalNoticeText, policyStatusByDate } from './insuranceRenewal.js'
 
 const T = '2026-11-25'
 describe('renewalStatus', () => {
@@ -21,5 +21,14 @@ describe('renewalNoticeText', () => {
     const t = renewalNoticeText({ customerName: 'คุณสมชาย ใจดี', type: 'class1', vehicleModel: 'S07', vehiclePlate: 'กข 1234', expiryDate: '2026-12-10' }, T)
     expect(t).toContain('สวัสดีครับคุณสมชาย ประกันชั้น 1 ของรถ S07 กข 1234 จะหมดอายุวันที่ 10/12/2569 (อีก 15 วัน)')
     expect(renewalNoticeText({ customerName: 'ลูกค้า', expiryDate: '2026-11-01' }, T)).toContain('หมดอายุแล้วเมื่อ 01/11/2569')
+  })
+})
+
+describe('policyStatusByDate', () => {
+  it('re-derives expiring/expired even when the saved status says otherwise', () => {
+    expect(policyStatusByDate({ status: 'expiring', endDate: '2026-11-01' }, 'endDate', T)).toBe('expired')
+    expect(policyStatusByDate({ status: 'active', endDate: '2026-12-20' }, 'endDate', T)).toBe('expiring')
+    expect(policyStatusByDate({ status: 'expired', endDate: '2027-12-20' }, 'endDate', T)).toBe('active')
+    expect(policyStatusByDate({ status: 'cancelled', endDate: '2026-11-01' }, 'endDate', T)).toBe('cancelled')
   })
 })

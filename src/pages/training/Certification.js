@@ -60,7 +60,9 @@ export default async function CertificationPage(container) {
         listDocs('staff_certifications', [], 'expDate', 'asc', 300),
         listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
       ])
-      staffCerts = certs
+      // (v1.0.1381) ใบรับรองที่เลยวันหมดอายุแล้ว = หมดอายุ (เดิมบันทึกเป็น "active" แล้วไม่เคยเปลี่ยน → ปุ่มต่ออายุไม่ขึ้น)
+      const t = todayBangkok()
+      staffCerts = certs.filter(c => !c.deleted).map(c => c.status === 'active' && /^\d{4}-\d{2}-\d{2}/.test(c.expDate || '') && String(c.expDate).slice(0, 10) < t ? { ...c, status: 'expired' } : c)
       staffList = staff.filter(s => !s.deleted).map(s => ({ id: s.id, name: ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.name || 'พนักงาน' }))
     } catch (e) { staffCerts = []; staffList = [] }
     loading = false
