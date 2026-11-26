@@ -68,7 +68,7 @@ import { promoLineAnswer } from '../src/utils/promoQuestions.js'
 import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines, serviceJobsAnswer, serviceEveningLines, serviceWeekLines } from '../src/utils/apptFacts.js'
 import { officeDigestLines } from '../src/utils/aiAgents.js'
 import { deliveryForecast, nextMonthOutlook } from '../src/utils/deliveryForecast.js'
-import { statusCounts } from '../src/utils/statusBoard.js'
+import { statusCounts, statusBoard, pickPrevCounts } from '../src/utils/statusBoard.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
@@ -736,6 +736,20 @@ async function handleLineWebhook(request, env, cors) {
           reply = clipLine(deliveryForecastLineAnswer(rows, todayBangkok(), { seller: isOwner ? '' : me.name, teamTargets: targets }))
         } catch { reply = '⚠️ ดึงข้อมูลคาดการณ์ส่งมอบไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'sboard') {
+      // (v1.0.1394) สถานะใบจองที่ค้าง แยกหมวด — เจ้าของเห็นทั้งร้าน + เทียบสัปดาห์ก่อน / เซลส์เห็นของตัวเองพร้อมชื่อลูกค้า · คนอื่นพิมพ์ = ข้อความปกติ
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      const isOwner = !!owner && owner === userId
+      if (me?.name || isOwner) {
+        try {
+          const [rows, logs] = await Promise.all([
+            runQuery(env, accessToken, 'bookings', null, null, 5000, SBOARD_BOOKING_FIELDS),
+            isOwner ? runQuery(env, accessToken, 'delivery_forecast_log', 'date', 'DESCENDING', 10).catch(() => []) : Promise.resolve([]),
+          ])
+          reply = clipLine(statusBoardLineAnswer(rows, todayBangkok(), { seller: isOwner ? '' : me.name, logs }))
+        } catch { reply = '⚠️ ดึงสถานะใบจองไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'stock') {
       // (v1.0.1312) รถในสต็อก — ทีมงานที่ลงทะเบียน/เจ้าของเท่านั้น (ลูกค้าพิมพ์ = ข้อความปกติ) · ไม่มีราคา/ต้นทุนในคำตอบ
       const me = await readSalesTarget(env, accessToken, userId)
@@ -835,6 +849,8 @@ export function parseLineCommand(text) {
   if (/^(?:ไฟแนนซ์|รอไฟแนนซ์|ไฟแนนท์|finance)$/i.test(t.replace(/\s+/g, ''))) return { type: 'finwait' }
   // (v1.0.1302) นัดส่งมอบ 7 วันข้างหน้า + ที่เลยวันนัดแล้วยังไม่ส่ง
   if (/^(?:ส่งมอบ|นัดส่งมอบ|deliver(?:y|ies)?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'deliveries' }
+  // (v1.0.1394) สถานะใบจองที่ค้าง: "สถานะ" / "สถานะใบจอง" / "ใบจองค้าง" / "ค้างกี่ใบ"
+  if (/^(?:สถานะ|สถานะใบจอง|ใบจองค้าง|ค้างกี่ใบ|ยอดจองค้าง(?:กี่ใบ)?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'sboard' }
   // (v1.0.1385) คาดการณ์ส่งมอบเดือนนี้: "คาดการณ์ส่งมอบ" / "ส่งทันไหม" / "ทันเป้าไหม" / "เดือนนี้ได้กี่คัน"
   if (/^(?:คาดการณ์ส่งมอบ|พยากรณ์ส่งมอบ|คาดส่งมอบ|ส่งทัน(?:ไหม|มั้ย)?|ทันเป้า(?:ไหม|มั้ย)?|เดือนนี้(?:จะ)?(?:ส่งมอบ)?ได้กี่คัน|ยอดส่งมอบสิ้นเดือน)$/i.test(t.replace(/\s+/g, ''))) return { type: 'dlvfc' }
   // (v1.0.1312) รถในสต็อกแยกรุ่น/สี: "สต็อก" ทั้งหมด / "สต็อก S07" เฉพาะรุ่น
@@ -1029,6 +1045,28 @@ async function saveForecastSnapshot(env, accessToken, snap) {
   await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/delivery_forecast_log/${snap.date}`, {
     method: 'PATCH', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }),
   })
+}
+
+export const SBOARD_BOOKING_FIELDS = ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'custName', 'model', 'salesName', 'price', 'deleted']
+// คำตอบ LINE "สถานะ": seller ว่าง = ทั้งร้าน (ตัวเลข + ▲▼ เทียบภาพที่เก็บตอน 18:00) · มี seller = ของคนนั้น + ชื่อลูกค้า (ส่งให้เจ้าของใบเท่านั้น)
+export function statusBoardLineAnswer(rows, today, { seller = '', logs = [], maxNames = 4 } = {}) {
+  const mine = seller ? (rows || []).filter(b => b && normSalesName(b.salesName) === normSalesName(seller)) : (rows || [])
+  const sb = statusBoard(mine, [], { today, scope: 'open' })
+  const prev = seller ? null : pickPrevCounts(logs, today)
+  const dl = (now, before) => before == null ? '' : now === before ? ' (=)' : ` (${now > before ? '▲' : '▼'}${Math.abs(now - before)})`
+  const lines = [`🗂 ใบจองที่ค้างตอนนี้${seller ? ` · ${seller}` : ''}: ${sb.summary.pending} ใบ${prev ? dl(sb.summary.pending, prev.counts.pending) : ''}`]
+  if (prev) lines.push(`(▲▼ เทียบ${prev.weekAgo ? 'สัปดาห์ก่อน' : 'วันก่อน'} ${formatShortThai(prev.date).slice(0, 5)})`)
+  if (!sb.summary.pending) { lines.push('ไม่มีใบจองค้าง 👍'); return lines.join('\n') }
+  sb.groups.filter(g => g.count).forEach(g => {
+    lines.push('', `${g.icon} ${g.label} ${g.count} ใบ${prev ? dl(g.count, prev.counts[g.key]) : ''}`)
+    g.items.filter(i => i.count).forEach(i => {
+      const age = i.avgAge != null ? ` · เฉลี่ย ${i.avgAge} วัน` : ''
+      if (!seller) { lines.push(`• ${i.status} ${i.count}${age}`); return }
+      const names = i.rows.slice().sort((a, b) => String(a.bookingDate || '9').localeCompare(String(b.bookingDate || '9'))).slice(0, maxNames).map(b => String(b.custName || 'ลูกค้า').trim())
+      lines.push(`• ${i.status} ${i.count}${age}: ${names.join(', ')}${i.count > maxNames ? ` +${i.count - maxNames}` : ''}`)
+    })
+  })
+  return lines.join('\n')
 }
 
 export const DLVFC_BOOKING_FIELDS = ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'custName', 'brand', 'model', 'salesName', 'price', 'deleted']
@@ -1918,6 +1956,8 @@ export const LINE_HELP_TEXT = [
   '• ครบระยะ — รถถึงกำหนดเช็คระยะที่ยังไม่ได้นัด',
   '• ไฟแนนซ์ — ใบจองที่ยังรอผลไฟแนนซ์/รอเซ็นสัญญา',
   '• ส่งมอบ — นัดส่งมอบรถ 7 วันข้างหน้า + ที่เลยวันนัดแล้วยังไม่ส่ง',
+  '• คาดการณ์ส่งมอบ — เดือนนี้น่าจะส่งมอบได้กี่คัน + ใบที่ลุ้นได้',
+  '• สถานะ — ใบจองที่ค้างแยกตามสถานะ (รอส่งมอบ/รอเบิก/รอรถ/ไฟแนนซ์)',
   '• สต็อก — รถพร้อมขาย/กำลังมา/จองแล้ว แยกรุ่นและสี (สต็อก S07 = เฉพาะรุ่น)',
   '• โปร — โปรที่ใช้ได้วันนี้ (โปร S07 = เฉพาะรุ่น + ข้อความส่งลูกค้า · โปรใกล้หมด)',
   '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
