@@ -38,6 +38,7 @@ export const SB_CSS = `
   .sb-gh-ic { width:34px; height:34px; border-radius:10px; display:grid; place-items:center; font-size:1.05rem; background:color-mix(in srgb, var(--c) 22%, var(--surface)); flex-shrink:0; }
   .sb-gh-t { flex:1; min-width:0; }
   .sb-gh-t b { display:block; font-size:0.84rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sb-gh-x { display:block; font-style:normal; font-size:0.66rem; font-weight:700; color:var(--primary); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .sb-gh-t span { font-size:0.66rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
   .sb-gh-n { text-align:right; flex-shrink:0; }
   .sb-gh-n b { display:block; font-size:1.45rem; font-weight:800; line-height:1; color:var(--c); font-variant-numeric:tabular-nums; }
@@ -73,7 +74,11 @@ function deltaHtml(now, before, { neutral = false, label = '' } = {}) {
 }
 const dm = d => { const [, m, dd] = String(d || '').split('-'); return dd ? `${dd}/${m}` : '' }
 
-export function statusBoardHtml(board, { periodLabel = '', scope = 'open', prev = null } = {}) {
+// (v1.0.1411) expect = Map(สถานะ → คันที่คาดว่าส่งได้เดือนนี้ จากคาดการณ์ส่งมอบ) — แสดงเฉพาะมุมมอง "ค้างทั้งหมด"
+const fx = n => n >= 9.95 ? String(Math.round(n)) : (Math.round(n * 10) / 10).toString()
+export function statusBoardHtml(board, { periodLabel = '', scope = 'open', prev = null, expect = null } = {}) {
+  const ex = scope === 'open' && expect && expect.size ? expect : null
+  const exOf = st => ex ? (ex.get(st) || 0) : 0
   const pv = scope === 'open' && prev ? prev : null
   const pvLabel = pv ? (pv.weekAgo ? `สัปดาห์ก่อน (${dm(pv.date)})` : `วันที่ ${dm(pv.date)}`) : ''
   const s = board.summary
@@ -103,7 +108,7 @@ export function statusBoardHtml(board, { periodLabel = '', scope = 'open', prev 
       ${board.groups.map(g => `<div class="sb-group" style="--c:var(--${g.color})">
         <button type="button" class="sb-gh" data-sbg="${escHtml(g.key)}" title="กดดูรายชื่อทั้งหมวด">
           <span class="sb-gh-ic">${g.icon}</span>
-          <span class="sb-gh-t"><b>${escHtml(g.label)}</b><span>${escHtml(g.hint)}</span></span>
+          <span class="sb-gh-t"><b>${escHtml(g.label)}</b><span>${escHtml(g.hint)}</span>${ex && g.count ? `<i class="sb-gh-x" title="คาดว่าใบในหมวดนี้ส่งมอบได้เดือนนี้กี่คัน (จากหน้าคาดการณ์ส่งมอบ)">🔮 ส่งได้เดือนนี้ ≈ ${fx(g.items.reduce((s, i) => s + exOf(i.status), 0))} คัน</i>` : ''}</span>
           <span class="sb-gh-n"><b>${g.count}</b><span>${money(g.value)}</span>${pv ? deltaHtml(g.count, pv.counts[g.key], { neutral: g.key === 'ready', label: pvLabel }) : ''}</span>
         </button>
         ${g.items.map(i => `<button type="button" class="sb-st${i.count ? '' : ' zero'}" data-sbs="${escHtml(i.status)}" title="กดดูรายชื่อ ${escHtml(i.status)}">
