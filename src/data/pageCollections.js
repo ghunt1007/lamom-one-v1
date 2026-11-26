@@ -403,6 +403,7 @@ export const PAGE_COLLECTIONS = {
  "/analytics/forecast": [
   "customers"
  ],
+ "/analytics/delivery-forecast": [],
  "/finance/tax": [
   "invoices",
   "purchase_orders",

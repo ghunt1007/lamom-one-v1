@@ -129,6 +129,7 @@ const routes = {
   '/analytics/sales-metrics': () => import('../pages/analytics/SalesMetrics.js'),
   // Analytics extras
   '/analytics/forecast':  () => import('../pages/analytics/SalesForecast.js'),
+  '/analytics/delivery-forecast': () => import('../pages/analytics/DeliveryForecast.js'),
   // Finance extras
   '/finance/tax':         () => import('../pages/finance/TaxReport.js'),
   '/finance/withholding-tax': () => import('../pages/finance/WithholdingTax.js'),
