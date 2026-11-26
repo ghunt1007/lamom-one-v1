@@ -740,6 +740,17 @@ async function handleLineWebhook(request, env, cors) {
           reply = clipLine(deliveryForecastLineAnswer(rows, todayBangkok(), { seller: isOwner ? '' : me.name, teamTargets: targets }))
         } catch { reply = '⚠️ ดึงข้อมูลคาดการณ์ส่งมอบไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'swing') {
+      // (v1.0.1413) เซลส์เห็นใบของตัวเอง / เจ้าของเห็นทั้งร้าน · คนอื่นพิมพ์ = ข้อความปกติ
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      const isOwner = !!owner && owner === userId
+      if (me?.name || isOwner) {
+        try {
+          const rows = await runQuery(env, accessToken, 'bookings', null, null, 5000, DLVFC_BOOKING_FIELDS)
+          reply = clipLine(swingLineAnswer(rows, todayBangkok(), { seller: isOwner ? '' : me.name }))
+        } catch { reply = '⚠️ ดึงข้อมูลใบจองไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'sboard') {
       // (v1.0.1394) สถานะใบจองที่ค้าง แยกหมวด — เจ้าของเห็นทั้งร้าน + เทียบสัปดาห์ก่อน / เซลส์เห็นของตัวเองพร้อมชื่อลูกค้า · คนอื่นพิมพ์ = ข้อความปกติ
       const me = await readSalesTarget(env, accessToken, userId)
@@ -855,6 +866,8 @@ export function parseLineCommand(text) {
   if (/^(?:ส่งมอบ|นัดส่งมอบ|deliver(?:y|ies)?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'deliveries' }
   // (v1.0.1394) สถานะใบจองที่ค้าง: "สถานะ" / "สถานะใบจอง" / "ใบจองค้าง" / "ค้างกี่ใบ"
   if (/^(?:สถานะ|สถานะใบจอง|ใบจองค้าง|ค้างกี่ใบ|ยอดจองค้าง(?:กี่ใบ)?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'sboard' }
+  // (v1.0.1413) "ลุ้น" — ใบจองที่โอกาสส่งทันเดือนนี้ 15–74% (เร่งแล้วเพิ่มยอดได้) เรียงโอกาสมาก→น้อย
+  if (/^(?:ลุ้น|ใบลุ้น|ลุ้นเดือนนี้|ลุ้นส่งทัน|ใบที่ลุ้น)$/i.test(t.replace(/\s+/g, ''))) return { type: 'swing' }
   // (v1.0.1385) คาดการณ์ส่งมอบเดือนนี้: "คาดการณ์ส่งมอบ" / "ส่งทันไหม" / "ทันเป้าไหม" / "เดือนนี้ได้กี่คัน"
   if (/^(?:คาดการณ์ส่งมอบ|พยากรณ์ส่งมอบ|คาดส่งมอบ|ส่งทัน(?:ไหม|มั้ย)?|ทันเป้า(?:ไหม|มั้ย)?|เดือนนี้(?:จะ)?(?:ส่งมอบ)?ได้กี่คัน|ยอดส่งมอบสิ้นเดือน)$/i.test(t.replace(/\s+/g, ''))) return { type: 'dlvfc' }
   // (v1.0.1312) รถในสต็อกแยกรุ่น/สี: "สต็อก" ทั้งหมด / "สต็อก S07" เฉพาะรุ่น
@@ -1088,6 +1101,19 @@ export function statusBoardLineAnswer(rows, today, { seller = '', logs = [], max
 
 export const DLVFC_BOOKING_FIELDS = ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'custName', 'brand', 'model', 'salesName', 'price', 'deleted']
 // คำตอบ LINE "คาดการณ์ส่งมอบ": seller ว่าง = ทั้งร้าน (มีเป้าทีม) · มี seller = เฉพาะใบของคนนั้น + ใบที่ควรเร่ง (ชื่อลูกค้า ส่งให้เซลส์เจ้าของเท่านั้น)
+// (v1.0.1413) คำสั่ง LINE "ลุ้น": ใบที่โอกาสส่งทันเดือนนี้ 15–74% + ขั้นต่อไปที่ต้องทำ (ชื่อต้นลูกค้า)
+export function swingLineAnswer(rows, today, { seller = '', max = 10 } = {}) {
+  const mine = (rows || []).filter(b => b && !b.deleted && (!seller || normSalesName(b.salesName) === normSalesName(seller)))
+  const fc = deliveryForecast({ bookings: mine, today, fmt: formatShortThai })
+  const swing = fc.items.filter(i => i.p >= 0.15 && i.p < 0.75)
+  const head = `🔮 ใบที่ลุ้นส่งทันเดือนนี้${seller ? ` · ${seller}` : ''} (เหลือ ${fc.daysLeft} วัน)`
+  if (!swing.length) return [head, fc.open ? '✅ ไม่มีใบที่อยู่ระหว่างลุ้น — ใบค้างที่เหลือค่อนข้างแน่หรือน่าจะไม่ทันเดือนนี้' : 'ไม่มีใบจองค้าง'].join('\n')
+  const gain = swing.reduce((s, i) => s + (1 - i.p), 0)
+  return [head, `${swing.length} ใบ · ถ้าปิดได้ครบ ยอดเดือนนี้เพิ่มได้อีก ≈ ${gain.toFixed(1)} คัน (คาดตอนนี้ ≈ ${fc.expected})`,
+    ...swing.slice(0, max).map(i => `• ${String(i.name).split(/\s+/)[0]} (${i.car}) ${i.status} ${Math.round(i.p * 100)}%${seller ? '' : ` · ${i.sales}`}${i.risk ? `\n   ⚠️ ${i.risk}` : ''}`),
+    ...(swing.length > max ? [`…และอีก ${swing.length - max} ใบ (ดูในแอป › ใบจอง › 🔮 ลุ้นเดือนนี้)`] : [])].join('\n')
+}
+
 export function deliveryForecastLineAnswer(rows, today, { seller = '', teamTargets = [] } = {}) {
   const ym = today.slice(0, 7)
   const mine = seller ? rows.filter(b => b && normSalesName(b.salesName) === normSalesName(seller)) : rows
@@ -2025,6 +2051,7 @@ export const LINE_HELP_TEXT = [
   '• ส่งมอบ — นัดส่งมอบรถ 7 วันข้างหน้า + ที่เลยวันนัดแล้วยังไม่ส่ง',
   '• คาดการณ์ส่งมอบ — เดือนนี้น่าจะส่งมอบได้กี่คัน + ใบที่ลุ้นได้',
   '• สถานะ — ใบจองที่ค้างแยกตามสถานะ (รอส่งมอบ/รอเบิก/รอรถ/ไฟแนนซ์)',
+  '• ลุ้น — ใบจองที่ลุ้นส่งทันเดือนนี้ เร่งแล้วเพิ่มยอดได้',
   '• สต็อก — รถพร้อมขาย/กำลังมา/จองแล้ว แยกรุ่นและสี (สต็อก S07 = เฉพาะรุ่น)',
   '• โปร — โปรที่ใช้ได้วันนี้ (โปร S07 = เฉพาะรุ่น + ข้อความส่งลูกค้า · โปรใกล้หมด)',
   '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
