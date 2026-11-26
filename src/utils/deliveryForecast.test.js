@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { monthBounds, shopHistory, timingChance, bookingChance, deliveryForecast, deliveryForecastText, dmyPlain } from './deliveryForecast.js'
+import { monthBounds, shopHistory, timingChance, bookingChance, deliveryForecast, deliveryForecastText, dmyPlain, bookingOutlook, chanceTier } from './deliveryForecast.js'
 
 const T = '2026-11-20'
 
@@ -189,5 +189,23 @@ describe('nextMonthOutlook', () => {
   })
   it('december rolls to january', () => {
     expect(nextMonthOutlook({ bookings: [], today: '2026-12-10' }).ym).toBe('2027-01')
+  })
+})
+
+describe('bookingOutlook (single booking)', () => {
+  it('null for closed bookings', () => {
+    expect(bookingOutlook({ status: 'ส่งมอบแล้ว', cutDate: '2026-11-02' }, [], { today: T })).toBeNull()
+    expect(bookingOutlook({ status: 'ถอนจอง' }, [], { today: T })).toBeNull()
+    expect(bookingOutlook(null, [], { today: T })).toBeNull()
+  })
+  it('gives this-month chance, tier and a by-next-month chance that is not lower', () => {
+    const o = bookingOutlook({ id: 'x', status: 'รอผลไฟแนนซ์', bookingDate: '2026-11-10' }, [], { today: T })
+    expect(o.p).toBeGreaterThan(0)
+    expect(o.pBy2).toBeGreaterThanOrEqual(o.p)
+    expect(o.tier).toBe(chanceTier(o.p))
+    expect(Array.isArray(o.why)).toBe(true)
+  })
+  it('chanceTier thresholds', () => {
+    expect(chanceTier(0.8)).toBe('sure'); expect(chanceTier(0.5)).toBe('likely'); expect(chanceTier(0.2)).toBe('maybe'); expect(chanceTier(0.05)).toBe('unlikely')
   })
 })

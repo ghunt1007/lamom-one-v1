@@ -122,6 +122,8 @@ export function bookingChance(b, { today, hist, eta, useSupply = false, fmt = dm
 }
 
 // ผลรวมทั้งเดือน — target = เป้าส่งมอบ (คัน) ถ้ามี ไม่มีให้ส่ง null (ไม่เดาเป้า)
+export const chanceTier = p => p >= 0.75 ? 'sure' : p >= 0.4 ? 'likely' : p >= 0.15 ? 'maybe' : 'unlikely'
+
 export function deliveryForecast({ bookings = [], vehicles = [], orders = [], etaMap = null, today, target = null, fmt = dmyPlain } = {}) {
   const { ym, dim, day, daysLeft, end } = monthBounds(today)
   const live = bookings.filter(b => b && !b.deleted)
@@ -143,9 +145,8 @@ export function deliveryForecast({ bookings = [], vehicles = [], orders = [], et
   const expected = delivered + expectedMore
   const worst = delivered + Math.max(0, Math.floor(expectedMore - 1.28 * sd))
   const best = delivered + Math.min(items.length, Math.ceil(expectedMore + 1.28 * sd))
-  const tier = p => p >= 0.75 ? 'sure' : p >= 0.4 ? 'likely' : p >= 0.15 ? 'maybe' : 'unlikely'
   const tiers = { sure: 0, likely: 0, maybe: 0, unlikely: 0 }
-  items.forEach(i => { i.tier = tier(i.p); tiers[i.tier]++ })
+  items.forEach(i => { i.tier = chanceTier(i.p); tiers[i.tier]++ })
   const pace = day > 1 ? Math.round(delivered / (day - 1) * dim) : null
 
   const group = (key) => {
@@ -242,4 +243,14 @@ export function nextMonthOutlook({ bookings = [], vehicles = [], orders = [], et
     count: items.length, items,
     byCar: [...byCar.entries()].map(([key, v]) => ({ key, expected: Math.round(v * 10) / 10 })).sort((a, b) => b.expected - a.expected),
   }
+}
+
+// (v1.0.1389) โอกาสของ "ใบจองใบเดียว" สำหรับหน้ารายละเอียดใบจอง — เดือนนี้ + ภายในสิ้นเดือนหน้า
+// ใบที่จบแล้ว (ส่งมอบ/ถอนจอง) → null
+export function bookingOutlook(b, bookings = [], { today, eta = null, useSupply = false, fmt = dmyPlain } = {}) {
+  if (!b || b.deleted || !isOpenBooking(b)) return null
+  const hist = shopHistory((bookings || []).filter(x => x && !x.deleted), today)
+  const c1 = bookingChance(b, { today, hist, eta, useSupply, fmt })
+  const c2 = bookingChance(b, { today, hist, eta, useSupply, fmt, horizon: 2 })
+  return { p: c1.p, tier: chanceTier(c1.p), pBy2: Math.max(c1.p, c2.p), why: c1.why, risk: c1.risk, age: c1.age }
 }
