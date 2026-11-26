@@ -291,3 +291,10 @@ describe('sboard (booking status) questions (v1.0.1395)', () => {
     expect(sboardAnswer(B, { today: T, group: 'release', mine: b => b.salesName === 'กมล' }).n).toBe(1)
   })
 })
+
+describe('dlvfc extra phrasings (v1.0.1412)', () => {
+  it('routes swing/what-if questions to dlvfc', () => {
+    for (const q of ['เดือนนี้จะได้กี่คัน', 'ใบไหนลุ้นส่งทันเดือนนี้', 'ถ้าเร่งได้จะได้กี่คัน']) expect(parseOpsSpec(q)?.kind, q).toBe('dlvfc')
+    expect(parseOpsSpec('เดือนหน้าลุ้นส่งทันกี่คัน')?.kind).not.toBe('dlvfc')
+  })
+})
