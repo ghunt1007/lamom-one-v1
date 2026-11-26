@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { monthBounds, shopHistory, timingChance, bookingChance, deliveryForecast, deliveryForecastText, dmyPlain, bookingOutlook, chanceTier } from './deliveryForecast.js'
+import { monthBounds, shopHistory, timingChance, bookingChance, deliveryForecast, deliveryForecastText, dmyPlain, bookingOutlook, chanceTier, targetPath } from './deliveryForecast.js'
 
 const T = '2026-11-20'
 
@@ -207,5 +207,27 @@ describe('bookingOutlook (single booking)', () => {
   })
   it('chanceTier thresholds', () => {
     expect(chanceTier(0.8)).toBe('sure'); expect(chanceTier(0.5)).toBe('likely'); expect(chanceTier(0.2)).toBe('maybe'); expect(chanceTier(0.05)).toBe('unlikely')
+  })
+})
+
+describe('targetPath', () => {
+  const fc = { target: 5, delivered: 2, items: [{ p: 0.9 }, { p: 0.6 }, { p: 0.3 }, { p: 0.1 }] }
+  it('null without target or when reached', () => {
+    expect(targetPath({ ...fc, target: null })).toBeNull()
+    expect(targetPath({ ...fc, delivered: 5 })).toBeNull()
+  })
+  it('picks the most likely bookings to fill the gap and flags weak ones', () => {
+    const t = targetPath(fc)
+    expect(t.need).toBe(3)
+    expect(t.picks.map(i => i.p)).toEqual([0.9, 0.6, 0.3])
+    expect(t.push.map(i => i.p)).toEqual([0.3])
+    expect(t.minP).toBe(0.3)
+    expect(t.short).toBe(0)
+    expect(t.chance).toBeCloseTo(0.9 * 0.6 * 0.3)
+  })
+  it('reports shortfall when not enough open bookings', () => {
+    const t = targetPath({ ...fc, target: 10 })
+    expect(t.short).toBe(4)
+    expect(t.chance).toBe(0)
   })
 })
