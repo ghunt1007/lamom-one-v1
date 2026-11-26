@@ -4,6 +4,7 @@ const LINKS = [
   [/บูธ|อีเวนต์|มอเตอร์โชว์|motor\s*expo/i, '🎪 ออกบูธ & อีเวนต์', '/marketing/events'],
   [/เฟซบุ๊ก|facebook|เพจ|line oa|ไลน์โอเอ|instagram|ไอจี|tiktok|รีวิว|google maps/i, '💬 แชต & โพสต์โซเชียล', '/marketing/channels'],
   [/ใบเสนอราคา|quotation/i, '🧾 ใบเสนอราคา', '/crm/quotation'],
+  [/(คาดการณ์|พยากรณ์|คาดว่า).*ส่งมอบ|ส่งมอบ.*(กี่คัน|คาดการณ์|ทันไหม|ทันเป้า)/i, '🚚 คาดการณ์ส่งมอบเดือนนี้', '/analytics/delivery-forecast'],
   [/kpi|ตัวชี้วัด|forecast|conversion|quota|โควตา/i, '📐 ตัวชี้วัดการขาย', '/analytics/sales-metrics'],
   [/ทดลองขับ|ลองขับ|test\s*drive/i, '🚗 นัดทดลองขับ', '/crm/testdrive'],
   [/สต็อก|stock|รถเหลือ|รถว่าง/i, '📦 สต็อกรถ', '/dms/stock'],

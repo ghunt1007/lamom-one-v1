@@ -19,6 +19,8 @@ import { openModal } from '../utils/modal.js'
 import { escHtml as __escA } from '../utils/escape.js'
 import { escHtml } from '../utils/escape.js'
 import { dmy as fmtDMY, hm as fmtHM } from '../utils/format.js'
+import { computeDeliveryForecast, loadDeliveryExtras } from '../utils/deliveryForecastData.js'
+import { DFC_CSS, heroHtml as deliveryHeroHtml } from '../utils/deliveryForecastView.js'
 
 const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 function ymLabel(ym) {
@@ -260,7 +262,7 @@ export default async function DashboardPage(container) {
       </style>
       <!-- มือถือ: หน้านี้ยาวมาก → แถบทางลัดกระโดดไปหัวข้อที่อยากดู (ติดอยู่บนจอเวลาเลื่อน) -->
       <div class="dash-jump">
-        ${[['hero-kpis', '📊 ตัวเลข'], ['alerts-body', '🚨 เรื่องด่วน'], ['targets-body', '🎯 เป้า'], ['pipeline-card', '🚗 ยอดจอง'], ['monthly-chart-card', '📊 กราฟ'], ['top-sales', '🥇 ท็อปเซลส์'], ['funnel-body', '📶 Funnel']]
+        ${[['hero-kpis', '📊 ตัวเลข'], ['dlvfc-body', '🚚 ส่งมอบ'], ['alerts-body', '🚨 เรื่องด่วน'], ['targets-body', '🎯 เป้า'], ['pipeline-card', '🚗 ยอดจอง'], ['monthly-chart-card', '📊 กราฟ'], ['top-sales', '🥇 ท็อปเซลส์'], ['funnel-body', '📶 Funnel']]
           .map(([id, label]) => `<button class="btn btn-secondary btn-xs" data-jump="${id}" style="border-radius:999px;flex-shrink:0">${label}</button>`).join('')}
       </div>
 
@@ -279,6 +281,9 @@ export default async function DashboardPage(container) {
         </div>
       </div>
 
+      <!-- (v1.0.1381) คาดการณ์ส่งมอบเดือนนี้: เดือนนี้จะส่งมอบได้กี่คัน ช่วงแย่–ดี เทียบเป้า กดไปหน้ารายละเอียด -->
+      <div data-sec="dlvfc" id="dlvfc-sec"><style>${DFC_CSS}</style><div id="dlvfc-body"><div class="skeleton" style="height:230px;border-radius:var(--radius-xl);margin-bottom:16px"></div></div></div>
+
       <!-- Morning Briefing: สรุปเชิงรุกทุกเช้าจากข้อมูลจริง แคชไว้ต่อวัน/ผู้ใช้ -->
       <div class="dash-briefing" data-sec="briefing" style="display:flex;align-items:flex-start;gap:12px;background:var(--primary-dim);border:1px solid var(--primary);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:20px">
         <span style="font-size:1.5rem;flex-shrink:0">${briefIcon}</span>
@@ -289,7 +294,7 @@ export default async function DashboardPage(container) {
           </div>
           <div id="briefing-text" style="font-size:0.875rem;color:var(--text-2);line-height:1.6;white-space:pre-line;min-height:1.3em">กำลังวิเคราะห์ข้อมูลเช้านี้...</div>
           <!-- (v1.0.1050) ถามต่อแตะเดียว: LAMI ตอบเป็นรายชื่อจริงพร้อมปุ่มโทร/เปิด (ไม่ต้องรอ AI) -->
-          <div class="dash-brief-chips">${['วันนี้มีอะไรบ้าง', 'ยอดเดือนนี้เป็นไง', ...(isManagerRole() ? ['ทีมวันนี้เป็นไง'] : []), 'วันนี้ควรโทรหาใคร', 'พรุ่งนี้มีอะไรบ้าง', 'มีรถอะไรพร้อมขาย', 'โปรเดือนนี้มีอะไรบ้าง', 'ใครยังไม่มีนัด', 'ใบจองไหนค้างนานสุด'].map(q => `<button type="button" class="dash-brief-chip" data-q="${q}">${q}</button>`).join('')}</div>
+          <div class="dash-brief-chips">${['วันนี้มีอะไรบ้าง', 'ยอดเดือนนี้เป็นไง', 'เดือนนี้จะส่งมอบได้กี่คัน', ...(isManagerRole() ? ['ทีมวันนี้เป็นไง'] : []), 'วันนี้ควรโทรหาใคร', 'พรุ่งนี้มีอะไรบ้าง', 'มีรถอะไรพร้อมขาย', 'โปรเดือนนี้มีอะไรบ้าง', 'ใครยังไม่มีนัด', 'ใบจองไหนค้างนานสุด'].map(q => `<button type="button" class="dash-brief-chip" data-q="${q}">${q}</button>`).join('')}</div>
         </div>
         <div class="dash-briefing-actions" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
           <button class="btn btn-ghost btn-sm" id="briefing-regen" title="สร้างสรุปใหม่จากข้อมูลล่าสุด">🔄 สร้างใหม่</button>
@@ -1497,8 +1502,18 @@ export default async function DashboardPage(container) {
       <div style="font-size:0.62rem;color:var(--text-muted);margin-top:6px">เข้มมาก = จองเยอะ · สูงสุด ${max} ใบจอง/วัน</div>`
     }
 
+    // คาดการณ์ส่งมอบ: ใช้ใบจองสดของหน้านี้ + รถ/ใบสั่งรถ/เป้า (โหลดเพิ่มครั้งเดียว) — เดือนปัจจุบันเสมอ
+    let dlvExtras = null
+    loadDeliveryExtras({ vehicles }).then(x => { if (container.__routerGen === myGen) { dlvExtras = x; renderDeliveryForecast() } }).catch(() => {})
+    function renderDeliveryForecast() {
+      const el = document.getElementById('dlvfc-body')
+      if (!el || !dlvExtras) return
+      const fc = computeDeliveryForecast({ bookings, ...dlvExtras, today: todayBangkok(), fmt: formatDate })
+      el.innerHTML = deliveryHeroHtml(fc, { link: true })
+    }
+
     function renderAll() {
-      renderHero()
+      renderHero(); renderDeliveryForecast()
       renderPipeline(); renderDeptDetail(); renderTrendChart(); renderDonut(); renderGauges()
       renderMoM(); renderForecast(); renderTops(); renderFunnel()
       renderAlerts(); renderTargets(); renderHeatmap(); renderRadar()

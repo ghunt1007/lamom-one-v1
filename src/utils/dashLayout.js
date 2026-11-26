@@ -2,6 +2,7 @@
 // ลำดับเริ่มต้นเอา "ตัวเลข → เรื่องด่วน → แนวโน้ม" ขึ้นก่อน ของตกแต่ง/ทางลัดไว้ท้าย
 export const DASH_SECTIONS = [
   ['hero', '📊 ตัวเลขหลักของเดือน'],
+  ['dlvfc', '🚚 คาดการณ์ส่งมอบเดือนนี้'],
   ['briefing', '🤖 สรุปจาก LAMI'],
   ['intel', '🚨 เรื่องที่ต้องจัดการ + 🎯 เป้า'],
   ['trend', '📈 กราฟแนวโน้ม + สัดส่วนสถานะ'],
@@ -16,10 +17,16 @@ export const DASH_SECTIONS = [
 const KEY = 'lamom_dash_layout'
 const KEYS = DASH_SECTIONS.map(([k]) => k)
 
-// คืน { order, hidden } ที่สะอาดเสมอ: คีย์ที่ไม่รู้จักถูกตัด การ์ดใหม่ที่ยังไม่อยู่ใน order ต่อท้ายตามลำดับเริ่มต้น
+// คืน { order, hidden } ที่สะอาดเสมอ: คีย์ที่ไม่รู้จักถูกตัด การ์ดใหม่ที่ยังไม่อยู่ใน order แทรกต่อจากการ์ดที่อยู่ก่อนมันในลำดับเริ่มต้น
+// (v1.0.1381 เดิมต่อท้ายสุด — การ์ดใหม่ไปโผล่ล่างสุดของเครื่องที่เคยจัดหน้าไว้)
 export function normalizeLayout(raw) {
   const order = (Array.isArray(raw?.order) ? raw.order : []).filter((k, i, a) => KEYS.includes(k) && a.indexOf(k) === i)
-  KEYS.forEach(k => { if (!order.includes(k)) order.push(k) })
+  KEYS.forEach((k, i) => {
+    if (order.includes(k)) return
+    const prev = KEYS.slice(0, i).reverse().find(x => order.includes(x))
+    if (prev) order.splice(order.indexOf(prev) + 1, 0, k)
+    else order.push(k)
+  })
   const hidden = (Array.isArray(raw?.hidden) ? raw.hidden : []).filter(k => KEYS.includes(k))
   return { order, hidden }
 }

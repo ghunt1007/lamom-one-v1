@@ -250,3 +250,13 @@ describe('backAnswer (v1.0.1210)', () => {
     expect(backAnswer([], { today: '2026-11-16', days: 1 }).text).toContain('ยังไม่มี')
   })
 })
+
+describe('dlvfc (delivery forecast) parsing', () => {
+  it('routes forecast-style delivery questions', async () => {
+    const { parseOpsSpec } = await import('./opsQuestions.js')
+    for (const q of ['เดือนนี้จะส่งมอบได้กี่คัน', 'คาดการณ์ส่งมอบเดือนนี้', 'ส่งมอบทันเป้าไหม', 'เดือนนี้น่าจะตัดตัวเลขได้กี่คัน'])
+      expect(parseOpsSpec(q)?.kind, q).toBe('dlvfc')
+    for (const q of ['ใครจะส่งมอบเดือนนี้', 'เมื่อวานส่งมอบกี่คัน', 'คาดการณ์สั่งรถเดือนหน้า'])
+      expect(parseOpsSpec(q)?.kind, q).not.toBe('dlvfc')
+  })
+})

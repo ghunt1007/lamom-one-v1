@@ -16,6 +16,7 @@ const ALIASES = [
   ['/crm/quotation', 'ใบเสนอราคา เสนอราคา quotation'],
   ['/marketing/events', 'บูธ ออกบูธ อีเวนต์ มอเตอร์โชว์ motor expo งานแสดงรถ'],
   ['/marketing/channels', 'โซเชียล เฟซบุ๊ก facebook เพจ ไลน์ line oa ไอจี instagram tiktok ติ๊กต็อก แชต google maps รีวิว ค่าโฆษณา ยิงแอด บูสต์ บูสโพสต์ งบโฆษณา'],
+  ['/analytics/delivery-forecast', 'คาดการณ์ส่งมอบ พยากรณ์ส่งมอบ เดือนนี้จะส่งได้กี่คัน ยอดส่งมอบเดือนนี้ คาดการณ์ตัดตัวเลข delivery forecast'],
   ['/analytics/sales-metrics', 'ตัวชี้วัด kpi เป้า quota forecast gp gmv conversion aov pipeline ltv churn cac ต้นทุนหาลูกค้า'],
   ['/crm/sales-income', 'รายได้เซลส์ ค่าคอม รายได้รายคน เป้าส่งมอบ'],
   ['/crm/showroom', 'นัดเข้าโชว์รูม นัดโชว์รูม ลูกค้านัดมาโชว์รูม'],

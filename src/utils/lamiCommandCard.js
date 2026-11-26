@@ -431,6 +431,11 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'waiteta') {
     const [vs, bks, ords] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('vehicle_orders', f, 'createdAt', 'desc', 500).catch(() => [])])
     res = oq.waitEtaAnswer(vs, bks, ords, { today, mine: b => mine(b.salesName, b) })
+  } else if (spec.kind === 'dlvfc') {
+    // (v1.0.1381) คาดการณ์ส่งมอบเดือนนี้ — ตัวเลขเดียวกับหน้า /analytics/delivery-forecast
+    const [{ loadDeliveryForecast }, { deliveryForecastText }, { ymThai }] = await Promise.all([import('./deliveryForecastData.js'), import('./deliveryForecast.js'), import('./deliveryForecastView.js')])
+    const { fc } = await loadDeliveryForecast({ today })
+    res = { n: Math.max(1, fc.expected), text: deliveryForecastText(fc, ymThai(fc.ym)) }
   } else if (spec.kind === 'forecast') {
     const [vs, bks, ords, customers] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('vehicle_orders', f, 'createdAt', 'desc', 500).catch(() => []), customersPromise || visibleCustomersForCommands()])
     let leadDays = 45
