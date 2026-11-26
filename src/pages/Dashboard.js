@@ -23,6 +23,7 @@ import { statusBoard, pickPrevCounts } from '../utils/statusBoard.js'
 import { SB_CSS, statusBoardHtml } from '../utils/statusBoardView.js'
 import { computeDeliveryForecast, loadDeliveryExtras } from '../utils/deliveryForecastData.js'
 import { DFC_CSS, heroHtml as deliveryHeroHtml } from '../utils/deliveryForecastView.js'
+import { bookingPace, paceNote } from '../utils/bookingPace.js'
 
 const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 function ymLabel(ym) {
@@ -1147,11 +1148,14 @@ export default async function DashboardPage(container) {
       if (selectedMonth === nowYm && !paceInTargets) {
         const dayNow = Number(todayBangkok().slice(8, 10))
         const daysInM = new Date(fy, fm, 0).getDate()
-        const soFar = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth)).length
-        const proj = dayNow ? Math.round(soFar / dayNow * daysInM) : 0
+        // (v1.0.1400) คาดปิดเดือนจากรูปแบบการจองของเดือนก่อนๆ (ต้นเดือน/ปลายเดือน) แทนเส้นตรง
+        const pace = bookingPace(bookings.map(b => b.bookingDate), todayBangkok())
+        const soFar = pace?.soFar ?? 0, proj = pace?.expected ?? 0
+        const rng = pace && pace.high > pace.low ? ` <span style="color:var(--text-muted)">(${pace.low}–${pace.high})</span>` : ''
         runRate = `<div style="background:var(--primary-dim);border:1px solid var(--primary);border-radius:8px;padding:9px 11px;margin-top:8px">
           <div style="font-size:0.66rem;color:var(--primary);font-weight:700;font-variant-numeric:tabular-nums">RUN-RATE เดือนนี้</div>
-          <div style="font-size:0.76rem;color:var(--text-2);margin-top:2px">ผ่านไป ${dayNow}/${daysInM} วัน จองแล้ว <b>${soFar}</b> คัน → คาดปิดเดือน ≈ <b style="color:var(--primary)">${proj} คัน</b></div>
+          <div style="font-size:0.76rem;color:var(--text-2);margin-top:2px">ผ่านไป ${dayNow}/${daysInM} วัน จองแล้ว <b>${soFar}</b> คัน → คาดปิดเดือน ≈ <b style="color:var(--primary)">${proj} คัน</b>${rng}</div>
+          ${paceNote(pace) ? `<div style="font-size:0.66rem;color:var(--text-muted);margin-top:2px">${escHtml(paceNote(pace))}</div>` : ''}
         </div>`
       }
       const best = hist.reduce((a, b) => b.count > a.count ? b : a, hist[0])
@@ -1459,8 +1463,11 @@ export default async function DashboardPage(container) {
               // วันที่ไทยเสมอ (เดิม new Date() ตามเครื่อง)
               if (selectedMonth !== todayBangkok().slice(0, 7)) return ''
               const dayNow = Number(todayBangkok().slice(8, 10))
-              const dim = new Date(sy, sm, 0).getDate(), proj = Math.round(now / dayNow * dim)
-              return `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--surface-2);font-size:0.72rem;line-height:1.5">📈 จังหวะตอนนี้ สิ้นเดือนน่าจะได้ราว <b style="color:var(--${proj >= goal ? 'success' : 'warning'})">${proj} คัน</b>${proj >= goal ? ' — ทันเป้า' : ` — ต้องเร่งอีกวันละ ${((goal - now) / Math.max(1, dim - dayNow + 1)).toFixed(1)} คัน`}</div>`
+              const dim = new Date(sy, sm, 0).getDate()
+              // (v1.0.1400) นับแบบเดียวกับ "จองแล้ว" (ไม่รวมถอนจอง/ยกเลิก) แต่คาดจากรูปแบบเดือนก่อนๆ
+              const pace = bookingPace(bookings.filter(b => !['ถอนจอง', 'ยกเลิก'].includes(b.status)).map(b => b.bookingDate), todayBangkok())
+              const proj = Math.max(now, pace?.expected ?? Math.round(now / dayNow * dim))
+              return `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--surface-2);font-size:0.72rem;line-height:1.5">📈 จังหวะตอนนี้ สิ้นเดือนน่าจะได้ราว <b style="color:var(--${proj >= goal ? 'success' : 'warning'})">${proj} คัน</b>${proj >= goal ? ' — ทันเป้า' : ` — ต้องเร่งอีกวันละ ${((goal - now) / Math.max(1, dim - dayNow + 1)).toFixed(1)} คัน`}${pace?.method === 'history' ? `<div style="color:var(--text-muted);font-size:0.66rem">${escHtml(paceNote(pace))}</div>` : ''}</div>`
             })()}
           </div>
           <div style="text-align:center;margin-top:10px"><button class="btn btn-xs btn-ghost" data-nav="/hr/targets">ตั้งเป้าเอง →</button></div>`
