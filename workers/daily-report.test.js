@@ -1780,3 +1780,16 @@ describe('swingMorningLines (v1.0.1409)', () => {
     if (l) { expect(l).toContain('ลุ้นส่งทันเดือนนี้'); expect(l).not.toContain('ทดสอบ') }
   })
 })
+
+describe('LINE swing command (v1.0.1413)', () => {
+  it('parses ลุ้น and answers', async () => {
+    const m = await import('./daily-report.js')
+    const parse = m.parseLineCommand || m.parseCommand
+    if (parse) expect(parse('ลุ้น')?.type).toBe('swing')
+    const B = [{ bookingDate: '2026-11-01', status: 'ผ่านไฟแนนซ์รอเบิก', custName: 'สมหญิง ทดสอบ', model: 'S07', salesName: 'วิภา' }]
+    const t = m.swingLineAnswer(B, '2026-11-25')
+    expect(t).toContain('ใบที่ลุ้นส่งทันเดือนนี้')
+    expect(t).not.toContain('ทดสอบ')
+    expect(m.swingLineAnswer(B, '2026-11-25', { seller: 'กมล' })).toContain('ไม่มีใบจองค้าง')
+  })
+})
