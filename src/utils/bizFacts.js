@@ -5,6 +5,7 @@ import { DELIVERED_STATUSES } from './deliveryIncome.js'
 import { bangkokDate, STALE_LEAD_DAYS } from './myDay.js'
 import { classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
 import { stockAgeDays } from './stockAge.js'
+import { deliveryForecast } from './deliveryForecast.js'
 
 import { CANCELLED_STATUSES as CANCELLED, cancelledMonth, deliveredMonth } from './bookingStatus.js'
 const SOURCE_TH = { facebook: 'Facebook', line: 'LINE', tiktok: 'TikTok', 'walk-in': 'Walk-in', referral: 'แนะนำ', google: 'Google', website: 'เว็บไซต์', phone: 'โทรเข้า', event: 'บูธ/อีเวนต์', other: 'อื่นๆ' }
@@ -104,7 +105,14 @@ export function businessFacts({ customers = [], bookings = [] }, today) {
   })
   const quietN = Object.values(quiet).reduce((a, v) => a + v.n, 0)
   const quietLine = Object.entries(quiet).sort((a, b) => (b[1].n - a[1].n) || (b[1].max - a[1].max)).slice(0, 12).map(([k, v]) => `${k} ${v.n} ราย (นานสุด ${v.max} วัน)`).join(' · ')
+  // (v1.0.1387) คาดการณ์ส่งมอบสิ้นเดือน (สูตรเดียวกับหน้า คาดการณ์ส่งมอบ) — ให้ LAMI ตอบ "เดือนนี้จะส่งได้กี่คัน ใบไหนเสี่ยง"
+  const fc = deliveryForecast({ bookings: bk, today })
+  const fcLine = fc.open && fc.daysLeft > 0
+    ? `ส่งมอบ(ตัดตัวเลข)แล้ว ${fc.delivered} คัน · คาดว่าสิ้นเดือนได้ราว ${fc.expected} คัน (แย่สุด ${fc.worst} ดีสุด ${fc.best}) · ค่อนข้างแน่ ${fc.tiers.sure} ใบ น่าจะได้ ${fc.tiers.likely} ใบ ลุ้น ${fc.tiers.maybe} ใบ · เสี่ยงหลุด ${fc.atRisk.length} ใบ`
+      + (fc.atRisk.length ? ` (${fc.atRisk.slice(0, 5).map(i => `${first(i.name)} ${i.car} — ${i.risk}`).join('; ')})` : '')
+    : ''
   return {
+    ...(fcLine ? { 'คาดการณ์ส่งมอบสิ้นเดือนนี้': fcLine } : {}),
     ...(late || soon ? { 'กำหนดส่งมอบ (ใบจองที่ยังไม่ส่ง)': `เลยกำหนดแล้ว ${late} คัน · ภายใน 7 วันข้างหน้า ${soon} คัน` } : {}),
     ...(dueList ? { 'นัดส่งมอบ 7 วันข้างหน้า (รายคัน)': dueList } : {}),
     ...(lateList ? { 'เลยกำหนดส่งมอบแล้ว (เก่าสุดก่อน สูงสุด 8 คัน)': lateList } : {}),
