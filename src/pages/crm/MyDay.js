@@ -27,6 +27,7 @@ import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 import { copyText } from '../../utils/copyText.js'
 import { canPushLine, pushLineToCustomer, lineSendBtnHtml } from '../../utils/customerLinePush.js'
 import { escHtml } from '../../utils/escape.js'
+import { deliveryForecast } from '../../utils/deliveryForecast.js'
 import { openQuickDatePop } from '../../utils/quickDatePop.js'
 import { normalizeProgram, nextMonthGap, monthLabelTh, programEarnings, myBonusProgress } from '../../utils/salesPrograms.js'
 import { isManagerRole } from '../../utils/managerRole.js'
@@ -141,18 +142,29 @@ export default async function MyDayPage(container) {
   function goalCard(today) {
     const who = seller !== 'all' && seller !== UNASSIGNED ? seller : me.displayName
     const t = targetFor(targets, who)
-    if (!t) return ''
     const month = today.slice(0, 7)
-    const done = data.bookings.filter(b => !b.deleted && DELIVERED_STATUSES.includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(month) && normName(b.salesName) === normName(who)).length
-    const g = goalProgress(done, t)
+    const myBookings = data.bookings.filter(b => !b.deleted && normName(b.salesName) === normName(who))
+    // (v1.0.1384) คาดการณ์ส่งมอบสิ้นเดือนของคนนี้ (สูตรเดียวกับหน้าคาดการณ์ส่งมอบ) + ใบที่ควรเร่ง
+    const fc = who ? deliveryForecast({ bookings: myBookings, today, target: t || null, fmt: formatDate }) : null
+    const push = fc ? fc.items.filter(i => i.tier === 'likely' || i.tier === 'maybe' || (i.risk && i.p >= 0.15)).slice(0, 3) : []
+    const fcHtml = fc && fc.open && fc.daysLeft > 1 ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border-subtle);font-size:0.78rem">
+        🔮 คาดว่าเดือนนี้ได้ <b style="color:var(--primary)">≈ ${fc.expected} คัน</b> <span style="color:var(--text-muted)">(แย่สุด ${fc.worst} · ดีสุด ${fc.best})</span>
+        ${push.length ? `<div style="font-size:0.72rem;color:var(--text-muted);margin:4px 0 2px">เร่งใบนี้ให้ทันเดือนนี้:</div>
+          ${push.map(i => `<button type="button" class="btn btn-ghost btn-xs md-bk" data-id="${escHtml(i.id)}" style="display:flex;width:100%;justify-content:space-between;gap:8px;text-align:left"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(i.name)} · ${escHtml(i.status)}${i.risk ? ' ⚠️' : ''}</span><b style="flex-shrink:0">${Math.round(i.p * 100)}%</b></button>`).join('')}` : ''}
+      </div>` : ''
+    if (!t && !fcHtml) return ''
+    const done = myBookings.filter(b => DELIVERED_STATUSES.includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(month)).length
     const [y, m, dd] = today.split('-').map(Number)
     const daysLeft = new Date(Date.UTC(y, m, 0)).getUTCDate() - dd
-    return `<div class="card" style="padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-      <div style="font-size:1.6rem">🎯</div>
+    const g = t ? goalProgress(done, t) : null
+    return `<div class="card" style="padding:14px 16px;margin-bottom:14px;display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap">
+      <div style="font-size:1.6rem">${t ? '🎯' : '🚚'}</div>
       <div style="flex:1;min-width:200px">
-        <div style="font-weight:800">เป้าส่งมอบเดือนนี้${who !== me.displayName ? ` · ${escHtml(who)}` : ''}: <span style="color:var(--${g.color})">${done}/${t} คัน (${g.pct}%)</span></div>
+        ${g ? `<div style="font-weight:800">เป้าส่งมอบเดือนนี้${who !== me.displayName ? ` · ${escHtml(who)}` : ''}: <span style="color:var(--${g.color})">${done}/${t} คัน (${g.pct}%)</span></div>
         <div style="height:8px;background:var(--surface-2);border-radius:4px;margin:6px 0"><div style="height:100%;width:${Math.min(100, g.pct)}%;background:var(--${g.color});border-radius:4px"></div></div>
-        <div style="font-size:0.75rem;color:var(--text-muted)">${g.left ? `เหลืออีก ${g.left} คัน ใน ${daysLeft} วัน` : 'ถึงเป้าแล้ว เยี่ยมมาก! 🎉'}</div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">${g.left ? `เหลืออีก ${g.left} คัน ใน ${daysLeft} วัน` : 'ถึงเป้าแล้ว เยี่ยมมาก! 🎉'}</div>`
+        : `<div style="font-weight:800">ส่งมอบเดือนนี้${who !== me.displayName ? ` · ${escHtml(who)}` : ''}: <span style="color:var(--success)">${done} คัน</span></div>`}
+        ${fcHtml}
       </div></div>`
   }
 
@@ -471,7 +483,6 @@ export default async function MyDayPage(container) {
         onNoVoice: () => { reset(); showToast('เครื่องนี้ไม่มีเสียงภาษาไทย', 'warning') },
       })
     })
-    $$('.md-bk').forEach(b => b.addEventListener('click', () => navigate(`/crm/bookings?id=${encodeURIComponent(b.dataset.id)}`)))
     $$('.md-quote').forEach(b => b.addEventListener('click', () => navigate(`/crm/quotation?open=${encodeURIComponent(b.dataset.id)}`)))
     $$('.md-open').forEach(b => b.addEventListener('click', () => navigate(`/crm/customers?id=${encodeURIComponent(b.dataset.id)}`)))
     $$('.md-call').forEach(a => a.addEventListener('click', () => {
