@@ -1617,9 +1617,15 @@ describe('forecastReportLines (v1.0.1383)', () => {
   })
   it('skips last day of month, no target, nothing open', async () => {
     const { forecastReportLines } = await import('./daily-report.js')
-    expect(forecastReportLines(B, '2026-11-30', 5)).toEqual([])
+    expect(forecastReportLines(B, '2026-11-30', 5).join('\n')).not.toContain('คาดว่าสิ้นเดือน')
     expect(forecastReportLines(B, '2026-11-20', 0).join('\n')).not.toContain('เป้า')
     expect(forecastReportLines(B.slice(0, 1), '2026-11-20', 5)).toEqual([])
+  })
+  it('last week of month adds next-month outlook (v1.0.1391)', async () => {
+    const { forecastReportLines } = await import('./daily-report.js')
+    const late = [...B, ...Array.from({ length: 4 }, (_, i) => ({ id: 'w' + i, status: 'รอรถ', bookingDate: '2026-11-20' }))]
+    expect(forecastReportLines(late, '2026-11-27', 5).join('\n')).toMatch(/เดือนหน้า \(จากใบจองที่มีตอนนี้\) คาดส่งมอบ ≈ \d+ คัน/)
+    expect(forecastReportLines(late, '2026-11-10', 5).join('\n')).not.toContain('เดือนหน้า')
   })
 })
 

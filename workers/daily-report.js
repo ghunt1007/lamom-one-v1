@@ -67,7 +67,7 @@ import { stockLineAnswer } from '../src/utils/stockList.js'
 import { promoLineAnswer } from '../src/utils/promoQuestions.js'
 import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines, serviceJobsAnswer, serviceEveningLines, serviceWeekLines } from '../src/utils/apptFacts.js'
 import { officeDigestLines } from '../src/utils/aiAgents.js'
-import { deliveryForecast } from '../src/utils/deliveryForecast.js'
+import { deliveryForecast, nextMonthOutlook } from '../src/utils/deliveryForecast.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
@@ -996,11 +996,18 @@ export function boothTodayLines(events, customers, today) {
 // วันสุดท้ายของเดือนไม่ต้องคาด (ตัวเลขจริงอยู่แล้ว) · ไม่มีใบจองค้างเลยก็ไม่ขึ้น
 export function forecastReportLines(bookings, today, target = 0) {
   const fc = deliveryForecast({ bookings, today, target: target > 0 ? target : null })
-  if (fc.daysLeft <= 1 || !fc.open) return []
-  const out = [`  • 🔮 คาดว่าสิ้นเดือนส่งมอบได้ ≈ ${fc.expected} คัน (แย่สุด ${fc.worst} · ดีสุด ${fc.best})`]
-  if (fc.target) out.push(`    = ${fc.targetPct}% ของเป้า ${fc.target} คัน${fc.expected >= fc.target ? ' 👍 น่าจะทันเป้า' : ' ⚠️ ต้องเร่ง'}`)
-  if (fc.atRisk.length) out.push(`    ⚠️ ใบจองเสี่ยงหลุดเดือนนี้ ${fc.atRisk.length} ใบ (เลยวันนัด/นัดแล้วแต่ยังไม่พร้อม) ดูได้ที่หน้า คาดการณ์ส่งมอบ`)
-  out.push('    (พิมพ์ "คาดการณ์ส่งมอบ" ใน LINE นี้ ดูแยกรายเซลส์)')
+  const out = []
+  if (fc.daysLeft > 1 && fc.open) {
+    out.push(`  • 🔮 คาดว่าสิ้นเดือนส่งมอบได้ ≈ ${fc.expected} คัน (แย่สุด ${fc.worst} · ดีสุด ${fc.best})`)
+    if (fc.target) out.push(`    = ${fc.targetPct}% ของเป้า ${fc.target} คัน${fc.expected >= fc.target ? ' 👍 น่าจะทันเป้า' : ' ⚠️ ต้องเร่ง'}`)
+    if (fc.atRisk.length) out.push(`    ⚠️ ใบจองเสี่ยงหลุดเดือนนี้ ${fc.atRisk.length} ใบ (เลยวันนัด/นัดแล้วแต่ยังไม่พร้อม) ดูได้ที่หน้า คาดการณ์ส่งมอบ`)
+    out.push('    (พิมพ์ "คาดการณ์ส่งมอบ" ใน LINE นี้ ดูแยกรายเซลส์)')
+  }
+  // (v1.0.1391) สัปดาห์สุดท้ายของเดือน: บอกภาพเดือนหน้าจากใบจองที่มีตอนนี้ ไว้วางแผนเบิก/สั่งรถ
+  if (fc.daysLeft <= 7) {
+    const nx = nextMonthOutlook({ bookings, today })
+    if (nx.count && nx.expected > 0) out.push(`  • 🗓 เดือนหน้า (จากใบจองที่มีตอนนี้) คาดส่งมอบ ≈ ${nx.expected} คัน (แย่สุด ${nx.worst} · ดีสุด ${nx.best})`)
+  }
   return out
 }
 
@@ -1031,6 +1038,7 @@ export function deliveryForecastLineAnswer(rows, today, { seller = '', teamTarge
     `✅ ส่งมอบแล้ว ${fc.delivered} คัน · เหลือ ${fc.daysLeft} วัน`]
   if (fc.open && fc.daysLeft > 0) lines.push(`🔮 คาดว่าได้ ≈ ${fc.expected} คัน (แย่สุด ${fc.worst} · ดีสุด ${fc.best})`)
   else lines.push('ไม่มีใบจองค้างที่จะส่งได้เพิ่มเดือนนี้')
+  if (fc.daysLeft <= 7) { const nx = nextMonthOutlook({ bookings: mine, today }); if (nx.count && nx.expected > 0) lines.push(`🗓 เดือนหน้า (จากใบจองตอนนี้) ≈ ${nx.expected} คัน (${nx.worst}–${nx.best})`) }
   if (fc.target) lines.push(`🎯 เป้า ${fc.target} คัน → คาด ${fc.targetPct}%${fc.expected < fc.target && fc.needPerDay != null ? ` · ต้องส่งวันละ ${fc.needPerDay.toFixed(1)} คัน` : ' 👍'}`)
   if (seller) {
     const push = fc.items.filter(i => i.tier !== 'unlikely').slice(0, 5)
