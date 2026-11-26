@@ -1525,6 +1525,9 @@ export default async function DashboardPage(container) {
       if (!el || !dlvExtras) return
       const fc = computeDeliveryForecast({ bookings, ...dlvExtras, today: todayBangkok(), fmt: formatDate })
       el.innerHTML = deliveryHeroHtml(fc, { link: true })
+      // (v1.0.1411) ส่งต่อให้กระดานสถานะ: แต่ละสถานะคาดว่าส่งได้เดือนนี้กี่คัน
+      const m = new Map(); (fc.items || []).forEach(i => m.set(i.status, (m.get(i.status) || 0) + i.p))
+      sbExpect = m; renderStatusBoard()
     }
 
     // ── กระดานสถานะใบจอง (v1.0.1382) — ช่วงเวลาเดียวกับตัวเลขหลัก (เดือน/ไตรมาส/ปี) ──
@@ -1533,6 +1536,7 @@ export default async function DashboardPage(container) {
     let sbData = null
     // (v1.0.1393) เทียบใบค้างกับสัปดาห์ก่อน — ภาพที่ worker เก็บตอน 18:00 เป็นของทั้งร้าน จึงเทียบเฉพาะตอนดูทั้งร้าน (ไม่ได้กรองบริษัท)
     let sbPrev = null
+    let sbExpect = null
     if (!companyScopeFilters().length) {
       listDocs('delivery_forecast_log', [], 'date', 'desc', 10)
         .then(l => { sbPrev = pickPrevCounts(l, todayBangkok()); if (sbPrev) renderStatusBoard() })
@@ -1542,7 +1546,7 @@ export default async function DashboardPage(container) {
       const el = document.getElementById('status-board')
       if (!el) return
       sbData = statusBoard(bookings, curMonths(), { today: todayBangkok(), scope: sbScope })
-      el.innerHTML = statusBoardHtml(sbData, { periodLabel: periodLabel(selectedMonth, period), scope: sbScope, prev: sbPrev })
+      el.innerHTML = statusBoardHtml(sbData, { periodLabel: periodLabel(selectedMonth, period), scope: sbScope, prev: sbPrev, expect: sbExpect })
     }
     document.getElementById('status-board')?.addEventListener('click', e => {
       const sc = e.target.closest('[data-sbscope]')
