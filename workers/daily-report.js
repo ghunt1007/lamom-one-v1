@@ -2516,11 +2516,25 @@ export async function runQuery(env, accessToken, collectionId, orderField, direc
     if (!res.ok) throw new Error(`Firestore runQuery(${collectionId}) ${res.status}`)
     const rows = await res.json()
     const docs = (Array.isArray(rows) ? rows : []).filter(r => r.document).map(r => r.document)
-    docs.forEach(d => out.push(docToObject(d)))
+    docs.forEach(d => out.push(collectionId === 'bookings' ? cleanBookingDates(docToObject(d)) : docToObject(d)))
     if (docs.length < limit || !docs[docs.length - 1]?.name) break
     after = docs[docs.length - 1].name
   }
   return out
+}
+// (v1.0.1414) ช่องวันที่ของใบจองต้องเป็นข้อความ 'YYYY-MM-DD…' — ถ้ามีใบไหนเก็บเป็นตัวเลข (เลขวันที่ของ Excel)/อย่างอื่น
+// รายงาน 18:00/09:00/สรุปสัปดาห์ทั้งฉบับเคยล้มได้จากใบเดียว (.slice is not a function) → แปลงเลข Excel เป็นวันที่ ที่เหลือเป็นค่าว่าง
+export const BOOKING_DATE_FIELDS = ['bookingDate', 'cutDate', 'actualDeliveryDate', 'deliveryDate', 'cancelDate', 'submitDate', 'createdAt', 'deliveryTime']
+export function cleanBookingDates(b) {
+  if (!b) return b
+  for (const f of BOOKING_DATE_FIELDS) {
+    const v = b[f]
+    if (v == null || typeof v === 'string') continue
+    if (f !== 'deliveryTime' && typeof v === 'number' && v > 20000 && v < 80000) b[f] = new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 86400000).toISOString().slice(0, 10)
+    else b[f] = ''
+  }
+  for (const f of ['custName', 'model', 'salesName', 'status', 'brand']) if (b[f] != null && typeof b[f] !== 'string') b[f] = String(b[f])
+  return b
 }
 function docToObject(doc) {
   const obj = { id: doc.name.split('/').pop() }

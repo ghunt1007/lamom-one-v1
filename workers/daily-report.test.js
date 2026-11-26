@@ -1793,3 +1793,15 @@ describe('LINE swing command (v1.0.1413)', () => {
     expect(m.swingLineAnswer(B, '2026-11-25', { seller: 'กมล' })).toContain('ไม่มีใบจองค้าง')
   })
 })
+
+describe('cleanBookingDates (v1.0.1414)', () => {
+  it('Excel serial → date, other non-strings → empty; reports no longer crash', async () => {
+    const { cleanBookingDates, buildReport } = await import('./daily-report.js')
+    const b = cleanBookingDates({ bookingDate: 46351, cutDate: { a: 1 }, deliveryDate: true, custName: 5, status: 'รอรถ' })
+    expect(b.bookingDate).toBe('2026-11-25')
+    expect(b.cutDate).toBe('')
+    expect(b.deliveryDate).toBe('')
+    expect(b.custName).toBe('5')
+    expect(() => buildReport({ bookings: [b] }, { today: '2026-11-27', time: '18:00' })).not.toThrow()
+  })
+})
