@@ -1649,3 +1649,17 @@ describe('LINE คาดการณ์ส่งมอบ (v1.0.1385)', () => {
     expect(t).not.toContain('ค (')
   })
 })
+
+describe('forecastSnapshot (v1.0.1386)', () => {
+  it('captures the day numbers with team target', async () => {
+    const { forecastSnapshot } = await import('./daily-report.js')
+    const s = forecastSnapshot([
+      { status: 'ส่งมอบแล้ว', bookingDate: '2026-11-01', cutDate: '2026-11-05' },
+      { status: 'รอส่งมอบ', bookingDate: '2026-11-10', deliveryDate: '2026-11-28' },
+      { status: 'รอส่งมอบ', deleted: true },
+    ], '2026-11-20', [{ period: '2026-11', metric: 'units', target: 6 }])
+    expect(s).toMatchObject({ date: '2026-11-20', ym: '2026-11', day: 20, delivered: 1, open: 1, target: 6 })
+    expect(s.expected).toBeGreaterThan(1)
+    expect(forecastSnapshot([], '2026-11-20', [], 9).target).toBe(9)
+  })
+})

@@ -5,7 +5,8 @@ import { showToast } from '../../core/store.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { escHtml } from '../../utils/escape.js'
 import { loadDeliveryForecast } from '../../utils/deliveryForecastData.js'
-import { deliveryForecastText } from '../../utils/deliveryForecast.js'
+import { deliveryForecastText, forecastAccuracy } from '../../utils/deliveryForecast.js'
+import { listDocs } from '../../core/db.js'
 import { DFC_CSS, heroHtml, cumulativeSvg, splitBars, TIER_META, ymThai } from '../../utils/deliveryForecastView.js'
 import { monthStats, shiftYm } from '../../utils/dashStats.js'
 
@@ -53,7 +54,11 @@ export default async function DeliveryForecastPage(container) {
 
   const today = todayBangkok()
   let data
-  try { data = await loadDeliveryForecast({ today, fmt: formatDate }) } catch (e) { data = null }
+  let logs = []
+  try {
+    // (v1.0.1386) ตัวเลขคาดการณ์ที่รายงาน 18:00 เก็บไว้ทุกวัน — ใช้ดูความแม่นยำ (ไม่มีก็ไม่เป็นไร)
+    ;[data, logs] = await Promise.all([loadDeliveryForecast({ today, fmt: formatDate }), listDocs('delivery_forecast_log', [], 'date', 'desc', 400).catch(() => [])])
+  } catch (e) { data = null }
   if (container.__routerGen !== myGen) return
   if (!data) { container.querySelector('.page-subtitle').textContent = 'โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชอีกครั้ง'; return }
   const { fc, bookings } = data
@@ -79,6 +84,25 @@ export default async function DeliveryForecastPage(container) {
     const rows = tab === 'risk' ? fc.atRisk : tab === 'all' ? fc.items.filter(i => i.tier !== 'unlikely') : fc.items.filter(i => i.tier === tab)
     if (!rows.length) return `<div style="text-align:center;padding:18px;color:var(--text-muted);font-size:0.8rem">${tab === 'risk' ? '✅ ไม่มีใบจองที่เสี่ยงหลุดเดือนนี้' : 'ไม่มีรายการ'}</div>`
     return rows.slice(0, 60).map(itemRow).join('') + (rows.length > 60 ? `<div style="text-align:center;font-size:0.72rem;color:var(--text-muted)">แสดง 60 จาก ${rows.length} ใบ</div>` : '')
+  }
+
+  // (v1.0.1386) ความแม่นยำ: ที่เคยคาดไว้ vs ยอดจริงตอนจบเดือน
+  function accuracyHtml() {
+    const acc = forecastAccuracy(logs, bookings, today)
+    const cur = acc.current
+    const curHtml = cur.length ? `<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px">${cur.slice(-10).map(c => `<div style="flex-shrink:0;min-width:64px;text-align:center;border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:6px 8px;background:var(--surface-2)"><div style="font-size:0.64rem;color:var(--text-muted)">${formatDate(c.date).slice(0, 5)}</div><div style="font-weight:800;font-variant-numeric:tabular-nums">≈${Math.round(c.expected)}</div><div style="font-size:0.6rem;color:var(--text-muted)">${c.worst}–${c.best}</div></div>`).join('')}</div>` : ''
+    const rows = acc.months.slice(0, 6)
+    const table = rows.length ? `<div class="table-wrap"><table class="table" style="font-size:0.8rem">
+        <thead><tr><th>เดือน</th><th>ที่คาดไว้</th><th class="text-right">ยอดจริง</th></tr></thead>
+        <tbody>${rows.map(m => `<tr><td style="white-space:nowrap;font-weight:600">${escHtml(ymThai(m.ym))}</td>
+          <td>${m.snaps.map(s => `<div>วันที่ ${s.day}: ≈ ${Math.round(s.expected)} <span style="color:var(--text-muted)">(${s.worst}–${s.best})</span> ${s.inRange ? '<span style="color:var(--success)">✓ อยู่ในช่วง</span>' : '<span style="color:var(--warning)">นอกช่วง</span>'}</div>`).join('')}</td>
+          <td class="text-right" style="font-weight:800;font-variant-numeric:tabular-nums">${m.actual}</td></tr>`).join('')}</tbody></table></div>` : ''
+    return `<div class="dfp-card" style="margin-bottom:16px">
+      <div class="dfp-h">🎯 ความแม่นยำของการคาดการณ์${acc.mape != null ? ` <span class="badge badge-${acc.mape <= 10 ? 'success' : acc.mape <= 25 ? 'warning' : 'danger'}">คลาดเฉลี่ย ${acc.mape}%</span>` : ''}</div>
+      <div class="dfp-sub">${acc.since ? `ระบบเก็บตัวเลขคาดการณ์ทุกวันตอนส่งรายงาน 18:00 (เริ่ม ${formatDate(acc.since)})` : 'ระบบจะเริ่มเก็บตัวเลขคาดการณ์ทุกวันตอนส่งรายงาน 18:00'} — จบเดือนจะเทียบกับยอดจริงให้เห็นว่าแม่นแค่ไหน</div>
+      ${cur.length ? '<div style="font-size:0.72rem;font-weight:700;margin-bottom:6px">เดือนนี้ คาดไว้แต่ละวัน</div>' : ''}${curHtml}
+      ${table || (cur.length ? '' : '<div style="font-size:0.78rem;color:var(--text-muted);padding:6px 0">ยังไม่มีข้อมูลย้อนหลัง</div>')}
+    </div>`
   }
 
   function render() {
@@ -131,6 +155,8 @@ export default async function DeliveryForecastPage(container) {
         <div class="dfp-tabs" style="overflow-x:auto">${tabs.map(([k, l]) => `<button type="button" class="btn btn-xs ${tab === k ? 'btn-primary' : 'btn-secondary'}" data-tab="${k}">${l}</button>`).join('')}</div>
         <div id="dfp-list">${listHtml()}</div>
       </div>
+
+      ${accuracyHtml()}
 
       <div class="dfp-card">
         <div class="dfp-h">🧠 คำนวณอย่างไร</div>
