@@ -5,6 +5,7 @@
 import { ymdBangkok } from './format.js'
 import { saleCost, isCostEstimated } from './saleCost.js'
 import { heuristicScore } from './leadScore.js'
+import { bookingPace } from './bookingPace.js'
 // เทียบชื่อแบบเดียวกับ core/hierarchy.js normName (ตัดคำนำหน้า/ช่องว่าง) — เขียนซ้ำที่นี่ให้ไฟล์นี้ไม่ต้องโหลด firebase
 const NAME_PREFIX = /^(นางสาว|นาง|นาย|น\.ส\.|คุณ|mrs\.?|mr\.?|ms\.?|miss)\s*/i
 export const normName = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(NAME_PREFIX, '').trim()
@@ -130,7 +131,9 @@ export function computeSalesMetrics(src = {}, { today, period = 'month', who = '
   let forecast = null
   if (r.isCurrentMonth) {
     const dayN = +today.slice(8, 10), dim = +r.to.slice(8, 10)
-    const pace = booked.length / dayN * dim
+    // (v1.0.1401) จังหวะจองคิดจากรูปแบบเดือนก่อนๆ (bookingPace) ถ้ามีประวัติพอ — ไม่งั้นเส้นตรงเหมือนเดิม
+    const bp = bookingPace(valid.map(bookingDay), today)
+    const pace = bp?.method === 'history' ? Math.max(booked.length, bp.expected) : booked.length / dayN * dim
     const open = customersAll.filter(c => ['lead', 'pp'].includes(c.stage) && !c.isLost)
     const pipeUnits = open.reduce((a, c) => a + heuristicScore(c).score / 100, 0)
     const remainShare = (dim - dayN) / dim
