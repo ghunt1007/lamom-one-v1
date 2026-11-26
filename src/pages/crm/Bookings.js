@@ -28,6 +28,8 @@ import { askDeliveryIncome, needsIncome, statusDatePatch, DELIVERED_STATUSES } f
 import { openSheetReconcile } from '../../utils/sheetReconcileModal.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from '../../utils/bookingImport.js'
 import { bookingNextStep, bookingNextAction } from '../../utils/bookingNext.js'
+import { bookingOutlook } from '../../utils/deliveryForecast.js'
+import { TIER_META } from '../../utils/deliveryForecastView.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { copyText } from '../../utils/copyText.js'
@@ -1416,6 +1418,24 @@ export default async function BookingsPage(container) {
     }))
   }
 
+  // (v1.0.1389) 🔮 โอกาสส่งมอบใบนี้ภายในเดือนนี้ — โมเดลเดียวกับหน้า คาดการณ์ส่งมอบ (มีข้อมูลรถ → refreshEta คำนวณซ้ำ)
+  function chanceBoxHtml(b, eta = null) {
+    const o = bookingOutlook(b, bookings, { today: todayBangkok(), eta, useSupply: !!eta, fmt: formatDate })
+    if (!o) return ''
+    const t = TIER_META[o.tier] || TIER_META.maybe
+    const pct = v => Math.round(v * 100) + '%'
+    return '<div id="bk-chance" style="margin:6px 0 4px;padding:8px 10px;border-radius:10px;font-size:0.78rem;line-height:1.5;background:var(--surface-2);border-left:3px solid var(--' + t.color + ')">' +
+      '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px">' +
+        '<span>🔮 โอกาสส่งมอบเดือนนี้</span><b style="font-size:1rem;color:var(--' + t.color + ');font-variant-numeric:tabular-nums">' + pct(o.p) + '</b>' +
+        '<span class="badge badge-' + t.color + '" style="font-size:0.66rem">' + t.dot + ' ' + escHtml(t.label) + '</span>' +
+        (o.pBy2 - o.p >= 0.05 ? '<span style="color:var(--text-muted);font-size:0.72rem">ภายในสิ้นเดือนหน้า ' + pct(o.pBy2) + '</span>' : '') +
+        '<a href="#" id="bk-chance-more" style="margin-left:auto;font-size:0.72rem;white-space:nowrap">ดูทั้งเดือน →</a>' +
+      '</div>' +
+      (o.why.length ? '<div style="color:var(--text-2);font-size:0.72rem;overflow-wrap:anywhere">' + o.why.map(escHtml).join(' · ') + '</div>' : '') +
+      (o.risk ? '<div style="color:var(--warning);font-size:0.72rem;font-weight:600">⚠️ ' + escHtml(o.risk) + '</div>' : '') +
+    '</div>'
+  }
+
   function openDetail(b) {
     if (!b) return
     const isCash = b.finStatus === 'ซื้อสด'
@@ -1428,6 +1448,7 @@ export default async function BookingsPage(container) {
           '<span style="font-size:1.25rem;font-weight:800;color:var(--accent)">' + formatCurrency(b.price) + '</span>' +
         '</div>' +
         ((n) => n ? '<div style="margin:6px 0 4px;padding:8px 10px;border-radius:10px;font-size:0.8rem;line-height:1.5;background:color-mix(in srgb, var(--' + (n.tone === 'info' ? 'primary' : n.tone) + ') 12%, transparent);border-left:3px solid var(--' + (n.tone === 'info' ? 'primary' : n.tone) + ')">🧭 <b>ขั้นต่อไป:</b> ' + escHtml(n.text) + ((a) => a && (a.key !== 'finance' || !isCash) ? '<div style="margin-top:6px"><button class="btn btn-primary btn-sm" id="bk-next-act" data-act="' + a.key + '">' + escHtml(a.label) + '</button></div>' : '')(bookingNextAction(b, todayBangkok())) + '</div>' : '')(bookingNextStep(b, todayBangkok())) +
+        chanceBoxHtml(b) +
         sheetAllFields(b) +
         sec('👤 ลูกค้า') +
         dRow('ชื่อ', b.custName || '-') + (canViewNid ? dRow('เลขบัตร ปชช.', b.nid || '-') : '') + dRow('โทร', b.phone || '-') + dRow('ที่อยู่', (b.address || '-') + ' ' + (b.province || '')) + dRow('แหล่งที่มา', b.source || '-') +
@@ -1530,6 +1551,7 @@ export default async function BookingsPage(container) {
     document.getElementById('bk-print-cancel')?.addEventListener('click', () => openCancelPrintModal(b))
     document.getElementById('bk-to-doc')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); navigate('/documents') })
     document.getElementById('bk-delete2')?.addEventListener('click', () => deleteBooking(b))
+    document.getElementById('bk-chance-more')?.addEventListener('click', e => { e.preventDefault(); document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); navigate('/analytics/delivery-forecast') })
   }
 
   // (v1.0.461) เดิมสถานะไฟแนนซ์บนใบจอง (finStatus ที่กรอกเอง) กับใบสมัครไฟแนนซ์จริงที่ฝ่ายการเงินยื่นกับ
@@ -1547,6 +1569,15 @@ export default async function BookingsPage(container) {
     if (!vs || (!vs.some(v => !v.deleted && (v.status === 'available' || v.status === 'transit')) && !ords.some(o => !o.deleted))) { el.remove(); return }
     const e = etaForBookings({ bookings, vehicles: vs, orders: ords, today: todayBangkok() }).get(b.id)
     if (!e) { el.remove(); return }
+    // รู้ว่ารถจะมาเมื่อไหร่แล้ว → คำนวณโอกาสเดือนนี้ใหม่ให้รวมเรื่องรถ (ปุ่ม "ดูทั้งเดือน" ผูกใหม่)
+    const box = document.getElementById('bk-chance')
+    if (box) {
+      const html = chanceBoxHtml(b, e)
+      if (html) {
+        box.outerHTML = html
+        document.getElementById('bk-chance-more')?.addEventListener('click', ev => { ev.preventDefault(); document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); navigate('/analytics/delivery-forecast') })
+      }
+    }
     el.textContent = '🚚 ' + etaLabel(e, formatDate)
     if (e.kind === 'none') {
       el.style.color = 'var(--warning)'
