@@ -1670,3 +1670,32 @@ describe('forecastSnapshot (v1.0.1386)', () => {
     expect(s).toMatchObject({ sb_pending: 1, sb_ready: 1, sb_wait: 0, sb_other: 0 })
   })
 })
+
+describe('LINE "สถานะ" (v1.0.1394)', () => {
+  const R = [
+    { status: 'รอส่งมอบ', bookingDate: '2026-11-01', custName: 'สมชาย', salesName: 'กมล' },
+    { status: 'รอรถ', bookingDate: '2026-11-05', custName: 'สมหญิง', salesName: 'กมล' },
+    { status: 'รอรถ', bookingDate: '2026-11-06', custName: 'มานี', salesName: 'บี' },
+    { status: 'ส่งมอบแล้ว', bookingDate: '2026-10-01', cutDate: '2026-11-03', salesName: 'บี' },
+  ]
+  it('parses the command', async () => {
+    const { parseLineCommand } = await import('./daily-report.js')
+    for (const t of ['สถานะ', 'สถานะใบจอง', 'ใบจองค้าง', 'ค้างกี่ใบ']) expect(parseLineCommand(t).type).toBe('sboard')
+  })
+  it('owner sees shop counts with deltas and no customer names', async () => {
+    const { statusBoardLineAnswer } = await import('./daily-report.js')
+    const t = statusBoardLineAnswer(R, '2026-11-20', { logs: [{ date: '2026-11-12', sb_pending: 5, sb_wait: 1, sb_ready: 1 }] })
+    expect(t).toContain('ใบจองที่ค้างตอนนี้: 3 ใบ (▼2)')
+    expect(t).toContain('รอรถ / ยอดจองค้าง 2 ใบ (▲1)')
+    expect(t).toContain('เทียบสัปดาห์ก่อน 12/11')
+    expect(t).not.toContain('สมชาย')
+  })
+  it('seller sees own bookings with names', async () => {
+    const { statusBoardLineAnswer } = await import('./daily-report.js')
+    const t = statusBoardLineAnswer(R, '2026-11-20', { seller: 'กมล' })
+    expect(t).toContain('· กมล: 2 ใบ')
+    expect(t).toContain('สมชาย')
+    expect(t).not.toContain('มานี')
+    expect(statusBoardLineAnswer([], '2026-11-20', { seller: 'x' })).toContain('ไม่มีใบจองค้าง')
+  })
+})
