@@ -67,6 +67,7 @@ import { stockLineAnswer } from '../src/utils/stockList.js'
 import { promoLineAnswer } from '../src/utils/promoQuestions.js'
 import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines, serviceJobsAnswer, serviceEveningLines, serviceWeekLines } from '../src/utils/apptFacts.js'
 import { officeDigestLines } from '../src/utils/aiAgents.js'
+import { deliveryForecast } from '../src/utils/deliveryForecast.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
@@ -973,6 +974,17 @@ export function boothTodayLines(events, customers, today) {
   return out
 }
 
+// (v1.0.1383) คาดการณ์ยอดส่งมอบสิ้นเดือน ในรายงาน 18:00 — สูตรเดียวกับหน้า "คาดการณ์ส่งมอบเดือนนี้" ในแอป
+// วันสุดท้ายของเดือนไม่ต้องคาด (ตัวเลขจริงอยู่แล้ว) · ไม่มีใบจองค้างเลยก็ไม่ขึ้น
+export function forecastReportLines(bookings, today, target = 0) {
+  const fc = deliveryForecast({ bookings, today, target: target > 0 ? target : null })
+  if (fc.daysLeft <= 1 || !fc.open) return []
+  const out = [`  • 🔮 คาดว่าสิ้นเดือนส่งมอบได้ ≈ ${fc.expected} คัน (แย่สุด ${fc.worst} · ดีสุด ${fc.best})`]
+  if (fc.target) out.push(`    = ${fc.targetPct}% ของเป้า ${fc.target} คัน${fc.expected >= fc.target ? ' 👍 น่าจะทันเป้า' : ' ⚠️ ต้องเร่ง'}`)
+  if (fc.atRisk.length) out.push(`    ⚠️ ใบจองเสี่ยงหลุดเดือนนี้ ${fc.atRisk.length} ใบ (เลยวันนัด/นัดแล้วแต่ยังไม่พร้อม) ดูได้ที่หน้า คาดการณ์ส่งมอบ`)
+  return out
+}
+
 export function buildReport(data, { today, time, defaultTarget = 0 }) {
   const thisMonth = today.slice(0, 7)
   const thisYear = today.slice(0, 4)
@@ -1124,6 +1136,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     `  • ส่งมอบวันนี้: ${dlvToday.length} คัน${dlvToday.length ? ' 🎉' : ''}`,
     `  • ส่งมอบเดือนนี้: ${dlvMonth.length} คัน${vsLast(dlvMonth.length, dlvLm, lm)}`,
     `  • ส่งมอบปีนี้: ${dlvYear.length} คัน`,
+    ...forecastReportLines(bookings, today, target),
   ]
   const svc = serviceEveningLines(data.jobCards, today)
   if (svc.length) lines.push('', ...svc)

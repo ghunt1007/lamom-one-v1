@@ -1601,3 +1601,24 @@ describe('forecastLineText (v1.0.1258)', () => {
     expect(t.split('— คัดลอกส่งแบรนด์ได้ —')[1]).not.toContain('สมชาย')
   })
 })
+
+describe('forecastReportLines (v1.0.1383)', () => {
+  const B = [
+    { status: 'ส่งมอบแล้ว', bookingDate: '2026-11-01', cutDate: '2026-11-05' },
+    { status: 'รอส่งมอบ', bookingDate: '2026-11-10', deliveryDate: '2026-11-28' },
+    { status: 'รอผลไฟแนนซ์', bookingDate: '2026-11-15', deliveryDate: '2026-11-27' },
+  ]
+  it('shows expected range, target % and risk', async () => {
+    const { forecastReportLines } = await import('./daily-report.js')
+    const l = forecastReportLines(B, '2026-11-20', 5).join('\n')
+    expect(l).toMatch(/คาดว่าสิ้นเดือนส่งมอบได้ ≈ \d+ คัน \(แย่สุด \d+ · ดีสุด \d+\)/)
+    expect(l).toContain('ของเป้า 5 คัน')
+    expect(l).toContain('เสี่ยงหลุด')
+  })
+  it('skips last day of month, no target, nothing open', async () => {
+    const { forecastReportLines } = await import('./daily-report.js')
+    expect(forecastReportLines(B, '2026-11-30', 5)).toEqual([])
+    expect(forecastReportLines(B, '2026-11-20', 0).join('\n')).not.toContain('เป้า')
+    expect(forecastReportLines(B.slice(0, 1), '2026-11-20', 5)).toEqual([])
+  })
+})
