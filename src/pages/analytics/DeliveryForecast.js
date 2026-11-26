@@ -9,6 +9,7 @@ import { deliveryForecastText, forecastAccuracy } from '../../utils/deliveryFore
 import { listDocs } from '../../core/db.js'
 import { DFC_CSS, heroHtml, cumulativeSvg, splitBars, TIER_META, ymThai } from '../../utils/deliveryForecastView.js'
 import { monthStats, shiftYm } from '../../utils/dashStats.js'
+import { bookingNextStep } from '../../utils/bookingNext.js'
 
 const CSS = `
   .dfp-grid { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:16px; margin-bottom:16px; }
@@ -38,6 +39,8 @@ const CSS = `
   .dfp-name { font-weight:700; font-size:0.86rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .dfp-meta { font-size:0.72rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .dfp-why { font-size:0.68rem; color:var(--text-2); margin-top:2px; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .dfp-next { font-size:0.68rem; margin-top:2px; overflow-wrap:anywhere; }
+  .dfp-next.warning { color:var(--warning); } .dfp-next.danger { color:var(--danger); } .dfp-next.info { color:var(--text-muted); }
   .dfp-risk { font-size:0.68rem; color:var(--danger); font-weight:600; margin-top:2px; }
   .dfp-how { font-size:0.76rem; color:var(--text-2); line-height:1.7; }
   .dfp-how li { margin-bottom:2px; }
@@ -63,6 +66,10 @@ export default async function DeliveryForecastPage(container) {
   if (!data) { container.querySelector('.page-subtitle').textContent = 'โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชอีกครั้ง'; return }
   const { fc, bookings, next } = data
   let tab = 'all'
+  // (v1.0.1390) กรองรายชื่อตามเซลส์ + บอกขั้นต่อไปของแต่ละใบ (ใช้ bookingNext เดียวกับหน้าใบจอง)
+  let seller = ''
+  const byId = new Map(bookings.map(b => [b.id, b]))
+  const sellers = [...new Set(fc.items.filter(i => i.tier !== 'unlikely').map(i => i.sales))].sort((a, b) => a.localeCompare(b, 'th'))
 
   const months = Array.from({ length: 6 }, (_, i) => shiftYm(fc.ym, i - 6)).map(ym => ({ ym, n: monthStats(bookings, ym).delivered }))
   const avg3 = months.slice(-3).reduce((s, m) => s + m.n, 0) / 3
@@ -76,14 +83,16 @@ export default async function DeliveryForecastPage(container) {
         <div class="dfp-name">${escHtml(i.name)} · ${escHtml(i.car)}</div>
         <div class="dfp-meta">${escHtml(i.status)} · ${escHtml(i.sales)}${i.deliveryDate ? ` · นัด ${formatDate(i.deliveryDate)}` : ''}${i.price ? ` · ${formatCurrency(i.price)}` : ''}</div>
         ${i.risk ? `<div class="dfp-risk">⚠️ ${escHtml(i.risk)}</div>` : i.why.length ? `<div class="dfp-why">${escHtml(i.why.join(' · '))}</div>` : ''}
+        ${(n => n ? `<div class="dfp-next ${n.tone}">🧭 ${escHtml(n.text)}</div>` : '')(bookingNextStep(byId.get(i.id), today))}
       </div>
     </div>`
   }
 
   function listHtml() {
-    const rows = tab === 'risk' ? fc.atRisk : tab === 'all' ? fc.items.filter(i => i.tier !== 'unlikely') : fc.items.filter(i => i.tier === tab)
-    if (!rows.length) return `<div style="text-align:center;padding:18px;color:var(--text-muted);font-size:0.8rem">${tab === 'risk' ? '✅ ไม่มีใบจองที่เสี่ยงหลุดเดือนนี้' : 'ไม่มีรายการ'}</div>`
-    return rows.slice(0, 60).map(itemRow).join('') + (rows.length > 60 ? `<div style="text-align:center;font-size:0.72rem;color:var(--text-muted)">แสดง 60 จาก ${rows.length} ใบ</div>` : '')
+    const rows = (tab === 'risk' ? fc.atRisk : tab === 'all' ? fc.items.filter(i => i.tier !== 'unlikely') : fc.items.filter(i => i.tier === tab)).filter(i => !seller || i.sales === seller)
+    const sum = seller ? (r => `<div style="font-size:0.74rem;color:var(--text-2);margin-bottom:8px">👤 ${escHtml(seller)}: ส่งแล้ว ${r?.delivered || 0} · คาดเพิ่ม ≈ ${Math.round((r?.expected || 0) * 10) / 10} คัน จาก ${rows.length} ใบในรายการนี้</div>`)(fc.bySales.find(r => r.key === seller)) : ''
+    if (!rows.length) return sum + `<div style="text-align:center;padding:18px;color:var(--text-muted);font-size:0.8rem">${tab === 'risk' ? '✅ ไม่มีใบจองที่เสี่ยงหลุดเดือนนี้' : 'ไม่มีรายการ'}</div>`
+    return sum + rows.slice(0, 60).map(itemRow).join('') + (rows.length > 60 ? `<div style="text-align:center;font-size:0.72rem;color:var(--text-muted)">แสดง 60 จาก ${rows.length} ใบ</div>` : '')
   }
 
   // (v1.0.1386) ความแม่นยำ: ที่เคยคาดไว้ vs ยอดจริงตอนจบเดือน
@@ -163,6 +172,7 @@ export default async function DeliveryForecastPage(container) {
       <div class="dfp-card" style="margin-bottom:16px" id="dfp-list-card">
         <div class="dfp-h">📋 ใบจองที่จะส่งมอบได้เดือนนี้ <span style="font-size:0.7rem;color:var(--text-muted);font-weight:400">กดเพื่อเปิดใบจอง</span></div>
         <div class="dfp-tabs" style="overflow-x:auto">${tabs.map(([k, l]) => `<button type="button" class="btn btn-xs ${tab === k ? 'btn-primary' : 'btn-secondary'}" data-tab="${k}">${l}</button>`).join('')}</div>
+        ${sellers.length > 1 ? `<div style="margin-bottom:10px"><select id="dfp-seller" class="form-select" style="max-width:220px;width:100%" aria-label="กรองตามเซลส์"><option value="">👥 ทุกเซลส์</option>${sellers.map(s => `<option value="${escHtml(s)}"${s === seller ? ' selected' : ''}>${escHtml(s)}</option>`).join('')}</select></div>` : ''}
         <div id="dfp-list">${listHtml()}</div>
       </div>
 
@@ -203,9 +213,15 @@ export default async function DeliveryForecastPage(container) {
       navigator.clipboard?.writeText(txt).then(() => showToast('📋 คัดลอกสรุปแล้ว วางใน LINE ทีมได้เลย', 'success')).catch(() => showToast('คัดลอกไม่ได้', 'error'))
     }
   }
+  const onChange = e => {
+    if (e.target.id !== 'dfp-seller') return
+    seller = e.target.value
+    const l = container.querySelector('#dfp-list'); if (l) l.innerHTML = listHtml()
+  }
   const onKey = e => { if (e.key === 'Enter' && e.target.classList?.contains('dfp-row')) e.target.click() }
   // container ใช้ร่วมทุกหน้า — คืนฟังก์ชันถอด listener ให้ router เรียกตอนออกจากหน้า
   container.addEventListener('click', onClick)
   container.addEventListener('keydown', onKey)
-  return () => { container.removeEventListener('click', onClick); container.removeEventListener('keydown', onKey) }
+  container.addEventListener('change', onChange)
+  return () => { container.removeEventListener('click', onClick); container.removeEventListener('keydown', onKey); container.removeEventListener('change', onChange) }
 }
