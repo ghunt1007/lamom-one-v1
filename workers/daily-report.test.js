@@ -1667,5 +1667,6 @@ describe('forecastSnapshot (v1.0.1386)', () => {
     expect(s).toMatchObject({ date: '2026-11-20', ym: '2026-11', day: 20, delivered: 1, open: 1, target: 6 })
     expect(s.expected).toBeGreaterThan(1)
     expect(forecastSnapshot([], '2026-11-20', [], 9).target).toBe(9)
+    expect(s).toMatchObject({ sb_pending: 1, sb_ready: 1, sb_wait: 0, sb_other: 0 })
   })
 })

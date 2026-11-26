@@ -42,3 +42,27 @@ describe('statusBoard', () => {
     expect(statusBoard(B.slice(0, 6), ['2026-11']).groups.map(g => g.key)).toEqual(['ready', 'release', 'wait', 'finance'])
   })
 })
+
+describe('statusCounts / pickPrevCounts (v1.0.1393)', () => {
+  it('counts open bookings per group', async () => {
+    const { statusCounts } = await import('./statusBoard.js')
+    const c = statusCounts([
+      { status: 'รอส่งมอบ', bookingDate: '2026-11-01' }, { status: 'รอรถ', bookingDate: '2026-11-01' },
+      { status: 'รอรถ', bookingDate: '2026-11-02' }, { status: 'ส่งมอบแล้ว', cutDate: '2026-11-03' }, { status: 'แปลกๆ' },
+    ], '2026-11-20')
+    expect(c).toEqual({ pending: 4, ready: 1, release: 0, wait: 2, finance: 0, other: 1 })
+  })
+  it('prefers a snapshot at least 7 days old, else the latest earlier one', async () => {
+    const { pickPrevCounts } = await import('./statusBoard.js')
+    const L = [
+      { date: '2026-11-20', sb_pending: 9 }, { date: '2026-11-19', sb_pending: 8, sb_wait: 3 },
+      { date: '2026-11-12', sb_pending: 5, sb_ready: 2 }, { date: '2026-11-10', sb_pending: 4 }, { date: '2026-11-11' },
+    ]
+    const p = pickPrevCounts(L, '2026-11-20')
+    expect(p.date).toBe('2026-11-12'); expect(p.weekAgo).toBe(true); expect(p.counts.ready).toBe(2); expect(p.counts.pending).toBe(5)
+    const q = pickPrevCounts(L.slice(0, 2), '2026-11-20')
+    expect(q.date).toBe('2026-11-19'); expect(q.weekAgo).toBe(false); expect(q.counts.wait).toBe(3)
+    expect(pickPrevCounts([{ date: '2026-11-20', sb_pending: 1 }], '2026-11-20')).toBeNull()
+    expect(pickPrevCounts([], '2026-11-20')).toBeNull()
+  })
+})

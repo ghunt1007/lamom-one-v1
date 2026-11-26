@@ -74,3 +74,24 @@ export function statusBoard(bookings = [], months = [], { today = '', scope = 'o
 
 export const ALL_GROUPED_STATUSES = () => STATUS_GROUPS.flatMap(g => g.statuses)
 export { BOOKING_STATUSES }
+
+// (v1.0.1393) จำนวนใบค้างแต่ละหมวด "ตอนนี้" — worker เก็บลง delivery_forecast_log ทุกวันตอน 18:00 (sb_*)
+// แล้วหน้าภาพรวมเทียบว่า ค้างเพิ่ม/ลด จากสัปดาห์ก่อน (หรือเมื่อวาน ถ้ายังเก็บไม่ถึง 7 วัน)
+export const SB_KEYS = ['ready', 'release', 'wait', 'finance', 'other']
+export function statusCounts(bookings = [], today = '') {
+  const b = statusBoard(bookings, [], { today, scope: 'open' })
+  const out = { pending: b.summary.pending }
+  SB_KEYS.forEach(k => { out[k] = b.groups.find(g => g.key === k)?.count || 0 })
+  return out
+}
+const shiftDay = (d, n) => { const t = Date.parse(String(d).slice(0, 10) + 'T00:00:00Z'); return Number.isFinite(t) ? new Date(t + n * 86400000).toISOString().slice(0, 10) : '' }
+export function pickPrevCounts(logs = [], today = '') {
+  const ok = (logs || []).filter(l => l && /^\d{4}-\d{2}-\d{2}$/.test(String(l.date || '')) && l.date < today && Number.isFinite(Number(l.sb_pending)))
+    .sort((a, b) => b.date.localeCompare(a.date))
+  if (!ok.length) return null
+  const wk = shiftDay(today, -7)
+  const l = ok.find(x => x.date <= wk) || ok[0]
+  const counts = { pending: Number(l.sb_pending) || 0 }
+  SB_KEYS.forEach(k => { counts[k] = Number(l['sb_' + k]) || 0 })
+  return { date: l.date, weekAgo: l.date <= wk, counts }
+}

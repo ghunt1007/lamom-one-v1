@@ -51,6 +51,9 @@ export const SB_CSS = `
   .sb-st-c { font-size:1.15rem; font-weight:800; font-variant-numeric:tabular-nums; text-align:right; grid-row:span 2; }
   .sb-st-c small { font-size:0.66rem; color:var(--text-muted); font-weight:600; margin-left:2px; }
   .sb-st-m { font-size:0.66rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sb-delta { display:block; font-size:0.64rem; font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .sb-cmp { font-size:0.7rem; color:var(--text-muted); margin:-4px 0 8px; }
+  .sb-cmp .sb-delta { display:inline; }
   .sb-bar { grid-column:1 / -1; height:4px; border-radius:999px; background:var(--surface-2); overflow:hidden; margin-top:3px; }
   .sb-bar i { display:block; height:100%; background:var(--c); border-radius:999px; }
   @media (max-width: 1180px) { .sb-groups { grid-template-columns:repeat(2,minmax(0,1fr)); } }
@@ -61,7 +64,18 @@ export const SB_CSS = `
   }
 `
 
-export function statusBoardHtml(board, { periodLabel = '', scope = 'open' } = {}) {
+// (v1.0.1393) ▲/▼ เทียบกับภาพเก่า (prev = pickPrevCounts) — ค้างเพิ่ม = สีส้ม ลด = สีเขียว (หมวดรถมาแล้วรอส่งมอบ เป็นสีกลาง)
+function deltaHtml(now, before, { neutral = false, label = '' } = {}) {
+  if (before == null) return ''
+  const d = now - before
+  const color = d === 0 || neutral ? 'text-muted' : d > 0 ? 'warning' : 'success'
+  return `<span class="sb-delta" style="color:var(--${color})" title="${escHtml(label)} มี ${before}">${d === 0 ? '= เท่าเดิม' : (d > 0 ? '▲' : '▼') + Math.abs(d)}</span>`
+}
+const dm = d => { const [, m, dd] = String(d || '').split('-'); return dd ? `${dd}/${m}` : '' }
+
+export function statusBoardHtml(board, { periodLabel = '', scope = 'open', prev = null } = {}) {
+  const pv = scope === 'open' && prev ? prev : null
+  const pvLabel = pv ? (pv.weekAgo ? `สัปดาห์ก่อน (${dm(pv.date)})` : `วันที่ ${dm(pv.date)}`) : ''
   const s = board.summary
   const tile = (key, icon, label, val, sub, color) => `<button type="button" class="sb-tile" data-sb="${key}" style="--c:var(--${color})">
     <div class="sb-tile-l">${icon} ${label}</div><div class="sb-tile-v">${val}<small>${key === 'pending' ? 'ใบ' : 'คัน'}</small></div><div class="sb-tile-s">${sub}</div></button>`
@@ -82,6 +96,7 @@ export function statusBoardHtml(board, { periodLabel = '', scope = 'open' } = {}
       ${tile('withdrawn', '❌', 'ถอนจอง', s.withdrawn, s.booked ? `${Math.round(s.withdrawn / s.booked * 100)}% ของที่จอง` : 'ในช่วงที่เลือก', 'danger')}
       ${tile('pending', '⏳', scope === 'open' ? 'ค้างอยู่ตอนนี้' : 'ที่จองช่วงนี้ยังค้าง', s.pending, money(s.pendingValue), 'warning')}
     </div>
+    ${pv ? `<div class="sb-cmp">เทียบกับ${escHtml(pvLabel)}: ใบค้างรวม ${deltaHtml(s.pending, pv.counts.pending, { label: pvLabel })}</div>` : ''}
     ${s.pending ? `<div class="sb-flow" aria-hidden="true">${groupsWith.map(g => `<i style="width:${(g.count / total * 100).toFixed(2)}%;background:var(--${g.color})"></i>`).join('')}</div>
     <div class="sb-flow-l">${groupsWith.map(g => `<span><i style="background:var(--${g.color})"></i>${g.icon} ${escHtml(g.label)} ${g.count}</span>`).join('')}</div>` : ''}
     <div class="sb-groups">
@@ -89,7 +104,7 @@ export function statusBoardHtml(board, { periodLabel = '', scope = 'open' } = {}
         <button type="button" class="sb-gh" data-sbg="${escHtml(g.key)}" title="กดดูรายชื่อทั้งหมวด">
           <span class="sb-gh-ic">${g.icon}</span>
           <span class="sb-gh-t"><b>${escHtml(g.label)}</b><span>${escHtml(g.hint)}</span></span>
-          <span class="sb-gh-n"><b>${g.count}</b><span>${money(g.value)}</span></span>
+          <span class="sb-gh-n"><b>${g.count}</b><span>${money(g.value)}</span>${pv ? deltaHtml(g.count, pv.counts[g.key], { neutral: g.key === 'ready', label: pvLabel }) : ''}</span>
         </button>
         ${g.items.map(i => `<button type="button" class="sb-st${i.count ? '' : ' zero'}" data-sbs="${escHtml(i.status)}" title="กดดูรายชื่อ ${escHtml(i.status)}">
           <span class="sb-st-n">${escHtml(i.status)}</span>

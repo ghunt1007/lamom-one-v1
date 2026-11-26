@@ -7,6 +7,7 @@ import { escHtml } from '../../utils/escape.js'
 import { loadDeliveryForecast } from '../../utils/deliveryForecastData.js'
 import { deliveryForecastText, forecastAccuracy, targetPath } from '../../utils/deliveryForecast.js'
 import { listDocs } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 import { DFC_CSS, heroHtml, cumulativeSvg, splitBars, TIER_META, ymThai } from '../../utils/deliveryForecastView.js'
 import { monthStats, shiftYm } from '../../utils/dashStats.js'
 import { bookingNextStep } from '../../utils/bookingNext.js'
@@ -60,7 +61,7 @@ export default async function DeliveryForecastPage(container) {
   let logs = []
   try {
     // (v1.0.1386) ตัวเลขคาดการณ์ที่รายงาน 18:00 เก็บไว้ทุกวัน — ใช้ดูความแม่นยำ (ไม่มีก็ไม่เป็นไร)
-    ;[data, logs] = await Promise.all([loadDeliveryForecast({ today, fmt: formatDate }), listDocs('delivery_forecast_log', [], 'date', 'desc', 400).catch(() => [])])
+    ;[data, logs] = await Promise.all([loadDeliveryForecast({ today, fmt: formatDate }), (companyScopeFilters().length ? Promise.resolve([]) : listDocs('delivery_forecast_log', [], 'date', 'desc', 400).catch(() => []))])
   } catch (e) { data = null }
   if (container.__routerGen !== myGen) return
   if (!data) { container.querySelector('.page-subtitle').textContent = 'โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชอีกครั้ง'; return }
@@ -192,7 +193,7 @@ export default async function DeliveryForecastPage(container) {
         <div id="dfp-list">${listHtml()}</div>
       </div>
 
-      ${accuracyHtml()}
+      ${companyScopeFilters().length ? '' : accuracyHtml()}
 
       <div class="dfp-card">
         <div class="dfp-h">🧠 คำนวณอย่างไร</div>
