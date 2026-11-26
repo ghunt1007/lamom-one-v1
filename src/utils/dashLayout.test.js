@@ -12,9 +12,9 @@ describe('dashLayout', () => {
   it('drops unknown keys and inserts missing ones after their default neighbour', () => {
     const l = normalizeLayout({ order: ['radar', 'bogus', 'hero', 'radar'], hidden: ['x', 'main'] })
     expect(l.order[0]).toBe('radar')
-    expect(l.order[l.order.indexOf('hero') + 1]).toBe('dlvfc')
-    const old = normalizeLayout({ order: DASH_SECTIONS.map(([k]) => k).filter(k => k !== 'dlvfc').reverse() })
-    expect(old.order[old.order.indexOf('hero') + 1]).toBe('dlvfc')
+    expect(l.order[l.order.indexOf('hero') + 1]).toBe('status')
+    const old = normalizeLayout({ order: DASH_SECTIONS.map(([k]) => k).filter(k => k !== 'status').reverse() })
+    expect(old.order[old.order.indexOf('hero') + 1]).toBe('status')
     expect(l.order).toHaveLength(DASH_SECTIONS.length)
     expect(l.hidden).toEqual(['main'])
   })
@@ -27,7 +27,7 @@ describe('dashLayout', () => {
   })
   it('moveSection swaps neighbours and ignores edges', () => {
     const l = normalizeLayout(null)
-    expect(moveSection(l, 'dlvfc', -1).order.slice(0, 2)).toEqual(['dlvfc', 'hero'])
+    expect(moveSection(l, 'status', -1).order.slice(0, 2)).toEqual(['status', 'hero'])
     expect(moveSection(l, 'hero', -1)).toBe(l)
   })
 })

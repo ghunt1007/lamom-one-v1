@@ -19,6 +19,8 @@ import { openModal } from '../utils/modal.js'
 import { escHtml as __escA } from '../utils/escape.js'
 import { escHtml } from '../utils/escape.js'
 import { dmy as fmtDMY, hm as fmtHM } from '../utils/format.js'
+import { statusBoard } from '../utils/statusBoard.js'
+import { SB_CSS, statusBoardHtml } from '../utils/statusBoardView.js'
 import { computeDeliveryForecast, loadDeliveryExtras } from '../utils/deliveryForecastData.js'
 import { DFC_CSS, heroHtml as deliveryHeroHtml } from '../utils/deliveryForecastView.js'
 
@@ -262,7 +264,7 @@ export default async function DashboardPage(container) {
       </style>
       <!-- มือถือ: หน้านี้ยาวมาก → แถบทางลัดกระโดดไปหัวข้อที่อยากดู (ติดอยู่บนจอเวลาเลื่อน) -->
       <div class="dash-jump">
-        ${[['hero-kpis', '📊 ตัวเลข'], ['dlvfc-body', '🚚 ส่งมอบ'], ['alerts-body', '🚨 เรื่องด่วน'], ['targets-body', '🎯 เป้า'], ['pipeline-card', '🚗 ยอดจอง'], ['monthly-chart-card', '📊 กราฟ'], ['top-sales', '🥇 ท็อปเซลส์'], ['funnel-body', '📶 Funnel']]
+        ${[['hero-kpis', '📊 ตัวเลข'], ['status-board', '🗂 สถานะ'], ['dlvfc-body', '🚚 ส่งมอบ'], ['alerts-body', '🚨 เรื่องด่วน'], ['targets-body', '🎯 เป้า'], ['pipeline-card', '🚗 ยอดจอง'], ['monthly-chart-card', '📊 กราฟ'], ['top-sales', '🥇 ท็อปเซลส์'], ['funnel-body', '📶 Funnel']]
           .map(([id, label]) => `<button class="btn btn-secondary btn-xs" data-jump="${id}" style="border-radius:999px;flex-shrink:0">${label}</button>`).join('')}
       </div>
 
@@ -280,6 +282,9 @@ export default async function DashboardPage(container) {
           ${[1,2,3,4,5,6].map(() => `<div class="skeleton" style="height:112px;border-radius:var(--radius-lg)"></div>`).join('')}
         </div>
       </div>
+
+      <!-- (v1.0.1382) กระดานสถานะใบจองแยกหมวด: จอง/ส่งมอบ/ถอน + ค้างแต่ละสถานะ (ชื่อตรงกับ Sheet) กดแล้วเห็นรายชื่อ -->
+      <div data-sec="status" id="status-sec"><style>${SB_CSS}</style><div id="status-board"><div class="skeleton" style="height:320px;border-radius:var(--radius-lg);margin-bottom:16px"></div></div></div>
 
       <!-- (v1.0.1381) คาดการณ์ส่งมอบเดือนนี้: เดือนนี้จะส่งมอบได้กี่คัน ช่วงแย่–ดี เทียบเป้า กดไปหน้ารายละเอียด -->
       <div data-sec="dlvfc" id="dlvfc-sec"><style>${DFC_CSS}</style><div id="dlvfc-body"><div class="skeleton" style="height:230px;border-radius:var(--radius-xl);margin-bottom:16px"></div></div></div>
@@ -1037,7 +1042,7 @@ export default async function DashboardPage(container) {
       if (p && p.dataset.period !== period) {
         period = p.dataset.period
         try { localStorage.setItem('lamom_dash_period', period) } catch { /* ไม่จำก็ได้ */ }
-        renderHero()
+        renderHero(); renderStatusBoard()
       }
     })
 
@@ -1512,8 +1517,44 @@ export default async function DashboardPage(container) {
       el.innerHTML = deliveryHeroHtml(fc, { link: true })
     }
 
+    // ── กระดานสถานะใบจอง (v1.0.1382) — ช่วงเวลาเดียวกับตัวเลขหลัก (เดือน/ไตรมาส/ปี) ──
+    let sbScope = 'open'
+    try { if (localStorage.getItem('lamom_dash_sbscope') === 'period') sbScope = 'period' } catch { /* ค่าเริ่มต้น */ }
+    let sbData = null
+    function renderStatusBoard() {
+      const el = document.getElementById('status-board')
+      if (!el) return
+      sbData = statusBoard(bookings, curMonths(), { today: todayBangkok(), scope: sbScope })
+      el.innerHTML = statusBoardHtml(sbData, { periodLabel: periodLabel(selectedMonth, period), scope: sbScope })
+    }
+    document.getElementById('status-board')?.addEventListener('click', e => {
+      const sc = e.target.closest('[data-sbscope]')
+      if (sc) { sbScope = sc.dataset.sbscope; try { localStorage.setItem('lamom_dash_sbscope', sbScope) } catch { /* ไม่จำก็ได้ */ } renderStatusBoard(); return }
+      if (!sbData) return
+      const when = periodLabel(selectedMonth, period)
+      const scopeTxt = sbScope === 'open' ? 'ค้างทั้งหมด' : 'จอง' + when
+      const byAge = (a, b) => String(a.bookingDate || '9').localeCompare(String(b.bookingDate || '9'))
+      const t = e.target.closest('[data-sb]')
+      if (t) {
+        const k = t.dataset.sb
+        const title = { booked: `📝 จองใหม่ — ${when}`, delivered: `✅ ส่งมอบ/ตัดตัวเลข — ${when}`, withdrawn: `❌ ถอนจอง — ${when}`, pending: `⏳ ใบจองที่ค้าง (${scopeTxt})` }[k]
+        showRows(title, sbData.rows[k].slice().sort(byAge), 'status-' + k); return
+      }
+      const g = e.target.closest('[data-sbg]')
+      if (g) {
+        const grp = sbData.groups.find(x => x.key === g.dataset.sbg)
+        if (grp) showRows(`${grp.icon} ${grp.label} (${scopeTxt})`, grp.items.flatMap(i => i.rows).sort(byAge), 'status-' + grp.key)
+        return
+      }
+      const s = e.target.closest('[data-sbs]')
+      if (s) {
+        const it = sbData.groups.flatMap(x => x.items).find(i => i.status === s.dataset.sbs)
+        if (it) showRows(`${it.status} (${scopeTxt})`, it.rows.slice().sort(byAge), 'status')
+      }
+    })
+
     function renderAll() {
-      renderHero(); renderDeliveryForecast()
+      renderHero(); renderStatusBoard(); renderDeliveryForecast()
       renderPipeline(); renderDeptDetail(); renderTrendChart(); renderDonut(); renderGauges()
       renderMoM(); renderForecast(); renderTops(); renderFunnel()
       renderAlerts(); renderTargets(); renderHeatmap(); renderRadar()
