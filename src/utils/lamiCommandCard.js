@@ -438,7 +438,10 @@ export async function loadOpsAnswer(q, customersPromise) {
     // (v1.0.1381) คาดการณ์ส่งมอบเดือนนี้ — ตัวเลขเดียวกับหน้า /analytics/delivery-forecast
     const [{ loadDeliveryForecast }, { deliveryForecastText }, { ymThai }] = await Promise.all([import('./deliveryForecastData.js'), import('./deliveryForecast.js'), import('./deliveryForecastView.js')])
     const { fc } = await loadDeliveryForecast({ today })
-    res = { n: Math.max(1, fc.expected), text: deliveryForecastText(fc, ymThai(fc.ym)) }
+    // (v1.0.1408) + ใบที่ "ลุ้น" (โอกาส 15–74%) ที่เร่งแล้วเปลี่ยนยอดเดือนนี้ได้ — เฉพาะใบที่ผู้ถามมีสิทธิ์เห็น ชื่อต้นลูกค้าเท่านั้น
+    const swing = (fc.items || []).filter(i => i.p >= 0.15 && i.p < 0.75 && mine(i.sales, { salesName: i.sales })).slice(0, 5)
+    const swingTxt = swing.length ? ['', '🟡 ใบที่ลุ้นได้ — เร่งแล้วเพิ่มยอดเดือนนี้:', ...swing.map(i => `• ${String(i.name).split(/\s+/)[0]} · ${i.car} · ${Math.round(i.p * 100)}%${i.sales && i.sales !== 'ไม่ระบุ' ? ` · ${i.sales}` : ''}`)].join('\n') : ''
+    res = { n: Math.max(1, fc.expected), text: deliveryForecastText(fc, ymThai(fc.ym)) + swingTxt }
   } else if (spec.kind === 'forecast') {
     const [vs, bks, ords, customers] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('vehicle_orders', f, 'createdAt', 'desc', 500).catch(() => []), customersPromise || visibleCustomersForCommands()])
     let leadDays = 45
