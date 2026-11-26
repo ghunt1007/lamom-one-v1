@@ -2,6 +2,8 @@
 // ใช้สูตรเดียวกับหน้าภาพรวม (dashStats) ตัวเลขจึงตรงกัน · เทียบช่วงเดียวกันของเดือนก่อน · ฟังก์ชันล้วน ทดสอบได้
 import { rangeStats, shiftYm, periodLabel, openBookings, salesBoard, statRows, periodMonths, prevPeriodAnchor } from './dashStats.js'
 import { carOf } from './carLabel.js'
+import { bookingPace } from './bookingPace.js'
+import { isCancelled } from './bookingStatus.js'
 
 // (v1.0.1090) "รถรุ่นไหนขายดีสุดเดือนนี้" → เพิ่มอันดับรุ่นรถในสรุปยอด
 export const isModelRankQuestion = q => /รุ่น|ยี่ห้อ|แบรนด์|รถอะไร|คันไหน|แบบไหน/.test(String(q || ''))
@@ -79,6 +81,8 @@ export function monthStats({ bookings = [], today, target = 0 }) {
     colors: modelBoard(rows, [ym], undefined, colorOf),
     // (v1.0.1110) เดือนนี้ยังไม่มีสี → ใช้ 3 เดือนล่าสุดแทน
     colors3: modelBoard(rows, [shiftYm(ym, -2), shiftYm(ym, -1), ym], undefined, colorOf),
+    // (v1.0.1403) คาดจองสิ้นเดือนจากรูปแบบ 6 เดือนก่อน — ใช้เฉพาะเมื่อประวัติพอ
+    pace: (() => { const p = bookingPace(rows.filter(b => !isCancelled(b)).map(b => String(b.bookingDate || '').slice(0, 10)), today); return p?.method === 'history' ? p : null })(),
   }
 }
 
@@ -113,6 +117,7 @@ export function monthBriefText(s, { scope = '', past = false, models = false, co
   const lines = [`📊 ยอดเดือนนี้ ${s.label}${scope ? ` — ${scope}` : ''}`]
   lines.push(`🚗 ส่งมอบแล้ว ${s.delivered} คัน · เดือนก่อนช่วงเดียวกัน ${s.prevDelivered} คัน (${diff(s.delivered, s.prevDelivered)})`)
   lines.push(`📝 จองใหม่ ${s.booked} ใบ${s.withdrawn ? ` · ถอน ${s.withdrawn} ใบ` : ''} · เดือนก่อนช่วงเดียวกัน ${s.prevBooked} ใบ (${diff(s.booked, s.prevBooked)})`)
+  if (s.pace && s.daysLeft >= 2) { const e = Math.max(s.booked, s.pace.expected), hi = Math.max(e, s.pace.high), lo = Math.max(s.booked, Math.min(e, s.pace.low)); lines.push(`🔮 คาดจองสิ้นเดือน ≈ ${e} ใบ${hi > lo ? ` (${lo}–${hi})` : ''} — เดือนก่อนๆ ถึงวันนี้จองได้ราว ${Math.round(s.pace.share * 100)}% ของทั้งเดือน`) }
   if (value) lines.push(...valueLines(s, 'เดือนนี้'))
   if (s.open) lines.push(`📦 ใบจองที่ยังไม่ส่งมอบ ${s.open} ใบ${s.waitDeliv ? ` · รถพร้อมรอส่งมอบ ${s.waitDeliv} คัน` : ''}${s.fin ? ` · รอไฟแนนซ์ ${s.fin} ใบ` : ''}`)
   if (s.target) lines.push(`🎯 เป้าส่งมอบ ${s.target} คัน · ทำได้ ${Math.round(s.delivered / s.target * 100)}%${s.left ? ` · ขาดอีก ${s.left} คัน` : ' · ถึงเป้าแล้ว 🎉'} · เหลือ ${s.daysLeft} วัน`)
