@@ -442,7 +442,7 @@ async function runMorningReminder(env, accessToken) {
       const team = mine.length > 1 || normSalesName(mine[0].name) !== normSalesName(t.name)
       const text = team
         ? teamTasksText(mine, today, env.ALLOWED_ORIGIN).replace('📋 งานค้างของทีมตอนนี้', '☀️ งานค้างของทีมเช้านี้')
-        : buildPersonalReminder(mine[0], today, env.ALLOWED_ORIGIN, sellerGoal(data, goals, t.name, today))
+        : buildPersonalReminder(mine[0], today, env.ALLOWED_ORIGIN, withSellerForecast(sellerGoal(data, goals, t.name, today), data.bookings, t.name, today))
       const mineCars = team ? [] : [...readyPairLines(data, t.name), ...noSupplyLines(data, today, t.name)]
       const r = await pushLine(env, t.userId, mineCars.length && !team ? clipLine(text + '\n\n' + mineCars.join('\n')) : text)
       personal.push({ name: t.name, team, ...r })
@@ -1650,6 +1650,7 @@ export function buildPersonalReminder(section, today, appUrl = '', goal = null) 
     `🗓 ${formatThaiDate(today)}`,
     goal?.target ? `🎯 เป้าเดือนนี้: ส่งมอบแล้ว ${goal.done}/${goal.target} คัน${goal.done >= goal.target ? ' ถึงเป้าแล้ว! 🎉' : ` (เหลือ ${goal.target - goal.done} คัน)`}` : null,
     goal?.bonus?.length ? goal.bonus.join('\n') : null,
+    goal?.forecast?.length ? goal.forecast.join('\n') : null,
     '',
     section.focus?.length ? ['⭐ เริ่มจาก ' + section.focus.length + ' อย่างนี้ก่อน:', ...section.focus.map((f, i) => `  ${i + 1}. ${f}`), ''].join('\n') : null,
     section.text,
@@ -1691,6 +1692,22 @@ export function sellerGoal(data, goals, name, today) {
   const done = (data.bookings || []).filter(b => b && !b.deleted && DELIVERED_STATUSES.includes(b.status)
     && (b.cutDate || b.actualDeliveryDate || '').startsWith(month) && normSalesName(b.salesName) === key).length
   return bonus.length ? { done, target, bonus } : { done, target }
+}
+
+// (v1.0.1396) เช้า 09:00 บอกเซลส์ว่าเดือนนี้คาดส่งได้กี่คัน + 3 ใบที่ลุ้นได้ (สูตรเดียวกับหน้าคาดการณ์ส่งมอบ) — ไม่มีใบค้าง/วันสุดท้ายของเดือน = ไม่บอก
+export function sellerForecastLines(bookings, name, today, max = 3) {
+  const key = normSalesName(name)
+  if (!key) return []
+  const mine = (bookings || []).filter(b => b && !b.deleted && normSalesName(b.salesName) === key)
+  const fc = deliveryForecast({ bookings: mine, today })
+  if (!fc.open || fc.daysLeft <= 1) return []
+  const push = fc.items.filter(i => i.tier !== 'unlikely').slice(0, max)
+  return [`🔮 คาดว่าเดือนนี้คุณส่งมอบได้ ≈ ${fc.expected} คัน (แย่สุด ${fc.worst} · ดีสุด ${fc.best})`,
+    ...(push.length ? ['👉 ใบที่ลุ้นได้เดือนนี้:', ...push.map(i => `  • ${i.name} (${i.car}) ${i.status} ${Math.round(i.p * 100)}%${i.risk ? ' ⚠️ ' + i.risk : ''}`)] : [])]
+}
+export function withSellerForecast(goal, bookings, name, today) {
+  const forecast = sellerForecastLines(bookings, name, today)
+  return forecast.length ? { ...(goal || { done: 0, target: 0 }), forecast } : goal
 }
 
 // เทียบชื่อแบบไม่สนช่องว่าง/ตัวพิมพ์ คำนำหน้า "คุณ" — ชื่อที่ลงทะเบียนต้องตรงกับชื่อเซลส์/ผู้ดูแลในแอป
