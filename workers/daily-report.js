@@ -68,6 +68,7 @@ import { promoLineAnswer } from '../src/utils/promoQuestions.js'
 import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines, serviceJobsAnswer, serviceEveningLines, serviceWeekLines } from '../src/utils/apptFacts.js'
 import { officeDigestLines } from '../src/utils/aiAgents.js'
 import { deliveryForecast, nextMonthOutlook } from '../src/utils/deliveryForecast.js'
+import { statusCounts } from '../src/utils/statusBoard.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
@@ -1015,8 +1016,11 @@ export function forecastReportLines(bookings, today, target = 0) {
 export function forecastSnapshot(bookings, today, teamTargets = [], defaultTarget = 0) {
   const ym = today.slice(0, 7)
   const tgt = (teamTargets || []).filter(t => t && t.period === ym && t.metric === 'units').reduce((s, t) => s + (Number(t.target) || 0), 0) || defaultTarget
-  const fc = deliveryForecast({ bookings: (bookings || []).filter(b => b && !b.deleted), today, target: tgt > 0 ? tgt : null })
-  return { date: today, ym, day: fc.day, expected: Math.round(fc.expectedRaw * 10) / 10, worst: fc.worst, best: fc.best, delivered: fc.delivered, open: fc.open, target: fc.target || 0, atRisk: fc.atRisk.length }
+  const live = (bookings || []).filter(b => b && !b.deleted)
+  const fc = deliveryForecast({ bookings: live, today, target: tgt > 0 ? tgt : null })
+  // (v1.0.1393) จำนวนใบค้างแต่ละหมวด ให้หน้าภาพรวมเทียบกับสัปดาห์ก่อน
+  const sb = Object.fromEntries(Object.entries(statusCounts(live, today)).map(([k, v]) => ['sb_' + k, v]))
+  return { date: today, ym, day: fc.day, expected: Math.round(fc.expectedRaw * 10) / 10, worst: fc.worst, best: fc.best, delivered: fc.delivered, open: fc.open, target: fc.target || 0, atRisk: fc.atRisk.length, ...sb }
 }
 async function saveForecastSnapshot(env, accessToken, snap) {
   if (!snap?.date) return

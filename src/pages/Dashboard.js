@@ -19,7 +19,7 @@ import { openModal } from '../utils/modal.js'
 import { escHtml as __escA } from '../utils/escape.js'
 import { escHtml } from '../utils/escape.js'
 import { dmy as fmtDMY, hm as fmtHM } from '../utils/format.js'
-import { statusBoard } from '../utils/statusBoard.js'
+import { statusBoard, pickPrevCounts } from '../utils/statusBoard.js'
 import { SB_CSS, statusBoardHtml } from '../utils/statusBoardView.js'
 import { computeDeliveryForecast, loadDeliveryExtras } from '../utils/deliveryForecastData.js'
 import { DFC_CSS, heroHtml as deliveryHeroHtml } from '../utils/deliveryForecastView.js'
@@ -1521,11 +1521,18 @@ export default async function DashboardPage(container) {
     let sbScope = 'open'
     try { if (localStorage.getItem('lamom_dash_sbscope') === 'period') sbScope = 'period' } catch { /* ค่าเริ่มต้น */ }
     let sbData = null
+    // (v1.0.1393) เทียบใบค้างกับสัปดาห์ก่อน — ภาพที่ worker เก็บตอน 18:00 เป็นของทั้งร้าน จึงเทียบเฉพาะตอนดูทั้งร้าน (ไม่ได้กรองบริษัท)
+    let sbPrev = null
+    if (!companyScopeFilters().length) {
+      listDocs('delivery_forecast_log', [], 'date', 'desc', 10)
+        .then(l => { sbPrev = pickPrevCounts(l, todayBangkok()); if (sbPrev) renderStatusBoard() })
+        .catch(() => { /* ไม่มีข้อมูลเก่า ไม่ต้องเทียบ */ })
+    }
     function renderStatusBoard() {
       const el = document.getElementById('status-board')
       if (!el) return
       sbData = statusBoard(bookings, curMonths(), { today: todayBangkok(), scope: sbScope })
-      el.innerHTML = statusBoardHtml(sbData, { periodLabel: periodLabel(selectedMonth, period), scope: sbScope })
+      el.innerHTML = statusBoardHtml(sbData, { periodLabel: periodLabel(selectedMonth, period), scope: sbScope, prev: sbPrev })
     }
     document.getElementById('status-board')?.addEventListener('click', e => {
       const sc = e.target.closest('[data-sbscope]')
