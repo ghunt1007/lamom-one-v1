@@ -1752,3 +1752,17 @@ describe('bookingPaceLine (v1.0.1402)', () => {
     expect(bookingPaceLine(mk('2026-11', [1, 2]), '2026-11-10', 2)).toBeNull()
   })
 })
+
+describe('month recap in 18:00 report (v1.0.1406)', () => {
+  it('วันที่ 1 มีสรุปเดือนที่แล้ว · forecastSnapshot มี bk_exp เมื่อประวัติพอ', async () => {
+    const { buildReport, forecastSnapshot } = await import('./daily-report.js')
+    const bookings = [{ bookingDate: '2026-11-05', status: 'ส่งมอบแล้ว', cutDate: '2026-11-25', salesName: 'A' }]
+    const t = buildReport({ bookings, forecastLogs: [{ date: '2026-11-20', expected: 2, worst: 1, best: 3 }] }, { today: '2026-12-01', time: '18:00' })
+    expect(t).toContain('สรุปเดือน พ.ย. 2569: ส่งมอบ 1 คัน')
+    expect(t).toContain('✅ อยู่ในช่วง')
+    const mk = (ym, days) => days.map(d => ({ bookingDate: `${ym}-${String(d).padStart(2, '0')}`, status: 'รอรถ' }))
+    const hist = ['2026-08', '2026-09', '2026-10'].flatMap(ym => mk(ym, [3, 8, 22, 24, 25, 26, 27, 28, 29, 30]))
+    const s = forecastSnapshot([...hist, ...mk('2026-11', [2, 9])], '2026-11-10')
+    expect(s.bk_exp).toBe(10)
+  })
+})

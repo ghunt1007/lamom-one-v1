@@ -70,6 +70,7 @@ import { officeDigestLines } from '../src/utils/aiAgents.js'
 import { deliveryForecast, nextMonthOutlook } from '../src/utils/deliveryForecast.js'
 import { statusCounts, statusBoard, pickPrevCounts } from '../src/utils/statusBoard.js'
 import { bookingPace } from '../src/utils/bookingPace.js'
+import { monthRecap, monthRecapLines } from '../src/utils/monthRecap.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
@@ -900,6 +901,8 @@ async function buildReportText(env, accessToken) {
     runQuery(env, accessToken, 'referrers', null, null, 500, ['name', 'code', 'sales', 'commission', 'paid', 'deleted']).catch(() => []),
     runQuery(env, accessToken, 'job_cards', null, null, 3000, ['status', 'createdAt', 'updatedAt', 'deleted']).catch(() => []),
   ])
+  // (v1.0.1406) วันที่ 1–2: สรุปเดือนที่แล้ว คาดไว้ vs ได้จริง (ต้องใช้ตัวเลขคาดการณ์ที่เก็บไว้)
+  const forecastLogs = Number(todayBangkok().slice(8, 10)) <= 2 ? await runQuery(env, accessToken, 'delivery_forecast_log', 'date', 'DESCENDING', 40).catch(() => []) : []
   const followups = [...fuPending, ...fuDone]
   const [metaAdsData, lineQuota] = await Promise.all([
     fetchMetaAdsForReport(env),
@@ -907,7 +910,7 @@ async function buildReportText(env, accessToken) {
   ])
   // (v1.0.1386) เก็บตัวเลขคาดการณ์ส่งมอบของวันนี้ไว้ เทียบกับยอดจริงตอนจบเดือน (หน้า คาดการณ์ส่งมอบ › ความแม่นยำ)
   try { await saveForecastSnapshot(env, accessToken, forecastSnapshot(bookings, todayBangkok(), teamTargets, parseInt(env.MONTHLY_DELIVERY_TARGET) || 0)) } catch { /* ไม่ให้รายงานล้ม */ }
-  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts, appointments, referrers, jobCards, metaAds: metaAdsData, lineQuota }, {
+  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts, appointments, referrers, jobCards, metaAds: metaAdsData, lineQuota, forecastLogs }, {
     today: todayBangkok(),
     time: new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()),
     defaultTarget: parseInt(env.MONTHLY_DELIVERY_TARGET) || 0,
@@ -1047,7 +1050,10 @@ export function forecastSnapshot(bookings, today, teamTargets = [], defaultTarge
   const fc = deliveryForecast({ bookings: live, today, target: tgt > 0 ? tgt : null })
   // (v1.0.1393) จำนวนใบค้างแต่ละหมวด ให้หน้าภาพรวมเทียบกับสัปดาห์ก่อน
   const sb = Object.fromEntries(Object.entries(statusCounts(live, today)).map(([k, v]) => ['sb_' + k, v]))
-  return { date: today, ym, day: fc.day, expected: Math.round(fc.expectedRaw * 10) / 10, worst: fc.worst, best: fc.best, delivered: fc.delivered, open: fc.open, target: fc.target || 0, atRisk: fc.atRisk.length, ...sb }
+  // (v1.0.1406) คาดยอดจองสิ้นเดือนด้วย (เฉพาะเมื่อประวัติพอ) — ไว้เทียบกับยอดจริงตอนสรุปเดือน
+  const bp = bookingPace(live.filter(b => !CANCELLED_STATUSES.includes(b.status)).map(b => String(b.bookingDate || '').slice(0, 10)), today)
+  const bk = bp?.method === 'history' ? { bk_exp: bp.expected, bk_lo: bp.low, bk_hi: bp.high } : {}
+  return { date: today, ym, day: fc.day, expected: Math.round(fc.expectedRaw * 10) / 10, worst: fc.worst, best: fc.best, delivered: fc.delivered, open: fc.open, target: fc.target || 0, atRisk: fc.atRisk.length, ...sb, ...bk }
 }
 async function saveForecastSnapshot(env, accessToken, snap) {
   if (!snap?.date) return
@@ -1258,6 +1264,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     `  • ส่งมอบเดือนนี้: ${dlvMonth.length} คัน${vsLast(dlvMonth.length, dlvLm, lm)}`,
     `  • ส่งมอบปีนี้: ${dlvYear.length} คัน`,
     ...forecastReportLines(bookings, today, target),
+    ...(r => r.length ? ['', ...r] : [])(monthRecapLines(monthRecap({ bookings, logs: data.forecastLogs || [], today }))),
   ]
   const svc = serviceEveningLines(data.jobCards, today)
   if (svc.length) lines.push('', ...svc)
