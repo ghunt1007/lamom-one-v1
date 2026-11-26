@@ -1737,3 +1737,18 @@ describe('weeklyPipelineLines (v1.0.1397)', () => {
     expect(buildWeeklyReport({ bookings: B, customers: [] }, { today: '2026-11-16' })).toContain('ใบจองค้างตอนนี้ 3 ใบ')
   })
 })
+
+describe('bookingPaceLine (v1.0.1402)', () => {
+  const mk = (ym, days) => days.map(d => ({ bookingDate: `${ym}-${String(d).padStart(2, '0')}`, status: 'รอรถ' }))
+  it('มีประวัติพอ → บรรทัดคาดจองสิ้นเดือน', async () => {
+    const { bookingPaceLine } = await import('./daily-report.js')
+    const B = [...['2026-08', '2026-09', '2026-10'].flatMap(ym => mk(ym, [3, 8, 22, 24, 25, 26, 27, 28, 29, 30])), ...mk('2026-11', [2, 9])]
+    const l = bookingPaceLine(B, '2026-11-10', 2)
+    expect(l).toContain('คาดจองสิ้นเดือน ≈ 10 คัน')
+    expect(l).toContain('20%')
+  })
+  it('ประวัติไม่พอ → ไม่ขึ้น', async () => {
+    const { bookingPaceLine } = await import('./daily-report.js')
+    expect(bookingPaceLine(mk('2026-11', [1, 2]), '2026-11-10', 2)).toBeNull()
+  })
+})

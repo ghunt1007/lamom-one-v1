@@ -69,6 +69,7 @@ import { serviceTodayLines, showroomVisitLine, jobsAwaitingPickupLines, serviceJ
 import { officeDigestLines } from '../src/utils/aiAgents.js'
 import { deliveryForecast, nextMonthOutlook } from '../src/utils/deliveryForecast.js'
 import { statusCounts, statusBoard, pickPrevCounts } from '../src/utils/statusBoard.js'
+import { bookingPace } from '../src/utils/bookingPace.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
@@ -1011,6 +1012,14 @@ export function boothTodayLines(events, customers, today) {
   return out
 }
 
+// (v1.0.1402) คาดยอดจองสิ้นเดือน จากรูปแบบการจองของ 6 เดือนก่อน (bookingPace) — ประวัติไม่พอ/วันท้ายเดือน ไม่ขึ้น (ไม่เดาเส้นตรง)
+export function bookingPaceLine(bookings, today, monthCount = 0) {
+  const p = bookingPace((bookings || []).filter(b => b && !b.deleted && !isCancelled(b)).map(b => String(b.bookingDate || '').slice(0, 10)), today)
+  if (!p || p.method !== 'history' || p.daysInMonth - p.day < 2) return null
+  const exp = Math.max(monthCount, p.expected), lo = Math.max(monthCount, p.low), hi = Math.max(monthCount, p.high)
+  return `  • 🔮 คาดจองสิ้นเดือน ≈ ${exp} คัน${hi > lo ? ` (${lo}–${hi})` : ''} · เดือนก่อนๆ ถึงวันที่ ${p.day} ได้ราว ${Math.round(p.share * 100)}% ของทั้งเดือน`
+}
+
 // (v1.0.1383) คาดการณ์ยอดส่งมอบสิ้นเดือน ในรายงาน 18:00 — สูตรเดียวกับหน้า "คาดการณ์ส่งมอบเดือนนี้" ในแอป
 // วันสุดท้ายของเดือนไม่ต้องคาด (ตัวเลขจริงอยู่แล้ว) · ไม่มีใบจองค้างเลยก็ไม่ขึ้น
 export function forecastReportLines(bookings, today, target = 0) {
@@ -1236,6 +1245,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     '📋 การจอง',
     `  • จองใหม่วันนี้: ${newBkToday} คัน`,
     `  • จองใหม่เดือนนี้: ${newBkMonth} คัน${vsLast(newBkMonth, newBkLm, lm)}`,
+    bookingPaceLine(bookings, today, newBkMonth),
     marketingSpendLine(data.socialAccounts, data.events, today, newBkMonth) || null,
     metaAdsLine(data.metaAds) || null,
     '',
