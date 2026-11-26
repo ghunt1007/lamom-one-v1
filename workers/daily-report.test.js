@@ -1699,3 +1699,24 @@ describe('LINE "สถานะ" (v1.0.1394)', () => {
     expect(statusBoardLineAnswer([], '2026-11-20', { seller: 'x' })).toContain('ไม่มีใบจองค้าง')
   })
 })
+
+describe('09:00 seller forecast lines (v1.0.1396)', () => {
+  const B = [
+    { status: 'รอส่งมอบ', bookingDate: '2026-11-10', deliveryDate: '2026-11-25', custName: 'สมชาย', model: 'S07', salesName: 'กมล' },
+    { status: 'รอรถ', bookingDate: '2026-11-15', custName: 'มานี', model: 'S05', salesName: 'บี' },
+  ]
+  it('adds expected + bookings to push for that seller only', async () => {
+    const { sellerForecastLines, withSellerForecast, buildPersonalReminder } = await import('./daily-report.js')
+    const l = sellerForecastLines(B, 'คุณกมล', '2026-11-20').join('\n')
+    expect(l).toMatch(/คาดว่าเดือนนี้คุณส่งมอบได้ ≈ \d+ คัน/)
+    expect(l).toContain('สมชาย')
+    expect(l).not.toContain('มานี')
+    expect(sellerForecastLines(B, 'กมล', '2026-11-30')).toEqual([])
+    expect(sellerForecastLines(B, 'ไม่มีใคร', '2026-11-20')).toEqual([])
+    expect(withSellerForecast(null, B, 'ไม่มีใคร', '2026-11-20')).toBeNull()
+    const g = withSellerForecast(null, B, 'กมล', '2026-11-20')
+    const t = buildPersonalReminder({ text: 'งาน', focus: [] }, '2026-11-20', '', g)
+    expect(t).toContain('🔮 คาดว่าเดือนนี้คุณส่งมอบได้')
+    expect(t).not.toContain('เป้าเดือนนี้')
+  })
+})

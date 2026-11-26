@@ -20,9 +20,9 @@ export async function loadDeliveryExtras({ vehicles = null, today = todayBangkok
   return { vehicles: alive(veh), orders: alive(orders), ...pickDeliveryTarget({ budgetUnits: budget?.units, teamTargets, ym }) }
 }
 
-export function computeDeliveryForecast({ bookings, vehicles = [], orders = [], target = null, today = todayBangkok(), fmt }) {
+export function computeDeliveryForecast({ bookings, vehicles = [], orders = [], target = null, today = todayBangkok(), fmt, etaMap: given }) {
   const live = alive(bookings)
-  const etaMap = (vehicles.length || orders.length) ? etaForBookings({ bookings: live, vehicles, orders, today }) : null
+  const etaMap = given !== undefined ? given : (vehicles.length || orders.length) ? etaForBookings({ bookings: live, vehicles, orders, today }) : null
   return deliveryForecast({ bookings: live, vehicles, orders, etaMap, today, target, fmt })
 }
 
@@ -33,5 +33,5 @@ export async function loadDeliveryForecast({ today = todayBangkok(), fmt } = {})
   ])
   const live = alive(bookings)
   const etaMap = (extras.vehicles.length || extras.orders.length) ? etaForBookings({ bookings: live, vehicles: extras.vehicles, orders: extras.orders, today }) : null
-  return { ...extras, bookings: live, fc: computeDeliveryForecast({ bookings, ...extras, today, fmt }), next: nextMonthOutlook({ bookings: live, vehicles: extras.vehicles, orders: extras.orders, etaMap, today, fmt }) }
+  return { ...extras, bookings: live, fc: computeDeliveryForecast({ bookings: live, ...extras, today, fmt, etaMap }), next: nextMonthOutlook({ bookings: live, vehicles: extras.vehicles, orders: extras.orders, etaMap, today, fmt }) }
 }
