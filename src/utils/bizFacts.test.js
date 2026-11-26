@@ -144,3 +144,15 @@ describe('businessFacts booking sources', () => {
     expect(f['ใบจอง 90 วันล่าสุดแยกช่องทางที่ลูกค้ามา']).toBe('Facebook 2 · บูธ 1')
   })
 })
+
+describe('businessFacts delivery forecast (v1.0.1387)', () => {
+  it('adds month-end delivery forecast with at-risk first names only', () => {
+    const f = businessFacts({ customers: [], bookings: [
+      { status: 'ส่งมอบแล้ว', bookingDate: '2026-11-01', cutDate: '2026-11-04' },
+      { status: 'รอส่งมอบ', bookingDate: '2026-11-02', deliveryDate: '2026-11-10', custName: 'สมชาย ใจดี', model: 'S07' },
+    ] }, '2026-11-20')
+    expect(f['คาดการณ์ส่งมอบสิ้นเดือนนี้']).toContain('ส่งมอบ(ตัดตัวเลข)แล้ว 1 คัน')
+    expect(f['คาดการณ์ส่งมอบสิ้นเดือนนี้']).toContain('สมชาย')
+    expect(f['คาดการณ์ส่งมอบสิ้นเดือนนี้']).not.toContain('ใจดี')
+  })
+})
