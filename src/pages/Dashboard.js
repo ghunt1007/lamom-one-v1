@@ -970,8 +970,11 @@ export default async function DashboardPage(container) {
       const back = [5, 4, 3, 2, 1, 0].map(k => periodMonths(shiftYm(selectedMonth, -k * step), period))
       const series = key => back.map(ms => rangeStats(bookings, ms)[key])
       const leadsCur = leadsInRange(curMonths()).length, leadsPrev = leadsInRange(cmpMonths(), upTo).length
+      // (v1.0.1407) เดือนปัจจุบัน: บอกคาดปิดเดือนจากรูปแบบการจองเดือนก่อนๆ ใต้การ์ดจองใหม่ (ประวัติไม่พอ = ไม่แสดง)
+      const kpiPace = period === 'month' && selectedMonth === todayBangkok().slice(0, 7) ? bookingPace(bookings.filter(b => !isCancelled(b)).map(b => b.bookingDate), todayBangkok()) : null
+      const paceSub = kpiPace?.method === 'history' && kpiPace.daysInMonth - kpiPace.day >= 1 ? `<br><b style="color:var(--primary)">🔮 คาดปิดเดือน ≈ ${Math.max(cur.booked, kpiPace.expected)} คัน</b>` : ''
       const tiles = [
-        { icon: '📝', label: 'จองใหม่', val: `${cur.booked}<small>คัน</small>`, d: delta(cur.booked, prev.booked), sub: `${cmp}: ${prev.booked} คัน`, sp: spark(series('booked'), 'primary'), color: 'primary', drill: 'booked' },
+        { icon: '📝', label: 'จองใหม่', val: `${cur.booked}<small>คัน</small>`, d: delta(cur.booked, prev.booked), sub: `${cmp}: ${prev.booked} คัน${paceSub}`, sp: spark(series('booked'), 'primary'), color: 'primary', drill: 'booked' },
         { icon: '✅', label: 'ส่งมอบ', val: `${cur.delivered}<small>คัน</small>`, d: delta(cur.delivered, prev.delivered), sub: `${cmp}: ${prev.delivered} คัน`, sp: spark(series('delivered'), 'success'), color: 'success', drill: 'delivered' },
         { icon: '💰', label: 'มูลค่าจอง', val: money(cur.value), d: delta(cur.value, prev.value), sub: `${cmp}: ${moneyTxt(prev.value)}`, sp: spark(series('value'), 'accent'), color: 'accent', drill: 'value' },
         { icon: '📈', label: 'Margin', val: money(cur.margin), d: delta(cur.margin, prev.margin), sub: `${cmp}: ${moneyTxt(prev.margin)}`, sp: spark(series('margin'), 'warning'), color: 'warning', drill: 'margin' },
