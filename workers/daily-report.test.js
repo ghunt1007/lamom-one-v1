@@ -1622,3 +1622,30 @@ describe('forecastReportLines (v1.0.1383)', () => {
     expect(forecastReportLines(B.slice(0, 1), '2026-11-20', 5)).toEqual([])
   })
 })
+
+describe('LINE คาดการณ์ส่งมอบ (v1.0.1385)', () => {
+  const R = [
+    { status: 'ส่งมอบแล้ว', bookingDate: '2026-11-01', cutDate: '2026-11-05', salesName: 'เอ', custName: 'ก' },
+    { status: 'รอส่งมอบ', bookingDate: '2026-11-10', deliveryDate: '2026-11-28', salesName: 'เอ', custName: 'ข', model: 'S07' },
+    { status: 'รอรถ', bookingDate: '2026-11-15', salesName: 'บี', custName: 'ค' },
+  ]
+  it('parses commands', () => {
+    for (const t of ['คาดการณ์ส่งมอบ', 'ส่งทันไหม', 'ทันเป้าไหม', 'เดือนนี้ได้กี่คัน', 'เดือนนี้จะส่งมอบได้กี่คัน']) expect(parseLineCommand(t)?.type, t).toBe('dlvfc')
+    expect(parseLineCommand('ส่งมอบ')).toEqual({ type: 'deliveries' })
+  })
+  it('owner sees whole shop + target + per seller, no customer names', async () => {
+    const { deliveryForecastLineAnswer } = await import('./daily-report.js')
+    const t = deliveryForecastLineAnswer(R, '2026-11-20', { teamTargets: [{ period: '2026-11', metric: 'units', target: 4 }] })
+    expect(t).toContain('ส่งมอบแล้ว 1 คัน')
+    expect(t).toContain('เป้า 4 คัน')
+    expect(t).toContain('แยกเซลส์')
+    expect(t).not.toContain(' ข (')
+  })
+  it('seller sees own bookings with names and dd/mm/BE dates', async () => {
+    const { deliveryForecastLineAnswer } = await import('./daily-report.js')
+    const t = deliveryForecastLineAnswer(R, '2026-11-20', { seller: 'เอ' })
+    expect(t).toContain('· เอ')
+    expect(t).toContain('ข (S07)')
+    expect(t).not.toContain('ค (')
+  })
+})
