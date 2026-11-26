@@ -431,6 +431,9 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'waiteta') {
     const [vs, bks, ords] = await Promise.all([listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('vehicle_orders', f, 'createdAt', 'desc', 500).catch(() => [])])
     res = oq.waitEtaAnswer(vs, bks, ords, { today, mine: b => mine(b.salesName, b) })
+  } else if (spec.kind === 'sboard') {
+    // (v1.0.1395) สถานะใบจอง — กระดานเดียวกับหน้าภาพรวม (เซลส์เห็นเฉพาะของตัวเองตามสิทธิ์ mine)
+    res = oq.sboardAnswer(await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), { today, status: spec.status || '', group: spec.group || '', mine: b => mine(b.salesName, b) })
   } else if (spec.kind === 'dlvfc') {
     // (v1.0.1381) คาดการณ์ส่งมอบเดือนนี้ — ตัวเลขเดียวกับหน้า /analytics/delivery-forecast
     const [{ loadDeliveryForecast }, { deliveryForecastText }, { ymThai }] = await Promise.all([import('./deliveryForecastData.js'), import('./deliveryForecast.js'), import('./deliveryForecastView.js')])

@@ -260,3 +260,34 @@ describe('dlvfc (delivery forecast) parsing', () => {
       expect(parseOpsSpec(q)?.kind, q).not.toBe('dlvfc')
   })
 })
+
+describe('sboard (booking status) questions (v1.0.1395)', () => {
+  const B = [
+    { id: '1', status: 'ผ่านไฟแนนซ์รอเบิก', bookingDate: '2026-11-01', custName: 'สมชาย', model: 'S07', salesName: 'กมล' },
+    { id: '2', status: 'ซื้อสดรอเบิกรถ', bookingDate: '2026-11-10', custName: 'สมหญิง', model: 'L07', salesName: 'บี' },
+    { id: '3', status: 'ได้รถแล้วรอสั่งแต่ง', bookingDate: '2026-11-05', custName: 'มานี', model: 'S05', salesName: 'กมล' },
+    { id: '4', status: 'ส่งมอบแล้ว', bookingDate: '2026-10-01', cutDate: '2026-11-02' },
+  ]
+  it('parses status/group/summary questions without stealing delivery appointments', async () => {
+    const { parseOpsSpec } = await import('./opsQuestions.js')
+    expect(parseOpsSpec('ใบจองค้างกี่ใบ')).toEqual({ kind: 'sboard' })
+    expect(parseOpsSpec('รอเบิกรถกี่คัน')).toEqual({ kind: 'sboard', group: 'release' })
+    expect(parseOpsSpec('ได้รถแล้วรอสั่งแต่งกี่คัน')).toEqual({ kind: 'sboard', status: 'ได้รถแล้วรอสั่งแต่ง' })
+    expect(parseOpsSpec('รอส่งมอบกี่คัน')).toEqual({ kind: 'sboard', status: 'รอส่งมอบ' })
+    expect(parseOpsSpec('นัดส่งมอบวันนี้มีใคร')?.kind).toBe('delivery')
+    expect(parseOpsSpec('เดือนนี้จะส่งมอบได้กี่คัน')?.kind).toBe('dlvfc')
+    expect(parseOpsSpec('รอเบิกอะไหล่กี่ชิ้น')?.kind).not.toBe('sboard')
+  })
+  it('answers by status, group and summary', async () => {
+    const { sboardAnswer } = await import('./opsQuestions.js')
+    const T = '2026-11-20'
+    const a = sboardAnswer(B, { today: T, status: 'ได้รถแล้วรอสั่งแต่ง' })
+    expect(a.n).toBe(1); expect(a.text).toContain('มานี'); expect(a.text).toContain('15 วัน')
+    const g = sboardAnswer(B, { today: T, group: 'release' })
+    expect(g.n).toBe(2); expect(g.text).toContain('สมชาย'); expect(g.text).toContain('สมหญิง')
+    const s = sboardAnswer(B, { today: T })
+    expect(s.n).toBe(3); expect(s.text).toContain('ใบจองที่ค้างตอนนี้ 3 ใบ')
+    expect(sboardAnswer(B, { today: T, status: 'ยอดจองคงค้าง' }).n).toBe(0)
+    expect(sboardAnswer(B, { today: T, group: 'release', mine: b => b.salesName === 'กมล' }).n).toBe(1)
+  })
+})
