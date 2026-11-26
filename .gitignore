@@ -30,3 +30,4 @@ dist-ssr
 
 # Cloudflare Wrangler
 .wrangler/
+tools/layout-sweep/out-*.json
