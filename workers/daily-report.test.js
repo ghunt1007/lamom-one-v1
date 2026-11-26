@@ -1720,3 +1720,20 @@ describe('09:00 seller forecast lines (v1.0.1396)', () => {
     expect(t).not.toContain('เป้าเดือนนี้')
   })
 })
+
+describe('weeklyPipelineLines (v1.0.1397)', () => {
+  it('summarises open bookings with deltas and the month forecast', async () => {
+    const { weeklyPipelineLines, buildWeeklyReport } = await import('./daily-report.js')
+    const B = [
+      { status: 'รอส่งมอบ', bookingDate: '2026-11-01', deliveryDate: '2026-11-20' },
+      { status: 'รอรถ', bookingDate: '2026-11-05' }, { status: 'รอรถ', bookingDate: '2026-11-06' },
+      { status: 'ส่งมอบแล้ว', bookingDate: '2026-10-01', cutDate: '2026-11-03' },
+    ]
+    const l = weeklyPipelineLines(B, '2026-11-16', [{ date: '2026-11-09', sb_pending: 5, sb_wait: 1, sb_ready: 1 }]).join('\n')
+    expect(l).toContain('ใบจองค้างตอนนี้ 3 ใบ (▼2) เทียบสัปดาห์ก่อน')
+    expect(l).toContain('⏳ รอรถ 2 (▲1)')
+    expect(l).toMatch(/คาดส่งมอบเดือนนี้ ≈ \d+ คัน/)
+    expect(weeklyPipelineLines([], '2026-11-16')).toEqual([])
+    expect(buildWeeklyReport({ bookings: B, customers: [] }, { today: '2026-11-16' })).toContain('ใบจองค้างตอนนี้ 3 ใบ')
+  })
+})

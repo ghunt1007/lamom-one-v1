@@ -418,13 +418,15 @@ async function runMorningReminder(env, accessToken) {
     // นัดที่ทำแล้ว (ข้อมูลเช้าดึงเฉพาะนัดค้าง) — ใช้คิด % การติดตามของสัปดาห์ที่แล้ว
     const followupsDone = await runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'deleted'], ['status', 'done']).catch(() => null)
     // (v1.0.1234) รถในสต็อก + ใบสั่งรถ — ใช้คาดการณ์ว่าควรสั่งรถเพิ่มกี่คัน
-    const [vehicles, vehicleOrders, jobCards] = await Promise.all([
+    const [vehicles, vehicleOrders, jobCards, forecastLogs] = await Promise.all([
       runQuery(env, accessToken, 'vehicles', null, null, 3000, ['status', 'brand', 'model', 'color', 'vin', 'deleted']).catch(() => null),
       runQuery(env, accessToken, 'vehicle_orders', null, null, 1000, ['status', 'brand', 'model', 'color', 'qty', 'deleted']).catch(() => null),
       // (v1.0.1294) ใบงานศูนย์บริการ — สรุปเปิดใหม่/ส่งคืนของสัปดาห์
       runQuery(env, accessToken, 'job_cards', null, null, 3000, ['status', 'createdAt', 'updatedAt', 'deleted']).catch(() => []),
+      // (v1.0.1397) ภาพจำนวนใบค้างที่เก็บทุกวัน 18:00 — เทียบกับสัปดาห์ก่อน
+      runQuery(env, accessToken, 'delivery_forecast_log', 'date', 'DESCENDING', 10).catch(() => []),
     ])
-    const wText = buildWeeklyReport({ ...data, followupsDone, vehicles, vehicleOrders, jobCards }, { today })
+    const wText = buildWeeklyReport({ ...data, followupsDone, vehicles, vehicleOrders, jobCards, forecastLogs }, { today })
     const [wt, wl] = await Promise.all([sendTelegram(env, wText), sendLineTarget(env, accessToken, wText)])
     weekly = { text: wText, telegram: wt, line: wl }
   }
@@ -1875,6 +1877,7 @@ export function buildWeeklyReport(data, { today }) {
     fcLine,
     linkLine,
     dwLine,
+    ...weeklyPipelineLines(bookings, today, data.forecastLogs),
     ...lostLines,
     ...serviceWeekLines(data.jobCards, weeks[0], weeks[1]),
     ...(convLines.length ? ['', '🎯 ช่องทางที่ปิดจองได้ดี (Lead 90 วันล่าสุด)', ...convLines] : []),
@@ -1882,6 +1885,22 @@ export function buildWeeklyReport(data, { today }) {
     '─────────────────────',
     '🤖 LAMOM ONE Weekly Report',
   ].filter(l => l !== null).join('\n')
+}
+
+// (v1.0.1397) สรุปจันทร์: ใบจองค้างแยกหมวด (▲▼ เทียบภาพสัปดาห์ก่อน) + คาดการณ์ส่งมอบเดือนนี้
+export function weeklyPipelineLines(bookings, today, logs = []) {
+  const live = (bookings || []).filter(b => b && !b.deleted)
+  const sb = statusBoard(live, [], { today, scope: 'open' })
+  const out = []
+  if (sb.summary.pending) {
+    const prev = pickPrevCounts(logs, today)
+    const dl = (now, before) => before == null ? '' : now === before ? ' (=)' : ` (${now > before ? '▲' : '▼'}${Math.abs(now - before)})`
+    out.push('', `🗂 ใบจองค้างตอนนี้ ${sb.summary.pending} ใบ${prev ? dl(sb.summary.pending, prev.counts.pending) + ` เทียบ${prev.weekAgo ? 'สัปดาห์ก่อน' : 'วันก่อน'}` : ''}`)
+    out.push('    ' + sb.groups.filter(g => g.count).map(g => `${g.icon} ${g.label.split(' ')[0]} ${g.count}${prev ? dl(g.count, prev.counts[g.key]) : ''}`).join(' · '))
+  }
+  const fc = deliveryForecast({ bookings: live, today })
+  if (fc.open && fc.daysLeft > 1) out.push(`🔮 คาดส่งมอบเดือนนี้ ≈ ${fc.expected} คัน (แย่สุด ${fc.worst} · ดีสุด ${fc.best}) · ส่งแล้ว ${fc.delivered}`)
+  return out
 }
 
 function fmtBaht(n) { return `${Math.round(n || 0).toLocaleString('en-US')} บาท` }
