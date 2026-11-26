@@ -32,6 +32,9 @@ const CSS = `
   .dfp-tabs button { flex-shrink:0; border-radius:999px; }
   .dfp-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border-subtle); border-radius:var(--radius-md); margin-bottom:8px; cursor:pointer; background:var(--surface); transition:border-color .15s, transform .15s; }
   .dfp-row:hover { border-color:var(--primary); transform:translateY(-1px); }
+  .dfp-boost { margin-top:6px; }
+  .dfp-whatif { font-size:0.76rem; line-height:1.55; padding:8px 10px; border-radius:var(--radius-md); margin-bottom:10px; background:var(--surface-2); color:var(--text-2); }
+  .dfp-whatif.on { background:color-mix(in srgb, var(--primary) 12%, transparent); border:1px solid color-mix(in srgb, var(--primary) 40%, transparent); color:var(--text); }
   .dfp-pct { flex-shrink:0; width:52px; height:52px; border-radius:50%; display:grid; place-items:center; font-weight:800; font-size:0.86rem; font-variant-numeric:tabular-nums;
     background:conic-gradient(var(--c) calc(var(--p) * 1%), var(--surface-2) 0); position:relative; }
   .dfp-pct::before { content:''; position:absolute; inset:5px; border-radius:50%; background:var(--surface); }
@@ -69,6 +72,14 @@ export default async function DeliveryForecastPage(container) {
   let tab = 'all'
   // (v1.0.1390) กรองรายชื่อตามเซลส์ + บอกขั้นต่อไปของแต่ละใบ (ใช้ bookingNext เดียวกับหน้าใบจอง)
   let seller = ''
+  // (v1.0.1410) 🧪 ลองเร่ง: แตะ ⚡ ที่ใบจอง = สมมติว่าใบนั้นส่งทันแน่ (โอกาส 100%) แล้วดูยอดคาดสิ้นเดือน/เป้าเปลี่ยนเป็นเท่าไหร่ (ไม่บันทึกอะไร)
+  const boosted = new Set()
+  function whatIfHtml() {
+    if (!boosted.size) return `<div class="dfp-whatif muted">🧪 แตะ <b>⚡ ถ้าเร่งได้?</b> ที่ใบจอง เพื่อลองดูว่าถ้าปิดใบนั้นได้ทันเดือนนี้ ยอดสิ้นเดือนจะเป็นเท่าไหร่</div>`
+    const gain = fc.items.filter(i => boosted.has(i.id)).reduce((s, i) => s + (1 - i.p), 0)
+    const exp = fc.expectedRaw + gain, r = Math.round(exp)
+    return `<div class="dfp-whatif on">🧪 ถ้าปิดได้ครบ <b>${boosted.size}</b> ใบที่เลือก → คาดสิ้นเดือน ≈ <b>${r} คัน</b> <span style="opacity:.8">(+${gain.toFixed(1)} จาก ${fc.expected})</span>${fc.target ? ` · <b style="color:var(--${r >= fc.target ? 'success' : 'warning'})">${Math.round(exp / fc.target * 100)}% ของเป้า ${fc.target}</b>${r >= fc.target ? ' 🎉' : ` · ยังขาด ≈ ${Math.max(0, fc.target - r)} คัน`}` : ''} <button type="button" class="btn btn-xs btn-ghost" data-boost-clear>ล้าง</button></div>`
+  }
   const byId = new Map(bookings.map(b => [b.id, b]))
   const sellers = [...new Set(fc.items.filter(i => i.tier !== 'unlikely').map(i => i.sales))].sort((a, b) => a.localeCompare(b, 'th'))
 
@@ -85,6 +96,7 @@ export default async function DeliveryForecastPage(container) {
         <div class="dfp-meta">${escHtml(i.status)} · ${escHtml(i.sales)}${i.deliveryDate ? ` · นัด ${formatDate(i.deliveryDate)}` : ''}${i.price ? ` · ${formatCurrency(i.price)}` : ''}</div>
         ${i.risk ? `<div class="dfp-risk">⚠️ ${escHtml(i.risk)}</div>` : i.why.length ? `<div class="dfp-why">${escHtml(i.why.join(' · '))}</div>` : ''}
         ${(n => n ? `<div class="dfp-next ${n.tone}">🧭 ${escHtml(n.text)}</div>` : '')(bookingNextStep(byId.get(i.id), today))}
+        ${i.p < 0.95 ? `<button type="button" class="btn btn-xs ${boosted.has(i.id) ? 'btn-success' : 'btn-ghost'} dfp-boost" data-boost="${escHtml(i.id)}" aria-pressed="${boosted.has(i.id)}">${boosted.has(i.id) ? '⚡ เร่งได้ ✓' : '⚡ ถ้าเร่งได้?'}</button>` : ''}
       </div>
     </div>`
   }
@@ -190,6 +202,7 @@ export default async function DeliveryForecastPage(container) {
         <div class="dfp-h">📋 ใบจองที่จะส่งมอบได้เดือนนี้ <span style="font-size:0.7rem;color:var(--text-muted);font-weight:400">กดเพื่อเปิดใบจอง</span></div>
         <div class="dfp-tabs" style="overflow-x:auto">${tabs.map(([k, l]) => `<button type="button" class="btn btn-xs ${tab === k ? 'btn-primary' : 'btn-secondary'}" data-tab="${k}">${l}</button>`).join('')}</div>
         ${sellers.length > 1 ? `<div style="margin-bottom:10px"><select id="dfp-seller" class="form-select" style="max-width:220px;width:100%" aria-label="กรองตามเซลส์"><option value="">👥 ทุกเซลส์</option>${sellers.map(s => `<option value="${escHtml(s)}"${s === seller ? ' selected' : ''}>${escHtml(s)}</option>`).join('')}</select></div>` : ''}
+        <div id="dfp-whatif">${whatIfHtml()}</div>
         <div id="dfp-list">${listHtml()}</div>
       </div>
 
@@ -222,6 +235,13 @@ export default async function DeliveryForecastPage(container) {
     }
     if (e.target.closest('.dfc-tile') && e.target.closest('.dfc-tile').textContent.includes('เสี่ยงหลุด')) {
       tab = 'risk'; render(); container.querySelector('#dfp-list-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return
+    }
+    const bo = e.target.closest('[data-boost]'), bc = e.target.closest('[data-boost-clear]')
+    if (bo || bc) {
+      if (bc) boosted.clear(); else if (boosted.has(bo.dataset.boost)) boosted.delete(bo.dataset.boost); else boosted.add(bo.dataset.boost)
+      const w = container.querySelector('#dfp-whatif'); if (w) w.innerHTML = whatIfHtml()
+      const l = container.querySelector('#dfp-list'); if (l) l.innerHTML = listHtml()
+      return
     }
     const op = e.target.closest('[data-open]')
     if (op?.dataset.open) { navigate('/crm/bookings?id=' + encodeURIComponent(op.dataset.open)); return }
