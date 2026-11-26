@@ -330,6 +330,8 @@ export default async function BookingsPage(container) {
 
   let bookings = []
   let statusFilter = ''
+  let chanceMap = new Map()
+  let chanceOnly = false // (v1.0.1405) ชิป "🔮 ลุ้นเดือนนี้" = ใบที่โอกาสส่งมอบเดือนนี้ 15–74% (เร่งแล้วเปลี่ยนยอดเดือนนี้ได้) เรียงโอกาสมาก→น้อย
   let actionOnly = false // ชิป "🧭 ต้องจัดการ" = เฉพาะใบจองที่ขั้นต่อไปเป็นเรื่องเร่ง (เลยกำหนด/ค้างนาน/ขาดข้อมูล)
   let brandFilter = ''
   let sellerFilter = ''
@@ -453,6 +455,7 @@ export default async function BookingsPage(container) {
     if (brandFilter && detectBrand(b.brand, b.model) !== brandFilter) return false
     if (!ignoreStatus && statusFilter && b.status !== statusFilter) return false
     if (!ignoreStatus && actionOnly && !needsAction(b)) return false
+    if (!ignoreStatus && chanceOnly && !isSwing(b)) return false
     if (noIncomeOnly && !needsIncome(b)) return false
     if (noLineOnly && !needsLineLink(b)) return false
     if (search) {
@@ -468,8 +471,11 @@ export default async function BookingsPage(container) {
     return true
   }
   function getFiltered() {
-    return bookings.filter(b => matchesFilters(b)).sort((a, b) => (b.bookingDate || '').localeCompare(a.bookingDate || ''))
+    const rows = bookings.filter(b => matchesFilters(b)).sort((a, b) => (b.bookingDate || '').localeCompare(a.bookingDate || ''))
+    return chanceOnly ? rows.sort((a, b) => (chanceMap.get(b.id)?.p || 0) - (chanceMap.get(a.id)?.p || 0)) : rows
   }
+  function isSwing(b) { const c = chanceMap.get(b.id); return !!c && c.p >= 0.15 && c.p < 0.75 }
+  function refreshChance() { try { chanceMap = new Map(deliveryForecast({ bookings, today: todayBangkok() }).items.map(i => [i.id, i])) } catch { chanceMap = new Map() } }
   function needsAction(b) { const n = bookingNextStep(b, todayBangkok()); return !!n && n.tone !== 'info' }
   function getStatusCounts() {
     const counts = {}
@@ -516,6 +522,7 @@ export default async function BookingsPage(container) {
   function render() {
     // (v1.0.964) กำลังแก้ช่องในตารางแบบ Sheet อยู่ → วาดหน้าใหม่หลังแก้เสร็จ (ไม่ให้ช่องที่พิมพ์หายกลางคำ)
     if (deferWhileEditing(render)) return
+    refreshChance()
     const filtered = getFiltered()
     const statusCounts = getStatusCounts()
     const statusTotal = Object.values(statusCounts).reduce((s, n) => s + n, 0)
@@ -525,6 +532,7 @@ export default async function BookingsPage(container) {
     // (v1.0.1007) ตัวเลขสรุป/การ์ดยี่ห้อนับจากใบจองที่ผู้ใช้เห็นจริง (เดิมนับทั้งโชว์รูม เซลส์เห็น "แสดง 0 / 28" กับมูลค่า 8 ล้านที่ตัวเองไม่มีสักใบ)
     const visible = ownScopeActive ? bookings.filter(b => scopeIncludesRecord(visScope, b.salesName, b)) : bookings
     const actionCount = bookings.filter(b => matchesFilters(b, { ignoreStatus: true }) && needsAction(b)).length
+    const swingCount = bookings.filter(b => matchesFilters(b, { ignoreStatus: true }) && isSwing(b)).length
     const activeAll = visible.filter(b => ACTIVE_PIPELINE.includes(b.status))
     const pipelineVal = activeAll.reduce((s, b) => s + (b.price || 0), 0)
     // เดิม new Date().toISOString().slice(0,7) คืนเดือนตาม UTC เสมอ — แก้ให้ยึดเดือนไทยจริงจาก todayBangkok()
@@ -543,9 +551,10 @@ export default async function BookingsPage(container) {
     const stChips = `<div class="chip-scroll" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;align-items:center;overflow-x:auto">
       <span style="font-size:0.68rem;font-weight:600;color:var(--text-muted);white-space:nowrap;margin-right:2px">📊 สถานะ:</span>
       ${actionCount || actionOnly ? `<span class="bk-action-chip" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:99px;cursor:pointer;font-size:0.68rem;font-weight:${actionOnly ? 700 : 600};border:1.5px solid var(--warning);background:${actionOnly ? 'color-mix(in srgb, var(--warning) 18%, transparent)' : 'transparent'};color:var(--warning);white-space:nowrap" title="ใบจองที่เลยกำหนด/ค้างนาน/ขาดข้อมูล ตามคำแนะนำ 🧭 ขั้นต่อไป">🧭 ต้องจัดการ<span style="opacity:.8">(${actionCount})</span>${actionOnly ? '<span style="opacity:.55">×</span>' : ''}</span>` : ''}
+      ${swingCount || chanceOnly ? `<span class="bk-chance-chip" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:99px;cursor:pointer;font-size:0.68rem;font-weight:${chanceOnly ? 700 : 600};border:1.5px solid var(--info);background:${chanceOnly ? 'color-mix(in srgb, var(--info) 18%, transparent)' : 'transparent'};color:var(--info);white-space:nowrap" title="ใบจองที่โอกาสส่งมอบเดือนนี้ 15–74% — เร่งแล้วเพิ่มยอดเดือนนี้ได้ เรียงจากโอกาสมากไปน้อย">🔮 ลุ้นเดือนนี้<span style="opacity:.8">(${swingCount})</span>${chanceOnly ? '<span style="opacity:.55">×</span>' : ''}</span>` : ''}
       ${statusActs.map(s => {
         const isAll = s === 'ทั้งหมด'
-        const isActive = isAll ? (statusFilter === '' && !actionOnly) : statusFilter === s
+        const isActive = isAll ? (statusFilter === '' && !actionOnly && !chanceOnly) : statusFilter === s
         const c = isAll ? 'var(--primary)' : (STATUS_COLORS[s] || '#6b7280')
         const cnt = isAll ? statusTotal : (statusCounts[s] || 0)
         return `<span class="bk-status-chip" data-s="${escHtml(isAll ? '' : s)}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:99px;cursor:pointer;font-size:0.68rem;font-weight:${isActive ? 700 : 500};border:1.5px solid ${isActive ? c : c + '55'};background:${isActive ? c + '18' : 'transparent'};color:${isActive ? c : 'var(--text-2)'};white-space:nowrap">
@@ -673,8 +682,9 @@ export default async function BookingsPage(container) {
     document.getElementById('bk-export').addEventListener('click', () => viewMode === 'sheet' ? exportSheet(filtered) : exportRows(filtered, 'bookings'))
     document.getElementById('bk-bulk-export')?.addEventListener('click', () => exportRows(bookings.filter(b => selectedIds.has(b.id)), 'bookings-selected'))
     document.getElementById('bk-bulk-clear')?.addEventListener('click', () => { selectedIds.clear(); render() })
-    container.querySelectorAll('.bk-status-chip').forEach(chip => chip.addEventListener('click', () => { statusFilter = chip.dataset.s; actionOnly = false; render() }))
-    container.querySelector('.bk-action-chip')?.addEventListener('click', () => { actionOnly = !actionOnly; statusFilter = ''; render() })
+    container.querySelectorAll('.bk-status-chip').forEach(chip => chip.addEventListener('click', () => { statusFilter = chip.dataset.s; actionOnly = false; chanceOnly = false; render() }))
+    container.querySelector('.bk-action-chip')?.addEventListener('click', () => { actionOnly = !actionOnly; chanceOnly = false; statusFilter = ''; render() })
+    container.querySelector('.bk-chance-chip')?.addEventListener('click', () => { chanceOnly = !chanceOnly; actionOnly = false; statusFilter = ''; render() })
     document.getElementById('bk-noincome-chip')?.addEventListener('click', () => { noIncomeOnly = !noIncomeOnly; render() })
     document.getElementById('bk-noline-chip')?.addEventListener('click', () => { noLineOnly = !noLineOnly; render() })
     document.getElementById('bk-noline-sms')?.addEventListener('click', async () => {
@@ -727,7 +737,7 @@ export default async function BookingsPage(container) {
     if (!filtered.length) { wrap.innerHTML = '<div class="empty-state" style="padding:48px"><div class="empty-icon">📋</div><div class="empty-title">ไม่มีรายการจอง</div><div class="empty-desc">กด "➕ จองใหม่" เพื่อเพิ่มรายการใหม่</div></div>'; return }
     const allSelected = filtered.length > 0 && filtered.every(b => selectedIds.has(b.id))
     // (v1.0.1404) 🔮 โอกาสส่งมอบเดือนนี้ของแต่ละใบที่ยังค้าง — คิดครั้งเดียวต่อการวาด (สูตรเดียวกับหน้าคาดการณ์ส่งมอบ ไม่รวมข้อมูลรถ)
-    try { chanceMap = new Map(deliveryForecast({ bookings, today: todayBangkok() }).items.map(i => [i.id, i])) } catch { chanceMap = new Map() }
+    if (!chanceMap.size) refreshChance()
     wrap.innerHTML = `<div class="bk-cards">${filtered.map(b => cardRow(b)).join('')}</div>
     <div class="card bk-table-card" style="padding:0;overflow:hidden">
       <div class="table-wrap"><table class="bk-table">
@@ -782,7 +792,6 @@ export default async function BookingsPage(container) {
 
   // มือถือ: ตารางกว้าง 14 คอลัมน์ต้องเลื่อนข้างจนไม่เห็นชื่อลูกค้า → แสดงเป็นการ์ดแทน (ใช้ class เดียวกับตาราง
   // .bk-row/.bk-status-cell/.income-bk จึงได้ปุ่มกดเหมือนกันทุกอย่าง — แตะการ์ดเปิดรายละเอียด แตะสถานะเพื่อเปลี่ยน)
-  let chanceMap = new Map()
   function chanceChip(b) {
     const c = chanceMap.get(b.id); if (!c) return ''
     const t = TIER_META[c.tier] || TIER_META.maybe
