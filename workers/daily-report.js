@@ -721,6 +721,20 @@ async function handleLineWebhook(request, env, cors) {
           reply = clipLine(deliveryWeekAnswer(rows, todayBangkok(), { mine }))
         } catch { reply = '⚠️ ดึงนัดส่งมอบไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'dlvfc') {
+      // (v1.0.1385) คาดการณ์ส่งมอบเดือนนี้ — เซลส์เห็นของตัวเอง / เจ้าของเห็นทั้งร้าน · คนอื่นพิมพ์ = ข้อความปกติ
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      const isOwner = !!owner && owner === userId
+      if (me?.name || isOwner) {
+        try {
+          const [rows, targets] = await Promise.all([
+            runQuery(env, accessToken, 'bookings', null, null, 5000, DLVFC_BOOKING_FIELDS),
+            isOwner ? runQuery(env, accessToken, 'team_targets', null, null, 500).catch(() => []) : Promise.resolve([]),
+          ])
+          reply = clipLine(deliveryForecastLineAnswer(rows, todayBangkok(), { seller: isOwner ? '' : me.name, teamTargets: targets }))
+        } catch { reply = '⚠️ ดึงข้อมูลคาดการณ์ส่งมอบไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'stock') {
       // (v1.0.1312) รถในสต็อก — ทีมงานที่ลงทะเบียน/เจ้าของเท่านั้น (ลูกค้าพิมพ์ = ข้อความปกติ) · ไม่มีราคา/ต้นทุนในคำตอบ
       const me = await readSalesTarget(env, accessToken, userId)
@@ -820,6 +834,8 @@ export function parseLineCommand(text) {
   if (/^(?:ไฟแนนซ์|รอไฟแนนซ์|ไฟแนนท์|finance)$/i.test(t.replace(/\s+/g, ''))) return { type: 'finwait' }
   // (v1.0.1302) นัดส่งมอบ 7 วันข้างหน้า + ที่เลยวันนัดแล้วยังไม่ส่ง
   if (/^(?:ส่งมอบ|นัดส่งมอบ|deliver(?:y|ies)?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'deliveries' }
+  // (v1.0.1385) คาดการณ์ส่งมอบเดือนนี้: "คาดการณ์ส่งมอบ" / "ส่งทันไหม" / "ทันเป้าไหม" / "เดือนนี้ได้กี่คัน"
+  if (/^(?:คาดการณ์ส่งมอบ|พยากรณ์ส่งมอบ|คาดส่งมอบ|ส่งทัน(?:ไหม|มั้ย)?|ทันเป้า(?:ไหม|มั้ย)?|เดือนนี้(?:จะ)?(?:ส่งมอบ)?ได้กี่คัน|ยอดส่งมอบสิ้นเดือน)$/i.test(t.replace(/\s+/g, ''))) return { type: 'dlvfc' }
   // (v1.0.1312) รถในสต็อกแยกรุ่น/สี: "สต็อก" ทั้งหมด / "สต็อก S07" เฉพาะรุ่น
   const st = t.match(/^(?:สต็อก|สต๊อก|สต็อค|รถว่าง|รถพร้อมขาย|stock)(?:\s+(.+))?$/i)
   if (st) return { type: 'stock', q: (st[1] || '').trim().slice(0, 30) }
@@ -982,8 +998,33 @@ export function forecastReportLines(bookings, today, target = 0) {
   const out = [`  • 🔮 คาดว่าสิ้นเดือนส่งมอบได้ ≈ ${fc.expected} คัน (แย่สุด ${fc.worst} · ดีสุด ${fc.best})`]
   if (fc.target) out.push(`    = ${fc.targetPct}% ของเป้า ${fc.target} คัน${fc.expected >= fc.target ? ' 👍 น่าจะทันเป้า' : ' ⚠️ ต้องเร่ง'}`)
   if (fc.atRisk.length) out.push(`    ⚠️ ใบจองเสี่ยงหลุดเดือนนี้ ${fc.atRisk.length} ใบ (เลยวันนัด/นัดแล้วแต่ยังไม่พร้อม) ดูได้ที่หน้า คาดการณ์ส่งมอบ`)
+  out.push('    (พิมพ์ "คาดการณ์ส่งมอบ" ใน LINE นี้ ดูแยกรายเซลส์)')
   return out
 }
+
+export const DLVFC_BOOKING_FIELDS = ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'custName', 'brand', 'model', 'salesName', 'price', 'deleted']
+// คำตอบ LINE "คาดการณ์ส่งมอบ": seller ว่าง = ทั้งร้าน (มีเป้าทีม) · มี seller = เฉพาะใบของคนนั้น + ใบที่ควรเร่ง (ชื่อลูกค้า ส่งให้เซลส์เจ้าของเท่านั้น)
+export function deliveryForecastLineAnswer(rows, today, { seller = '', teamTargets = [] } = {}) {
+  const ym = today.slice(0, 7)
+  const mine = seller ? rows.filter(b => b && normSalesName(b.salesName) === normSalesName(seller)) : rows
+  const tgt = seller ? 0 : (teamTargets || []).filter(t => t && !t.deleted && t.period === ym && t.metric === 'units').reduce((s, t) => s + (Number(t.target) || 0), 0)
+  const fc = deliveryForecast({ bookings: mine, today, target: tgt || null, fmt: formatShortThai })
+  const lines = [`🚚 คาดการณ์ส่งมอบเดือนนี้${seller ? ` · ${seller}` : ''}`,
+    `✅ ส่งมอบแล้ว ${fc.delivered} คัน · เหลือ ${fc.daysLeft} วัน`]
+  if (fc.open && fc.daysLeft > 0) lines.push(`🔮 คาดว่าได้ ≈ ${fc.expected} คัน (แย่สุด ${fc.worst} · ดีสุด ${fc.best})`)
+  else lines.push('ไม่มีใบจองค้างที่จะส่งได้เพิ่มเดือนนี้')
+  if (fc.target) lines.push(`🎯 เป้า ${fc.target} คัน → คาด ${fc.targetPct}%${fc.expected < fc.target && fc.needPerDay != null ? ` · ต้องส่งวันละ ${fc.needPerDay.toFixed(1)} คัน` : ' 👍'}`)
+  if (seller) {
+    const push = fc.items.filter(i => i.tier !== 'unlikely').slice(0, 5)
+    if (push.length) lines.push('', '👉 ใบที่ลุ้นได้เดือนนี้:', ...push.map(i => `• ${i.name} (${i.car}) ${i.status} ${Math.round(i.p * 100)}%${i.risk ? ' ⚠️ ' + i.risk : ''}`))
+  } else {
+    if (fc.atRisk.length) lines.push(`⚠️ เสี่ยงหลุดเดือนนี้ ${fc.atRisk.length} ใบ`)
+    const by = fc.bySales.filter(r => r.expected > 0).slice(0, 6).map(r => `• ${r.key}: ส่งแล้ว ${r.delivered} · คาด ≈ ${Math.round(r.expected)}`)
+    if (by.length) lines.push('', '👤 แยกเซลส์:', ...by)
+  }
+  return lines.join('\n')
+}
+const formatShortThai = d => { const [y, m, dd] = String(d || '').slice(0, 10).split('-'); return dd ? `${dd}/${m}/${Number(y) + 543}` : '' }
 
 export function buildReport(data, { today, time, defaultTarget = 0 }) {
   const thisMonth = today.slice(0, 7)
