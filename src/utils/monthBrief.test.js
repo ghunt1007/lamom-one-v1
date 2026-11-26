@@ -106,3 +106,13 @@ describe('findSeller (v1.0.1088)', () => {
     expect(findSeller('ยอดเดือนนี้เป็นไง', N)).toBe('')
   })
 })
+
+describe('monthBriefText pace (v1.0.1403)', () => {
+  it('มีประวัติพอ → บรรทัดคาดจองสิ้นเดือน', async () => {
+    const { monthStats, monthBriefText } = await import('./monthBrief.js')
+    const mk = (ym, days) => days.map((d, i) => ({ id: ym + i, bookingDate: `${ym}-${String(d).padStart(2, '0')}`, status: 'รอรถ' }))
+    const B = [...['2026-08', '2026-09', '2026-10'].flatMap(ym => mk(ym, [3, 8, 22, 24, 25, 26, 27, 28, 29, 30])), ...mk('2026-11', [2, 9])]
+    const t = monthBriefText(monthStats({ bookings: B, today: '2026-11-10' }))
+    expect(t).toContain('🔮 คาดจองสิ้นเดือน ≈ 10 ใบ')
+  })
+})
