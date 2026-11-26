@@ -6,6 +6,7 @@ import { bangkokDate, STALE_LEAD_DAYS } from './myDay.js'
 import { classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
 import { stockAgeDays } from './stockAge.js'
 import { deliveryForecast } from './deliveryForecast.js'
+import { bookingPace, paceNote } from './bookingPace.js'
 
 import { CANCELLED_STATUSES as CANCELLED, cancelledMonth, deliveredMonth } from './bookingStatus.js'
 const SOURCE_TH = { facebook: 'Facebook', line: 'LINE', tiktok: 'TikTok', 'walk-in': 'Walk-in', referral: 'แนะนำ', google: 'Google', website: 'เว็บไซต์', phone: 'โทรเข้า', event: 'บูธ/อีเวนต์', other: 'อื่นๆ' }
@@ -93,7 +94,11 @@ export function businessFacts({ customers = [], bookings = [] }, today) {
   const dayN = +today.slice(8, 10), dim = new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 0)).getUTCDate()
   const nowB = booked(ym).length, p3 = [pm, prevMonth(pm), prevMonth(prevMonth(pm))]
   const avg3 = p3.reduce((a, m) => a + booked(m).length, 0) / 3, goal = Math.max(1, Math.ceil(avg3 * 1.1))
-  const paceLine = `ผ่านไป ${dayN}/${dim} วัน จองแล้ว ${nowB} ใบ → ถ้ารักษาจังหวะนี้ สิ้นเดือนน่าจะได้ราว ${Math.round(nowB / dayN * dim)} ใบ`
+  // (v1.0.1400) คาดจากรูปแบบการจองของ 6 เดือนก่อน (บางร้านจองหนักปลายเดือน) — ประวัติไม่พอใช้เส้นตรง
+  const pace = bookingPace(bk.filter(b => !CANCELLED.includes(b.status)).map(b => String(b.bookingDate || bangkokDate(b.createdAt)).slice(0, 10)), today)
+  const hist = pace?.method === 'history'
+  const paceLine = `ผ่านไป ${dayN}/${dim} วัน จองแล้ว ${nowB} ใบ → ${hist ? '' : 'ถ้ารักษาจังหวะนี้ '}สิ้นเดือนน่าจะได้ราว ${hist ? Math.max(nowB, pace.expected) : Math.round(nowB / dayN * dim)} ใบ`
+    + (hist && pace.high > pace.low ? ` (ช่วง ${Math.max(nowB, pace.low)}–${Math.max(nowB, pace.high)})` : '') + (hist ? ` · ${paceNote(pace)}` : '')
     + (avg3 > 0 ? ` · เป้าแนะนำ ${goal} ใบ (เฉลี่ย 3 เดือนก่อน ${avg3.toFixed(1)} +10%) ${nowB >= goal ? 'ถึงเป้าแล้ว' : `ขาดอีก ${goal - nowB} ใบ`}` : '')
   // Lead/Prospect ที่ไม่ได้ติดต่อ 3 วันขึ้นไป แยกตามเซลส์ (นับอย่างเดียว ไม่มีชื่อลูกค้า) — ให้ตอบ "ใครปล่อยลูกค้าค้าง ควรตามใครก่อน"
   const quiet = {}
