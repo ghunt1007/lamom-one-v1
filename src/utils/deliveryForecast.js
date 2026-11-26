@@ -80,9 +80,19 @@ export function timingChance(durations = [], age, left) {
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
 
 // โอกาสของใบจองหนึ่งใบ + เหตุผลภาษาไทยสั้นๆ (แสดงให้ทีมเห็นว่าทำไม)
-export function bookingChance(b, { today, hist, eta, useSupply = false, fmt = dmyPlain } = {}) {
-  const { end, daysLeft } = monthBounds(today)
-  const rule = STAGE_RULES[b.status] || OTHER_RULE
+// horizon = 2 → โอกาสส่งมอบภายในสิ้น "เดือนหน้า" (ใช้คาดการณ์เดือนหน้า) — ค่าตามขั้นงานขยายเป็น 2 ช่วงเดือน
+export function bookingChance(b, { today, hist, eta, useSupply = false, fmt = dmyPlain, horizon = 1 } = {}) {
+  const mb = monthBounds(today)
+  let end = mb.end, daysLeft = mb.daysLeft
+  let rule = STAGE_RULES[b.status] || OTHER_RULE
+  if (horizon === 2) {
+    const [y, m] = mb.ym.split('-').map(Number)
+    const nd = new Date(Date.UTC(y, m + 1, 0))
+    end = nd.toISOString().slice(0, 10)
+    daysLeft = mb.daysLeft + nd.getUTCDate()
+    const two = v => 1 - (1 - v) ** 2
+    rule = { ...rule, base: two(rule.base), cap: Math.min(0.97, two(rule.cap)) }
+  }
   const why = []
   const t = ms(today)
   const bd = ms(b.bookingDate)
@@ -90,12 +100,12 @@ export function bookingChance(b, { today, hist, eta, useSupply = false, fmt = dm
   let p = rule.base
   const tc = age != null ? timingChance(hist?.durations, age, daysLeft) : null
   if (tc != null) { p = (rule.base + tc) / 2; why.push(`ประวัติร้าน: ใบที่จองมา ${age} วัน ตัดตัวเลขในอีก ${daysLeft} วัน ${Math.round(tc * 100)}%`) }
-  let risk = ''
+  let risk = '', later = false
   const dd = ymd(b.deliveryDate)
   if (dd) {
     if (dd < ymd(today)) { p *= 0.8; risk = `เลยวันนัดส่งมอบ ${fmt(dd)}`; why.push('เลยวันนัดส่งมอบแล้ว') }
     else if (dd <= end) { p = Math.max(p, rule.group === 'car' || rule.group === 'release' ? 0.85 : 0.5); why.push(`นัดส่งมอบ ${fmt(dd)}`) }
-    else { p = Math.min(p, 0.12); why.push(`นัดส่งมอบเดือนหน้า (${fmt(dd)})`) }
+    else { p = Math.min(p, 0.12); later = true; why.push(`นัดส่งมอบ${horizon === 2 ? 'หลังเดือนหน้า' : 'เดือนหน้า'} (${fmt(dd)})`) }
   }
   if (useSupply && eta && (rule.group === 'wait' || rule.group === 'finance')) {
     if (eta.kind === 'ready') { p = Math.max(p, rule.group === 'wait' ? 0.55 : p); why.push('มีรถว่างในสต็อกแล้ว') }
@@ -105,7 +115,9 @@ export function bookingChance(b, { today, hist, eta, useSupply = false, fmt = dm
   const cr = hist?.cancelRate
   if (cr != null) p *= 1 - (rule.group === 'car' ? cr / 3 : rule.group === 'release' ? cr / 2 : cr)
   p = daysLeft <= 0 ? 0 : clamp(p, rule.floor, rule.cap)
-  if (!risk && dd && dd <= end && (rule.group === 'finance' || p < 0.5)) risk = 'นัดส่งเดือนนี้ แต่ขั้นงานยังไม่พร้อม'
+  // นัดส่งมอบหลังช่วงที่คาด → ไม่ให้ "พื้น" ของขั้นงานดันกลับขึ้นมา (เดิมรอส่งมอบที่นัดเดือนหน้าได้ 75%)
+  if (later) p = Math.min(p, 0.12)
+  if (!risk && dd && dd <= end && (rule.group === 'finance' || p < 0.5)) risk = horizon === 2 ? 'นัดส่งแล้ว แต่ขั้นงานยังไม่พร้อม' : 'นัดส่งเดือนนี้ แต่ขั้นงานยังไม่พร้อม'
   return { p, group: rule.group, why, risk, age }
 }
 
@@ -203,4 +215,31 @@ export function forecastAccuracy(logs = [], bookings = [], today) {
   })
   const errs = months.flatMap(m => m.snaps.map(s => s.errPct)).filter(v => v != null)
   return { current, months, mape: errs.length ? Math.round(errs.reduce((a, b) => a + b, 0) / errs.length) : null, since: clean.map(l => l.date).sort()[0] || '' }
+}
+
+// (v1.0.1388) คาดการณ์เดือนหน้า จากใบจองที่มีอยู่ตอนนี้ (ยังไม่รวมใบจองใหม่ที่จะเข้ามา)
+// โอกาสส่งเดือนหน้า = โอกาสส่งภายในสิ้นเดือนหน้า − โอกาสส่งภายในเดือนนี้
+export function nextMonthOutlook({ bookings = [], vehicles = [], orders = [], etaMap = null, today, fmt = dmyPlain } = {}) {
+  const { ym } = monthBounds(today)
+  const [y, m] = ym.split('-').map(Number)
+  const nym = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, '0')}`
+  const live = bookings.filter(b => b && !b.deleted)
+  const hist = shopHistory(live, today)
+  const useSupply = !!etaMap && (vehicles.some(v => v && !v.deleted) || orders.some(o => o && !o.deleted))
+  const items = live.filter(isOpenBooking).map(b => {
+    const eta = etaMap?.get?.(b.id)
+    const p1 = bookingChance(b, { today, hist, eta, useSupply, fmt }).p
+    const c2 = bookingChance(b, { today, hist, eta, useSupply, fmt, horizon: 2 })
+    return { id: b.id || '', name: String(b.custName || '').trim() || '—', car: carOf(b) || String(b.model || '').trim() || 'ไม่ระบุรุ่น', sales: String(b.salesName || '').trim() || 'ไม่ระบุ', status: b.status || '', p: Math.max(0, c2.p - p1), why: c2.why }
+  }).filter(i => i.p > 0.005).sort((a, b) => b.p - a.p)
+  const sum = items.reduce((s, i) => s + i.p, 0)
+  const sd = Math.sqrt(items.reduce((s, i) => s + i.p * (1 - i.p), 0))
+  const byCar = new Map()
+  items.forEach(i => byCar.set(i.car, (byCar.get(i.car) || 0) + i.p))
+  return {
+    ym: nym, expected: Math.round(sum), expectedRaw: sum,
+    worst: Math.max(0, Math.floor(sum - 1.28 * sd)), best: Math.min(items.length, Math.ceil(sum + 1.28 * sd)),
+    count: items.length, items,
+    byCar: [...byCar.entries()].map(([key, v]) => ({ key, expected: Math.round(v * 10) / 10 })).sort((a, b) => b.expected - a.expected),
+  }
 }

@@ -4,7 +4,7 @@ import { companyScopeFilters } from '../core/companyScope.js'
 import { loadSalesBudget } from './salesBudget.js'
 import { todayBangkok } from './format.js'
 import { etaForBookings } from './orderNeeds.js'
-import { deliveryForecast, pickDeliveryTarget } from './deliveryForecast.js'
+import { deliveryForecast, pickDeliveryTarget, nextMonthOutlook } from './deliveryForecast.js'
 
 const alive = rows => (rows || []).filter(r => r && !r.deleted)
 
@@ -31,5 +31,7 @@ export async function loadDeliveryForecast({ today = todayBangkok(), fmt } = {})
     listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => []),
     loadDeliveryExtras({ today }),
   ])
-  return { ...extras, bookings: alive(bookings), fc: computeDeliveryForecast({ bookings, ...extras, today, fmt }) }
+  const live = alive(bookings)
+  const etaMap = (extras.vehicles.length || extras.orders.length) ? etaForBookings({ bookings: live, vehicles: extras.vehicles, orders: extras.orders, today }) : null
+  return { ...extras, bookings: live, fc: computeDeliveryForecast({ bookings, ...extras, today, fmt }), next: nextMonthOutlook({ bookings: live, vehicles: extras.vehicles, orders: extras.orders, etaMap, today, fmt }) }
 }
