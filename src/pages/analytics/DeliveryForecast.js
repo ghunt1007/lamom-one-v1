@@ -5,7 +5,7 @@ import { showToast } from '../../core/store.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { escHtml } from '../../utils/escape.js'
 import { loadDeliveryForecast } from '../../utils/deliveryForecastData.js'
-import { deliveryForecastText, forecastAccuracy } from '../../utils/deliveryForecast.js'
+import { deliveryForecastText, forecastAccuracy, targetPath } from '../../utils/deliveryForecast.js'
 import { listDocs } from '../../core/db.js'
 import { DFC_CSS, heroHtml, cumulativeSvg, splitBars, TIER_META, ymThai } from '../../utils/deliveryForecastView.js'
 import { monthStats, shiftYm } from '../../utils/dashStats.js'
@@ -90,9 +90,23 @@ export default async function DeliveryForecastPage(container) {
 
   function listHtml() {
     const rows = (tab === 'risk' ? fc.atRisk : tab === 'all' ? fc.items.filter(i => i.tier !== 'unlikely') : fc.items.filter(i => i.tier === tab)).filter(i => !seller || i.sales === seller)
-    const sum = seller ? (r => `<div style="font-size:0.74rem;color:var(--text-2);margin-bottom:8px">👤 ${escHtml(seller)}: ส่งแล้ว ${r?.delivered || 0} · คาดเพิ่ม ≈ ${Math.round((r?.expected || 0) * 10) / 10} คัน จาก ${rows.length} ใบในรายการนี้</div>`)(fc.bySales.find(r => r.key === seller)) : ''
+    const sum = seller ? (r => `<div style="font-size:0.74rem;color:var(--text-2);margin-bottom:8px">👤 ${escHtml(seller)}: ส่งแล้ว ${r?.delivered || 0} · คาดรวมสิ้นเดือน ≈ ${Math.round((r?.expected || 0) * 10) / 10} คัน · ${rows.length} ใบในรายการนี้</div>`)(fc.bySales.find(r => r.key === seller)) : ''
     if (!rows.length) return sum + `<div style="text-align:center;padding:18px;color:var(--text-muted);font-size:0.8rem">${tab === 'risk' ? '✅ ไม่มีใบจองที่เสี่ยงหลุดเดือนนี้' : 'ไม่มีรายการ'}</div>`
     return sum + rows.slice(0, 60).map(itemRow).join('') + (rows.length > 60 ? `<div style="text-align:center;font-size:0.72rem;color:var(--text-muted)">แสดง 60 จาก ${rows.length} ใบ</div>` : '')
+  }
+
+  // (v1.0.1392) 🎯 ทางไปถึงเป้า: ต้องส่งอีกกี่คัน ใบไหนใกล้ที่สุด ใบไหนต้องเร่ง
+  function pathHtml() {
+    const tp = targetPath(fc)
+    if (!tp || fc.daysLeft <= 0) return ''
+    const head = tp.short
+      ? `ใบจองที่ค้างมี ${fc.open} ใบ ยังขาดอีก ${tp.short} คันถึงจะพอเป้า — ต้องได้ใบจองใหม่ที่ส่งได้ทันเดือนนี้`
+      : `ต้องส่งให้ได้ทุกใบใน ${tp.need} ใบนี้${tp.push.length ? ` · <b style="color:var(--warning)">${tp.push.length} ใบโอกาสยังต่ำ ต้องเร่งก่อน</b>` : ' · ทุกใบโอกาสดี'}`
+    return `<div class="dfp-card" style="margin-bottom:16px">
+      <div class="dfp-h">🎯 ทางไปถึงเป้า ${fc.target} คัน <span class="badge badge-${tp.short ? 'danger' : fc.expectedRaw >= fc.target && !tp.push.length ? 'success' : 'warning'}">ต้องส่งอีก ${tp.need} คัน</span></div>
+      <div class="dfp-sub" style="font-size:0.74rem">${head}</div>
+      ${tp.picks.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px">${tp.picks.map(i => `<button type="button" class="btn btn-xs ${i.p < 0.4 ? 'btn-warning' : 'btn-secondary'}" data-open="${escHtml(i.id)}" style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${Math.round(i.p * 100)}% · ${escHtml(i.name)} · ${escHtml(i.car)}</button>`).join('')}</div>` : ''}
+    </div>`
   }
 
   // (v1.0.1386) ความแม่นยำ: ที่เคยคาดไว้ vs ยอดจริงตอนจบเดือน
@@ -131,6 +145,8 @@ export default async function DeliveryForecastPage(container) {
       </div>
 
       ${heroHtml(fc)}
+
+      ${pathHtml()}
 
       <div class="dfp-grid">
         <div class="dfp-card">
@@ -206,6 +222,8 @@ export default async function DeliveryForecastPage(container) {
     if (e.target.closest('.dfc-tile') && e.target.closest('.dfc-tile').textContent.includes('เสี่ยงหลุด')) {
       tab = 'risk'; render(); container.querySelector('#dfp-list-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return
     }
+    const op = e.target.closest('[data-open]')
+    if (op?.dataset.open) { navigate('/crm/bookings?id=' + encodeURIComponent(op.dataset.open)); return }
     const row = e.target.closest('.dfp-row')
     if (row?.dataset.id) { navigate('/crm/bookings?id=' + encodeURIComponent(row.dataset.id)); return }
     if (e.target.closest('#dfp-copy')) {

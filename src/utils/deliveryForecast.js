@@ -254,3 +254,18 @@ export function bookingOutlook(b, bookings = [], { today, eta = null, useSupply 
   const c2 = bookingChance(b, { today, hist, eta, useSupply, fmt, horizon: 2 })
   return { p: c1.p, tier: chanceTier(c1.p), pBy2: Math.max(c1.p, c2.p), why: c1.why, risk: c1.risk, age: c1.age }
 }
+
+// (v1.0.1392) "ทางไปถึงเป้า" — ต้องส่งอีกกี่คัน และใบไหนบ้างที่ใกล้ที่สุด (เรียงตามโอกาส)
+// ใบที่โอกาสต่ำในชุดนี้ = ใบที่ต้องเร่งเป็นพิเศษ · ไม่มีเป้า/ถึงเป้าแล้ว → null
+export function targetPath(fc) {
+  if (!fc || !fc.target || fc.delivered >= fc.target) return null
+  const need = fc.target - fc.delivered
+  const picks = (fc.items || []).slice(0, need)
+  const chance = picks.reduce((s, i) => s * i.p, 1) // ทุกใบในชุดต้องส่งได้ทั้งหมด (ประมาณ ถือว่าแยกกัน)
+  return {
+    need, picks, short: Math.max(0, need - (fc.items || []).length),
+    push: picks.filter(i => i.p < 0.4),
+    minP: picks.length ? picks[picks.length - 1].p : 0,
+    chance: picks.length >= need ? chance : 0,
+  }
+}
