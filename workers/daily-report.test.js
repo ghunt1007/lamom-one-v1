@@ -425,7 +425,8 @@ describe('round 3 — stuck bookings and lead sources', () => {
     ] }, { today: '2026-10-24' })
     expect(text).toContain('ใบจองค้างเกิน 14 วัน: 1 ใบ')
     expect(text).toContain('ค้างนาน · รอรถ · 53 วัน')
-    expect(text).not.toContain('ยังไม่นาน')
+    // (v1.0.1409) ส่วน "🔮 ลุ้นส่งทันเดือนนี้" ท้ายข้อความแสดงใบที่ยังค้างได้ — ตรวจเฉพาะส่วนใบจองค้าง
+    expect(text.split('🔮')[0]).not.toContain('ยังไม่นาน')
     expect(text).not.toContain('- ถอน')
   })
 
@@ -1764,5 +1765,18 @@ describe('month recap in 18:00 report (v1.0.1406)', () => {
     const hist = ['2026-08', '2026-09', '2026-10'].flatMap(ym => mk(ym, [3, 8, 22, 24, 25, 26, 27, 28, 29, 30]))
     const s = forecastSnapshot([...hist, ...mk('2026-11', [2, 9])], '2026-11-10')
     expect(s.bk_exp).toBe(10)
+  })
+})
+
+describe('swingMorningLines (v1.0.1409)', () => {
+  it('10 วันสุดท้าย: รายการใบลุ้น · ต้นเดือนไม่ขึ้น', async () => {
+    const { swingMorningLines } = await import('./daily-report.js')
+    const B = [
+      { id: 'a', bookingDate: '2026-11-01', status: 'ผ่านไฟแนนซ์รอเบิก', custName: 'สมหญิง ทดสอบ', model: 'S07', salesName: 'วิภา' },
+      { id: 'b', bookingDate: '2026-11-02', status: 'รอส่งมอบ', deliveryDate: '2026-11-28', custName: 'ก ข', model: 'L07', salesName: 'กมล' },
+    ]
+    const l = swingMorningLines(B, '2026-11-25').join('\n')
+    expect(swingMorningLines(B, '2026-11-05')).toEqual([])
+    if (l) { expect(l).toContain('ลุ้นส่งทันเดือนนี้'); expect(l).not.toContain('ทดสอบ') }
   })
 })

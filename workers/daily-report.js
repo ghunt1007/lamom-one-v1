@@ -1587,6 +1587,7 @@ export function buildMorningReminder(data, opts) {
   const pairs = readyPairLines(data)
   const noCar = noSupplyLines(data, today)
   const lateOrd = lateOrderLines(data, today)
+  const swing = swingMorningLines(data.bookings, today)
 
   const text = [
     '☀️ LAMOM ONE เตือนงานเช้านี้',
@@ -1598,6 +1599,7 @@ export function buildMorningReminder(data, opts) {
     ...(pairs.length ? ['', ...pairs] : []),
     ...(noCar.length ? ['', ...noCar] : []),
     ...(lateOrd.length ? ['', ...lateOrd] : []),
+    ...(swing.length ? ['', ...swing] : []),
     ...(svc.length ? ['', ...svc] : []),
     ...(pickup.length ? ['', ...pickup] : []),
     ...(dueLine ? ['', dueLine] : []),
@@ -1607,6 +1609,18 @@ export function buildMorningReminder(data, opts) {
     '🤖 LAMOM ONE Auto Reminder',
   ].join('\n')
   return clipLine(text)
+}
+
+// (v1.0.1409) 10 วันสุดท้ายของเดือน: ใบจองที่ "ลุ้น" ส่งทันเดือนนี้ (โอกาส 15–74%) ทั้งร้าน — เร่งแล้วเพิ่มยอดเดือนนี้ได้
+// ชื่อต้นลูกค้า + รุ่น + % + เซลส์ (กลุ่ม LINE ทีมงาน) · ไม่มีใบลุ้น/วันสุดท้ายของเดือน = ไม่ขึ้น
+export function swingMorningLines(bookings, today, max = 6) {
+  const fc = deliveryForecast({ bookings: (bookings || []).filter(b => b && !b.deleted), today })
+  if (fc.daysLeft > 10 || fc.daysLeft < 1) return []
+  const swing = fc.items.filter(i => i.p >= 0.15 && i.p < 0.75)
+  if (!swing.length) return []
+  return [`🔮 ลุ้นส่งทันเดือนนี้ ${swing.length} ใบ (เหลือ ${fc.daysLeft} วัน · คาดรวม ≈ ${fc.expected} คัน)`,
+    ...swing.slice(0, max).map(i => `  • ${String(i.name).split(/\s+/)[0]} (${i.car}) ${i.status} ${Math.round(i.p * 100)}% · ${i.sales}`),
+    ...(swing.length > max ? [`  • …และอีก ${swing.length - max} ใบ (ดูที่หน้าใบจอง › ชิป 🔮 ลุ้นเดือนนี้)`] : [])]
 }
 
 // (v1.0.1239) รถว่างที่รุ่น+สีตรงกับลูกค้าที่จองรอ (จองก่อนได้ก่อน) — seller = เฉพาะลูกค้าของเซลส์คนนี้
