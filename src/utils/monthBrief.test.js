@@ -116,3 +116,10 @@ describe('monthBriefText pace (v1.0.1403)', () => {
     expect(t).toContain('🔮 คาดจองสิ้นเดือน ≈ 10 ใบ')
   })
 })
+
+describe('isMonthQuestion booking projection (v1.0.1412)', () => {
+  it('booking projection phrasings → month brief', () => {
+    for (const q of ['คาดยอดจองสิ้นเดือน', 'สิ้นเดือนจะได้ยอดจองเท่าไหร่', 'เดือนนี้จะจองได้กี่ใบ']) expect(isMonthQuestion(q), q).toBe(true)
+    expect(isMonthQuestion('ยอดจองเดือนก่อนสิ้นเดือนเท่าไหร่')).toBe(false)
+  })
+})
