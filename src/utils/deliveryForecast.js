@@ -183,3 +183,24 @@ export function pickDeliveryTarget({ budgetUnits = null, teamTargets = [], ym } 
   const t = (teamTargets || []).filter(x => x && !x.deleted && x.metric === 'units' && x.period === ym).reduce((s, x) => s + (Number(x.target) || 0), 0)
   return t > 0 ? { target: t, source: 'team' } : { target: null, source: '' }
 }
+
+// (v1.0.1386) ความแม่นยำ: เทียบตัวเลขที่ระบบคาดไว้ (delivery_forecast_log ที่รายงาน 18:00 เก็บทุกวัน) กับยอดจริงตอนจบเดือน
+// logs = [{ date, ym, day, expected, worst, best, delivered }] · คืน { current: [...วันของเดือนนี้], months: [...เดือนที่จบแล้ว ใหม่ก่อน], mape }
+export function forecastAccuracy(logs = [], bookings = [], today) {
+  const ym = String(today || '').slice(0, 7)
+  const clean = (logs || []).filter(l => l && /^\d{4}-\d{2}-\d{2}$/.test(String(l.date || ''))).map(l => ({ ...l, ym: String(l.date).slice(0, 7), day: Number(String(l.date).slice(8, 10)), expected: Number(l.expected) || 0, worst: Number(l.worst) || 0, best: Number(l.best) || 0 }))
+  const current = clean.filter(l => l.ym === ym).sort((a, b) => a.day - b.day)
+  const actualOf = m => bookings.filter(b => b && !b.deleted && isDelivered(b) && cutOf(b).slice(0, 7) === m).length
+  const pick = (rows, target) => rows.reduce((best, r) => (!best || Math.abs(r.day - target) < Math.abs(best.day - target) ? r : best), null)
+  const months = [...new Set(clean.map(l => l.ym).filter(m => m < ym))].sort().reverse().map(m => {
+    const rows = clean.filter(l => l.ym === m)
+    const actual = actualOf(m)
+    const snaps = [pick(rows, 10), pick(rows, 20)].filter((s, i, a) => s && a.indexOf(s) === i)
+    return {
+      ym: m, actual,
+      snaps: snaps.map(s => ({ day: s.day, expected: s.expected, worst: s.worst, best: s.best, inRange: actual >= s.worst && actual <= s.best, errPct: actual ? Math.round(Math.abs(s.expected - actual) / actual * 100) : null })),
+    }
+  })
+  const errs = months.flatMap(m => m.snaps.map(s => s.errPct)).filter(v => v != null)
+  return { current, months, mape: errs.length ? Math.round(errs.reduce((a, b) => a + b, 0) / errs.length) : null, since: clean.map(l => l.date).sort()[0] || '' }
+}

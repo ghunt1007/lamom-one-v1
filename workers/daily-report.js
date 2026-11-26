@@ -885,6 +885,8 @@ async function buildReportText(env, accessToken) {
     fetchMetaAdsForReport(env),
     Promise.race([fetchLineQuota(env.LINE_CHANNEL_ACCESS_TOKEN), new Promise(r => setTimeout(() => r(null), 5000))]).catch(() => null),
   ])
+  // (v1.0.1386) เก็บตัวเลขคาดการณ์ส่งมอบของวันนี้ไว้ เทียบกับยอดจริงตอนจบเดือน (หน้า คาดการณ์ส่งมอบ › ความแม่นยำ)
+  try { await saveForecastSnapshot(env, accessToken, forecastSnapshot(bookings, todayBangkok(), teamTargets, parseInt(env.MONTHLY_DELIVERY_TARGET) || 0)) } catch { /* ไม่ให้รายงานล้ม */ }
   return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts, appointments, referrers, jobCards, metaAds: metaAdsData, lineQuota }, {
     today: todayBangkok(),
     time: new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()),
@@ -1000,6 +1002,22 @@ export function forecastReportLines(bookings, today, target = 0) {
   if (fc.atRisk.length) out.push(`    ⚠️ ใบจองเสี่ยงหลุดเดือนนี้ ${fc.atRisk.length} ใบ (เลยวันนัด/นัดแล้วแต่ยังไม่พร้อม) ดูได้ที่หน้า คาดการณ์ส่งมอบ`)
   out.push('    (พิมพ์ "คาดการณ์ส่งมอบ" ใน LINE นี้ ดูแยกรายเซลส์)')
   return out
+}
+
+// (v1.0.1386) ภาพถ่ายตัวเลขคาดการณ์ 1 วัน → delivery_forecast_log/{YYYY-MM-DD}
+export function forecastSnapshot(bookings, today, teamTargets = [], defaultTarget = 0) {
+  const ym = today.slice(0, 7)
+  const tgt = (teamTargets || []).filter(t => t && t.period === ym && t.metric === 'units').reduce((s, t) => s + (Number(t.target) || 0), 0) || defaultTarget
+  const fc = deliveryForecast({ bookings: (bookings || []).filter(b => b && !b.deleted), today, target: tgt > 0 ? tgt : null })
+  return { date: today, ym, day: fc.day, expected: Math.round(fc.expectedRaw * 10) / 10, worst: fc.worst, best: fc.best, delivered: fc.delivered, open: fc.open, target: fc.target || 0, atRisk: fc.atRisk.length }
+}
+async function saveForecastSnapshot(env, accessToken, snap) {
+  if (!snap?.date) return
+  const enc = v => typeof v === 'number' ? (Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v }) : { stringValue: String(v) }
+  const fields = Object.fromEntries(Object.entries({ ...snap, savedAt: new Date().toISOString() }).map(([k, v]) => [k, enc(v)]))
+  await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/delivery_forecast_log/${snap.date}`, {
+    method: 'PATCH', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }),
+  })
 }
 
 export const DLVFC_BOOKING_FIELDS = ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'custName', 'brand', 'model', 'salesName', 'price', 'deleted']

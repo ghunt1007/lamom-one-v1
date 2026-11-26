@@ -138,3 +138,28 @@ describe('pickDeliveryTarget', () => {
     expect(pickDeliveryTarget({ ym: '2026-12' })).toEqual({ target: null, source: '' })
   })
 })
+
+import { forecastAccuracy } from './deliveryForecast.js'
+describe('forecastAccuracy', () => {
+  const logs = [
+    { date: '2026-10-09', expected: 9, worst: 7, best: 11 },
+    { date: '2026-10-21', expected: 12, worst: 11, best: 13 },
+    { date: '2026-10-25', expected: 12.5, worst: 12, best: 13 },
+    { date: '2026-11-03', expected: 10, worst: 8, best: 12 },
+    { date: '2026-11-01', expected: 9, worst: 7, best: 11 },
+    { date: 'bad' },
+  ]
+  const bookings = Array.from({ length: 12 }, (_, i) => ({ status: 'ส่งมอบแล้ว', cutDate: `2026-10-${String(i + 1).padStart(2, '0')}` }))
+  const r = forecastAccuracy(logs, bookings, '2026-11-20')
+  it('current month series sorted by day', () => { expect(r.current.map(c => c.day)).toEqual([1, 3]) })
+  it('past month compares day≈10 and ≈20 snapshots with actual', () => {
+    expect(r.months).toHaveLength(1)
+    expect(r.months[0]).toMatchObject({ ym: '2026-10', actual: 12 })
+    expect(r.months[0].snaps.map(s => s.day)).toEqual([9, 21])
+    expect(r.months[0].snaps[0]).toMatchObject({ inRange: false, errPct: 25 })
+    expect(r.months[0].snaps[1]).toMatchObject({ inRange: true, errPct: 0 })
+    expect(r.mape).toBe(13)
+    expect(r.since).toBe('2026-10-09')
+  })
+  it('empty logs', () => { expect(forecastAccuracy([], [], '2026-11-20')).toMatchObject({ current: [], months: [], mape: null, since: '' }) })
+})
