@@ -28,7 +28,7 @@ import { askDeliveryIncome, needsIncome, statusDatePatch, DELIVERED_STATUSES } f
 import { openSheetReconcile } from '../../utils/sheetReconcileModal.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from '../../utils/bookingImport.js'
 import { bookingNextStep, bookingNextAction } from '../../utils/bookingNext.js'
-import { bookingOutlook } from '../../utils/deliveryForecast.js'
+import { bookingOutlook, deliveryForecast } from '../../utils/deliveryForecast.js'
 import { TIER_META } from '../../utils/deliveryForecastView.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
@@ -726,6 +726,8 @@ export default async function BookingsPage(container) {
     if (viewMode === 'sheet') { renderSheet(wrap, filtered); return }
     if (!filtered.length) { wrap.innerHTML = '<div class="empty-state" style="padding:48px"><div class="empty-icon">📋</div><div class="empty-title">ไม่มีรายการจอง</div><div class="empty-desc">กด "➕ จองใหม่" เพื่อเพิ่มรายการใหม่</div></div>'; return }
     const allSelected = filtered.length > 0 && filtered.every(b => selectedIds.has(b.id))
+    // (v1.0.1404) 🔮 โอกาสส่งมอบเดือนนี้ของแต่ละใบที่ยังค้าง — คิดครั้งเดียวต่อการวาด (สูตรเดียวกับหน้าคาดการณ์ส่งมอบ ไม่รวมข้อมูลรถ)
+    try { chanceMap = new Map(deliveryForecast({ bookings, today: todayBangkok() }).items.map(i => [i.id, i])) } catch { chanceMap = new Map() }
     wrap.innerHTML = `<div class="bk-cards">${filtered.map(b => cardRow(b)).join('')}</div>
     <div class="card bk-table-card" style="padding:0;overflow:hidden">
       <div class="table-wrap"><table class="bk-table">
@@ -780,6 +782,12 @@ export default async function BookingsPage(container) {
 
   // มือถือ: ตารางกว้าง 14 คอลัมน์ต้องเลื่อนข้างจนไม่เห็นชื่อลูกค้า → แสดงเป็นการ์ดแทน (ใช้ class เดียวกับตาราง
   // .bk-row/.bk-status-cell/.income-bk จึงได้ปุ่มกดเหมือนกันทุกอย่าง — แตะการ์ดเปิดรายละเอียด แตะสถานะเพื่อเปลี่ยน)
+  let chanceMap = new Map()
+  function chanceChip(b) {
+    const c = chanceMap.get(b.id); if (!c) return ''
+    const t = TIER_META[c.tier] || TIER_META.maybe
+    return `<span title="โอกาสส่งมอบเดือนนี้ · ${escHtml(t.label)}${(c.why || []).length ? ' · ' + escHtml([].concat(c.why).join(' · ')) : ''}" style="display:inline-block;font-size:0.64rem;font-weight:700;padding:1px 6px;border-radius:999px;background:color-mix(in srgb,var(--${t.color}) 14%,transparent);color:var(--${t.color});white-space:nowrap">🔮 ${Math.round(c.p * 100)}%</span>`
+  }
   function cardRow(b) {
     const br = detectBrand(b.brand, b.model)
     return `<div class="bk-row bk-card" data-id="${b.id}" style="${rowStyle(b)}">
@@ -792,7 +800,7 @@ export default async function BookingsPage(container) {
       </div>
       <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-top:8px;font-size:0.72rem;color:var(--text-muted)">
         <div>👤 ${escHtml(b.salesName || '—')} · จอง ${formatDate(b.bookingDate)}${b.bookingNo ? ` · <span style="color:var(--primary);white-space:nowrap">${escHtml(b.bookingNo)}</span>` : ''}</div>
-        <div style="text-align:right;white-space:nowrap">${b.deliveryDate ? `ส่งมอบ ${deliveryCell(b, true)}` : ''}</div>
+        <div style="text-align:right;white-space:nowrap">${b.deliveryDate ? `ส่งมอบ ${deliveryCell(b, true)}` : ''}${chanceChip(b) ? `<div style="margin-top:3px">${chanceChip(b)}</div>` : ''}</div>
       </div>
       ${cardMoreLine(b)}
       ${(n => n && n.tone === 'warning' ? `<div style="margin-top:6px;font-size:0.7rem;line-height:1.45;color:var(--warning)">🧭 ${escHtml(n.text)}</div>` : '')(bookingNextStep(b, todayBangkok()))}
@@ -825,7 +833,7 @@ export default async function BookingsPage(container) {
       <td class="bk-status-cell" data-id="${b.id}" style="cursor:pointer">${statusBadge(b.status)}<span style="font-size:0.6rem;opacity:.4;margin-left:2px">▼</span>${(n => n && n.tone === 'warning' ? `<div style="font-size:0.62rem;color:var(--warning);margin-top:3px;max-width:190px;line-height:1.35;white-space:normal" title="${escHtml(n.text)}">🧭 ${escHtml(n.text.split(' — ')[0])}</div>` : '')(bookingNextStep(b, todayBangkok()))}${b.status === 'ถอนจอง' ? `<div style="font-size:0.6rem;font-weight:700;margin-top:2px;color:${(b.refundStatus || (depositAmt(b) > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน')) === 'คืนเงินแล้ว' ? 'var(--success)' : (b.refundStatus || (depositAmt(b) > 0 ? 'รอคืนเงิน' : '')) === 'รอคืนเงิน' ? 'var(--warning)' : 'var(--text-muted)'}">💸 ${escHtml(b.refundStatus || (depositAmt(b) > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน'))}</div>` : ''}</td>
       <td><span class="badge badge-primary" style="font-size:0.66rem">${escHtml(b.salesName || '')}</span></td>
       <td style="font-size:0.72rem;white-space:nowrap">${formatDate(b.bookingDate)}</td>
-      <td style="font-size:0.72rem;white-space:nowrap">${deliveryCell(b)}</td>
+      <td style="font-size:0.72rem;white-space:nowrap">${deliveryCell(b)}${chanceChip(b) ? `<div style="margin-top:2px">${chanceChip(b)}</div>` : ''}</td>
       <td style="font-size:0.72rem;white-space:nowrap">${b.cutDate ? `<span style="color:var(--warning);font-weight:600">${formatDate(b.cutDate)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
       <td style="font-size:0.72rem;white-space:nowrap">${b.actualDeliveryDate ? `<span style="color:var(--success);font-weight:600">${formatDate(b.actualDeliveryDate)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
       <td style="font-size:0.76rem">${b.colorOut ? escHtml(b.colorOut) : '<span style="color:var(--text-muted)">—</span>'}</td>
