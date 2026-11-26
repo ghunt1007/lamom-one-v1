@@ -45,7 +45,7 @@ describe('bookingChance', () => {
     expect(c.why.join(' ')).toContain('25/11/2026')
   })
   it('delivery date next month caps chance', () => {
-    expect(bookingChance({ status: 'รอส่งมอบ', deliveryDate: '2026-12-05' }, { today: T }).p).toBe(0.75) // floor of stage
+    expect(bookingChance({ status: 'รอส่งมอบ', deliveryDate: '2026-12-05' }, { today: T }).p).toBe(0.12) // นัดเดือนหน้า ไม่ใช้พื้นของขั้นงาน
     expect(bookingChance({ status: 'รอรถ', deliveryDate: '2026-12-05' }, { today: T }).p).toBeLessThanOrEqual(0.12)
   })
   it('overdue delivery date is flagged as risk', () => {
@@ -162,4 +162,32 @@ describe('forecastAccuracy', () => {
     expect(r.since).toBe('2026-10-09')
   })
   it('empty logs', () => { expect(forecastAccuracy([], [], '2026-11-20')).toMatchObject({ current: [], months: [], mape: null, since: '' }) })
+})
+
+import { nextMonthOutlook } from './deliveryForecast.js'
+describe('nextMonthOutlook', () => {
+  const B = [
+    { id: 'a', status: 'รอส่งมอบ', bookingDate: '2026-11-10', deliveryDate: '2026-11-25' }, // this month
+    { id: 'b', status: 'รอส่งมอบ', bookingDate: '2026-11-10', deliveryDate: '2026-12-05' }, // next month
+    { id: 'c', status: 'รอรถ', bookingDate: '2026-11-15', model: 'S07' },
+    { id: 'd', status: 'ส่งมอบแล้ว', cutDate: '2026-11-03' },
+  ]
+  const o = nextMonthOutlook({ bookings: B, today: '2026-11-20' })
+  it('labels next month and puts next-month appointments first', () => {
+    expect(o.ym).toBe('2026-12')
+    expect(o.items[0].id).toBe('b')
+    expect(o.items[0].p).toBeGreaterThan(0.7)
+  })
+  it('this-month appointment adds little to next month', () => {
+    const a = o.items.find(i => i.id === 'a')
+    expect(a ? a.p : 0).toBeLessThan(0.2)
+  })
+  it('range and byCar', () => {
+    expect(o.worst).toBeLessThanOrEqual(o.expected)
+    expect(o.best).toBeGreaterThanOrEqual(o.expected)
+    expect(o.byCar.some(r => r.key === 'S07')).toBe(true)
+  })
+  it('december rolls to january', () => {
+    expect(nextMonthOutlook({ bookings: [], today: '2026-12-10' }).ym).toBe('2027-01')
+  })
 })

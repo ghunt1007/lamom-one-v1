@@ -61,7 +61,7 @@ export default async function DeliveryForecastPage(container) {
   } catch (e) { data = null }
   if (container.__routerGen !== myGen) return
   if (!data) { container.querySelector('.page-subtitle').textContent = 'โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชอีกครั้ง'; return }
-  const { fc, bookings } = data
+  const { fc, bookings, next } = data
   let tab = 'all'
 
   const months = Array.from({ length: 6 }, (_, i) => shiftYm(fc.ym, i - 6)).map(ym => ({ ym, n: monthStats(bookings, ym).delivered }))
@@ -149,6 +149,16 @@ export default async function DeliveryForecastPage(container) {
         <div class="dfp-card"><div class="dfp-h">🚗 แยกตามรุ่น</div><div class="dfp-sub">เขียว = ส่งแล้ว · ฟ้า = คาดเพิ่ม</div>${splitBars(fc.byCar)}</div>
         <div class="dfp-card"><div class="dfp-h">🧑‍💼 แยกตามเซลส์</div><div class="dfp-sub">เขียว = ส่งแล้ว · ฟ้า = คาดเพิ่ม</div>${splitBars(fc.bySales)}</div>
       </div>
+
+      ${next && next.count ? `<div class="dfp-card" style="margin-bottom:16px">
+        <div class="dfp-h">🗓 มองไปเดือนหน้า · ${escHtml(ymThai(next.ym))}</div>
+        <div class="dfp-sub">จากใบจองที่มีอยู่ตอนนี้ ${next.count} ใบ (ยังไม่รวมใบจองใหม่ที่จะเข้ามา) — ใช้วางแผนเบิกรถ/สั่งรถ/นัดลูกค้า</div>
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <b style="font-size:1.9rem;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums">≈ ${next.expected}</b><span style="color:var(--text-2);font-weight:600">คัน</span>
+          <span style="font-size:0.78rem;color:var(--text-muted)">แย่สุด ${next.worst} · ดีสุด ${next.best}</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${next.byCar.slice(0, 8).map(r => `<span class="badge badge-secondary" style="font-size:0.72rem">${escHtml(r.key)} ≈ ${r.expected}</span>`).join('')}</div>
+      </div>` : ''}
 
       <div class="dfp-card" style="margin-bottom:16px" id="dfp-list-card">
         <div class="dfp-h">📋 ใบจองที่จะส่งมอบได้เดือนนี้ <span style="font-size:0.7rem;color:var(--text-muted);font-weight:400">กดเพื่อเปิดใบจอง</span></div>
