@@ -33,6 +33,7 @@ import { enhanceMics, bindMic, hasSpeechInput } from '../../utils/micInput.js'
 import { matchesSearch, parseSmartQuery } from '../../utils/customerSearch.js'
 import { stockLine } from '../../utils/stockLine.js'
 import { heuristicScore, sourceConversion } from '../../utils/leadScore.js'
+import { modelKey } from '../../utils/orderNeeds.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
 import { openLineLinkQr, lineLinkState } from '../../utils/lineLink.js'
@@ -54,6 +55,7 @@ import { escHtml } from '../../utils/escape.js'
 import { quickChips } from '../../utils/lamiCommands.js'
 import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
 
+let readyByModel = new Map() // (v1.0.1425) modelKey → รถพร้อมขายในสต็อก
 let leadConv = null // (v1.0.1417) อัตราปิดจริงรายช่องทาง คำนวณใหม่ทุกครั้งที่โหลดลูกค้า
 const pendingFuCount = new WeakMap() // ลูกค้า → จำนวนนัดค้าง (ใช้ตัดสินว่าควรเสนอนัดครั้งถัดไปหลังโทรไหม)
 
@@ -246,6 +248,18 @@ export default async function CustomersPage(container) {
     applyFilter()
   }
 
+  // (v1.0.1425) รถพร้อมขายแยกรุ่น (ครั้งเดียวต่อการเปิดหน้า) → ป้าย "🚗 พร้อมขาย N คัน" ข้างรุ่นที่ลูกค้าสนใจ
+  ;(async () => {
+    try {
+      const vs = await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 1000)
+      if (container.__routerGen !== myGen) return
+      const m = new Map()
+      vs.filter(v => v && !v.deleted && ['available', 'pdi'].includes(v.status)).forEach(v => { const k = modelKey(v); if (k) m.set(k, (m.get(k) || 0) + 1) })
+      readyByModel = m
+      if (m.size) applyFilter()
+    } catch { /* ไม่มีสต็อก/ไม่มีสิทธิ์ = ไม่แสดงป้าย */ }
+  })()
+
   // Real-time: อัปเดตสดเมื่อมีคนอื่นเพิ่ม/แก้ไขลูกค้าจากเครื่องอื่น — แค่รีเฟรชสถิติ+ตาราง ไม่แตะช่องค้นหา
   let unsubCustomers = () => {}
   // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters()) — ต้องยกเลิก subscription
@@ -370,7 +384,8 @@ export default async function CustomersPage(container) {
           ${backBadge(c)}
         </td>
         <td class="cc-temp${c.temperature || scoreBar(c) ? '' : ' cc-blank'}">${c.temperature ? `<span class="badge badge-${TEMP[c.temperature]?.badge}" style="font-size:0.68rem">${TEMP[c.temperature]?.label}</span>` : scoreBar(c) ? '' : '<span style="color:var(--text-muted)">-</span>'}${scoreBar(c)}</td>
-        <td class="cc-model${c.interestedModel ? '' : ' cc-blank'}" style="color:var(--text-2)">${escHtml(c.interestedModel || '-')}</td>
+        <td class="cc-model${c.interestedModel ? '' : ' cc-blank'}" style="color:var(--text-2)">${escHtml(c.interestedModel || '-')}${(() => { const n = c.interestedModel && !c.isLost && ['lead', 'pp'].includes(c.stage) ? readyByModel.get(modelKey({ model: c.interestedModel })) || 0 : 0
+          return n ? `<div class="cc-ready" title="มีรถรุ่นนี้พร้อมขายในสต็อก — โทรปิดการขายได้เลย" style="font-size:0.66rem;color:var(--success);font-weight:700;white-space:nowrap">🚗 พร้อมขาย ${n} คัน</div>` : '' })()}</td>
         <td class="cc-src${c.source ? '' : ' cc-blank'}" style="color:var(--text-3);font-size:0.8rem">${SOURCE[c.source] || escHtml(c.source) || '-'}</td>
         <td class="cc-urg">${!c.isLost ? `<span class="badge badge-${urgency.badge}" style="font-size:0.65rem">${urgency.label}</span>` : ''}</td>
         <td class="cc-age" style="color:var(--text-muted);font-size:0.8rem">${timeAgo(c.createdAt)}${quietBadge(c)}</td>
