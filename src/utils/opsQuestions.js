@@ -1521,7 +1521,7 @@ export const OPS_LINKS = {
   nobookseller: { path: '/crm/sales-income', label: '💰 เปิดหน้ารายได้รายเซลส์' },
   tdnobook: { path: '/crm/testdrive', label: '🚗 เปิดหน้าทดลองขับ' },
   tdconv: { path: '/crm/testdrive', label: '🚗 เปิดหน้าทดลองขับ' },
-  fcall: { path: '/analytics/delivery-forecast', label: '🔮 เปิดคาดการณ์ส่งมอบ' },
+  fcall: { path: '/analytics/forecast', label: '🔮 เปิดศูนย์คาดการณ์' },
   calltime: { path: '/crm/my-day', label: '☀️ เปิดงานของฉันวันนี้' },
   notd: { path: '/crm/testdrive', label: '🚗 เปิดหน้าทดลองขับ' },
   noquote: { path: '/crm/quotation', label: '📄 เปิดหน้าใบเสนอราคา' },
