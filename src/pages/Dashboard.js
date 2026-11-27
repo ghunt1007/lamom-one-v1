@@ -1544,6 +1544,7 @@ export default async function DashboardPage(container) {
       let ifc = null
       try { ifc = incomeForecast({ bookings, today: todayBangkok(), fc }) } catch { ifc = null }
       el.innerHTML = deliveryHeroHtml(fc, { link: true }) + (ifc && ifc.moreCars > 0 ? `<a href="/crm/sales-income" data-link id="dash-ifc" title="${escHtml(incomeForecastNote(ifc))}" style="display:block;margin-top:10px;padding:10px 14px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border-subtle);font-size:0.8rem;color:var(--text);text-decoration:none">💰 คาดรายได้สิ้นเดือน <b style="color:var(--accent)">≈ ${formatCurrency(ifc.expected)}</b> <span style="color:var(--text-muted)">(${formatCurrency(ifc.low)}–${formatCurrency(ifc.high)})</span></a>` : '')
+        + `<a href="/analytics/forecast" data-link id="dash-fhub" style="display:inline-block;margin-top:8px;font-size:0.76rem;color:var(--primary);text-decoration:none;font-weight:600">🔮 ดูคาดการณ์ทุกเรื่อง (ยอดจอง · ลูกค้าใหม่ · เดือนหน้า) →</a>`
       // (v1.0.1411) ส่งต่อให้กระดานสถานะ: แต่ละสถานะคาดว่าส่งได้เดือนนี้กี่คัน
       const m = new Map(); (fc.items || []).forEach(i => m.set(i.status, (m.get(i.status) || 0) + i.p))
       sbExpect = m; renderStatusBoard()
