@@ -20,10 +20,8 @@ export function calcIncome({ margin = 0, budgetUsed = 0, com70 = 0, comFinance =
   }
 }
 
-// นิยามเดียวกับรายงานประจำวัน (workers/daily-report.js): ส่งมอบแล้วแต่ totalIncome ยังเป็น 0/ว่าง
-export function needsIncome(b) {
-  return !!b && !b.deleted && DELIVERED_STATUSES.includes(b.status) && !(Number(b.totalIncome) || 0)
-}
+// นิยามเดียวกับรายงานประจำวัน — ตัวจริงอยู่ใน salesIncome.js (ไฟล์ล้วน ใช้ใน worker ได้)
+export { needsIncome } from './salesIncome.js'
 
 // เปิดช่องกรอกรายได้ของใบจอง b — บันทึกลง Firestore แล้ว Object.assign กลับเข้า b ให้หน้าที่เรียกเห็นค่าใหม่เลย
 // คืน Promise<boolean>: true = บันทึกแล้ว, false = กดข้าม/ปิด
