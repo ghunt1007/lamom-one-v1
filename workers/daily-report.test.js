@@ -1846,3 +1846,15 @@ describe('weekly income forecast (v1.0.1422)', () => {
     expect(weeklyPipelineLines(B.slice(1), '2026-11-16').join('\n')).not.toContain('คาดรายได้')
   })
 })
+
+describe('leadPaceLine (v1.0.1429)', () => {
+  it('projects month-end new customers from past months, hidden without history', async () => {
+    const { leadPaceLine } = await import('./daily-report.js')
+    const mk = (ym, n) => Array.from({ length: n }, (_, i) => ({ createdAt: `${ym}-${String(1 + (i % 28)).padStart(2, '0')}` }))
+    const hist = [...mk('2026-05', 30), ...mk('2026-06', 30), ...mk('2026-07', 30), ...mk('2026-08', 30), ...mk('2026-09', 30), ...mk('2026-10', 30)]
+    const now = Array.from({ length: 10 }, (_, i) => ({ createdAt: `2026-11-${String(1 + i).padStart(2, '0')}` }))
+    expect(leadPaceLine([...hist, ...now], '2026-11-15')).toMatch(/ลูกค้าใหม่เดือนนี้ 10 ราย · 🔮 คาดสิ้นเดือน ≈ \d+ ราย/)
+    expect(leadPaceLine(now, '2026-11-15')).toBeNull()
+    expect(leadPaceLine([...hist, ...now], '2026-11-30')).toBeNull()
+  })
+})
