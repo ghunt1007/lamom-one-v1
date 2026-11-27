@@ -25,6 +25,9 @@ export function dataReadiness({ customers = [], bookings = [], logs = [], testDr
     t => ['done', 'completed', 'no_show', 'noshow'].includes(t.status), 'ทดลองขับแล้วจองจริงกี่ %', 'หลังลูกค้าขับเสร็จ กด "เสร็จแล้ว" ในหน้าทดลองขับ')
   add('jobs', 'งานซ่อมที่กดเสร็จในระบบ', live(jobs).filter(j => inWin(j.createdAt) && ['done', 'delivered'].includes(j.status)), j => !!j.doneAt,
     'งานซ่อมปกติเสร็จในกี่วัน · งานที่ค้างนานกว่าปกติ', 'เปลี่ยนสถานะงานเป็น "เสร็จ" ตอนซ่อมเสร็จจริง (ระบบจดเวลาให้)')
+  // (v1.0.1461) ใบจองที่ถอน — ต้องมีวันถอน ถึงจะรู้ว่าใบจองค้างนานแค่ไหนแล้วมักถอน
+  add('cancel', 'ใบจองที่ถอน และใส่ "วันที่ถอน"', live(bookings).filter(b => isCancelled(b) && inWin(b.cancelDate || b.updatedAt || b.bookingDate)), b => !!toDate(b.cancelDate),
+    'ใบจองไหนเสี่ยงถอน (ค้างนานแค่ไหนแล้วมักถอน)', 'ตอนเปลี่ยนสถานะเป็น "ถอนจอง" ใส่วันที่ถอนในช่องวันถอนของ Sheet/ใบจอง')
   if (money) {
     const bk = live(bookings).filter(b => !isCancelled(b) && inWin(b.bookingDate || b.createdAt))
     add('price', 'ใบจองที่ใส่ "ราคารถ"', bk, b => num(b.price), 'ส่วนลดเพิ่มเติมเฉลี่ย/เกินปกติ', 'ใส่ราคารถและส่วนลดเพิ่มเติมใน Sheet/ใบจอง')
