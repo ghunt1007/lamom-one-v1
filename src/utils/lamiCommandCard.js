@@ -525,6 +525,8 @@ export async function loadOpsAnswer(q, customersPromise) {
     else res = spec.kind === 'mycust' ? oq.myCustomersAnswer(customers, { today }) : oq.noPhoneAnswer(customers)
   } else if (spec.kind === 'plate') {
     res = oq.plateAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today })
+  } else if (spec.kind === 'repeat') {
+    res = oq.repeatAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)))
   } else if (spec.kind === 'delivered') {
     res = oq.deliveredAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, period: spec.period })
   } else if (spec.kind === 'withdrawn' || spec.kind === 'finbank') {
