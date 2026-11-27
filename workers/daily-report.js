@@ -68,6 +68,7 @@ import { testDriveConversion } from '../src/utils/testDriveConversion.js'
 import { discountWatch } from '../src/utils/discountWatch.js'
 import { speedImpact } from '../src/utils/speedImpact.js'
 import { modelFunnel } from '../src/utils/modelFunnel.js'
+import { cancelRisk } from '../src/utils/cancelRisk.js'
 import { forecastOverview } from '../src/utils/forecastOverview.js'
 import { deliveryWeekAnswer, deliveryWeekList } from '../src/utils/deliveryWeek.js'
 import { stockLineAnswer } from '../src/utils/stockList.js'
@@ -1548,11 +1549,14 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
     })
   // ใบจองที่ยังไม่ส่งมอบ/ไม่ถอน จองมาเกิน STUCK_BOOKING_DAYS วัน — เกณฑ์เดียวกับ Intelligence Center บน Dashboard
   // ใบที่ขึ้นในหัวข้อไฟแนนซ์แล้วไม่ขึ้นซ้ำตรงนี้ (เดิมคนเดียวนับ 2 ครั้ง)
+  // (v1.0.1454) อายุใบจองที่ในอดีตถอนสูงผิดปกติ → ใบค้างที่เลยอายุนั้นติด ⚠️ เสี่ยงถอน (ข้อมูลไม่พอ = ไม่ติด)
+  let riskAge = null
+  try { riskAge = cancelRisk(data.bookings, today)?.threshold?.age ?? null } catch { riskAge = null }
   alive(data.bookings)
     .filter(b => !inFin.has(b) && !DELIVERED_STATUSES.includes(b.status) && !CANCELLED_STATUSES.includes(b.status) && /^\d{4}-\d{2}-\d{2}/.test(b.bookingDate || ''))
     .forEach(b => {
       const days = dayNum(today) - dayNum(b.bookingDate.slice(0, 10))
-      if (days >= STUCK_BOOKING_DAYS) person(b.salesName).stuck.push({ name: b.custName || 'ลูกค้า', status: b.status || '—', days })
+      if (days >= STUCK_BOOKING_DAYS) person(b.salesName).stuck.push({ name: b.custName || 'ลูกค้า', status: b.status || '—', days, risk: riskAge != null && days >= riskAge })
     })
 
   // นัดทดลองขับวันนี้ที่ยังไม่จบ
@@ -1623,7 +1627,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
       if (p.income.length) out.push(`  💰 ส่งมอบแล้วยังไม่กรอกรายได้: ${p.income.length} คัน`, ...list(p.income.map(i => `${i.name}${i.model ? ` (${i.model})` : ''}`)))
       if (p.stuck.length) {
         p.stuck.sort((a, b) => b.days - a.days)
-        out.push(`  ⏳ ใบจองค้างเกิน ${STUCK_BOOKING_DAYS} วัน: ${p.stuck.length} ใบ`, ...list(p.stuck.map(b => `${b.name} · ${b.status} · ${b.days} วัน`)))
+        out.push(`  ⏳ ใบจองค้างเกิน ${STUCK_BOOKING_DAYS} วัน: ${p.stuck.length} ใบ`, ...list(p.stuck.map(b => `${b.name} · ${b.status} · ${b.days} วัน${b.risk ? ' ⚠️ เสี่ยงถอน' : ''}`)))
       }
       return { name: n, text: out.join('\n'), focus: focusLines(p) }
     })
