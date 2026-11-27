@@ -440,6 +440,13 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'sboard') {
     // (v1.0.1395) สถานะใบจอง — กระดานเดียวกับหน้าภาพรวม (เซลส์เห็นเฉพาะของตัวเองตามสิทธิ์ mine)
     res = oq.sboardAnswer(await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), { today, status: spec.status || '', group: spec.group || '', mine: b => mine(b.salesName, b) })
+  } else if (spec.kind === 'discount') {
+    // (v1.0.1443) ส่วนลดเพิ่มเติม — เงินของร้าน เฉพาะผู้จัดการ/เจ้าของ
+    if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 ส่วนลดของโชว์รูมดูได้เฉพาะผู้จัดการและเจ้าของ' }
+    else {
+      const { discountAnswer } = await import('./discountWatch.js')
+      res = discountAnswer(await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), { today })
+    }
   } else if (spec.kind === 'calltime') {
     // (v1.0.1437) ทั้งร้าน (ช่วงเวลาที่ลูกค้ารับสาย ไม่มีชื่อลูกค้า)
     const { callTimeAnswer } = await import('./callTimes.js')
