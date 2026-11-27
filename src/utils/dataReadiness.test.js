@@ -16,4 +16,9 @@ describe('dataReadiness (v1.0.1449)', () => {
     expect(html).toContain('วิธี: ใส่รุ่นตอนเพิ่มลีด')
     expect(readinessHtml([])).toBe('')
   })
+  it('cancel date readiness (v1.0.1461)', () => {
+    const bookings = Array.from({ length: 6 }, (_, i) => ({ status: 'ถอนจอง', bookingDate: '2026-10-01', cancelDate: i < 2 ? '2026-11-01' : '' }))
+    const r = dataReadiness({ bookings, now })
+    expect(r.map(i => [i.key, i.done, i.n])).toEqual([['cancel', 2, 6]])
+  })
 })
