@@ -29,7 +29,7 @@ export function briefTarget(q, customers = []) {
   return mentionedCustomers(s, customers, 1)[0] || null
 }
 
-export function customerBrief({ customer: c, followups = [], booking = null, today, drives = null, callHint = '' }) {
+export function customerBrief({ customer: c, followups = [], booking = null, today, drives = null, callHint = '', riskAge = null }) {
   const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.nickname || 'ลูกค้า'
   const t = dayNum(today)
   const lines = [`👤 ${name} — ${[c.isLost ? '⬛ เสียดีล' : STAGE[c.stage] || c.stage || '', TEMP[c.temperature] || '', c.interestedModel ? '🚗 ' + c.interestedModel : ''].filter(Boolean).join(' · ')}`]
@@ -50,6 +50,8 @@ export function customerBrief({ customer: c, followups = [], booking = null, tod
     lines.push(`📝 ใบจอง${booking.bookingNo ? ' ' + booking.bookingNo : ''}: ${[booking.status, carOf(booking), age > 0 ? `จองมา ${age} วัน` : '', dd ? `ส่งมอบ ${dmy(dd)}${booking.deliveryTime ? ' ' + booking.deliveryTime : ''}` : ''].filter(Boolean).join(' · ')}`)
     if (['รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ'].includes(booking.status) && !dd) tip = 'รถพร้อมส่งแล้วแต่ยังไม่ได้นัดวันส่งมอบ — โทรนัดวันได้เลย'
     else if (booking.status === 'รอผลไฟแนนซ์' && age >= 7) tip = `รอผลไฟแนนซ์มา ${age} วันแล้ว — ตามผลกับไฟแนนซ์`
+    // (v1.0.1460) ค้างถึงช่วงอายุที่ร้านเคยถอนสูง (cancelRisk) — เฉพาะใบที่ยังเปิดอยู่
+    if (riskAge && age >= riskAge && !['ส่งมอบแล้ว', 'ถอนจอง', 'ยกเลิก'].includes(booking.status)) lines.push(`⚠️ เสี่ยงถอน: ใบจองค้างเกิน ${riskAge} วัน (ช่วงที่ร้านเคยถอนสูง) — โทรเช็กความตั้งใจ/อัปเดตกำหนดรถ`)
   }
   // (v1.0.1101) ทดลองขับ (เทียบเบอร์หรือชื่อเต็ม)
   if (drives) {
