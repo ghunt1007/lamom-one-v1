@@ -3,6 +3,7 @@ import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
 import { formatDate, formatCurrency, timeAgo, todayBangkok, dmy } from '../../utils/format.js'
+import { statusStamp, jobTurnaround, slowJobs, daysText } from '../../utils/jobTurnaround.js'
 import { nextServiceReminder } from '../../utils/nextService.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -54,6 +55,7 @@ export default async function JobCardsPage(container) {
   } catch { prefillData = null }
 
   let jobs = []
+  let turnaround = null, slowIds = new Set()
   let filtered = []
   let statusFilter = 'all'
   let search = ''
@@ -103,6 +105,14 @@ export default async function JobCardsPage(container) {
     const revEl = document.getElementById('job-revenue')
     const rev = scoped.filter(j => j.status === 'done' || j.status === 'delivered').reduce((s, j) => s + (j.labor || 0), 0)
     if (revEl) revEl.textContent = `รายได้: ${formatCurrency(rev)}`
+    // (v1.0.1433) งานค้างนานกว่าปกติของร้าน (ปกติ = 80% ของงานที่เสร็จใน 90 วัน · ต้องมี ≥ 5 งาน)
+    turnaround = jobTurnaround(jobs, todayBangkok())
+    slowIds = new Set(slowJobs(scoped, turnaround).map(x => x.j.id))
+    const slowEl = document.getElementById('job-slow')
+    if (slowEl) slowEl.innerHTML = turnaround ? `<div class="card" style="padding:10px 14px;margin-bottom:12px;font-size:0.82rem;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center${slowIds.size ? ';border:1px solid var(--warning)' : ''}">
+        <span>⏱️ ปกติงานเสร็จใน <b>${daysText(turnaround.median)}</b> <span style="color:var(--text-muted)">(80% เสร็จภายใน ${daysText(turnaround.p80)} · จาก ${turnaround.n} งานใน 90 วัน)</span></span>
+        ${slowIds.size ? `<b style="color:var(--warning)">⚠️ ค้างนานกว่าปกติ ${slowIds.size} งาน</b>` : '<span style="color:var(--success)">✅ ไม่มีงานค้างนานกว่าปกติ</span>'}
+      </div>` : ''
   }
 
   function applyFilter() {
@@ -149,8 +159,9 @@ export default async function JobCardsPage(container) {
       const next = getNextStatus(j.status)
       if (!next) return
       try {
-        await updateDocData('job_cards', j.id, { status: next })
-        j.status = next
+        const stamp = statusStamp(j, next)
+        await updateDocData('job_cards', j.id, { status: next, ...stamp })
+        Object.assign(j, stamp); j.status = next
         showToast(`→ ${JOB_STATUS[next]?.label}`, 'success'); updateStats(); applyFilter()
         if (next === 'delivered') setNextServiceReminder(j)
       } catch { showToast('เกิดข้อผิดพลาด','error') }
@@ -191,7 +202,7 @@ export default async function JobCardsPage(container) {
         <td><span class="badge badge-${st.badge}">${st.label}</span></td>
         <td style="font-size:0.8rem;color:var(--text-2)"${j.bay ? ' data-l="เบย์"' : ''}>${j.bay ? escHtml(j.bay) : '<span class="tbl-empty">-</span>'}</td>
         <td style="font-size:0.8rem;color:var(--text-muted)"${j.techName ? ' data-l="ช่าง"' : ''}>${j.techName ? escHtml(j.techName) : '<span class="tbl-empty">-</span>'}</td>
-        <td style="font-size:0.75rem;color:var(--text-muted)" data-l="เปิด">${timeAgo(j.createdAt)}</td>
+        <td style="font-size:0.75rem;color:var(--text-muted)" data-l="เปิด">${timeAgo(j.createdAt)}${slowIds.has(j.id) ? ' <span class="badge badge-warning" title="เปิดงานนานกว่างานส่วนใหญ่ของร้าน">⚠️ นานกว่าปกติ</span>' : ''}</td>
         <td style="white-space:nowrap">
           ${next ? `<button class="btn btn-primary btn-sm adv-j" data-id="${j.id}" title="เลื่อนสถานะ">→</button>` : '<span style="font-size:0.75rem;color:var(--success)">✅</span>'}
           <button class="btn btn-ghost btn-xs del-j" data-id="${j.id}" title="ลบ">🗑️</button>
@@ -265,8 +276,9 @@ export default async function JobCardsPage(container) {
     document.getElementById('j-advance')?.addEventListener('click', async () => {
       if (!next) return
       try {
-        await updateDocData('job_cards', j.id, { status: next })
-        j.status = next; showToast(`→ ${JOB_STATUS[next]?.label}`, 'success')
+        const stamp = statusStamp(j, next)
+        await updateDocData('job_cards', j.id, { status: next, ...stamp })
+        Object.assign(j, stamp); j.status = next; showToast(`→ ${JOB_STATUS[next]?.label}`, 'success')
         document.querySelector('.modal-overlay')?.remove(); updateStats(); applyFilter()
         if (next === 'delivered') setNextServiceReminder(j)
       } catch { showToast('เกิดข้อผิดพลาด','error') }
@@ -368,6 +380,8 @@ export default async function JobCardsPage(container) {
         customerId: existing?.customerId || prefill?.customerId || null,
         vehicleId: existing?.vehicleId || prefill?.vehicleId || null,
       }
+      // (v1.0.1433) เปลี่ยนเป็นเสร็จ/ส่งคืนจากฟอร์ม → บันทึกเวลาเสร็จด้วย (ใช้คำนวณ "ปกติเสร็จในกี่วัน")
+      Object.assign(data, statusStamp(existing || {}, data.status))
       try {
         if (isEdit) { await updateDocData('job_cards', existing.id, data); Object.assign(existing, data) }
         else { const id = await createDoc('job_cards', data); jobs.unshift({ ...data, id }) }
@@ -401,6 +415,7 @@ export default async function JobCardsPage(container) {
       ` : ''}
 
       <!-- Status Pills -->
+      <div id="job-slow"></div>
       <div id="job-pills" class="chip-scroll" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;overflow-x:auto;padding-bottom:4px">
         <button class="btn btn-sm jf-btn btn-primary" data-sf="all">ทั้งหมด</button>
         ${Object.entries(JOB_STATUS).map(([k,v]) => `
