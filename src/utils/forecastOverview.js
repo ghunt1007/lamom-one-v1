@@ -5,6 +5,10 @@ import { isCancelled } from './bookingStatus.js'
 import { incomeForecast } from './incomeForecast.js'
 import { serviceForecast } from './serviceForecast.js'
 import { toDate } from './format.js'
+import { testDriveConversion } from './testDriveConversion.js'
+import { bestCallTimes } from './callTimes.js'
+import { sourceConversion } from './leadScore.js'
+import { jobTurnaround } from './jobTurnaround.js'
 
 const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 export const ymThai = ym => TH_M[Number(ym.slice(5, 7)) - 1] + ' ' + (Number(ym.slice(0, 4)) + 543)
@@ -66,4 +70,24 @@ export function isOverviewForecastQuestion(q) {
   if (!s || s.length > 50) return false
   if (/คัน|ใบ|ส่งมอบ|จอง|รายได้|ค่าคอม|ศูนย์|ซ่อม|เช็คระยะ|ลูกค้าใหม่|ลีด|lead|สั่งรถ|สต็อก|สต๊อก|เดือนหน้า|ปีหน้า|ใคร|รุ่น|สี/i.test(s)) return false
   return /คาดการณ์|พยากรณ์|forecast|สิ้นเดือน.{0,10}(?:เป็นยังไง|เป็นไง|จะได้|เท่าไหร่|เท่าไร)|เดือนนี้.{0,6}จะ(?:ได้|เป็น)/i.test(s)
+}
+
+// (v1.0.1441) การ์ด "ข้อมูลจริงที่ช่วยปิดการขาย" — แสดงในศูนย์คาดการณ์ใต้การ์ดคาดการณ์ (ไม่มีชื่อลูกค้า)
+// ทุกตัวคำนวณจากข้อมูลร้าน ข้อมูลไม่พอ = ok:false พร้อมเหตุผล
+export function insightCards({ testDrives = [], bookings = [], customers = [], logs = [], jobs = [], today, now = Date.now(), tdConv = testDriveConversion, callTimes = bestCallTimes, sourceConv = sourceConversion, turnaround = jobTurnaround } = {}) {
+  const cards = []
+  const td = tdConv({ testDrives, bookings, customers, today })
+  if (td?.rate != null) cards.push({ ok: true, key: 'tdconv', icon: '🚗', title: 'ทดลองขับแล้วจองจริง', display: Math.round(td.rate * 100) + '%', note: `${td.booked} จาก ${td.n} ครั้ง (จองภายใน 45 วัน)${td.chase.length ? ` · ขับแล้วยังไม่จอง ${td.chase.length} ราย ควรโทรตาม` : ''}`, path: '/crm/testdrive' })
+  else cards.push({ ok: false, key: 'tdconv', icon: '🚗', title: 'ทดลองขับแล้วจองจริง', why: 'ต้องมีทดลองขับที่เสร็จแล้ว ≥ 10 ครั้ง ที่ขับมานานกว่า 45 วัน', path: '/crm/testdrive' })
+  const ct = callTimes(logs, { now })
+  if (ct) cards.push({ ok: true, key: 'calltime', icon: '⏰', title: 'โทรช่วงไหนลูกค้ารับสาย', display: `${String(ct.best.from).padStart(2, '0')}–${String(ct.best.to).padStart(2, '0')} น.`, note: `รับสาย ${Math.round(ct.best.rate * 100)}% · น้อยสุด ${String(ct.worst.from).padStart(2, '0')}–${String(ct.worst.to).padStart(2, '0')} น. (${Math.round(ct.worst.rate * 100)}%) · จาก ${ct.total} สาย`, path: '/crm/my-day' })
+  else cards.push({ ok: false, key: 'calltime', icon: '⏰', title: 'โทรช่วงไหนลูกค้ารับสาย', why: 'ต้องมีผลการโทรผ่านปุ่ม 📞 ≥ 40 สายใน 90 วัน', path: '/crm/my-day' })
+  const sc = sourceConv(customers, now)
+  const best = sc ? [...sc.bySource.values()].sort((a, b) => b.rate - a.rate || b.n - a.n)[0] : null
+  if (best) cards.push({ ok: true, key: 'source', icon: '📣', title: 'ช่องทางที่ปิดได้ดีสุด', display: best.label, note: `ปิดได้ ${Math.round(best.rate * 100)}% (ร้านเฉลี่ย ${Math.round(sc.overall * 100)}% · จาก ${best.n} ราย)`, path: '/ai/lead-scoring' })
+  else cards.push({ ok: false, key: 'source', icon: '📣', title: 'ช่องทางที่ปิดได้ดีสุด', why: 'ต้องมีลูกค้าอายุ 30 วัน–1 ปี ≥ 30 ราย และช่องทางละ ≥ 15 ราย', path: '/ai/lead-scoring' })
+  const ta = turnaround(jobs, today)
+  if (ta) cards.push({ ok: true, key: 'turnaround', icon: '⏱️', title: 'งานซ่อมปกติเสร็จใน', display: ta.median < 1 ? `${Math.max(1, Math.round(ta.median * 24))} ชม.` : `${Math.round(ta.median * 10) / 10} วัน`, note: `80% เสร็จภายใน ${Math.round(ta.p80 * 10) / 10} วัน · จาก ${ta.n} งานใน 90 วัน`, path: '/service/jobs' })
+  else cards.push({ ok: false, key: 'turnaround', icon: '⏱️', title: 'งานซ่อมปกติเสร็จใน', why: 'เริ่มนับจากงานที่กดเสร็จตั้งแต่ 28/11/2569 — ต้องมี ≥ 5 งานใน 90 วัน', path: '/service/jobs' })
+  return cards
 }
