@@ -49,6 +49,8 @@ describe('LAMI routing additions (v1.0.1462)', () => {
     expect(parseOpsSpec('ใครน่าจะจองเร็วๆนี้')).toEqual({ kind: 'topscore' })
     expect(parseOpsSpec('ลูกค้าคนไหนน่าจะถอน')).toEqual({ kind: 'cancelrisk' })
     expect(parseOpsSpec('ลูกค้าเงียบไปนาน').kind).toBe('stale')
+    expect(parseOpsSpec('แบงค์ไหนผ่านง่ายสุด')).toEqual({ kind: 'finbank' })
+    expect(parseOpsSpec('ใครยังไม่มีผู้ดูแล').kind).toBe('unassigned')
   })
 })
 
