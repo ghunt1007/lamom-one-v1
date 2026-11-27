@@ -37,6 +37,7 @@ import { modelMatches } from '../../utils/salesAi.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { quoteDueToday } from '../../utils/quoteQuestions.js'
 import { matchReadyCars } from '../../utils/orderNeeds.js'
+import { speedImpact } from '../../utils/speedImpact.js'
 
 const NUDGE_MAX = 8
 const SECTION_PREVIEW = 5
@@ -59,6 +60,7 @@ export default async function MyDayPage(container) {
   let programs = []
   let events = []
   let quotes = []
+  let speedHint = ''
   let readyCars = null // (v1.0.1242) รถว่างในสต็อก — จับคู่กับลูกค้าที่จองรอ
 
   container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
@@ -76,6 +78,8 @@ export default async function MyDayPage(container) {
       listDocs('social_threads', [], 'lastAt', 'desc', 200).catch(() => []),
     ])
     if (!customers || !followups || !bookings) showToast('โหลดข้อมูลบางส่วนไม่สำเร็จ', 'warning')
+    // (v1.0.1452) ตัวเลขจริงของร้าน: ลีดที่โทรภายใน 1 ชม. ปิดได้กี่ % เทียบช้ากว่า 24 ชม. (ข้อมูลไม่พอ = ใช้ข้อความเดิม)
+    try { const sp = speedImpact(customers || []); speedHint = sp && sp.fast.rate > sp.slow.rate ? `โทรภายใน 1 ชม. ปิดได้ ${Math.round(sp.fast.rate * 100)}% · ช้ากว่า 24 ชม. ${Math.round(sp.slow.rate * 100)}% (ข้อมูลร้าน)` : '' } catch { speedHint = '' }
     data = { customers: customers || [], followups: followups || [], bookings: bookings || [], testDrives: testDrives || [], appointments: appointments || [], lineThreads: lineThreads || [] }
     try { targets = (await readDoc(SALES_TARGETS_COLLECTION, todayBangkok().slice(0, 7)))?.targets || {} } catch { targets = {} }
     // แคมเปญเดือนนี้ → หา Lead ที่ควรโทรบอกโปร (โหลดไม่ได้ = ไม่แสดงหมวดนี้)
@@ -122,7 +126,7 @@ export default async function MyDayPage(container) {
       <div style="padding:12px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)">
         <span style="font-size:1.1rem">${icon}</span><b>${title}</b>
         <span class="badge badge-${items.length ? color : 'secondary'}">${items.length}</span>
-        <span style="margin-left:auto;font-size:0.7rem;color:var(--text-muted)">${hint}</span>
+        <span style="margin-left:auto;font-size:0.7rem;color:var(--text-muted);min-width:0;text-align:right;overflow-wrap:anywhere">${hint}</span>
       </div>
       ${items.slice(0, open ? 50 : SECTION_PREVIEW).map(row).join('')}
       ${!open && items.length > SECTION_PREVIEW ? `<button type="button" class="md-more" data-key="${escHtml(title)}">ดูอีก ${Math.min(items.length, 50) - SECTION_PREVIEW} รายการ ▾</button>` : ''}
@@ -406,7 +410,7 @@ export default async function MyDayPage(container) {
           `${escHtml(c.name)}${c.reEnquiredModel || c.interestedModel ? ` · ${escHtml(c.reEnquiredModel || c.interestedModel)}` : ''} <span class="badge badge-danger" style="font-size:0.62rem">${c.backDays ? (c.backDays === 1 ? 'เมื่อวาน' : `${c.backDays} วันก่อน`) : `วันนี้ ${hm(c.reEnquiredAt)}`}</span>${c.isLost ? ' <span class="badge badge-secondary" style="font-size:0.62rem">เคยเสียดีล</span>' : ''}`,
           `${c.reEnquiredVia ? `ทาง ${escHtml({ website: '🌐 ฟอร์ม/QR', event: '🎪 ออกบูธ', referral: '🤝 ลิงก์แนะนำ' }[c.reEnquiredVia] || SOURCE_LABEL[c.reEnquiredVia] || c.reEnquiredVia)}` : ''}${c.phone ? ` · ${escHtml(c.phone)}` : ''}${ownerTag(c.assignedTo)}`,
           `${callBtn(c.phone, c.id)}${takeBtns(c)}<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดต่อแล้ว</button><button class="btn btn-secondary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'danger') : ''}
-        ${section('🧲', d.newLeads.some(c => c.waitDays) ? 'Lead ใหม่ + ค้างยังไม่มีใครโทร' : 'Lead ใหม่วันนี้', 'โทรหาภายในวันนี้ โอกาสปิดสูงสุด', d.newLeads, c => line(
+        ${section('🧲', d.newLeads.some(c => c.waitDays) ? 'Lead ใหม่ + ค้างยังไม่มีใครโทร' : 'Lead ใหม่วันนี้', speedHint || 'โทรหาภายในวันนี้ โอกาสปิดสูงสุด', d.newLeads, c => line(
           `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''}${waitTag(c)}`,
           `${escHtml(SOURCE_LABEL[c.source] || c.source || '')}${c.phone ? ` · ${escHtml(c.phone)}` : c.lineId ? ` · ${escHtml(c.lineId)}` : ''}${ownerTag(c.assignedTo)}`,
           `${callBtn(c.phone, c.id)}${takeBtns(c)}${bangkokDate(c.lastContactAt) === today ? '<span class="badge badge-success" style="font-size:0.62rem">ติดต่อแล้ว</span>' : `<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดต่อแล้ว</button>`}<button class="btn btn-secondary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'success')}
