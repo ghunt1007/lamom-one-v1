@@ -77,6 +77,7 @@ export const PAGE_COLLECTIONS = {
  "/crm/my-day": [
   "appointments",
   "bookings",
+  "comm_logs",
   "customers",
   "followups",
   "marketing_events",

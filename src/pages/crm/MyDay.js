@@ -68,6 +68,7 @@ export default async function MyDayPage(container) {
   const scope = await getVisibilityScope()
   const canPick = !!(scope.unrestricted || scope.companyOnly || scope.hasSubordinates)
 
+  let callsToday = new Map()
   async function load() {
     const f = companyScopeFilters()
     const [customers, followups, bookings, testDrives, appointments, lineThreads] = await Promise.all([
@@ -78,6 +79,15 @@ export default async function MyDayPage(container) {
       listDocs('appointments', f, 'date', 'desc', 200).catch(() => []),
       listDocs('social_threads', [], 'lastAt', 'desc', 200).catch(() => []),
     ])
+    // (v1.0.1467) หัวหน้า/เจ้าของ: นับสายที่บันทึกผลวันนี้รายคน (โชว์ในการ์ดทีมวันนี้)
+    callsToday = new Map()
+    if (canPick) {
+      try {
+        const t0 = todayBangkok()
+        const logs = await listDocs('comm_logs', f, 'createdAt', 'desc', 800)
+        for (const l of logs || []) if (l && !l.deleted && l.type === 'call' && bangkokDate(l.createdAt) === t0) { const k = String(l.createdBy || '').toLowerCase().replace(/\s+/g, ''); if (k) callsToday.set(k, (callsToday.get(k) || 0) + 1) }
+      } catch { callsToday = new Map() }
+    }
     if (!customers || !followups || !bookings) showToast('โหลดข้อมูลบางส่วนไม่สำเร็จ', 'warning')
     // (v1.0.1452) ตัวเลขจริงของร้าน: ลีดที่โทรภายใน 1 ชม. ปิดได้กี่ % เทียบช้ากว่า 24 ชม. (ข้อมูลไม่พอ = ใช้ข้อความเดิม)
     try { const sp = speedImpact(customers || []); speedHint = sp && sp.fast.rate > sp.slow.rate ? `โทรภายใน 1 ชม. ปิดได้ ${Math.round(sp.fast.rate * 100)}% · ช้ากว่า 24 ชม. ${Math.round(sp.slow.rate * 100)}% (ข้อมูลร้าน)` : '' } catch { speedHint = '' }
@@ -247,13 +257,16 @@ export default async function MyDayPage(container) {
     const rows = teamToday(data, { today, names: sellerNames().filter(n => n !== UNASSIGNED), same: (a, b) => normName(a) === normName(b), allowed: (n, rec) => scopeIncludesRecord(scope, n, rec) })
     if (rows.length < 2) return ''
     const max = Math.max(...rows.map(r => r.total + r.newUntouched + (r.back || 0)), 1)
+    const sq = v => String(v || '').toLowerCase().replace(/\s+/g, '')
+    const callsOf = n => { const f = sq(n), w = sq(String(n || '').trim().split(/\s+/)[0]); let c = null; for (const [k, v] of callsToday) if (k === f || k.includes(f) || (w.length >= 2 && k.startsWith(w))) c = (c || 0) + v; return c }
+    const showCalls = callsToday.size > 0 && rows.some(r => callsOf(r.name) != null) // ชื่อในบันทึกโทรจับคู่กับเซลส์ได้จริง ถึงจะโชว์ (กันอีเมลแล้วขึ้น 0 ผิดๆ)
     return `<div class="card" style="padding:0;margin-bottom:14px;overflow:hidden">
       <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px"><span style="font-size:1.1rem">👥</span><b>ทีมวันนี้</b>
         <span style="margin-left:auto;font-size:0.7rem;color:var(--text-muted)">กดชื่อเพื่อดูงานของคนนั้น</span></div>
       ${rows.map(r => `<div class="md-who" data-name="${escHtml(r.name)}" style="display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border);cursor:pointer;flex-wrap:wrap">
         <div style="width:130px;font-weight:600;font-size:0.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(r.name)}</div>
         <div style="flex:1;min-width:90px;height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.round((r.total + r.newUntouched + (r.back || 0)) / max * 100)}%;background:var(--warning)"></div></div>
-        <div class="md-who-stats" style="font-size:0.74rem;color:var(--text-muted);white-space:nowrap">📋 ค้าง <b style="color:var(--text)">${r.total}</b>${r.newUntouched ? ` · 🧲 Lead ใหม่ยังไม่โทร <b style="color:var(--danger)">${r.newUntouched}</b>` : ''}${r.back ? ` · 📣 ทักกลับมา <b style="color:var(--danger)">${r.back}</b>` : ''} · 💪 ติดต่อแล้ว <b style="color:var(--success)">${r.contacted}</b></div>
+        <div class="md-who-stats" style="font-size:0.74rem;color:var(--text-muted);white-space:nowrap">📋 ค้าง <b style="color:var(--text)">${r.total}</b>${r.newUntouched ? ` · 🧲 Lead ใหม่ยังไม่โทร <b style="color:var(--danger)">${r.newUntouched}</b>` : ''}${r.back ? ` · 📣 ทักกลับมา <b style="color:var(--danger)">${r.back}</b>` : ''}${showCalls ? ` · 📞 โทรวันนี้ <b style="color:${callsOf(r.name) ? 'var(--text)' : 'var(--danger)'}">${callsOf(r.name) || 0}</b>` : ''} · 💪 ติดต่อแล้ว <b style="color:var(--success)">${r.contacted}</b></div>
       </div>`).join('')}
     </div>`
   }
