@@ -47,3 +47,16 @@ describe('forecast hub cards (v1.0.1439)', () => {
     expect(html).toContain('data-nav="/analytics/delivery-forecast"')
   })
 })
+
+import { insightCards } from './forecastOverview.js'
+describe('insight cards (v1.0.1441)', () => {
+  it('four topics, each ok or with reason', () => {
+    const cards = insightCards({ today: T })
+    expect(cards.map(c => c.key)).toEqual(['tdconv', 'calltime', 'source', 'turnaround'])
+    expect(cards.every(c => c.ok === false && c.why)).toBe(true)
+    const done = [1, 1, 2, 2, 3].map(n => ({ status: 'delivered', createdAt: '2026-11-01T00:00:00Z', doneAt: new Date(Date.UTC(2026, 10, 1 + n)).toISOString() }))
+    const ta = insightCards({ jobs: done, today: T }).find(c => c.key === 'turnaround')
+    expect(ta).toMatchObject({ ok: true, display: '2 วัน' })
+    expect(forecastHubHtml([ta])).toContain('2 วัน')
+  })
+})

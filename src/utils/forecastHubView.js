@@ -40,7 +40,7 @@ export function forecastHubHtml(cards = []) {
   return `<div class="fh-grid">${cards.map(c => c.ok ? `
     <div class="fh-card" data-nav="${escHtml(c.path)}" title="กดเพื่อดูรายละเอียด">
       <div class="fh-t"><span>${c.icon}</span><span>${escHtml(c.title)}</span></div>
-      <div class="fh-v">≈ ${fmt(c, c.value)}${c.unit ? `<small>${escHtml(c.unit)}</small>` : ''}</div>
+      <div class="fh-v">${c.display != null ? `<span style="font-size:${String(c.display).length > 9 ? '1.25rem' : '1.7rem'}">${escHtml(c.display)}</span>` : `≈ ${fmt(c, c.value)}${c.unit ? `<small>${escHtml(c.unit)}</small>` : ''}`}</div>
       ${c.lo != null && c.hi != null && c.hi > c.lo ? `<div class="fh-r">ช่วงที่เป็นไปได้ ${fmt(c, c.lo)}–${fmt(c, c.hi)}${c.unit ? ' ' + escHtml(c.unit) : ''}</div>` : ''}
       ${bar(c)}
       ${c.soFarText ? `<div class="fh-n"><b>${escHtml(c.soFarText)}</b></div>` : ''}

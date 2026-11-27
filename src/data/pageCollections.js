@@ -406,9 +406,11 @@ export const PAGE_COLLECTIONS = {
   "test_drives"
  ],
  "/analytics/forecast": [
+  "comm_logs",
   "customers",
   "job_cards",
-  "service_reminders"
+  "service_reminders",
+  "test_drives"
  ],
  "/analytics/delivery-forecast": [],
  "/finance/tax": [
