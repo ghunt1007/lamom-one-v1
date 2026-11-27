@@ -18,6 +18,7 @@ describe('discountWatch (v1.0.1443)', () => {
   })
   it('null / explain when too few', () => {
     expect(discountWatch(rows.slice(0, 3), T)).toBeNull()
+    expect(discountWatch(rows.map(r => ({ ...r, extraDiscount: '' })), T)).toBeNull()
     expect(discountAnswer([], { today: T }).text).toContain('ยังสรุปส่วนลดไม่ได้')
     const t = discountAnswer(rows, { today: T }).text
     expect(t).toContain('⚠️ เดือนนี้ให้ส่วนลดสูงกว่าปกติ 1 ใบ')
@@ -26,5 +27,15 @@ describe('discountWatch (v1.0.1443)', () => {
   it('routes discount questions, leaves promo ones', () => {
     for (const q of ['ส่วนลดเฉลี่ยเท่าไหร่', 'ใครให้ส่วนลดเยอะสุด', 'เดือนนี้ให้ส่วนลดเกินไหม']) expect(parseOpsSpec(q)?.kind, q).toBe('discount')
     expect(parseOpsSpec('โปรเดือนนี้มีส่วนลดอะไร')?.kind).not.toBe('discount')
+  })
+})
+
+import { insightCards } from './forecastOverview.js'
+describe('discount insight card (v1.0.1444)', () => {
+  it('only with money permission', () => {
+    const rows = [1, 2, 3, 4, 5, 6].map(d => bk(`2026-10-0${d}`, 10000))
+    expect(insightCards({ bookings: rows, today: T, discount: discountWatch }).some(c => c.key === 'discount')).toBe(false)
+    expect(insightCards({ bookings: rows, today: T, money: true, discount: discountWatch }).find(c => c.key === 'discount')).toMatchObject({ ok: true, display: '฿10,000' })
+    expect(insightCards({ bookings: [], today: T, money: true, discount: discountWatch }).find(c => c.key === 'discount')).toMatchObject({ ok: false })
   })
 })
