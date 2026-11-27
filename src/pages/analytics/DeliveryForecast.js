@@ -11,6 +11,7 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { DFC_CSS, heroHtml, cumulativeSvg, splitBars, TIER_META, ymThai } from '../../utils/deliveryForecastView.js'
 import { monthStats, shiftYm } from '../../utils/dashStats.js'
 import { bookingNextStep } from '../../utils/bookingNext.js'
+import { cancelRisk } from '../../utils/cancelRisk.js'
 
 const CSS = `
   .dfp-grid { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:16px; margin-bottom:16px; }
@@ -81,6 +82,9 @@ export default async function DeliveryForecastPage(container) {
     return `<div class="dfp-whatif on">🧪 ถ้าปิดได้ครบ <b>${boosted.size}</b> ใบที่เลือก → คาดสิ้นเดือน ≈ <b>${r} คัน</b> <span style="opacity:.8">(+${gain.toFixed(1)} จาก ${fc.expected})</span>${fc.target ? ` · <b style="color:var(--${r >= fc.target ? 'success' : 'warning'})">${Math.round(exp / fc.target * 100)}% ของเป้า ${fc.target}</b>${r >= fc.target ? ' 🎉' : ` · ยังขาด ≈ ${Math.max(0, fc.target - r)} คัน`}` : ''} <button type="button" class="btn btn-xs btn-ghost" data-boost-clear>ล้าง</button></div>`
   }
   const byId = new Map(bookings.map(b => [b.id, b]))
+  // (v1.0.1455) ใบที่ค้างเลยอายุที่ร้านเคยถอนสูงผิดปกติ → ติด ⚠️ เสี่ยงถอน (ข้อมูลไม่พอ = ไม่ติด)
+  let riskIds = new Set(), riskNote = ''
+  try { const cr = cancelRisk(bookings, today); if (cr?.threshold) { riskIds = new Set(cr.risky.map(x => x.b.id)); riskNote = `เสี่ยงถอน — ใบจองค้างเกิน ${cr.threshold.age} วัน ในอดีตถอน ${Math.round(cr.threshold.rate * 100)}% (ร้านเฉลี่ย ${Math.round(cr.overall * 100)}%)` } } catch { /* ไม่ติดป้าย */ }
   const sellers = [...new Set(fc.items.filter(i => i.tier !== 'unlikely').map(i => i.sales))].sort((a, b) => a.localeCompare(b, 'th'))
 
   const months = Array.from({ length: 6 }, (_, i) => shiftYm(fc.ym, i - 6)).map(ym => ({ ym, n: monthStats(bookings, ym).delivered }))
@@ -94,7 +98,7 @@ export default async function DeliveryForecastPage(container) {
       <div class="dfp-main">
         <div class="dfp-name">${escHtml(i.name)} · ${escHtml(i.car)}</div>
         <div class="dfp-meta">${escHtml(i.status)} · ${escHtml(i.sales)}${i.deliveryDate ? ` · นัด ${formatDate(i.deliveryDate)}` : ''}${i.price ? ` · ${formatCurrency(i.price)}` : ''}</div>
-        ${i.risk ? `<div class="dfp-risk">⚠️ ${escHtml(i.risk)}</div>` : i.why.length ? `<div class="dfp-why">${escHtml(i.why.join(' · '))}</div>` : ''}
+        ${i.risk ? `<div class="dfp-risk">⚠️ ${escHtml(i.risk)}</div>` : riskIds.has(i.id) ? `<div class="dfp-risk">⚠️ ${escHtml(riskNote)}</div>` : i.why.length ? `<div class="dfp-why">${escHtml(i.why.join(' · '))}</div>` : ''}
         ${(n => n ? `<div class="dfp-next ${n.tone}">🧭 ${escHtml(n.text)}</div>` : '')(bookingNextStep(byId.get(i.id), today))}
         ${i.p < 0.95 ? `<button type="button" class="btn btn-xs ${boosted.has(i.id) ? 'btn-success' : 'btn-ghost'} dfp-boost" data-boost="${escHtml(i.id)}" aria-pressed="${boosted.has(i.id)}">${boosted.has(i.id) ? '⚡ เร่งได้ ✓' : '⚡ ถ้าเร่งได้?'}</button>` : ''}
       </div>
