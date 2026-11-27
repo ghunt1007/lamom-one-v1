@@ -1966,7 +1966,13 @@ export function weeklyPipelineLines(bookings, today, logs = []) {
     out.push('    ' + sb.groups.filter(g => g.count).map(g => `${g.icon} ${g.label.split(' ')[0]} ${g.count}${prev ? dl(g.count, prev.counts[g.key]) : ''}`).join(' · '))
   }
   const fc = deliveryForecast({ bookings: live, today })
-  if (fc.open && fc.daysLeft > 1) out.push(`🔮 คาดส่งมอบเดือนนี้ ≈ ${fc.expected} คัน (แย่สุด ${fc.worst} · ดีสุด ${fc.best}) · ส่งแล้ว ${fc.delivered}`)
+  if (fc.open && fc.daysLeft > 1) {
+    out.push(`🔮 คาดส่งมอบเดือนนี้ ≈ ${fc.expected} คัน (แย่สุด ${fc.worst} · ดีสุด ${fc.best}) · ส่งแล้ว ${fc.delivered}`)
+    // (v1.0.1422) คาดรายได้สิ้นเดือน (สูตรเดียวกับรายงาน 18:00/หน้ารายได้รายเซลส์)
+    let x = null
+    try { x = incomeForecast({ bookings: live, today, fc }) } catch { x = null }
+    if (x && x.moreCars > 0) out.push(incomeForecastLine(x))
+  }
   return out
 }
 
