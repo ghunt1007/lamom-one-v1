@@ -974,13 +974,16 @@ export default async function DashboardPage(container) {
       // (v1.0.1407) เดือนปัจจุบัน: บอกคาดปิดเดือนจากรูปแบบการจองเดือนก่อนๆ ใต้การ์ดจองใหม่ (ประวัติไม่พอ = ไม่แสดง)
       const kpiPace = period === 'month' && selectedMonth === todayBangkok().slice(0, 7) ? bookingPace(bookings.filter(b => !isCancelled(b)).map(b => b.bookingDate), todayBangkok()) : null
       const paceSub = kpiPace?.method === 'history' && kpiPace.daysInMonth - kpiPace.day >= 1 ? `<br><b style="color:var(--primary)">🔮 คาดปิดเดือน ≈ ${Math.max(cur.booked, kpiPace.expected)} คัน</b>` : ''
+      // (v1.0.1430) Lead ใหม่: คาดสิ้นเดือนจากรูปแบบเดือนก่อนๆ เหมือนจองใหม่
+      const leadPace = kpiPace !== null || (period === 'month' && selectedMonth === todayBangkok().slice(0, 7)) ? bookingPace(leads.map(l => String(toDateStr(l.createdAt) || l.date || '')), todayBangkok()) : null
+      const leadSub = period === 'month' && selectedMonth === todayBangkok().slice(0, 7) && leadPace?.method === 'history' && leadPace.daysInMonth - leadPace.day >= 1 ? `<br><b style="color:var(--danger)">🔮 คาดสิ้นเดือน ≈ ${Math.max(leadsCur, leadPace.expected)} ราย</b>` : ''
       const tiles = [
         { icon: '📝', label: 'จองใหม่', val: `${cur.booked}<small>คัน</small>`, d: delta(cur.booked, prev.booked), sub: `${cmp}: ${prev.booked} คัน${paceSub}`, sp: spark(series('booked'), 'primary'), color: 'primary', drill: 'booked' },
         { icon: '✅', label: 'ส่งมอบ', val: `${cur.delivered}<small>คัน</small>`, d: delta(cur.delivered, prev.delivered), sub: `${cmp}: ${prev.delivered} คัน`, sp: spark(series('delivered'), 'success'), color: 'success', drill: 'delivered' },
         { icon: '💰', label: 'มูลค่าจอง', val: money(cur.value), d: delta(cur.value, prev.value), sub: `${cmp}: ${moneyTxt(prev.value)}`, sp: spark(series('value'), 'accent'), color: 'accent', drill: 'value' },
         { icon: '📈', label: 'Margin', val: money(cur.margin), d: delta(cur.margin, prev.margin), sub: `${cmp}: ${moneyTxt(prev.margin)}`, sp: spark(series('margin'), 'warning'), color: 'warning', drill: 'margin' },
         { icon: '⏳', label: 'ค้างส่งมอบ', val: `${open.length}<small>คัน</small>`, d: '', sub: 'รวมทุกเดือน · ' + moneyTxt(open.reduce((s, b) => s + (Number(b.price) || 0), 0)), sp: '', color: 'info', drill: 'open' },
-        { icon: '🧲', label: 'Lead ใหม่', val: `${leadsCur}<small>ราย</small>`, d: delta(leadsCur, leadsPrev), sub: `${cmp}: ${leadsPrev} ราย`, sp: spark(back.map(ms => leadsInRange(ms).length), 'danger'), color: 'danger', nav: '/crm/leads' },
+        { icon: '🧲', label: 'Lead ใหม่', val: `${leadsCur}<small>ราย</small>`, d: delta(leadsCur, leadsPrev), sub: `${cmp}: ${leadsPrev} ราย${leadSub}`, sp: spark(back.map(ms => leadsInRange(ms).length), 'danger'), color: 'danger', nav: '/crm/leads' },
       ]
       el.innerHTML = tiles.map(t => `
         <button type="button" class="dash-kpi" ${t.drill ? `data-drill="${t.drill}"` : `data-nav="${t.nav}"`} style="--c:var(--${t.color})" title="${t.label} — กดเพื่อดูรายการ">
