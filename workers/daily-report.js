@@ -1036,6 +1036,17 @@ export function boothTodayLines(events, customers, today) {
   return out
 }
 
+// (v1.0.1429) ลูกค้าใหม่ (ลีด) เดือนนี้ + คาดสิ้นเดือน จากรูปแบบ 6 เดือนก่อน (สูตรเดียวกับคาดยอดจอง) — ประวัติไม่พอ/วันท้ายเดือน = ไม่ขึ้น
+export function leadPaceLine(customers, today) {
+  const dates = (customers || []).filter(c => c && !c.deleted).map(c => toBangkokDate(c.createdAt))
+  const ym = today.slice(0, 7)
+  const count = dates.filter(d => d.startsWith(ym)).length
+  const p = bookingPace(dates, today)
+  if (!p || p.method !== 'history' || p.daysInMonth - p.day < 2) return null
+  const exp = Math.max(count, p.expected), lo = Math.max(count, p.low), hi = Math.max(count, p.high)
+  return `  • ลูกค้าใหม่เดือนนี้ ${count} ราย · 🔮 คาดสิ้นเดือน ≈ ${exp} ราย${hi > lo ? ` (${lo}–${hi})` : ''}`
+}
+
 // (v1.0.1402) คาดยอดจองสิ้นเดือน จากรูปแบบการจองของ 6 เดือนก่อน (bookingPace) — ประวัติไม่พอ/วันท้ายเดือน ไม่ขึ้น (ไม่เดาเส้นตรง)
 export function bookingPaceLine(bookings, today, monthCount = 0) {
   const p = bookingPace((bookings || []).filter(b => b && !b.deleted && !isCancelled(b)).map(b => String(b.bookingDate || '').slice(0, 10)), today)
@@ -1257,6 +1268,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     '👥 LEADS',
     `  • Lead ใหม่วันนี้: ${newLeadsToday} ราย`,
     srcLine ? `    มาจาก: ${srcLine}` : null,
+    leadPaceLine(customers, today),
     // (v1.0.1199) ลีดที่สแกน/กดจากลิงก์-QR ของเราเอง (บูธ ติดรถ นามบัตร แนะนำเพื่อน …) — ดูว่า QR ไหนได้ผล
     entryPointLine(newLeadsTodayList) ? `    ผ่านลิงก์/QR ของเรา: ${entryPointLine(newLeadsTodayList)}` : null,
     newLeadsToday ? `    ติดต่อแล้ว ${contactedToday}/${newLeadsToday} ราย${contactedToday < newLeadsToday ? ' ⚠️ ที่เหลือควรโทรก่อนพรุ่งนี้' : ' 👍'}` : null,
