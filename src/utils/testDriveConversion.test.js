@@ -31,3 +31,20 @@ describe('testDriveConversion', () => {
     expect(r.chase[0].days).toBe(8)
   })
 })
+
+import { parseOpsSpec, tdConvAnswer } from './opsQuestions.js'
+describe('LAMI test-drive conversion (v1.0.1432)', () => {
+  it('routes rate questions, keeps list/today questions', () => {
+    for (const q of ['ทดลองขับแล้วจองกี่เปอร์เซ็นต์', 'ทดลองขับแล้วปิดได้กี่%', 'รุ่นไหนทดลองขับแล้วจองเยอะสุด', 'อัตราทดลองขับแล้วจอง'])
+      expect(parseOpsSpec(q)?.kind, q).toBe('tdconv')
+    expect(parseOpsSpec('ลูกค้าที่ทดลองขับแล้วยังไม่จอง')?.kind).toBe('tdnobook')
+    expect(parseOpsSpec('นัดทดลองขับพรุ่งนี้มีใครบ้าง')?.kind).toBe('testdrive')
+  })
+  it('answers with rate or explains missing history', () => {
+    const tds = Array.from({ length: 10 }, (_, i) => td(i, '2026-08-01'))
+    const a = tdConvAnswer(tds, [{ customerId: 'c0', bookingDate: '2026-08-03' }], [], { today: T })
+    expect(a.text).toContain('🎯 ทดลองขับแล้วจองจริง 10% (1 จาก 10 ครั้ง')
+    expect(a.text).toContain('• S07 10% (1/10)')
+    expect(tdConvAnswer([], [], [], { today: T }).text).toContain('ยังคำนวณ')
+  })
+})
