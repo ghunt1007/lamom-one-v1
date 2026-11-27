@@ -223,7 +223,7 @@ export function parseOpsSpec(q) {
   // (v1.0.1121) แชต Facebook/IG ไม่ได้เก็บในระบบ (ดึงสดในหน้าช่องทางโซเชียล) → บอกตรง ๆ แทนการตอบเป็น LINE
   if (has(s, /เฟซ|เฟส|facebook|\bfb\b|messenger|เมสเซนเจอร์|ไอจี|instagram|\big\b|inbox/i) && has(s, /แชท|แชต|ทัก|ข้อความ|inbox|ตอบ/i) && has(s, /รอ|ยังไม่(?:ได้)?ตอบ|ค้าง|ใคร|ไหม|มั้ย|กี่/) && !has(s, /ลูกค้าใหม่|ลีด|ค่าโฆษณา|ยอดขาย/)) return { kind: 'metachat' }
   if (has(s, /line|ไลน์|แชท|แชต|ทัก/i) && (has(s, /รอ|ยังไม่ตอบ|ค้าง|ตอบ/) || (has(s, /ลูกค้า|ใคร/) && has(s, /วันนี้|ทักมา|ทักเข้า|เข้ามา/)))) return { kind: 'line' }
-  if (has(s, /ร้องเรียน|complain/i)) return { kind: 'complaint' }
+  if ((has(s, /ร้องเรียน|complain/i) || (has(s, /ลูกค้า/) && has(s, /บ่น|ไม่พอใจ|ตำหนิ/) && !has(s, /คะแนน|csat/i)))) return { kind: 'complaint' }
   if (has(s, /วันเกิด|เกิดวันนี้|เกิดเดือนนี้|ครบรอบ|(?:รับรถ|ซื้อรถ|ออกรถ)\s*(?:มา)?\s*ครบ\s*\d*\s*ปี/)) return { kind: 'anniv', ...(/เดือนหน้า/.test(s) ? { nextMonth: true } : {}), range: /เดือน/.test(s) ? 30 : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : 0 }
   if (has(s, /(ลูกค้า|ลีด|lead)\s*(?:ใหม่|เข้า|(?:ที่)?(?:มา)?จาก|(?:ที่)?เพิ่ง(?:เพิ่ม|เข้า|ลง)|ที่(?:ถูก)?เพิ่ม\s*(?:เข้า)?(?:มา)?)|ได้\s*(?:ลูกค้า|ลีด|lead)|(?:ลูกค้า|ลีด).{0,10}เพิ่ง\s*(?:ได้|เข้า|เพิ่ม)/i) && has(s, /เดือน|สัปดาห์|อาทิตย์|กี่คน|กี่ราย|วันนี้|เมื่อวาน|ไหม|มั้ย|บ้าง/) && !(has(s, /วันนี้/) && has(s, /มีใคร|ใครบ้าง|รายชื่อ/))) return { kind: 'newcust', ...(sourceOf(s) ? { source: sourceOf(s) } : {}), ...(NOFOLLOW.test(s) ? { nofollow: true } : {}), period: /เมื่อวาน/.test(s) ? 'yesterday' : /วันนี้/.test(s) ? 'today' : /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
   return null
