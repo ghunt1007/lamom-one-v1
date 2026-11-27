@@ -64,6 +64,7 @@ import { campaignLeads } from '../src/utils/campaignLeads.js'
 import { financeQueue, financeWaitAnswer } from '../src/utils/financeQueue.js'
 import { incomeForecast, incomeForecastLine } from '../src/utils/incomeForecast.js'
 import { leadCountByModel } from '../src/utils/stockLeads.js'
+import { testDriveConversion } from '../src/utils/testDriveConversion.js'
 import { deliveryWeekAnswer, deliveryWeekList } from '../src/utils/deliveryWeek.js'
 import { stockLineAnswer } from '../src/utils/stockList.js'
 import { promoLineAnswer } from '../src/utils/promoQuestions.js'
@@ -1360,11 +1361,11 @@ export const EVENING_CUSTOMER_FIELDS = ['stage', 'createdAt', 'source', 'assigne
 export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel', 'phone', 'wakeSentAt', 'lineOptOut', 'lineBlockedAt', 'marketingConsent']
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves, vehicles, transit, orders, doneJobs, dueReminders] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'com70', 'comFinance', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly', 'colorOut', 'color', 'vin', 'lineUserId']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'customerId', 'phone', 'brand', 'model', 'totalIncome', 'com70', 'comFinance', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly', 'colorOut', 'color', 'vin', 'lineUserId']),
     runQuery(env, accessToken, 'customers', null, null, 5000, MORNING_CUSTOMER_FIELDS),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
-    runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'time', 'status', 'staff', 'customerName', 'model', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'time', 'status', 'staff', 'customerName', 'model', 'customerId', 'phone', 'result', 'deleted']).catch(() => []),
     runQuery(env, accessToken, 'sales_programs', null, null, 1000).catch(() => []),
     runQuery(env, accessToken, 'marketing_events', null, null, 300).catch(() => []),
     runQuery(env, accessToken, 'appointments', 'date', 'DESCENDING', 500, ['date', 'time', 'status', 'salesperson', 'custName', 'interestedIn', 'purpose', 'deleted']).catch(() => []),
@@ -1966,11 +1967,22 @@ export function buildWeeklyReport(data, { today }) {
     ...weeklyPipelineLines(bookings, today, data.forecastLogs),
     ...lostLines,
     ...serviceWeekLines(data.jobCards, weeks[0], weeks[1]),
+    tdConvWeekLine(data.testDrives, data.bookings, data.customers, today),
     ...(convLines.length ? ['', '🎯 ช่องทางที่ปิดจองได้ดี (Lead 90 วันล่าสุด)', ...convLines] : []),
     '',
     '─────────────────────',
     '🤖 LAMOM ONE Weekly Report',
   ].filter(l => l !== null).join('\n')
+}
+
+// (v1.0.1438) สรุปจันทร์: ทดลองขับแล้วจองจริงกี่ % (ใบจองของลูกค้าคนเดียวกันภายใน 45 วัน) + ที่ยังไม่จองให้ตาม — ไม่มีข้อมูลพอ = null
+export function tdConvWeekLine(testDrives, bookings, customers, today) {
+  const r = testDriveConversion({ testDrives, bookings, customers, today })
+  if (!r || (r.rate == null && !r.chase.length)) return null
+  const parts = []
+  if (r.rate != null) parts.push(`ขับแล้วจองจริง ${Math.round(r.rate * 100)}% (${r.booked}/${r.n})`)
+  if (r.chase.length) parts.push(`ขับแล้วยังไม่จอง ${r.chase.length} ราย ควรโทรตาม`)
+  return `🚙 ทดลองขับ: ${parts.join(' · ')}`
 }
 
 // (v1.0.1397) สรุปจันทร์: ใบจองค้างแยกหมวด (▲▼ เทียบภาพสัปดาห์ก่อน) + คาดการณ์ส่งมอบเดือนนี้
