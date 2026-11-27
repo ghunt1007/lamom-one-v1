@@ -11,7 +11,10 @@ import { pickVehicle } from '../../utils/vehiclePicker.js'
 import { navigate } from '../../core/router.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { stockAgeDays, stockAgeTone } from '../../utils/stockAge.js'
-import { bookingForVehicle } from '../../utils/orderNeeds.js'
+import { bookingForVehicle, modelKey } from '../../utils/orderNeeds.js'
+import { leadsForCar, leadCountByModel } from '../../utils/stockLeads.js'
+import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
+import { callLink } from '../../utils/callLink.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 
@@ -54,6 +57,18 @@ export default async function StockPage(container) {
   seedDemoData()
 
   let stock = []
+  // (v1.0.1423) ลูกค้าที่สนใจรุ่นเดียวกับรถในสต็อก (เฉพาะลูกค้าที่ผู้ใช้มองเห็น) — โหลดครั้งเดียวตอนเปิดหน้า
+  let leadCustomers = [], leadCounts = new Map()
+  ;(async () => {
+    try {
+      const scope = await getVisibilityScope()
+      const rows = await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1500)
+      if (container.__routerGen !== myGen) return
+      leadCustomers = rows.filter(c => !c.deleted && scopeIncludesRecord(scope, c.assignedTo, c))
+      leadCounts = leadCountByModel(leadCustomers)
+      if (leadCounts.size && stock.length) applyFilter()
+    } catch { /* ไม่มีสิทธิ์/โหลดไม่ได้ ก็ไม่แสดงชิป */ }
+  })()
   let bookingByVin = {}
   let filtered = []
   let statusFilter = 'all'
@@ -232,6 +247,8 @@ export default async function StockPage(container) {
         <td>
           <div style="font-weight:600">${escHtml(carOf(v))}</div>
           <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(v.variant || '')}</div>
+          ${(() => { const n = v.status === 'available' ? (leadCounts.get(modelKey(v)) || 0) : 0
+            return n ? `<button type="button" class="btn btn-ghost btn-xs stk-leads" data-id="${__escA(v.id)}" style="padding:1px 6px;margin-top:2px">🎯 สนใจ ${n} คน</button>` : '' })()}
         </td>
         <td><div style="display:flex;align-items:center;gap:6px"><div style="width:12px;height:12px;border-radius:50%;background:${colorDot(v.color)};border:1px solid var(--border)"></div>${escHtml(v.color)}</div></td>
         <td style="font-size:0.75rem;color:var(--text-muted);font-family:monospace">${escHtml(v.vin || '-')}</td>
@@ -273,6 +290,8 @@ export default async function StockPage(container) {
           })()}
         </div>
         ${v.vin ? `<div style="font-size:0.72rem;color:var(--text-muted);font-family:monospace;margin-bottom:10px;overflow-wrap:anywhere">VIN ${escHtml(v.vin)}</div>` : ''}
+        ${(() => { const n = v.status === 'available' ? (leadCounts.get(modelKey(v)) || 0) : 0
+          return n ? `<button type="button" class="btn btn-secondary btn-xs stk-leads" data-id="${__escA(v.id)}" style="margin-bottom:10px;width:100%;justify-content:center">🎯 ลูกค้าสนใจรุ่นนี้ ${n} คน — ดูรายชื่อ</button>` : '' })()}
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
             ${v.price ? `<div style="font-size:1.1rem;font-weight:700;color:var(--accent)">${formatCurrency(v.price)}</div>` : '<div style="font-size:0.8rem;color:var(--text-muted)">ยังไม่ใส่ราคา</div>'}
@@ -286,6 +305,21 @@ export default async function StockPage(container) {
       </div>`
   }
 
+  function openLeadsForCar(v) {
+    const list = leadsForCar(v, leadCustomers).slice(0, 30)
+    const TEMP = { hot: '🔥 Hot', warm: '🌤 Warm', cold: '❄️ Cold' }
+    const nameOf = c => [c.firstName, c.lastName].filter(Boolean).join(' ').trim() || c.name || 'ไม่ระบุชื่อ'
+    const { close } = openModal({
+      title: `🎯 ลูกค้าที่สนใจ ${escHtml(carOf(v))}`,
+      body: `<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px">รถคันนี้ ${escHtml(v.color || 'ไม่ระบุสี')}${(() => { const a = stockAgeDays(v.arrivedAt, todayBangkok()); return a != null ? ` · ในสต็อก ${a} วัน` : '' })()} — ลูกค้า Lead/Prospect ที่ยังไม่เสียดีลและสนใจรุ่นนี้ เรียง Hot ก่อน</div>
+        <div style="display:flex;flex-direction:column;gap:6px">${list.map(({ c, colorHit }) => `<div class="card" style="padding:8px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="flex:1 1 160px;min-width:0"><a href="/crm/customers?id=${encodeURIComponent(c.id)}" data-link class="stk-lead-go" style="font-weight:700;color:var(--text);text-decoration:none">${escHtml(nameOf(c))}</a>
+            <div style="font-size:0.72rem;color:var(--text-muted)">${TEMP[c.temperature] || '—'}${colorHit ? ' · 🎨 สีตรงที่อยากได้' : ''}${String(c.assignedTo || '').trim() ? ` · 👤 ${escHtml(c.assignedTo)}` : ' · ยังไม่มีผู้ดูแล'}</div></div>
+          ${callLink(c.phone, nameOf(c))}</div>`).join('') || '<div style="color:var(--text-muted)">ไม่พบ</div>'}</div>`,
+    })
+    document.querySelectorAll('.stk-lead-go').forEach(a => a.addEventListener('click', () => close?.()))
+  }
+
   function bindEvents() {
     document.querySelectorAll('.stock-row').forEach(row => {
       row.addEventListener('click', e => {
@@ -293,6 +327,11 @@ export default async function StockPage(container) {
         openDetail(stock.find(x => x.id === row.dataset.id))
       })
     })
+    document.querySelectorAll('.stk-leads').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation()
+      const v = stock.find(x => x.id === btn.dataset.id)
+      if (v) openLeadsForCar(v)
+    }))
     document.querySelectorAll('.edit-v').forEach(btn => btn.addEventListener('click', e => {
       e.stopPropagation(); openForm(stock.find(x => x.id === btn.dataset.id))
     }))
