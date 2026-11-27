@@ -23,6 +23,7 @@ export const PAGE_COLLECTIONS = {
   "customers",
   "followups",
   "job_cards",
+  "pdi",
   "quotations",
   "sales_programs",
   "vehicles"
@@ -50,6 +51,7 @@ export const PAGE_COLLECTIONS = {
   "customers",
   "followups",
   "job_cards",
+  "pdi",
   "quotations",
   "sales_programs",
   "vehicles"
