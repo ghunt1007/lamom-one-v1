@@ -54,6 +54,8 @@ describe('LAMI routing additions (v1.0.1462)', () => {
     expect(parseOpsSpec('ลูกค้าบ่นเรื่องอะไรบ่อย')).toEqual({ kind: 'complaint' })
     expect(parseOpsSpec('รถคันไหนซ่อมนานสุด').kind).toBe('service')
     expect(parseOpsSpec('วันนี้ศูนย์รับรถกี่คัน').kind).toBe('service')
+    expect(parseOpsSpec('วันนี้ใครเข้างานบ้าง')).toEqual({ kind: 'late' }) // (v1.0.1472)
+    expect(parseOpsSpec('เข้างานวันนี้กี่คน')).toEqual({ kind: 'late' })
   })
 })
 
