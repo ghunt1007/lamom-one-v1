@@ -68,7 +68,7 @@ import { testDriveConversion } from '../src/utils/testDriveConversion.js'
 import { discountWatch } from '../src/utils/discountWatch.js'
 import { speedImpact } from '../src/utils/speedImpact.js'
 import { modelFunnel } from '../src/utils/modelFunnel.js'
-import { cancelRisk } from '../src/utils/cancelRisk.js'
+import { cancelRisk, cancelRiskText } from '../src/utils/cancelRisk.js'
 import { forecastOverview } from '../src/utils/forecastOverview.js'
 import { deliveryWeekAnswer, deliveryWeekList } from '../src/utils/deliveryWeek.js'
 import { stockLineAnswer } from '../src/utils/stockList.js'
@@ -759,6 +759,17 @@ async function handleLineWebhook(request, env, cors) {
           reply = clipLine(swingLineAnswer(rows, todayBangkok(), { seller: isOwner ? '' : me.name }))
         } catch { reply = '⚠️ ดึงข้อมูลใบจองไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'cxrisk') {
+      // (v1.0.1456) ใบจองเสี่ยงถอน — สถิติทั้งร้าน · เซลส์เห็นใบของตัวเอง / เจ้าของเห็นทั้งร้าน
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      const isOwner = !!owner && owner === userId
+      if (me?.name || isOwner) {
+        try {
+          const rows = await runQuery(env, accessToken, 'bookings', null, null, 5000, DLVFC_BOOKING_FIELDS)
+          reply = clipLine(cancelRiskLineAnswer(rows, todayBangkok(), { seller: isOwner ? '' : me.name }))
+        } catch { reply = '⚠️ ดึงข้อมูลใบจองไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'sboard') {
       // (v1.0.1394) สถานะใบจองที่ค้าง แยกหมวด — เจ้าของเห็นทั้งร้าน + เทียบสัปดาห์ก่อน / เซลส์เห็นของตัวเองพร้อมชื่อลูกค้า · คนอื่นพิมพ์ = ข้อความปกติ
       const me = await readSalesTarget(env, accessToken, userId)
@@ -886,6 +897,8 @@ export function parseLineCommand(text) {
   if (/^(?:ส่งมอบ|นัดส่งมอบ|deliver(?:y|ies)?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'deliveries' }
   // (v1.0.1394) สถานะใบจองที่ค้าง: "สถานะ" / "สถานะใบจอง" / "ใบจองค้าง" / "ค้างกี่ใบ"
   if (/^(?:สถานะ|สถานะใบจอง|ใบจองค้าง|ค้างกี่ใบ|ยอดจองค้าง(?:กี่ใบ)?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'sboard' }
+  // (v1.0.1456) ใบจองเสี่ยงถอน
+  if (/^(?:เสี่ยงถอน|ใบเสี่ยงถอน|ใบจองเสี่ยงถอน|เสี่ยงหลุด|ใครเสี่ยงถอน)$/i.test(t.replace(/\s+/g, ''))) return { type: 'cxrisk' }
   // (v1.0.1413) "ลุ้น" — ใบจองที่โอกาสส่งทันเดือนนี้ 15–74% (เร่งแล้วเพิ่มยอดได้) เรียงโอกาสมาก→น้อย
   if (/^(?:ลุ้น|ใบลุ้น|ลุ้นเดือนนี้|ลุ้นส่งทัน|ใบที่ลุ้น)$/i.test(t.replace(/\s+/g, ''))) return { type: 'swing' }
   // (v1.0.1385) คาดการณ์ส่งมอบเดือนนี้: "คาดการณ์ส่งมอบ" / "ส่งทันไหม" / "ทันเป้าไหม" / "เดือนนี้ได้กี่คัน"
@@ -1143,6 +1156,11 @@ export function statusBoardLineAnswer(rows, today, { seller = '', logs = [], max
 export const DLVFC_BOOKING_FIELDS = ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'custName', 'brand', 'model', 'salesName', 'price', 'deleted']
 // คำตอบ LINE "คาดการณ์ส่งมอบ": seller ว่าง = ทั้งร้าน (มีเป้าทีม) · มี seller = เฉพาะใบของคนนั้น + ใบที่ควรเร่ง (ชื่อลูกค้า ส่งให้เซลส์เจ้าของเท่านั้น)
 // (v1.0.1413) คำสั่ง LINE "ลุ้น": ใบที่โอกาสส่งทันเดือนนี้ 15–74% + ขั้นต่อไปที่ต้องทำ (ชื่อต้นลูกค้า)
+// (v1.0.1456) LINE "เสี่ยงถอน" — ข้อความเดียวกับ LAMI (cancelRisk.js) · seller = เฉพาะใบของเซลส์คนนั้น
+export function cancelRiskLineAnswer(rows, today, { seller = '' } = {}) {
+  const r = cancelRisk(rows, today)
+  return cancelRiskText(r, { mine: (name) => !seller || normSalesName(name) === normSalesName(seller) })
+}
 export function swingLineAnswer(rows, today, { seller = '', max = 10 } = {}) {
   const mine = (rows || []).filter(b => b && !b.deleted && (!seller || normSalesName(b.salesName) === normSalesName(seller)))
   const fc = deliveryForecast({ bookings: mine, today, fmt: formatShortThai })
@@ -2158,6 +2176,7 @@ export const LINE_HELP_TEXT = [
   '• คาดการณ์ส่งมอบ — เดือนนี้น่าจะส่งมอบได้กี่คัน + ใบที่ลุ้นได้',
   '• สถานะ — ใบจองที่ค้างแยกตามสถานะ (รอส่งมอบ/รอเบิก/รอรถ/ไฟแนนซ์)',
   '• ลุ้น — ใบจองที่ลุ้นส่งทันเดือนนี้ เร่งแล้วเพิ่มยอดได้',
+  '• เสี่ยงถอน — ใบจองที่ค้างนานถึงช่วงที่ร้านเคยถอนสูง ควรโทรเช็ก',
   '• สต็อก — รถพร้อมขาย/กำลังมา/จองแล้ว แยกรุ่นและสี (สต็อก S07 = เฉพาะรุ่น)',
   '• โปร — โปรที่ใช้ได้วันนี้ (โปร S07 = เฉพาะรุ่น + ข้อความส่งลูกค้า · โปรใกล้หมด)',
   '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
