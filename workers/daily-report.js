@@ -66,6 +66,8 @@ import { incomeForecast, incomeForecastLine } from '../src/utils/incomeForecast.
 import { leadCountByModel } from '../src/utils/stockLeads.js'
 import { testDriveConversion } from '../src/utils/testDriveConversion.js'
 import { discountWatch } from '../src/utils/discountWatch.js'
+import { speedImpact } from '../src/utils/speedImpact.js'
+import { modelFunnel } from '../src/utils/modelFunnel.js'
 import { forecastOverview } from '../src/utils/forecastOverview.js'
 import { deliveryWeekAnswer, deliveryWeekList } from '../src/utils/deliveryWeek.js'
 import { stockLineAnswer } from '../src/utils/stockList.js'
@@ -1389,7 +1391,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 export const EVENING_CUSTOMER_FIELDS = ['stage', 'createdAt', 'source', 'assignedTo', 'temperature', 'isLost', 'lostAt', 'lostReason', 'lastContactAt', 'eventId', 'referralCode', 'deleted', 'autoLead', 'utmMedium', 'utmSource', 'utmCampaign', 'tags', 'reEnquiredAt', 'firstContactAt']
 // ช่องของลูกค้าที่ buildMorningSections อ่าน — ขาดช่องไหน หัวข้อนั้นจะเงียบหายในรายงานจริง (เทสต์เช็กไว้)
 // (v1.0.1211) เดิมไม่มี autoLead → หัวข้อ "🆕 Lead ใหม่ที่ยังไม่มีใครโทร" ไม่เคยขึ้นในรายงานจริง
-export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel', 'phone', 'wakeSentAt', 'lineOptOut', 'lineBlockedAt', 'marketingConsent']
+export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel', 'phone', 'wakeSentAt', 'lineOptOut', 'lineBlockedAt', 'marketingConsent', 'firstContactAt']
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves, vehicles, transit, orders, doneJobs, dueReminders] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'customerId', 'phone', 'brand', 'model', 'totalIncome', 'com70', 'comFinance', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly', 'colorOut', 'color', 'vin', 'lineUserId', 'price', 'extraDiscount']),
@@ -2000,6 +2002,7 @@ export function buildWeeklyReport(data, { today }) {
     ...serviceWeekLines(data.jobCards, weeks[0], weeks[1]),
     tdConvWeekLine(data.testDrives, data.bookings, data.customers, today),
     discountWeekLine(data.bookings, today),
+    ...insightWeekLines(data.customers, today),
     ...(convLines.length ? ['', '🎯 ช่องทางที่ปิดจองได้ดี (Lead 90 วันล่าสุด)', ...convLines] : []),
     '',
     '─────────────────────',
@@ -2023,6 +2026,18 @@ export function discountWeekLine(bookings, today) {
   if (!w || !w.models.length) return null
   const top = w.flags.length ? [...new Set(w.flags.map(f => String(f.b.salesName || '').trim()).filter(Boolean))].slice(0, 3).join(', ') : ''
   return `💸 ส่วนลดเพิ่มเติม 6 เดือน เฉลี่ย ฿${Math.round(w.avg).toLocaleString('en-US')}/คัน · ${w.flags.length ? `⚠️ เดือนนี้เกินปกติ ${w.flags.length} ใบ${top ? ` (${top})` : ''}` : 'เดือนนี้ยังไม่มีใบที่เกินปกติ'}`
+}
+
+// (v1.0.1451) สรุปจันทร์: โทรลีดเร็ว ปิดได้ต่างกันแค่ไหน + รุ่นที่คนสนใจแต่ปิดยาก (ทั้งร้าน ไม่มีชื่อ) — ข้อมูลไม่พอ = ไม่มีบรรทัด
+export function insightWeekLines(customers, today) {
+  const now = Date.parse(today + 'T05:00:00Z')
+  const out = []
+  const sp = speedImpact(customers, now)
+  if (sp && sp.fast.rate > sp.slow.rate) out.push(`⚡ ลีดที่โทรภายใน 1 ชม. ปิดได้ ${Math.round(sp.fast.rate * 100)}% · ช้ากว่า 24 ชม. ${Math.round(sp.slow.rate * 100)}% (${sp.n} ลีด)`)
+  const mf = modelFunnel(customers, now)
+  const hard = mf && mf.models.filter(m => m.rate <= mf.overall - 0.1).sort((a, b) => b.n - a.n)[0]
+  if (hard) out.push(`🚘 ${hard.label} คนสนใจ ${hard.n} ราย ปิดได้ ${Math.round(hard.rate * 100)}% (ร้านเฉลี่ย ${Math.round(mf.overall * 100)}%) — ดูโปร/ทดลองขับรุ่นนี้`)
+  return out
 }
 
 // (v1.0.1397) สรุปจันทร์: ใบจองค้างแยกหมวด (▲▼ เทียบภาพสัปดาห์ก่อน) + คาดการณ์ส่งมอบเดือนนี้
