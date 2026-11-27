@@ -619,11 +619,16 @@ export async function loadCallListCommands(customersPromise) {
   const [{ listDocs }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok }, { callList, callListCommands }] = await Promise.all([
     import('../core/db.js'), import('../core/companyScope.js'), import('./customerFollowups.js'), import('./format.js'), import('./callList.js')])
   const today = todayBangkok()
-  const [customers, followups] = await Promise.all([
+  const [customers, followups, vehicles, { modelKey }] = await Promise.all([
     customersPromise || visibleCustomersForCommands(),
     listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000).catch(() => []),
+    listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 1000).catch(() => []),
+    import('./orderNeeds.js'),
   ])
-  return callListCommands(callList({ customers, followups, today }))
+  // (v1.0.1426) รถพร้อมขายแยกรุ่น → ลีดที่รุ่นมีรถพร้อมขายขึ้นก่อน + บอกในเหตุผล
+  const readyByModel = new Map()
+  vehicles.filter(v => v && !v.deleted && ['available', 'pdi'].includes(v.status)).forEach(v => { const k = modelKey(v); if (k) readyByModel.set(k, (readyByModel.get(k) || 0) + 1) })
+  return callListCommands(callList({ customers, followups, today, readyByModel }))
 }
 export function callListIntro(cmds) {
   return cmds.length ? `📞 วันนี้ควรโทร ${cmds.length} คนนี้ก่อน (เรียงจากเร่งด่วนที่สุด) — กดโทรได้เลย วางสายแล้วระบบถามผลให้บันทึก` : '🎉 วันนี้ไม่มีนัดค้างหรือลูกค้า Hot/Warm ที่เงียบนาน — ลองดูลูกค้าใหม่ในหน้า Lead'

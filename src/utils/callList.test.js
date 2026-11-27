@@ -43,3 +43,17 @@ describe('วันนี้ควรโทรหาใคร', () => {
     expect(isCallListQuestion('โทรหาสมชาย')).toBe(false)
   })
 })
+
+describe('call list prefers leads whose model is in stock (v1.0.1426)', () => {
+  it('ready-in-stock lead goes first among equal urgency and says so', () => {
+    const today = '2026-11-20'
+    const cs = [
+      { id: 'a', stage: 'pp', temperature: 'hot', interestedModel: 'L07', createdAt: '2026-11-01T00:00:00Z' },
+      { id: 'b', stage: 'pp', temperature: 'hot', interestedModel: 'Deepal S07', createdAt: '2026-11-01T00:00:00Z' },
+    ]
+    const r = callList({ customers: cs, followups: [], today, readyByModel: new Map([['s07', 2]]) })
+    expect(r[0].customer.id).toBe('b')
+    expect(r[0].why).toContain('🚗 รุ่นนี้มีรถพร้อมขาย 2 คัน')
+    expect(callList({ customers: cs, followups: [], today })[0].why).not.toContain('🚗')
+  })
+})

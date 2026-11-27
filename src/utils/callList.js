@@ -3,6 +3,7 @@
 // คะแนนโอกาสปิด (heuristicScore) ใช้ตัดสินเมื่อเร่งด่วนเท่ากัน · คืนรายการพร้อมเหตุผลสั้นๆ
 import { heuristicScore } from './leadScore.js'
 import { dmy } from './format.js'
+import { modelKey } from './orderNeeds.js'
 
 const DAY = 86400e3
 const dayNum = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / DAY
@@ -20,7 +21,8 @@ export function isCallListQuestion(q) {
   return /(?:ควร|ต้อง)\s*(?:โทร|ตาม|ติดต่อ)(?:หา)?\s*ใคร|ใคร(?:บ้าง)?\s*(?:ที่)?(?:ต้อง|ควร)\s*(?:ได้(?:รับ)?(?:การ)?)?\s*(?:โทร|ตาม)|โทรหาใคร(?:ดี|ก่อน)|ตามใครดี|ตามใครก่อน|call\s*list|รายชื่อ(?:ที่)?ต้องโทร/i.test(s)
 }
 
-export function callList({ customers = [], followups = [], today, now = Date.now(), limit = 5 }) {
+// readyByModel (ไม่บังคับ, v1.0.1426) = Map(modelKey → รถพร้อมขาย) — ลีดที่รุ่นมีรถพร้อมขายขึ้นก่อนเมื่อเร่งด่วนเท่ากัน
+export function callList({ customers = [], followups = [], today, now = Date.now(), limit = 5, readyByModel = null }) {
   const byId = new Map(customers.filter(c => c && !c.deleted && !c.isLost).map(c => [c.id, c]))
   const rows = new Map()
   const t = dayNum(today)
@@ -42,9 +44,11 @@ export function callList({ customers = [], followups = [], today, now = Date.now
     if (quiet < 3) continue
     rows.set(c.id, { c, rank: c.temperature === 'hot' ? 2 : 3, quiet, why: `${c.temperature === 'hot' ? '🔥 Hot' : 'Warm'} · ${c.lastContactAt ? `เงียบ ${quiet} วัน` : `ยังไม่เคยติดต่อ (เข้ามา ${dmy(last)})`} · ไม่มีนัดค้าง` })
   }
+  const ready = r => readyByModel && r.c.interestedModel && ['lead', 'pp'].includes(r.c.stage) ? readyByModel.get(modelKey({ model: r.c.interestedModel })) || 0 : 0
+  rows.forEach(r => { r.ready = ready(r); if (r.ready && r.why) r.why += ` · 🚗 รุ่นนี้มีรถพร้อมขาย ${r.ready} คัน` })
   return [...rows.values()].filter(r => !r.future)
     .map(r => ({ ...r, score: heuristicScore(r.c, now).score }))
-    .sort((a, b) => a.rank - b.rank || (a.rank === 0 ? b.late - a.late : 0) || (a.rank === 1 ? String(a.time || '99').localeCompare(String(b.time || '99')) : 0) || b.score - a.score)
+    .sort((a, b) => a.rank - b.rank || (a.rank === 0 ? b.late - a.late : 0) || (a.rank === 1 ? String(a.time || '99').localeCompare(String(b.time || '99')) : 0) || Number(!!b.ready) - Number(!!a.ready) || b.score - a.score)
     .slice(0, limit)
     .map(r => ({ customer: r.c, why: r.why, score: r.score, phone: String(r.c.phone || '').replace(/[^\d+]/g, '') }))
 }
