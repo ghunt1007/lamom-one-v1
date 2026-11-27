@@ -4,6 +4,7 @@ import { getState, on } from '../core/store.js'
 import { listDocs, watchDocs, seedDemoData, getSalesData } from '../core/db.js'
 import { companyScopeFilters } from '../core/companyScope.js'
 import { formatCurrency, timeAgo, todayBangkok, toDateStr, toDate, formatDate } from '../utils/format.js'
+import { jobTurnaround } from '../utils/jobTurnaround.js'
 import { navigate } from '../core/router.js'
 import { generateMorningBriefing, bangkokHour } from '../utils/ai.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../core/permissions.js'
@@ -819,7 +820,7 @@ export default async function DashboardPage(container) {
           ${[0.25, 0.5, 0.75].map(f => `<line x1="${padL}" y1="${padT + plotH * f}" x2="${W - padR}" y2="${padT + plotH * f}" stroke="var(--border)" stroke-width="0.6" stroke-dasharray="4 6" opacity="0.6"/>`).join('')}
           <line x1="${padL}" y1="${yBase}" x2="${W - padR}" y2="${yBase}" stroke="var(--border)" stroke-width="1"/>
           <line x1="${xDiv}" y1="${padT - 4}" x2="${xDiv}" y2="${yBase}" stroke="var(--info)" stroke-width="1" stroke-dasharray="5 4" opacity="0.7"/>
-          <text x="${xDiv + 5}" y="${padT + 4}" font-size="9" fill="var(--info)" font-family="monospace" letter-spacing="1">FORECAST →</text>
+          <text x="${xDiv + 5}" y="${yBase - 6}" font-size="9" fill="var(--info)" opacity="0.85">คาดการณ์ →</text>
           <polygon points="${areaStr}" fill="url(#dash-rev-grad)"/>
           ${bars}
           ${fBars}
@@ -1367,15 +1368,19 @@ export default async function DashboardPage(container) {
       if (stuck.length > 4) alerts.push({ icon: '⏳', sev: 'warning', nav: '/crm/bookings', text: `ใบจองค้างสถานะเกิน 14 วัน อีก ${stuck.length - 4} รายการ`, age: null })
 
       // งานซ่อมเปิดค้างเกิน 7 วัน
+      // (v1.0.1436) มีเวลาซ่อมจริงของศูนย์พอ (≥ 5 งาน) → ใช้ "นานกว่าปกติ" ของศูนย์เอง แทนเกณฑ์ตายตัว 7 วัน
+      const ta = jobTurnaround(jobs, todayBangkok())
+      const jobLimit = ta ? Math.max(1, Math.ceil(ta.p80)) : 7
       const openJobs7 = jobs
-        .filter(j => !['done', 'completed', 'delivered'].includes(j.status) && j.createdAt && daysSince(j.createdAt) >= 7)
+        .filter(j => !['done', 'completed', 'delivered'].includes(j.status) && j.createdAt && daysSince(j.createdAt) >= jobLimit)
         .map(j => ({ ...j, age: daysSince(j.createdAt) }))
         .sort((a, b) => b.age - a.age)
+      const jobName = j => [j.jobNo, j.custName, j.plate || j.licensePlate].map(v => String(v || '').trim()).filter(Boolean).join(' · ') || 'ไม่ระบุเลขงาน'
       openJobs7.slice(0, 2).forEach(j => alerts.push({
-        icon: '🔧', sev: j.age >= 14 ? 'danger' : 'warning', nav: '/service/jobs',
-        text: `งานซ่อม ${escHtml(j.licensePlate || j.vin || j.id)} ยังไม่เสร็จ`, age: j.age,
+        icon: '🔧', sev: j.age >= jobLimit * 2 ? 'danger' : 'warning', nav: '/service/jobs',
+        text: `งานซ่อม ${escHtml(jobName(j))} ยังไม่เสร็จ${ta ? ' (นานกว่าปกติ)' : ''}`, age: j.age,
       }))
-      if (openJobs7.length > 2) alerts.push({ icon: '🔧', sev: 'warning', nav: '/service/jobs', text: `งานซ่อมค้างเกิน 7 วัน อีก ${openJobs7.length - 2} งาน`, age: null })
+      if (openJobs7.length > 2) alerts.push({ icon: '🔧', sev: 'warning', nav: '/service/jobs', text: `งานซ่อมค้างเกิน ${jobLimit} วัน อีก ${openJobs7.length - 2} งาน`, age: null })
 
       // Lead ใหม่ไม่ถูกติดตามเกิน 3 วัน (สรุปรวม)
       const staleLeads = leads.filter(l => l.status === 'new' && l.createdAt && daysSince(l.createdAt) >= 3)
