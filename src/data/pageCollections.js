@@ -99,6 +99,7 @@ export const PAGE_COLLECTIONS = {
  ],
  "/dms/stock": [
   "bookings",
+  "customers",
   "job_cards",
   "pdi",
   "reservations",
