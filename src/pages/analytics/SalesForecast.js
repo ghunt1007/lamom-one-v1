@@ -5,6 +5,10 @@ import { getSalesData, listDocs } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { loadSalesBudget, sumMonths } from '../../utils/salesBudget.js'
+import { navigate } from '../../core/router.js'
+import { loadDeliveryForecast } from '../../utils/deliveryForecastData.js'
+import { forecastCards } from '../../utils/forecastOverview.js'
+import { FH_CSS, forecastHubHtml } from '../../utils/forecastHubView.js'
 
 const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
@@ -54,6 +58,9 @@ export default async function SalesForecastPage(container) {
   let actuals = Array.from({ length: NOW_M }, (_, m) => ({ month: m, units: 0, revenue: 0, leads: 0, conversion: 0 }))
   let dataSource = 'demo'
   let annualTarget = 0
+  // (v1.0.1439) การ์ดคาดการณ์เดือนนี้/เดือนหน้า จากข้อมูลจริง (คำนวณครั้งเดียว เก็บ HTML ไว้ใช้ตอนวาดหน้าใหม่)
+  let hubHtml = '<div class="fh-why" style="margin-bottom:18px">⏳ กำลังคำนวณจากข้อมูลจริงของร้าน…</div>'
+  let customersForHub = []
 
   // Load real monthly sales from bookings
   try {
@@ -64,6 +71,7 @@ export default async function SalesForecastPage(container) {
     if (container.__routerGen !== myGen) return
     // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันลูกค้าที่ลบไปแล้วปนในพยากรณ์ยอดขาย
     const customers = customersRaw.filter(x => !x.deleted)
+    customersForHub = customers
     const byMonth = Object.fromEntries(actuals.map(a => [a.month, a]))
     sales.forEach(s => {
       if (String(s.date || '').slice(0, 4) !== String(YEAR)) return
@@ -90,6 +98,24 @@ export default async function SalesForecastPage(container) {
     annualTarget = sumMonths((await loadSalesBudget(YEAR)).targets) || 0
   } catch {}
 
+  async function loadHub() {
+    try {
+      const today = todayBangkok()
+      const [{ fc, next, bookings }, reminders, jobs] = await Promise.all([
+        loadDeliveryForecast({ today }),
+        listDocs('service_reminders', companyScopeFilters(), 'dueDate', 'desc', 3000).catch(() => []),
+        listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => []),
+      ])
+      hubHtml = forecastHubHtml(forecastCards({ fc, next, bookings, customers: customersForHub, reminders, jobs, today }))
+    } catch { hubHtml = '<div class="fh-why" style="margin-bottom:18px">อ่านข้อมูลไม่สำเร็จ — ลองรีเฟรชหน้าอีกครั้ง</div>' }
+    if (container.__routerGen !== myGen) return
+    const el = container.querySelector('#fh-cards')
+    if (el) { el.innerHTML = hubHtml; bindHub() }
+  }
+  function bindHub() {
+    container.querySelectorAll('#fh-cards [data-nav]').forEach(c => c.addEventListener('click', () => navigate(c.dataset.nav)))
+  }
+
   function renderPage() {
     const sc = SCENARIOS[scenario]
     const forecast = calcForecast(actuals, sc.growth)
@@ -108,15 +134,20 @@ export default async function SalesForecastPage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">🔮 พยากรณ์ยอดขาย</div>
-            <div class="page-subtitle">ปี ${YEAR + 543} — เฉลี่ย 3 เดือนล่าสุดที่จบแล้ว × ฤดูกาลตลาดรถ
-              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริงจากใบจอง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">ยังไม่มียอดปีนี้</span>'}
-            </div>
+            <div class="page-title">🔮 ศูนย์คาดการณ์</div>
+            <div class="page-subtitle">เดือนนี้ · เดือนหน้า · ทั้งปี — คำนวณจากข้อมูลจริงของร้าน (เรื่องไหนประวัติไม่พอจะบอกว่ายังคาดไม่ได้)</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
           </div>
         </div>
+        <style>${FH_CSS}</style>
+        <div style="font-weight:700;font-size:0.92rem;margin-bottom:10px">📌 เดือนนี้และเดือนหน้า <span style="font-size:0.72rem;font-weight:400;color:var(--text-muted)">กดการ์ดเพื่อดูรายละเอียด</span></div>
+        <div id="fh-cards">${hubHtml}</div>
+
+        <div style="font-weight:700;font-size:0.92rem;margin:6px 0 4px">📆 ประมาณการทั้งปี ${YEAR + 543} <span style="font-size:0.72rem;font-weight:400;color:var(--text-muted)">แนวทางคร่าวๆ — เฉลี่ย 3 เดือนล่าสุดที่จบแล้ว × ฤดูกาลตลาดรถทั่วไป (ไม่ใช่ของร้าน)
+          ${dataSource === 'live' ? '<span style="color:var(--success);margin-left:6px">● ยอดจริงจากใบจอง</span>' : '· ยังไม่มียอดปีนี้'}</span></div>
+        <div style="height:10px"></div>
 
         <!-- KPIs -->
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
@@ -212,21 +243,22 @@ export default async function SalesForecastPage(container) {
 
         <!-- Insight box -->
         <div class="card" style="padding:14px 16px;margin-top:14px;border-left:3px solid var(--${sc.color})">
-          <div style="font-weight:700;font-size:0.85rem;margin-bottom:8px">💡 AI Insight — สถานการณ์ ${sc.label}</div>
+          <div style="font-weight:700;font-size:0.85rem;margin-bottom:8px">💡 สรุป — สถานการณ์ ${sc.label}</div>
           <div style="font-size:0.82rem;color:var(--text-muted);line-height:1.6">
             ${(() => {
               const vsTarget = annualTarget > 0
                 ? ` — ${yearTotal >= annualTarget ? 'สูงกว่า' : 'ต่ำกว่า'}เป้าหมายปี (${formatCurrency(annualTarget)}) <strong>${Math.abs(Math.round((yearTotal/annualTarget-1)*100))}%</strong>`
                 : ' (ยังไม่ได้ตั้งเป้ายอดขายรายปีไว้ที่หน้า Sales Budget)'
-              if (scenario === 'optimistic') return `📈 หากตลาด EV ยังเติบโต 15% และแคมเปญ Q3/Q4 ทำได้ดี คาดว่าปีนี้จะปิดที่ <strong>${formatCurrency(yearTotal)}</strong>${vsTarget} แนะนำเพิ่มสต็อกก่อน Motor Expo ธ.ค.`
-              if (scenario === 'pessimistic') return `📉 กรณีตลาดชะลอตัว -5% ควรเน้น Service Revenue และ Insurance Commission เพื่อชดเชย คาดรายได้รวม <strong>${formatCurrency(yearTotal)}</strong>${vsTarget} พิจารณาลดต้นทุน Opex และเร่งปิด Lead ที่ค้างใน Pipeline`
-              return `📊 สถานการณ์ปกติ growth 5% คาดรายได้รวม <strong>${formatCurrency(yearTotal)}</strong>${vsTarget} เน้นรักษา Conversion Rate และทำ Follow-up ลูกค้าที่ยังไม่ตัดสินใจ ช่วง Q4 ควรเพิ่มแคมเปญโปรโมชัน`
+              // (v1.0.1439) เดิมเป็นข้อความสำเร็จรูป (ตลาด EV/Motor Expo) ที่ไม่ได้มาจากข้อมูลร้าน — เหลือเฉพาะตัวเลขที่คำนวณจริง
+              const g = SCENARIOS[scenario].growth
+              return `ถ้ายอด${g >= 0 ? 'โต' : 'ลด'} ${Math.abs(g)}% จากเฉลี่ย 3 เดือนล่าสุด ทั้งปีจะได้ราว <strong>${formatCurrency(yearTotal)}</strong> (${yearUnits} คัน)${vsTarget} — ตัวเลขเดือนนี้ที่แม่นกว่า ดูการ์ดด้านบน`
             })()}
           </div>
         </div>
       </div>
     `
 
+    bindHub()
     document.querySelectorAll('.sc-btn').forEach(b => b.addEventListener('click', () => { scenario = b.dataset.s; renderPage() }))
     document.querySelectorAll('.vm-btn').forEach(b => b.addEventListener('click', () => { viewMetric = b.dataset.m; renderPage() }))
     document.getElementById('export-btn')?.addEventListener('click', () => {
@@ -241,5 +273,5 @@ export default async function SalesForecastPage(container) {
   }
 
   renderPage()
+  loadHub()
 }
-

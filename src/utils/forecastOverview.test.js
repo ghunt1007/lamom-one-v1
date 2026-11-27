@@ -29,3 +29,21 @@ describe('forecastOverview (v1.0.1434)', () => {
     expect(forecastOverview({ today: T }).text).toContain('ยังคาดการณ์ไม่ได้')
   })
 })
+
+import { forecastCards } from './forecastOverview.js'
+import { forecastHubHtml } from './forecastHubView.js'
+describe('forecast hub cards (v1.0.1439)', () => {
+  it('returns every topic, ok or with a reason; money hidden when not allowed', () => {
+    const fc = { delivered: 3, expected: 9, worst: 7, best: 11, target: 12, targetPct: 75 }
+    const next = { ym: '2026-12', expected: 4, worst: 2, best: 6, count: 10 }
+    const cards = forecastCards({ fc, next, bookings: bk, today: T })
+    expect(cards.map(c => c.key)).toEqual(['delivery', 'booking', 'lead', 'income', 'next', 'service'])
+    expect(cards.find(c => c.key === 'lead')).toMatchObject({ ok: false })
+    expect(cards.find(c => c.key === 'next')).toMatchObject({ ok: true, value: 4, unit: 'คัน' })
+    expect(forecastCards({ fc, bookings: bk, today: T, money: false }).some(c => c.key === 'income')).toBe(false)
+    const html = forecastHubHtml(cards)
+    expect(html).toContain('≈ 9<small>คัน</small>')
+    expect(html).toContain('ยังคาดไม่ได้: ต้องมีลูกค้าย้อนหลังอย่างน้อย 3 เดือน')
+    expect(html).toContain('data-nav="/analytics/delivery-forecast"')
+  })
+})
