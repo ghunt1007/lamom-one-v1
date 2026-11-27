@@ -16,6 +16,7 @@ import { sendToCustomer, lineUidFor } from '../../utils/customerSend.js'
 import { testDriveApptText, addDaysYmd } from '../../utils/apptConfirmText.js'
 import { escHtml } from '../../utils/escape.js'
 import { callLink } from '../../utils/callLink.js'
+import { testDriveConversion } from '../../utils/testDriveConversion.js'
 import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
 
 // (v1.0.523) เดิมหน้านี้เขียน collection แยก 'test_drive_records' ของตัวเอง ในขณะที่ TestDriveScheduler.js
@@ -59,6 +60,7 @@ export default async function TestDrivePage(container) {
   const canMigrate = isProgramOwner()
 
   let testdrives = []
+  let conv = null
   let filterStatus = 'all'
   let viewMode = 'list' // list | calendar
   let loading = true
@@ -67,9 +69,13 @@ export default async function TestDrivePage(container) {
 
   async function loadData() {
     loading = true
-    try { testdrives = await listDocs('test_drives', companyScopeFilters(), 'date', 'desc', 200) } catch (e) { testdrives = [] }
+    try { testdrives = await listDocs('test_drives', companyScopeFilters(), 'date', 'desc', 500) } catch (e) { testdrives = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
+    // (v1.0.1431) ขับแล้วจองจริง — ดูจากใบจองของลูกค้าคนเดียวกัน (อ่านไม่ได้ = ไม่แสดง ใช้ตัวเลขจากช่องผลแทน)
+    Promise.all([listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 2000), listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1500).catch(() => [])])
+      .then(([bookings, customers]) => { conv = testDriveConversion({ testDrives: testdrives, bookings, customers, today: todayBangkok() }); if (container.__routerGen === myGen) renderPage() })
+      .catch(() => {})
     if (canMigrate) checkLegacy()
   }
 
@@ -98,6 +104,18 @@ export default async function TestDrivePage(container) {
     migrating = false
     showToast(`✅ ย้ายข้อมูลเก่าแล้ว ${migrated} รายการ${errors ? ` (พลาด ${errors} รายการ)` : ''}`, errors ? 'warning' : 'success')
     await loadData()
+  }
+
+  // การ์ด: อัตราจองจริง + ต่อรุ่น + รายชื่อขับแล้วยังไม่จอง (โทรได้ทันที)
+  function convHtml() {
+    if (!conv) return ''
+    const pct = v => Math.round(v * 100) + '%'
+    const head = conv.rate != null ? `<div style="font-size:0.85rem">🎯 ขับแล้ว<b>จองจริง</b> <b style="color:var(--${conv.rate >= 0.3 ? 'success' : 'warning'})">${pct(conv.rate)}</b> <span style="color:var(--text-muted);font-size:0.76rem">(${conv.booked} จาก ${conv.n} ครั้ง · นับใบจองภายใน ${conv.windowDays} วันหลังขับ)</span></div>`
+      + (conv.byModel.length > 1 ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${conv.byModel.slice(0, 6).map(m => `<span class="badge" style="font-size:0.72rem">${escHtml(m.model)} ${pct(m.rate)} <span style="opacity:.7">(${m.n})</span></span>`).join('')}</div>` : '') : ''
+    const MAX = 8
+    const list = conv.chase.length ? `<div style="margin-top:${head ? 10 : 0}px;font-weight:600;font-size:0.82rem">📞 ขับแล้วยังไม่จอง ${conv.chase.length} ราย (2–30 วันล่าสุด) — โทรตามก่อนลูกค้าเย็นลง</div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${conv.chase.slice(0, MAX).map(({ td, days }) => `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:0.8rem;min-width:0"><span style="min-width:0;overflow-wrap:anywhere"><b>${escHtml(td.customerName || 'ลูกค้า')}</b> · ${escHtml(td.model || '')} · ขับเมื่อ ${days} วันก่อน${td.staff ? ' · 👤 ' + escHtml(td.staff) : ''}</span>${callLink(td.phone, td.customerName)}</div>`).join('')}${conv.chase.length > MAX ? `<div style="font-size:0.74rem;color:var(--text-muted)">…และอีก ${conv.chase.length - MAX} ราย</div>` : ''}</div>` : ''
+    return head || list ? `<div class="card" id="td-conv" style="padding:12px 14px;margin-bottom:14px">${head}${list}</div>` : ''
   }
 
   function getStats() {
@@ -146,7 +164,8 @@ export default async function TestDrivePage(container) {
         </div>` : ''}
 
         <!-- ผลลัพธ์สั้น ๆ บรรทัดเดียว (ตัวเลขแต่ละสถานะอยู่บนปุ่มกรองด้านล่างแล้ว) -->
-        ${s.done ? `<div style="font-size:0.82rem;color:var(--text-2);margin-bottom:14px">🎯 ขับแล้วจอง <b style="color:var(--${s.convRate >= 30 ? 'success' : 'warning'})">${s.convRate}%</b> <span style="color:var(--text-muted)">(จองต่อ ${s.booked} จากที่ขับเสร็จ ${s.done} ครั้ง)</span></div>` : ''}
+        ${convHtml()}
+        ${conv?.rate != null ? '' : s.done ? `<div style="font-size:0.82rem;color:var(--text-2);margin-bottom:14px">🎯 ขับแล้วจอง <b style="color:var(--${s.convRate >= 30 ? 'success' : 'warning'})">${s.convRate}%</b> <span style="color:var(--text-muted)">(จองต่อ ${s.booked} จากที่ขับเสร็จ ${s.done} ครั้ง)</span></div>` : ''}
 
         <!-- Today's schedule -->
         ${todayTDs.length > 0 ? `
