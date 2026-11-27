@@ -301,7 +301,7 @@ export default async function AiAssistantChatPage(container) {
       <div style="font-size:0.8rem;color:var(--text-muted);margin:4px 0 16px">LAMI ตอบจากข้อมูลจริงในระบบ ทั้งยอดขาย ลูกค้า งานค้างของคุณ และอื่นๆ</div>
       <div class="chat-quick" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:0 0 14px">
         <span style="width:100%;font-size:0.74rem;color:var(--text-muted)">⚡ ตอบทันทีจากข้อมูลจริง ไม่ต้องรอ AI:</span>
-        ${['วันนี้มีอะไรบ้าง', 'พรุ่งนี้มีอะไรบ้าง', 'ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนนี้เท่าไหร่', ...(isManagerRole() ? ['ทีมวันนี้เป็นไง'] : []), 'มีรถอะไรพร้อมขาย', 'โปรเดือนนี้มีอะไรบ้าง', 'รถไฟฟ้าไม่เกิน 1 ล้าน', 'วันนี้ควรโทรหาใคร'].map(q => `<button type="button" class="btn btn-secondary btn-xs cat-btn" data-q="${esc(q)}" style="border-radius:999px">${esc(q)}</button>`).join('')}
+        ${['วันนี้มีอะไรบ้าง', 'พรุ่งนี้มีอะไรบ้าง', 'ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนนี้เท่าไหร่', ...(isManagerRole() ? ['ทีมวันนี้เป็นไง', 'คาดการณ์เดือนนี้'] : []), 'มีรถอะไรพร้อมขาย', 'โปรเดือนนี้มีอะไรบ้าง', 'รถไฟฟ้าไม่เกิน 1 ล้าน', 'วันนี้ควรโทรหาใคร'].map(q => `<button type="button" class="btn btn-secondary btn-xs cat-btn" data-q="${esc(q)}" style="border-radius:999px">${esc(q)}</button>`).join('')}
       </div>
       <div class="lami-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,46%),1fr));gap:10px;text-align:left">
         ${cards.map(([icon, title, sub, q]) => `<button class="card cat-btn" data-q="${esc(q)}" style="padding:14px;cursor:pointer;text-align:left;border:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;color:var(--text)">

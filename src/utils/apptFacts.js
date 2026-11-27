@@ -1,5 +1,6 @@
 // นัดหมายวันนี้ (โชว์รูม + ศูนย์บริการ) — ใช้ร่วมกันระหว่างรายงาน LINE 09:00/18:00 (workers/daily-report.js) และ LAMI
 // ฟังก์ชันล้วน ไม่แตะฐานข้อมูล
+import { jobTurnaround, slowJobs, daysText } from './jobTurnaround.js'
 
 // (v1.0.1014) รายงาน 18:00: นัดเข้าโชว์รูมวันนี้ มาแล้วกี่ราย ไม่มากี่ราย — null ถ้าวันนี้ไม่มีนัด
 export function showroomVisitLine(appointments, today) {
@@ -75,7 +76,15 @@ export function serviceEveningLines(jobs = [], today) {
   if (!isNew && !back && !inShop.length) return []
   return ['🔧 ศูนย์บริการ',
     `  • ใบงานใหม่วันนี้: ${isNew} คัน · ส่งคืนลูกค้าวันนี้: ${back} คัน`,
-    `  • รถยังอยู่ที่ศูนย์: ${inShop.length} คัน${done ? ` (เสร็จรอลูกค้ารับ ${done})` : ''}${parts ? ` · รออะไหล่ ${parts}` : ''}`]
+    `  • รถยังอยู่ที่ศูนย์: ${inShop.length} คัน${done ? ` (เสร็จรอลูกค้ารับ ${done})` : ''}${parts ? ` · รออะไหล่ ${parts}` : ''}`,
+    ...slowJobsLine(live, today)]
+}
+
+// (v1.0.1435) งานซ่อมที่ค้างนานกว่าปกติของศูนย์ (เทียบเวลาที่งานเสร็จจริง ≥ 5 งานใน 90 วัน) — ประวัติไม่พอ = ไม่ใส่บรรทัด
+export function slowJobsLine(jobs = [], today, now = Date.now()) {
+  const ta = jobTurnaround(jobs, today)
+  const slow = slowJobs(jobs, ta, now)
+  return slow.length ? [`  • ⚠️ ค้างนานกว่าปกติ ${slow.length} คัน (ปกติเสร็จใน ${daysText(ta.median)})`] : []
 }
 
 // (v1.0.1294) สรุปสัปดาห์ (จันทร์) — ใบงานศูนย์บริการเปิดใหม่ / ส่งคืนลูกค้า สัปดาห์ที่แล้วเทียบสัปดาห์ก่อน · ไม่มีเลยทั้งสองสัปดาห์ = []

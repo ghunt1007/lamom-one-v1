@@ -34,3 +34,15 @@ describe('jobTurnaround', () => {
     expect(daysText(2.46)).toBe('2.5 วัน')
   })
 })
+
+import { slowJobsLine, serviceEveningLines } from './apptFacts.js'
+describe('18:00 slow jobs line (v1.0.1435)', () => {
+  it('adds line only with enough history', () => {
+    const done = [1, 1, 2, 2, 3].map(n => ({ status: 'delivered', createdAt: '2026-11-01T00:00:00Z', doneAt: new Date(Date.UTC(2026, 10, 1 + n)).toISOString() }))
+    const open = { status: 'inprogress', createdAt: '2026-11-20T00:00:00Z' }
+    const now = Date.parse('2026-11-28T10:00:00Z')
+    expect(slowJobsLine([...done, open], T, now)).toEqual(['  • ⚠️ ค้างนานกว่าปกติ 1 คัน (ปกติเสร็จใน 2 วัน)'])
+    expect(slowJobsLine([open], T, now)).toEqual([])
+    expect(serviceEveningLines([...done, open], T).some(l => l.includes('ค้างนานกว่าปกติ'))).toBe(true)
+  })
+})
