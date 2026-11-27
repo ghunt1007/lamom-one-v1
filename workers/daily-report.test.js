@@ -1836,3 +1836,13 @@ describe('ยอด command com forecast (v1.0.1416)', () => {
     expect(myComForecastLine(hist, '2026-11-20')).toBeNull()
   })
 })
+
+describe('weekly income forecast (v1.0.1422)', () => {
+  it('adds month-end income line when history exists', async () => {
+    const { weeklyPipelineLines } = await import('./daily-report.js')
+    const del = (id, cut, inc) => ({ id, status: 'ส่งมอบแล้ว', bookingDate: '2026-07-01', cutDate: cut, totalIncome: inc })
+    const B = [del('a', '2026-10-05', 30000), del('b', '2026-09-05', 10000), del('c', '2026-08-05', 20000), { id: 'o', status: 'รอส่งมอบ', bookingDate: '2026-11-01', deliveryDate: '2026-11-20' }]
+    expect(weeklyPipelineLines(B, '2026-11-16').join('\n')).toContain('🔮 คาดรายได้สิ้นเดือน')
+    expect(weeklyPipelineLines(B.slice(1), '2026-11-16').join('\n')).not.toContain('คาดรายได้')
+  })
+})
