@@ -920,7 +920,7 @@ async function buildReportText(env, accessToken) {
     runQuery(env, accessToken, 'social_channels', null, null, 300, ['spend', 'deleted']).catch(() => []),
     runQuery(env, accessToken, 'appointments', 'date', 'DESCENDING', 500, ['date', 'status', 'deleted']).catch(() => []),
     runQuery(env, accessToken, 'referrers', null, null, 500, ['name', 'code', 'sales', 'commission', 'paid', 'deleted']).catch(() => []),
-    runQuery(env, accessToken, 'job_cards', null, null, 3000, ['status', 'createdAt', 'updatedAt', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'job_cards', null, null, 3000, ['status', 'createdAt', 'updatedAt', 'doneAt', 'deleted']).catch(() => []),
   ])
   // (v1.0.1406) วันที่ 1–2: สรุปเดือนที่แล้ว คาดไว้ vs ได้จริง (ต้องใช้ตัวเลขคาดการณ์ที่เก็บไว้)
   const forecastLogs = Number(todayBangkok().slice(8, 10)) <= 2 ? await runQuery(env, accessToken, 'delivery_forecast_log', 'date', 'DESCENDING', 40).catch(() => []) : []
