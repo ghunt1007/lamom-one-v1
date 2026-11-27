@@ -38,6 +38,7 @@ import { getVehicles } from '../../data/vehicleDatabase.js'
 import { quoteDueToday } from '../../utils/quoteQuestions.js'
 import { matchReadyCars } from '../../utils/orderNeeds.js'
 import { speedImpact } from '../../utils/speedImpact.js'
+import { cancelRisk } from '../../utils/cancelRisk.js'
 
 const NUDGE_MAX = 8
 const SECTION_PREVIEW = 5
@@ -398,6 +399,10 @@ export default async function MyDayPage(container) {
           `${escHtml(String(b.custName || '').trim() || 'ลูกค้า')}`,
           `${escHtml(carOf(v) || v.model || '')} สี${escHtml(v.color || '-')}${v.vin ? ` · ตัวถัง ${escHtml(v.vin)}` : ''}${ownerTag(b.salesName)}`,
           `${callBtn(b.phone, b.customerId || '')}<button class="btn btn-primary btn-xs md-bk" data-id="${escHtml(b.id)}">📝 ใบจอง</button>`), 'success') : '' })()}
+        ${(() => { let cr = null; try { cr = cancelRisk(data.bookings, today) } catch { cr = null } const rk = cr?.threshold ? cr.risky.filter(x => mine(x.b.salesName, x.b)).slice(0, 10) : []; return rk.length ? section('⚠️', 'ใบจองค้างนาน เสี่ยงถอน', `ใบที่ค้างเกิน ${cr.threshold.age} วัน ในอดีตถอน ${Math.round(cr.threshold.rate * 100)}% (ร้านเฉลี่ย ${Math.round(cr.overall * 100)}%) — โทรเช็กความตั้งใจ/อัปเดตกำหนดรถ`, rk, ({ b, age }) => line(
+          `${escHtml(String(b.custName || '').trim() || 'ลูกค้า')} <span class="badge badge-warning" style="font-size:0.62rem">จองมา ${age} วัน</span>`,
+          `${escHtml(carOf(b) || b.model || '')}${b.status ? ` · ${escHtml(b.status)}` : ''}${ownerTag(b.salesName)}`,
+          `${callBtn(b.phone, b.customerId || '')}<button class="btn btn-primary btn-xs md-bk" data-id="${escHtml(b.id)}">📝 ใบจอง</button>`), 'warning') : '' })()}
         ${(() => { const qd = quoteDueToday(quotes.filter(q => mine(q.salesperson, q)), today); return qd.length ? section('📄', 'ใบเสนอราคาต้องปิด', 'ลูกค้าตกลงแล้ว = ทำใบจอง · ใกล้หมดอายุ = โทรชวนจอง', qd, q => line(
           `${escHtml(q.customerName || 'ลูกค้า')} <span class="badge badge-${q._why === 'book' ? 'success' : 'warning'}" style="font-size:0.62rem">${q._why === 'book' ? 'ตกลงแล้ว รอใบจอง' : q._left === 0 ? 'หมดวันนี้' : `หมดใน ${q._left} วัน`}</span>`,
           `${escHtml(q.vehicleLabel || '')}${ownerTag(q.salesperson)}`,
