@@ -11,6 +11,7 @@ import { sourceConversion } from './leadScore.js'
 import { jobTurnaround } from './jobTurnaround.js'
 import { speedImpact } from './speedImpact.js'
 import { modelFunnel } from './modelFunnel.js'
+import { cancelRisk } from './cancelRisk.js'
 
 const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 export const ymThai = ym => TH_M[Number(ym.slice(5, 7)) - 1] + ' ' + (Number(ym.slice(0, 4)) + 543)
@@ -76,7 +77,7 @@ export function isOverviewForecastQuestion(q) {
 
 // (v1.0.1441) การ์ด "ข้อมูลจริงที่ช่วยปิดการขาย" — แสดงในศูนย์คาดการณ์ใต้การ์ดคาดการณ์ (ไม่มีชื่อลูกค้า)
 // ทุกตัวคำนวณจากข้อมูลร้าน ข้อมูลไม่พอ = ok:false พร้อมเหตุผล
-export function insightCards({ testDrives = [], bookings = [], customers = [], logs = [], jobs = [], today, now = Date.now(), money = false, discount = null, speed = speedImpact, funnel = modelFunnel, tdConv = testDriveConversion, callTimes = bestCallTimes, sourceConv = sourceConversion, turnaround = jobTurnaround } = {}) {
+export function insightCards({ testDrives = [], bookings = [], customers = [], logs = [], jobs = [], today, now = Date.now(), money = false, discount = null, speed = speedImpact, funnel = modelFunnel, risk = cancelRisk, tdConv = testDriveConversion, callTimes = bestCallTimes, sourceConv = sourceConversion, turnaround = jobTurnaround } = {}) {
   const cards = []
   const td = tdConv({ testDrives, bookings, customers, today })
   if (td?.rate != null) cards.push({ ok: true, key: 'tdconv', icon: '🚗', title: 'ทดลองขับแล้วจองจริง', display: Math.round(td.rate * 100) + '%', note: `${td.booked} จาก ${td.n} ครั้ง (จองภายใน 45 วัน)${td.chase.length ? ` · ขับแล้วยังไม่จอง ${td.chase.length} ราย ควรโทรตาม` : ''}`, path: '/crm/testdrive' })
@@ -99,6 +100,11 @@ export function insightCards({ testDrives = [], bookings = [], customers = [], l
   if (hard) cards.push({ ok: true, key: 'models', icon: '🚘', title: 'รุ่นที่คนสนใจแต่ปิดยาก', display: hard.label, note: `สนใจ ${hard.n} ราย ปิดได้ ${Math.round(hard.rate * 100)}% (ร้านเฉลี่ย ${Math.round(mf.overall * 100)}%) — ลองดูโปร/ทดลองขับ`, path: '/crm/customers' })
   else if (top) cards.push({ ok: true, key: 'models', icon: '🚘', title: 'รุ่นที่ปิดได้ดีสุด', display: top.label, note: `สนใจ ${top.n} ราย ปิดได้ ${Math.round(top.rate * 100)}% (ร้านเฉลี่ย ${Math.round(mf.overall * 100)}%)`, path: '/crm/customers' })
   else cards.push({ ok: false, key: 'models', icon: '🚘', title: 'รุ่นที่คนสนใจ vs ปิดได้', why: 'ต้องมีลูกค้าที่ใส่รุ่นที่สนใจ อายุ 30 วัน–1 ปี ≥ 30 ราย รุ่นละ ≥ 10', path: '/crm/customers' })
+  // (v1.0.1453) ใบจองเสี่ยงถอน (อายุใบจองที่ในอดีตถอนสูงผิดปกติ)
+  const cr = risk(bookings, today)
+  if (cr?.threshold) cards.push({ ok: true, key: 'cancelrisk', icon: '⚠️', title: 'ใบจองเสี่ยงถอน', display: `${cr.risky.length} ใบ`, note: `ค้างเกิน ${cr.threshold.age} วัน ในอดีตถอน ${Math.round(cr.threshold.rate * 100)}% (ร้านเฉลี่ย ${Math.round(cr.overall * 100)}%) — ถาม LAMI "ใบจองไหนเสี่ยงถอน"`, path: '/crm/bookings' })
+  else if (cr) cards.push({ ok: true, key: 'cancelrisk', icon: '✅', title: 'ใบจองเสี่ยงถอน', display: 'ไม่พบ', note: `ยังไม่เห็นช่วงอายุใบจองที่ถอนสูงผิดปกติ (ร้านถอน ${Math.round(cr.overall * 100)}% จาก ${cr.n} ใบ)`, path: '/crm/bookings' })
+  else cards.push({ ok: false, key: 'cancelrisk', icon: '⚠️', title: 'ใบจองเสี่ยงถอน', why: 'ต้องมีใบจองที่จบแล้ว (ถอนมีวันถอน/ส่งมอบมีวันตัดตัวเลข) ใน 1 ปี ≥ 20 ใบ', path: '/crm/bookings' })
   const ta = turnaround(jobs, today)
   if (ta) cards.push({ ok: true, key: 'turnaround', icon: '⏱️', title: 'งานซ่อมปกติเสร็จใน', display: ta.median < 1 ? `${Math.max(1, Math.round(ta.median * 24))} ชม.` : `${Math.round(ta.median * 10) / 10} วัน`, note: `80% เสร็จภายใน ${Math.round(ta.p80 * 10) / 10} วัน · จาก ${ta.n} งานใน 90 วัน`, path: '/service/jobs' })
   else cards.push({ ok: false, key: 'turnaround', icon: '⏱️', title: 'งานซ่อมปกติเสร็จใน', why: 'เริ่มนับจากงานที่กดเสร็จตั้งแต่ 28/11/2569 — ต้องมี ≥ 5 งานใน 90 วัน', path: '/service/jobs' })

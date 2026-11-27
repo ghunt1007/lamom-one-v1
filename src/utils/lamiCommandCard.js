@@ -450,6 +450,11 @@ export async function loadOpsAnswer(q, customersPromise) {
       const { discountAnswer } = await import('./discountWatch.js')
       res = discountAnswer(await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), { today })
     }
+  } else if (spec.kind === 'cancelrisk') {
+    // (v1.0.1453) สถิติทั้งร้าน · รายชื่อเฉพาะใบจองที่ผู้ถามมีสิทธิ์เห็น
+    const { cancelRisk, cancelRiskText } = await import('./cancelRisk.js')
+    const r = cancelRisk(await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), today)
+    res = { n: r?.risky?.filter(x => mine(x.b.salesName, x.b)).length || 0, text: cancelRiskText(r, { mine }) }
   } else if (spec.kind === 'modelfunnel') {
     // (v1.0.1447) ทั้งร้าน — รุ่นที่สนใจ vs ปิดได้จริง (ไม่มีชื่อลูกค้า)
     const { modelFunnel, modelFunnelText } = await import('./modelFunnel.js')

@@ -1,0 +1,33 @@
+import { describe, it, expect } from 'vitest'
+import { cancelRisk, cancelRiskText } from './cancelRisk.js'
+import { parseOpsSpec } from './opsQuestions.js'
+
+const T = '2026-11-28'
+const add = (d, n) => new Date(Date.parse(d) + n * 86400000).toISOString().slice(0, 10)
+const done = (start, days) => ({ bookingDate: start, status: 'ส่งมอบแล้ว', cutDate: add(start, days), model: 'ATTO 3' })
+const cxl = (start, days) => ({ bookingDate: start, status: 'ถอนจอง', cancelDate: add(start, days), model: 'ATTO 3' })
+describe('cancelRisk (v1.0.1453)', () => {
+  // 20 ส่งมอบเร็ว (20 วัน) · 6 ส่งมอบช้า (70 วัน) · 2 ถอนเร็ว · 6 ถอนช้า (80 วัน) → ค้าง ≥ 60 วันถอน 50% vs เฉลี่ย 24%
+  const hist = [...Array.from({ length: 20 }, () => done('2026-05-01', 20)), ...Array.from({ length: 6 }, () => done('2026-05-01', 70)),
+    ...Array.from({ length: 2 }, () => cxl('2026-05-01', 10)), ...Array.from({ length: 6 }, () => cxl('2026-05-01', 80))]
+  const open = [{ bookingDate: '2026-09-01', status: 'รอรถ', custName: 'ลูกค้าเอ', model: 'ATTO 3', salesName: 'บี' }, { bookingDate: '2026-11-20', status: 'รอรถ', custName: 'ลูกค้าซี' }]
+  it('finds the risky age from history and lists open bookings past it', () => {
+    const r = cancelRisk([...hist, ...open], T)
+    expect(Math.round(r.overall * 100)).toBe(24)
+    expect(r.threshold).toMatchObject({ age: 30, n: 12 })
+    expect(r.risky.map(x => x.b.custName)).toEqual(['ลูกค้าเอ'])
+    const t = cancelRiskText(r)
+    expect(t).toContain('ใบจองที่ค้างเกิน 30 วัน ในอดีตถอน 50%')
+    expect(t).toContain('• ลูกค้าเอ')
+    expect(cancelRiskText(r, { mine: () => false })).toContain('ตอนนี้ไม่มีใบจองที่ค้างนานถึงช่วงเสี่ยง')
+  })
+  it('null / no threshold', () => {
+    expect(cancelRisk(open, T)).toBeNull()
+    expect(cancelRiskText(null)).toContain('ยังบอกไม่ได้')
+    expect(cancelRisk(Array.from({ length: 25 }, () => done('2026-05-01', 20)), T).threshold).toBeNull()
+  })
+  it('routes', () => {
+    expect(parseOpsSpec('ใบจองไหนเสี่ยงถอน')?.kind).toBe('cancelrisk')
+    expect(parseOpsSpec('ใครถอนจองเดือนนี้')?.kind).toBe('withdrawn')
+  })
+})

@@ -8,6 +8,10 @@ const bk = (d, extra, sales = 'เอ', model = 'ATTO 3') => ({ bookingDate: d, 
 describe('discountWatch (v1.0.1443)', () => {
   const rows = [bk('2026-09-01', '10,000'), bk('2026-09-05', 10000), bk('2026-10-01', 12000, 'บี'), bk('2026-10-02', 8000, 'บี'), bk('2026-10-03', 0, 'บี'), bk('2026-10-04', 10000),
     bk('2026-11-02', 50000, 'บี'), bk('2026-11-03', 9000), bk('2026-01-01', 99000), { ...bk('2026-11-04', 90000), status: 'ยกเลิก' }, { ...bk('2026-11-05', 90000), price: '' }]
+  it('negative extra discount counts as discount', () => {
+    const rows = [1, 2, 3, 4, 5].map(d => bk(`2026-10-0${d}`, -10000))
+    expect(discountWatch(rows, T).avg).toBe(10000)
+  })
   it('parses money', () => { expect(money('฿1,200')).toBe(1200); expect(money('x')).toBe(0); expect(money(-5)).toBe(0) })
   it('per-model stats, flags only this-month outliers, skips old/cancelled/no-price', () => {
     const w = discountWatch(rows, T)
