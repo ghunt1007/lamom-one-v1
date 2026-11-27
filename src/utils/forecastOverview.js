@@ -71,6 +71,7 @@ export function forecastOverview(opts = {}) {
 export function isOverviewForecastQuestion(q) {
   const s = String(q || '').trim()
   if (!s || s.length > 50) return false
+  if (/^(?:ขอ|ดู)?\s*(?:คาดการณ์|พยากรณ์)\s*(?:ของ)?\s*เดือนหน้า\s*(?:หน่อย|ครับ|ค่ะ|คะ)?$/.test(s)) return true // (v1.0.1462) ศูนย์คาดการณ์มีเดือนหน้าด้วย
   if (/คัน|ใบ|ส่งมอบ|จอง|รายได้|ค่าคอม|ศูนย์|ซ่อม|เช็คระยะ|ลูกค้าใหม่|ลีด|lead|สั่งรถ|สต็อก|สต๊อก|เดือนหน้า|ปีหน้า|ใคร|รุ่น|สี/i.test(s)) return false
   return /คาดการณ์|พยากรณ์|forecast|สิ้นเดือน.{0,10}(?:เป็นยังไง|เป็นไง|จะได้|เท่าไหร่|เท่าไร)|เดือนนี้.{0,6}จะ(?:ได้|เป็น)/i.test(s)
 }
