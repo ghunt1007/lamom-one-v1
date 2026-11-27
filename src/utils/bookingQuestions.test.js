@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseBookingListSpec, bookingTargets, bookingListCommands, bookingListIntro } from './bookingQuestions.js'
+import { parseBookingListSpec, bookingTargets, bookingListCommands, bookingListIntro, bookingListLabel } from './bookingQuestions.js'
 import { parseListSpec } from './listQuestions.js'
 import { parseLamiCommand } from './lamiCommands.js'
 
@@ -94,5 +94,16 @@ describe('waiting-too-long without a question word (v1.0.1465)', () => {
     expect(parseBookingListSpec('ลูกค้าที่รอไฟแนนซ์นานเกินไป')).toMatchObject({ stuck: true })
     expect(parseBookingListSpec('รอรถนาน')).toMatchObject({ statuses: ['รอรถ'], stuck: true })
     expect(parseBookingListSpec('รอไฟแนนซ์')).toBeNull()
+  })
+})
+
+describe('not linked to LINE yet (v1.0.1468)', () => {
+  it('lists open bookings whose customer has not linked LINE', () => {
+    const spec = parseBookingListSpec('ใครยังไม่ผูกไลน์')
+    expect(spec).toMatchObject({ noLine: true })
+    expect(bookingListLabel(spec)).toBe('ใบจองที่ลูกค้ายังไม่ผูก LINE')
+    const customers = [{ id: 'c1', bookingId: 'b1' }, { id: 'c2', bookingId: 'b2' }, { id: 'c3', bookingId: 'b3' }]
+    const bookings = [{ id: 'b1', status: 'รอรถ', bookingDate: '2026-11-01' }, { id: 'b2', status: 'รอรถ', lineUserId: 'U1', bookingDate: '2026-11-01' }, { id: 'b3', status: 'ส่งมอบแล้ว', bookingDate: '2026-10-01' }]
+    expect(bookingTargets({ customers, bookings, today: '2026-11-28', spec }).list.map(x => x.b.id)).toEqual(['b1'])
   })
 })
