@@ -53,9 +53,11 @@ export function parseBookingListSpec(q) {
   // (v1.0.1096) "ใครยังไม่ได้รับรถทั้งที่ถึงวันนัด" → นัดส่งมอบเลยวันแล้วแต่ยังไม่ส่งมอบ
   const late = /ถึงวันนัด|เลย(?:วัน)?(?:นัด|กำหนด)\s*(?:ส่งมอบ|ส่งรถ|รับรถ)?|(?:ส่งมอบ|ส่งรถ)\s*(?:ช้า|ล่าช้า|เลยกำหนด|เกินกำหนด)|เกินวัน(?:นัด)?\s*ส่งมอบ/.test(s) && /ส่งมอบ|รับรถ|ส่งรถ|วันนัด/.test(s)
   const allOpen = !late && !statuses && !when && /ยังไม่(?:ได้)?\s*(?:ส่งมอบ|ส่งรถ|รับรถ)|ค้างจอง|ใบจอง\s*(?:ที่)?\s*ค้าง\s*(?:อยู่)?\s*(?:กี่|อะไร|ใคร|บ้าง)|^ใบจอง\s*(?:ของ)?\s*(?:ฉัน|ผม|หนู|เรา)\s*(?:มี|ค้าง)?\s*(?:กี่ใบ|อะไรบ้าง|มีใครบ้าง|ใครบ้าง)|^ใบจอง(?:ที่)?ค้างอยู่/.test(s)
-  const none = !statuses && !when && !stuck && !noVin && !noDeposit && !noDown && !noColor && !noDocs && !finFail && !allOpen && !late
+  // (v1.0.1468) "ใครยังไม่ผูกไลน์" → ใบจองที่ยังไม่ส่งมอบและลูกค้ายังไม่ผูก LINE (เหมือนชิป 🔗 ยังไม่ผูก LINE หน้าใบจอง)
+  const noLine = /(?:ยังไม่|ไม่)(?:ได้)?\s*(?:ผูก|เชื่อม|ลิงก์|ลิ้งค์|แอด|add)\s*(?:กับ)?\s*(?:ไลน์|line)/i.test(s)
+  const none = !statuses && !when && !stuck && !noVin && !noDeposit && !noDown && !noColor && !noDocs && !finFail && !allOpen && !late && !noLine
   if (none && !(seller && /ใบจอง/.test(s))) return null
-  return { late, allOpen: allOpen || none, ...(seller ? { seller: true } : {}), noVin, noDeposit, noDown, ...(noColor ? { noColor } : {}), ...(noDocs ? { noDocs } : {}), ...(finFail ? { finFail } : {}), ...(arrive && !noDate && !finFail ? { arrive: true } : {}), statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
+  return { late, allOpen: allOpen || none, ...(seller ? { seller: true } : {}), noVin, noDeposit, noDown, ...(noColor ? { noColor } : {}), ...(noLine ? { noLine } : {}), ...(noDocs ? { noDocs } : {}), ...(finFail ? { finFail } : {}), ...(arrive && !noDate && !finFail ? { arrive: true } : {}), statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
 }
 
 export function bookingListLabel(spec) {
@@ -65,8 +67,9 @@ export function bookingListLabel(spec) {
 const ST_LABEL = { 'รอผลไฟแนนซ์': 'รอไฟแนนซ์', 'ผ่านไฟแนนซ์รอจอง': 'ผ่านไฟแนนซ์แล้ว' }
 function bookingListLabel0(spec) {
   if (spec.late) return 'นัดส่งมอบเลยวันแล้วแต่ยังไม่ส่งมอบ'
-  if (spec.allOpen && !spec.noVin && !spec.noDeposit && !spec.noDown && !spec.noColor && !spec.noDocs && !spec.finFail && !spec.stuck) return 'ใบจองที่ยังไม่ส่งมอบ'
+  if (spec.allOpen && !spec.noVin && !spec.noDeposit && !spec.noDown && !spec.noColor && !spec.noLine && !spec.noDocs && !spec.finFail && !spec.stuck) return 'ใบจองที่ยังไม่ส่งมอบ'
   if (spec.noColor) return 'ใบจองที่ยังไม่ได้ใส่สีรถ'
+  if (spec.noLine) return 'ใบจองที่ลูกค้ายังไม่ผูก LINE'
   if (spec.noDocs) return 'ใบจองที่ยังไม่ได้แนบเอกสาร'
   if (spec.finFail) return 'ใบจองที่ไฟแนนซ์ไม่ผ่าน'
   if (spec.arrive && !spec.stuck) return 'ใบจองที่รถยังไม่มาถึง (รอรถ)'
@@ -100,6 +103,7 @@ export function bookingTargets({ customers = [], bookings = [], today, spec, tom
     if (spec.noDeposit && (Number(b.bookingDeposit) || 0) > 0) return
     if (spec.noDown && ((Number(b.down) || 0) > 0 || b.finStatus === 'ซื้อสด')) return
     if (spec.noColor && String(b.color || '').trim()) return
+    if (spec.noLine && (b.lineUserId || !isOpenBooking(b))) return
     if (spec.noDocs && (b.files || []).length) return
     if (spec.finFail && b.finStatus !== 'ไม่ผ่าน') return
     if (spec.when) {
