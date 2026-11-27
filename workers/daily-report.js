@@ -2516,7 +2516,7 @@ export async function runQuery(env, accessToken, collectionId, orderField, direc
     if (!res.ok) throw new Error(`Firestore runQuery(${collectionId}) ${res.status}`)
     const rows = await res.json()
     const docs = (Array.isArray(rows) ? rows : []).filter(r => r.document).map(r => r.document)
-    docs.forEach(d => out.push(collectionId === 'bookings' ? cleanBookingDates(docToObject(d)) : docToObject(d)))
+    docs.forEach(d => out.push(cleanRow(docToObject(d))))
     if (docs.length < limit || !docs[docs.length - 1]?.name) break
     after = docs[docs.length - 1].name
   }
@@ -2535,6 +2535,20 @@ export function cleanBookingDates(b) {
   }
   for (const f of ['custName', 'model', 'salesName', 'status', 'brand']) if (b[f] != null && typeof b[f] !== 'string') b[f] = String(b[f])
   return b
+}
+// (v1.0.1415) แบบเดียวกันกับทุกคอลเลกชัน (ลูกค้า/นัด/ทดลองขับ ฯลฯ): ช่องวันที่ (ชื่อลงท้าย Date/At หรือ date) ที่ไม่ใช่ข้อความ
+// → เลข Excel แปลงเป็นวันที่ / อื่นๆ ค่าว่าง · ช่องชื่อ/สถานะที่ไม่ใช่ข้อความ → แปลงเป็นข้อความ (เดิมใบเดียวทำทั้งรายงานล้ม)
+const DATE_KEY = /(?:Date|At)$|^date$|^dueDate$/
+const TEXT_KEYS = new Set(['assignedTo', 'salesName', 'firstName', 'lastName', 'custName', 'model', 'interestedModel', 'stage', 'status', 'temperature', 'brand', 'title', 'reEnquiredModel', 'phone', 'source'])
+export function cleanRow(o) {
+  if (!o || typeof o !== 'object') return o
+  for (const [k, v] of Object.entries(o)) {
+    if (v == null || typeof v === 'string') continue
+    if (DATE_KEY.test(k)) o[k] = typeof v === 'number' && v > 20000 && v < 80000 ? new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 86400000).toISOString().slice(0, 10) : ''
+    else if (TEXT_KEYS.has(k) && typeof v !== 'object') o[k] = String(v)
+    else if (TEXT_KEYS.has(k)) o[k] = ''
+  }
+  return o
 }
 function docToObject(doc) {
   const obj = { id: doc.name.split('/').pop() }
