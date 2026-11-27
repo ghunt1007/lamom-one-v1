@@ -51,3 +51,22 @@ describe('LAMI routing additions (v1.0.1462)', () => {
     expect(parseOpsSpec('ลูกค้าเงียบไปนาน').kind).toBe('stale')
   })
 })
+
+describe('callsAnswer: sellers with no calls (v1.0.1464)', async () => {
+  const { callsAnswer } = await import('./opsQuestions.js')
+  const today = '2026-11-28'
+  const logs = [{ type: 'call', createdAt: '2026-11-28T03:00:00Z', createdBy: 'สมชาย ใจดี', note: 'คุยแล้ว', customerId: 'c1' }]
+  it('lists staff without calls when names match', () => {
+    const t = callsAnswer(logs, { today, team: true, staff: ['สมชาย ใจดี', 'วิภา', 'อนันต์'] }).text
+    expect(t).toContain('😶 ยังไม่มีบันทึกโทร: วิภา, อนันต์')
+    expect(callsAnswer(logs, { today, team: true, staff: ['สมชาย ใจดี'] }).text).toContain('✅ เซลส์ทุกคนมีบันทึกโทรแล้ว')
+  })
+  it('stays quiet when log names do not match staff (e.g. emails)', () => {
+    const t = callsAnswer([{ ...logs[0], createdBy: 'x@example.com' }], { today, team: true, staff: ['วิภา'] }).text
+    expect(t).not.toContain('ยังไม่มีบันทึกโทร')
+  })
+  it('routes', () => {
+    expect(parseOpsSpec('ใครยังไม่ได้โทรวันนี้')).toEqual({ kind: 'calls', day: 'today', team: true })
+    expect(parseOpsSpec('วันนี้ฉันโทรไปกี่คนแล้ว').team).toBe(false)
+  })
+})

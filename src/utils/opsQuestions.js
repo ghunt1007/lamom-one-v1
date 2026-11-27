@@ -65,8 +65,8 @@ export function parseOpsSpec(q) {
   if (has(s, /ส่งมอบแล้ว|ซื้อ(?:รถ)?(?:ไป)?แล้ว|ที่ส่งมอบ|รับรถ(?:ไป)?แล้ว|ออกรถ(?:ไป)?แล้ว/) && has(s, /ลูกค้า|ใคร|รายชื่อ|กี่คน/) && !has(s, /นัด|พรุ่งนี้|ยอด|เป้า/))
     return { kind: 'delivered', period: /เดือน(?:ก่อน|ที่แล้ว)/.test(s) ? 'prevmonth' : /ปี/.test(s) ? 'year' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'month' }
   // (v1.0.1118) "วันนี้ฉันโทรไปกี่คนแล้ว" / "เมื่อวานโทรไปกี่สาย" / "ทีมโทรไปกี่สายวันนี้" → นับจากบันทึกผลการโทรในแอป
-  if (has(s, /โทร\s*(?:ไป|ออก)?\s*(?:หา)?\s*(?:ลูกค้า)?\s*(?:ไป|ได้)?\s*(?:แล้ว)?\s*กี่\s*(?:สาย|คน|ครั้ง|ราย)|ยอดโทร|จำนวนสาย|โทรไปแล้วกี่|(?:ใคร|คนไหน)\s*โทร\s*(?:ออก)?\s*(?:เยอะ|มาก|น้อย|บ่อย)/) && !has(s, /ควร|ต้อง|นัด|ค่าโทร/))
-    return { kind: 'calls', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7\s*วัน/.test(s) ? 'week' : /เดือนนี้/.test(s) ? 'month' : 'today', team: has(s, /ทีม|แต่ละคน|รายคน|ใครโทร|เซลส์/) }
+  if (has(s, /โทร\s*(?:ไป|ออก)?\s*(?:หา)?\s*(?:ลูกค้า)?\s*(?:ไป|ได้)?\s*(?:แล้ว)?\s*กี่\s*(?:สาย|คน|ครั้ง|ราย)|ยอดโทร|จำนวนสาย|โทรไปแล้วกี่|(?:ใคร|คนไหน)\s*โทร\s*(?:ออก)?\s*(?:เยอะ|มาก|น้อย|บ่อย)|(?:ใคร|เซลส์|เซล|คนไหน)\s*(?:คนไหน)?\s*ยังไม่(?:ได้)?\s*โทร(?:\s*(?:เลย|วันนี้|เมื่อวาน|สัปดาห์นี้|เดือนนี้))*$/) && !has(s, /ควร|ต้อง|นัด|ค่าโทร/))
+    return { kind: 'calls', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7\s*วัน/.test(s) ? 'week' : /เดือนนี้/.test(s) ? 'month' : 'today', team: has(s, /ทีม|แต่ละคน|รายคน|ใครโทร|เซลส์|ใคร|คนไหน/) }
   // (v1.0.1092) "ลูกค้าของฉันมีกี่คน" → สรุปลูกค้าในมือตามขั้น/ความร้อน
   if (has(s, /ลูกค้า\s*(?:ของ)?\s*(?:ฉัน|ผม|หนู|เรา|ตัวเอง)|ลูกค้าที่(?:ฉัน|ผม)?ดูแล|ลูกค้าในมือ|ลูกค้าทั้งหมด|(?:ฉัน|ผม|หนู|เรา)\s*มี\s*ลูกค้า/) && has(s, /กี่|สรุป|เท่าไ|มีเท่า|ภาพรวม/) && !has(s, /ใหม่|เพิ่ง|เดือน|สัปดาห์|วันนี้|เมื่อวาน/)) return { kind: 'mycust' }
   // (v1.0.1092) "ลูกค้าที่ยังไม่มีเบอร์โทร" → ข้อมูลที่ต้องเติม
@@ -1362,19 +1362,25 @@ export function mktSpendAnswer({ accounts = [], events = [], customers = [], tod
 
 // (v1.0.1118) จำนวนสายที่โทรแล้วบันทึกผล (comm_logs type call) ช่วงวันที่ · แยกผล · team = แยกรายคน
 const CALL_KINDS = [['😊 สนใจ', /^คุยแล้ว สนใจ/], ['🤔 ขอคิด', /^ขอคิด/], ['📵 ไม่รับสาย', /^ไม่รับสาย/], ['🙅 ไม่สนใจ', /^ไม่สนใจ/]]
-export function callsAnswer(logs, { today, day = 'today', team = false }) {
+export function callsAnswer(logs, { today, day = 'today', team = false, staff = [] }) {
   const from = day === 'yesterday' ? addDays(today, -1) : day === 'week' ? addDays(today, -6) : day === 'month' ? today.slice(0, 8) + '01' : today
   const to = day === 'yesterday' ? from : today
   const word = day === 'yesterday' ? `เมื่อวาน (${dmy(from)})` : day === 'week' ? `7 วันล่าสุด (${dmy(from)}–${dmy(to)})` : day === 'month' ? `เดือนนี้ (${dmy(from)}–${dmy(to)})` : `วันนี้ (${dmy(from)})`
   const list = alive(logs).filter(l => l.type === 'call' && ymd(l.createdAt) >= from && ymd(l.createdAt) <= to)
   const note = 'ℹ️ นับเฉพาะสายที่กด 📞 จากแอปแล้วบันทึกผลการโทร'
   if (!list.length) return { n: 0, text: [`📞 ${word} ยังไม่มีการโทรที่บันทึกผล`, note].join('\n') }
+  const sq = v => String(v || '').toLowerCase().replace(/\s+/g, '')
   const kinds = CALL_KINDS.map(([lab, re]) => [lab, list.filter(l => re.test(String(l.note || ''))).length]).filter(([, n]) => n)
   const people = new Set(list.map(l => l.customerId).filter(Boolean)).size
   const lines = [`📞 ${word} โทรไป ${list.length} สาย · ${people} คน`, kinds.map(([l, n]) => `${l} ${n}`).join(' · ')]
   if (team) {
     const by = {}; list.forEach(l => { const k = String(l.createdBy || 'ไม่ระบุ').trim(); by[k] = (by[k] || 0) + 1 })
     lines.push('👥 รายคน', ...Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, n], i) => `${i + 1}. ${k} — ${n} สาย`))
+    // (v1.0.1464) เซลส์ที่ยังไม่มีบันทึกโทรในช่วงนี้ — แสดงเมื่อชื่อในบันทึกจับคู่กับรายชื่อเซลส์ได้อย่างน้อย 1 คน (กันชื่อเป็นอีเมลแล้วเดาผิด)
+    const keys = Object.keys(by).map(sq)
+    const hit = n => { const f = sq(n), w = sq(String(n || '').trim().split(/\s+/)[0]); return f && keys.some(k => k === f || k.includes(f) || (w.length >= 2 && k.startsWith(w))) }
+    const names = [...new Set((staff || []).map(n => String(n || '').trim()).filter(Boolean))]
+    if (names.some(hit)) { const none = names.filter(n => !hit(n)); lines.push(none.length ? `😶 ยังไม่มีบันทึกโทร: ${none.slice(0, 12).join(', ')}${none.length > 12 ? ` และอีก ${none.length - 12} คน` : ''}` : '✅ เซลส์ทุกคนมีบันทึกโทรแล้ว') }
   }
   lines.push(note)
   return { n: list.length, text: lines.filter(Boolean).join('\n') }
