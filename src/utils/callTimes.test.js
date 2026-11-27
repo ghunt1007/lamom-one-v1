@@ -33,7 +33,7 @@ describe('callTimes (v1.0.1437)', () => {
   })
 })
 
-import { customerCallHint } from './callTimes.js'
+import { customerCallHint, customerBestBlock } from './callTimes.js'
 import { customerBrief } from './customerBrief.js'
 describe('customerCallHint (v1.0.1448)', () => {
   const now = Date.parse('2026-11-28T12:00:00Z')
@@ -45,6 +45,10 @@ describe('customerCallHint (v1.0.1448)', () => {
     expect(customerCallHint([log('2026-11-20T03:00:00Z', 'ไม่รับสาย'), log('2026-11-19T03:30:00Z', 'ไม่รับสาย'), log('2026-11-18T07:00:00Z', 'ไม่รับสาย'), log('2026-10-01T11:00:00Z', 'คุยแล้ว')], { now }))
       .toBe('📵 โทรไม่ติด 3 ครั้งล่าสุด (ช่วง 10:00–12:00 น., 14:00–16:00 น.) — ลองทักไลน์ หรือโทรช่วงเวลาอื่น')
     expect(customerCallHint([log('2026-11-20T11:30:00Z', 'คุยแล้ว'), log('2026-11-20T11:40:00Z', 'โน้ตพิมพ์เอง')], { now })).toBe('')
+  })
+  it('short block for call list', () => {
+    expect(customerBestBlock([log('2026-11-20T11:30:00Z', 'คุยแล้ว'), log('2026-11-10T12:10:00Z', 'ขอคิดก่อน')], { now })).toBe('18–20 น.')
+    expect(customerBestBlock([log('2026-11-20T11:30:00Z', 'คุยแล้ว')], { now })).toBe('')
   })
   it('brief shows the hint', () => {
     expect(customerBrief({ customer: { firstName: 'ทดสอบ', stage: 'lead' }, today: '2026-11-28', callHint: '⏰ X' })).toContain('\n⏰ X\n')

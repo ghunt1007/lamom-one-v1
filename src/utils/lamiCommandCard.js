@@ -663,13 +663,30 @@ export async function loadCallListCommands(customersPromise) {
   // (v1.0.1426) รถพร้อมขายแยกรุ่น → ลีดที่รุ่นมีรถพร้อมขายขึ้นก่อน + บอกในเหตุผล
   const readyByModel = new Map()
   vehicles.filter(v => v && !v.deleted && ['available', 'pdi'].includes(v.status)).forEach(v => { const k = modelKey(v); if (k) readyByModel.set(k, (readyByModel.get(k) || 0) + 1) })
-  return callListCommands(callList({ customers, followups, today, readyByModel }))
+  const cmds = callListCommands(callList({ customers, followups, today, readyByModel }))
+  // (v1.0.1450) ต่อท้ายช่วงเวลาที่ลูกค้าคนนั้นเคยรับสาย (รับ ≥ 2 ครั้งช่วงเดียวกัน)
+  try {
+    const [logs, { customerBestBlock }] = await Promise.all([recentCallLogs(), import('./callTimes.js')])
+    const byCust = new Map()
+    for (const l of logs) if (l && l.customerId) (byCust.get(l.customerId) || byCust.set(l.customerId, []).get(l.customerId)).push(l)
+    for (const c of cmds) { const b = c.customer?.id && byCust.has(c.customer.id) ? customerBestBlock(byCust.get(c.customer.id)) : ''; if (b) c.desc += ` · ⏰ มักรับสาย ${b}` }
+  } catch { /* ไม่มีข้อมูลการโทร = ไม่ต่อท้าย */ }
+  return cmds
+}
+// ผลการโทรล่าสุดทั้งร้าน — ใช้ทั้งรายชื่อที่ควรโทรและบรรทัดช่วงเวลา (ดึงครั้งเดียวต่อ 60 วิ)
+let _callLogs = null
+function recentCallLogs() {
+  if (!_callLogs || Date.now() - _callLogs.t > 60000) {
+    const p = Promise.all([import('../core/db.js'), import('../core/companyScope.js')]).then(([{ listDocs }, { companyScopeFilters }]) => listDocs('comm_logs', companyScopeFilters(), 'createdAt', 'desc', 3000))
+    _callLogs = { t: Date.now(), p: p.catch(() => { _callLogs = null; return [] }) }
+  }
+  return _callLogs.p
 }
 // (v1.0.1437) บรรทัด "⏰ ช่วงที่ลูกค้ารับสายมากสุด" ต่อท้ายรายชื่อที่ควรโทร (ข้อมูลไม่พอ = '')
 export async function loadCallTimeHint() {
   try {
-    const [{ listDocs }, { companyScopeFilters }, { bestCallTimes, callTimeLine }] = await Promise.all([import('../core/db.js'), import('../core/companyScope.js'), import('./callTimes.js')])
-    return callTimeLine(bestCallTimes(await listDocs('comm_logs', companyScopeFilters(), 'createdAt', 'desc', 3000)))
+    const [logs, { bestCallTimes, callTimeLine }] = await Promise.all([recentCallLogs(), import('./callTimes.js')])
+    return callTimeLine(bestCallTimes(logs))
   } catch { return '' }
 }
 export function callListIntro(cmds) {
