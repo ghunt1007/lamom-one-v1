@@ -29,7 +29,7 @@ export function briefTarget(q, customers = []) {
   return mentionedCustomers(s, customers, 1)[0] || null
 }
 
-export function customerBrief({ customer: c, followups = [], booking = null, today, drives = null }) {
+export function customerBrief({ customer: c, followups = [], booking = null, today, drives = null, callHint = '' }) {
   const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.nickname || 'ลูกค้า'
   const t = dayNum(today)
   const lines = [`👤 ${name} — ${[c.isLost ? '⬛ เสียดีล' : STAGE[c.stage] || c.stage || '', TEMP[c.temperature] || '', c.interestedModel ? '🚗 ' + c.interestedModel : ''].filter(Boolean).join(' · ')}`]
@@ -38,6 +38,7 @@ export function customerBrief({ customer: c, followups = [], booking = null, tod
   const last = bkkDate(c.lastContactAt)
   const quiet = last ? t - dayNum(last) : null
   lines.push(last ? `📞 ติดต่อล่าสุด ${dmy(last)} (${quiet <= 0 ? 'วันนี้' : quiet + ' วันก่อน'})` : '📞 ยังไม่เคยบันทึกการติดต่อ')
+  if (callHint) lines.push(callHint) // (v1.0.1448) เคยรับสายช่วงไหน / โทรไม่ติดติดกัน
   const pend = pendingFollowupsFor(followups, c.id, today)
   const next = pend[0]
   if (next) lines.push(`📅 นัดถัดไป ${dmy(next.dueDate.slice(0, 10))}${next.time ? ' ' + next.time : ''}${next.purpose ? ' — ' + next.purpose : ''}${next.late > 0 ? ` (เลยมา ${next.late} วัน)` : next.late === 0 ? ' (วันนี้)' : ''}${pend.length > 1 ? ` · อีก ${pend.length - 1} นัด` : ''}`)

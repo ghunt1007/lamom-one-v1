@@ -32,3 +32,21 @@ describe('callTimes (v1.0.1437)', () => {
     expect(parseOpsSpec('วันนี้ควรโทรหาใคร')?.kind).not.toBe('calltime')
   })
 })
+
+import { customerCallHint } from './callTimes.js'
+import { customerBrief } from './customerBrief.js'
+describe('customerCallHint (v1.0.1448)', () => {
+  const now = Date.parse('2026-11-28T12:00:00Z')
+  const log = (iso, note) => ({ type: 'call', createdAt: iso, note })
+  it('best answered block (Bangkok time) or 3 misses in a row', () => {
+    // 11:30Z = 18:30 น.
+    expect(customerCallHint([log('2026-11-20T11:30:00Z', 'คุยแล้ว'), log('2026-11-10T12:10:00Z', 'ขอคิดก่อน'), log('2026-11-05T03:00:00Z', 'ไม่รับสาย')], { now }))
+      .toBe('⏰ เคยรับสายช่วง 18:00–20:00 น. (2 ครั้ง) — โทรช่วงนี้ติดง่ายสุด')
+    expect(customerCallHint([log('2026-11-20T03:00:00Z', 'ไม่รับสาย'), log('2026-11-19T03:30:00Z', 'ไม่รับสาย'), log('2026-11-18T07:00:00Z', 'ไม่รับสาย'), log('2026-10-01T11:00:00Z', 'คุยแล้ว')], { now }))
+      .toBe('📵 โทรไม่ติด 3 ครั้งล่าสุด (ช่วง 10:00–12:00 น., 14:00–16:00 น.) — ลองทักไลน์ หรือโทรช่วงเวลาอื่น')
+    expect(customerCallHint([log('2026-11-20T11:30:00Z', 'คุยแล้ว'), log('2026-11-20T11:40:00Z', 'โน้ตพิมพ์เอง')], { now })).toBe('')
+  })
+  it('brief shows the hint', () => {
+    expect(customerBrief({ customer: { firstName: 'ทดสอบ', stage: 'lead' }, today: '2026-11-28', callHint: '⏰ X' })).toContain('\n⏰ X\n')
+  })
+})
