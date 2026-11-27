@@ -9,6 +9,8 @@ import { navigate } from '../../core/router.js'
 import { loadDeliveryForecast } from '../../utils/deliveryForecastData.js'
 import { forecastCards, insightCards } from '../../utils/forecastOverview.js'
 import { FH_CSS, forecastHubHtml } from '../../utils/forecastHubView.js'
+import { getVisibilityScope } from '../../core/hierarchy.js'
+import { discountWatch } from '../../utils/discountWatch.js'
 
 const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
@@ -101,16 +103,19 @@ export default async function SalesForecastPage(container) {
   async function loadHub() {
     try {
       const today = todayBangkok()
-      const [{ fc, next, bookings }, reminders, jobs, testDrives, logs] = await Promise.all([
+      const [{ fc, next, bookings }, reminders, jobs, testDrives, logs, vis] = await Promise.all([
         loadDeliveryForecast({ today }),
         listDocs('service_reminders', companyScopeFilters(), 'dueDate', 'desc', 3000).catch(() => []),
         listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => []),
         listDocs('test_drives', companyScopeFilters(), 'date', 'desc', 1000).catch(() => []),
         listDocs('comm_logs', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => []),
+        getVisibilityScope().catch(() => null),
       ])
-      hubHtml = forecastHubHtml(forecastCards({ fc, next, bookings, customers: customersForHub, reminders, jobs, today }))
+      // (v1.0.1444) ตัวเลขเงิน (รายได้/ส่วนลด) เฉพาะผู้จัดการ/เจ้าของ — เหมือน LAMI
+      const money = !!(vis && (vis.unrestricted || vis.companyOnly))
+      hubHtml = forecastHubHtml(forecastCards({ fc, next, bookings, customers: customersForHub, reminders, jobs, today, money }))
         + '<div style="font-weight:700;font-size:0.92rem;margin:4px 0 10px">💡 ข้อมูลจริงที่ช่วยปิดการขาย <span style="font-size:0.72rem;font-weight:400;color:var(--text-muted)">คำนวณจากประวัติร้าน ไม่มีชื่อลูกค้า</span></div>'
-        + forecastHubHtml(insightCards({ testDrives, bookings, customers: customersForHub, logs, jobs, today }))
+        + forecastHubHtml(insightCards({ testDrives, bookings, customers: customersForHub, logs, jobs, today, money, discount: discountWatch }))
     } catch { hubHtml = '<div class="fh-why" style="margin-bottom:18px">อ่านข้อมูลไม่สำเร็จ — ลองรีเฟรชหน้าอีกครั้ง</div>' }
     if (container.__routerGen !== myGen) return
     const el = container.querySelector('#fh-cards')

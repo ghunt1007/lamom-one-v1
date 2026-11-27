@@ -12,7 +12,8 @@ export function discountWatch(bookings = [], today, { days = 183, min = 5 } = {}
   const rows = (bookings || []).filter(b => b && !b.deleted && !isCancelled(b) && money(b.price) > 0)
     .map(b => ({ b, d: String(b.bookingDate || '').slice(0, 10), key: modelKey(b), extra: money(b.extraDiscount) }))
     .filter(r => r.d >= from && r.d <= today && r.key)
-  if (rows.length < min) return null
+  // ไม่มีใบไหนใส่ส่วนลดเลย = แยกไม่ออกว่า "ไม่ให้" หรือ "ไม่ได้กรอก" → ไม่สรุป (ไม่โชว์ ฿0 หลอกๆ)
+  if (rows.length < min || !rows.some(r => r.extra > 0)) return null
   const byModel = new Map()
   for (const r of rows) (byModel.get(r.key) || byModel.set(r.key, []).get(r.key)).push(r)
   const models = [...byModel.entries()].filter(([, rs]) => rs.length >= min).map(([key, rs]) => {
@@ -35,7 +36,7 @@ export function discountWatch(bookings = [], today, { days = 183, min = 5 } = {}
 const baht = v => '฿' + Math.round(v).toLocaleString('en-US')
 export function discountAnswer(bookings, { today }) {
   const w = discountWatch(bookings, today)
-  if (!w || !w.models.length) return { n: 0, text: '💸 ยังสรุปส่วนลดไม่ได้ — ต้องมีใบจองที่ใส่ "ราคารถ" ใน 6 เดือนล่าสุด รุ่นละอย่างน้อย 5 ใบ' }
+  if (!w || !w.models.length) return { n: 0, text: '💸 ยังสรุปส่วนลดไม่ได้ — ต้องมีใบจองที่ใส่ "ราคารถ" และช่อง "ส่วนลดเพิ่มเติม" ใน 6 เดือนล่าสุด รุ่นละอย่างน้อย 5 ใบ' }
   const lines = [`💸 ส่วนลดเพิ่มเติม (นอกแคมเปญ) 6 เดือนล่าสุด — เฉลี่ย ${baht(w.avg)}/คัน · ให้ส่วนลด ${Math.round(w.share * 100)}% ของใบจอง (${w.n} ใบ)`,
     'รายรุ่น:', ...w.models.slice(0, 6).map(m => `• ${m.label} เฉลี่ย ${baht(m.avg)} · ปกติไม่เกิน ${baht(m.p80)} (${m.n} ใบ)`)]
   if (w.bySeller.length > 1) lines.push('รายเซลส์:', ...w.bySeller.slice(0, 6).map(s => `• ${s.name} เฉลี่ย ${baht(s.avg)}/คัน (${s.n} ใบ)`))

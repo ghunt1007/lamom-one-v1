@@ -74,7 +74,7 @@ export function isOverviewForecastQuestion(q) {
 
 // (v1.0.1441) การ์ด "ข้อมูลจริงที่ช่วยปิดการขาย" — แสดงในศูนย์คาดการณ์ใต้การ์ดคาดการณ์ (ไม่มีชื่อลูกค้า)
 // ทุกตัวคำนวณจากข้อมูลร้าน ข้อมูลไม่พอ = ok:false พร้อมเหตุผล
-export function insightCards({ testDrives = [], bookings = [], customers = [], logs = [], jobs = [], today, now = Date.now(), tdConv = testDriveConversion, callTimes = bestCallTimes, sourceConv = sourceConversion, turnaround = jobTurnaround } = {}) {
+export function insightCards({ testDrives = [], bookings = [], customers = [], logs = [], jobs = [], today, now = Date.now(), money = false, discount = null, tdConv = testDriveConversion, callTimes = bestCallTimes, sourceConv = sourceConversion, turnaround = jobTurnaround } = {}) {
   const cards = []
   const td = tdConv({ testDrives, bookings, customers, today })
   if (td?.rate != null) cards.push({ ok: true, key: 'tdconv', icon: '🚗', title: 'ทดลองขับแล้วจองจริง', display: Math.round(td.rate * 100) + '%', note: `${td.booked} จาก ${td.n} ครั้ง (จองภายใน 45 วัน)${td.chase.length ? ` · ขับแล้วยังไม่จอง ${td.chase.length} ราย ควรโทรตาม` : ''}`, path: '/crm/testdrive' })
@@ -89,5 +89,11 @@ export function insightCards({ testDrives = [], bookings = [], customers = [], l
   const ta = turnaround(jobs, today)
   if (ta) cards.push({ ok: true, key: 'turnaround', icon: '⏱️', title: 'งานซ่อมปกติเสร็จใน', display: ta.median < 1 ? `${Math.max(1, Math.round(ta.median * 24))} ชม.` : `${Math.round(ta.median * 10) / 10} วัน`, note: `80% เสร็จภายใน ${Math.round(ta.p80 * 10) / 10} วัน · จาก ${ta.n} งานใน 90 วัน`, path: '/service/jobs' })
   else cards.push({ ok: false, key: 'turnaround', icon: '⏱️', title: 'งานซ่อมปกติเสร็จใน', why: 'เริ่มนับจากงานที่กดเสร็จตั้งแต่ 28/11/2569 — ต้องมี ≥ 5 งานใน 90 วัน', path: '/service/jobs' })
+  // (v1.0.1444) ส่วนลดเพิ่มเติม — ตัวเลขเงิน แสดงเฉพาะผู้มีสิทธิ์ (money) · discount = discountWatch ที่ฉีดเข้ามา
+  if (money && discount) {
+    const dw = discount(bookings, today)
+    if (dw && dw.models.length) cards.push({ ok: true, key: 'discount', icon: '💸', title: 'ส่วนลดเพิ่มเติมเฉลี่ย', display: baht(dw.avg), note: `ต่อคัน · ให้ส่วนลด ${Math.round(dw.share * 100)}% ของ ${dw.n} ใบ (6 เดือน)${dw.flags.length ? ` · ⚠️ เดือนนี้เกินปกติ ${dw.flags.length} ใบ` : ' · เดือนนี้ยังไม่มีใบที่เกินปกติ'}`, path: '/crm/bookings' })
+    else cards.push({ ok: false, key: 'discount', icon: '💸', title: 'ส่วนลดเพิ่มเติมเฉลี่ย', why: 'ต้องมีใบจองที่ใส่ราคารถและช่องส่วนลดเพิ่มเติมใน 6 เดือน รุ่นละ ≥ 5 ใบ', path: '/crm/bookings' })
+  }
   return cards
 }
