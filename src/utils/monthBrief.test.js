@@ -123,3 +123,13 @@ describe('isMonthQuestion booking projection (v1.0.1412)', () => {
     expect(isMonthQuestion('ยอดจองเดือนก่อนสิ้นเดือนเท่าไหร่')).toBe(false)
   })
 })
+
+describe('better/worse than last month (v1.0.1469)', () => {
+  it('routes comparison phrasings to the month summary', () => {
+    expect(isMonthQuestion('เดือนนี้ดีกว่าเดือนที่แล้วไหม')).toBe(true)
+    expect(isMonthQuestion('ร้านเราขายดีขึ้นไหม')).toBe(true)
+    expect(isMonthQuestion('ยอดตกไหม')).toBe(true)
+    expect(isMonthQuestion('ทำไมยอดตก')).toBe(false)
+    expect(isMonthQuestion('กำไรเดือนนี้ดีกว่าเดือนที่แล้วไหม')).toBe(false)
+  })
+})
