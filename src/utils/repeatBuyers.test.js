@@ -20,3 +20,12 @@ describe('repeat buyers (v1.0.1475)', () => {
     expect(repeatAnswer(bk.slice(2)).n).toBe(0)
   })
 })
+
+describe('walk-in / anniversary phrasing (v1.0.1476)', () => {
+  it('routes', () => {
+    expect(parseOpsSpec('ลูกค้าที่มาดูรถวันนี้')).toEqual({ kind: 'walkin', day: 'today' })
+    expect(parseOpsSpec('เมื่อวานมีลูกค้ามาดูรถกี่คน')).toEqual({ kind: 'walkin', day: 'yesterday' })
+    expect(parseOpsSpec('ลูกค้าใหม่มาจากไหน').kind).toBe('newcust')
+    expect(parseOpsSpec('ลูกค้าที่ซื้อไปครบ 1 ปี').kind).toBe('anniv')
+  })
+})
