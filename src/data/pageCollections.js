@@ -847,7 +847,8 @@ export const PAGE_COLLECTIONS = {
   "staff"
  ],
  "/analytics/service": [
-  "job_cards"
+  "job_cards",
+  "service_reminders"
  ],
  "/dms/plates": [
   "bookings",

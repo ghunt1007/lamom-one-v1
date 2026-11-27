@@ -13,6 +13,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { escHtml } from '../../utils/escape.js'
+import { serviceForecast } from '../../utils/serviceForecast.js'
 
 const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 const TYPE_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4']
@@ -37,11 +38,16 @@ export default async function ServiceAnalyticsPage(container) {
   const months = [5, 4, 3, 2, 1, 0].map(k => monthBangkok(-k, today))
   const labels = months.map(m => TH_M[Number(m.slice(5, 7)) - 1])
   const nowYm = months[5]
-  let jobs = []
+  let jobs = [], reminders = []
   let metric = 'jobs'
 
   try {
-    jobs = (await listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 1000).catch(() => [])).filter(j => !j.deleted)
+    const [js, rs] = await Promise.all([
+      listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 1000).catch(() => []),
+      listDocs('service_reminders', [], 'dueDate', 'desc', 3000).catch(() => []),
+    ])
+    jobs = js.filter(j => !j.deleted)
+    reminders = rs
     if (container.__routerGen !== myGen) return
   } catch {}
 
@@ -88,6 +94,16 @@ export default async function ServiceAnalyticsPage(container) {
           ${kpi('🧾 เฉลี่ยต่องาน', jobsNow ? formatCurrency(avgTicket) : '—', 'accent')}
           ${kpi('⏳ งานที่ยังไม่เสร็จ', openNow + ' งาน', openNow ? 'warning' : 'success')}
         </div>
+        ${(() => {
+          // (v1.0.1427) คาดรถเข้าศูนย์เดือนหน้า จากเตือนเช็คระยะที่ครบกำหนด × อัตรานัดได้จริง (ข้อมูลไม่พอไม่แสดง)
+          let f = null
+          try { f = serviceForecast({ reminders, jobs, today, amountOf: jobAmount, jobMonthOf: jobMonth }) } catch { f = null }
+          if (!f || !f.due) return ''
+          return `<div class="card" id="svc-fc" style="padding:12px 16px;margin-bottom:14px;border-left:3px solid var(--primary)">
+            <div style="font-weight:800">🔮 คาดรถเข้าศูนย์เดือนหน้า (${TH_M[Number(f.next.slice(5, 7)) - 1]}) ≈ <span style="color:var(--primary)">${f.expected} คัน</span>${f.revenue != null ? ` · รายได้ ≈ <span style="color:var(--accent)">${formatCurrency(f.revenue)}</span>` : ''}</div>
+            <div style="font-size:0.74rem;color:var(--text-muted);margin-top:4px">ครบกำหนดเช็คระยะเดือนหน้า ${f.due} คัน × นัดเข้าได้จริง ${Math.round(f.rate * 100)}% (จากการเตือน ${f.histN} รายการใน 6 เดือนก่อน)${f.revenue != null ? ` × เฉลี่ยใบงานละ ${formatCurrency(Math.round(f.avg))}` : ''} · <a href="/service/reminders" data-link style="color:var(--primary)">ไปโทรนัดล่วงหน้า →</a></div>
+          </div>`
+        })()}
 
         <div class="card" style="padding:14px;margin-bottom:14px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap">
