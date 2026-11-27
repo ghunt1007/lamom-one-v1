@@ -31,3 +31,19 @@ describe('cancelRisk (v1.0.1453)', () => {
     expect(parseOpsSpec('ใครถอนจองเดือนนี้')?.kind).toBe('withdrawn')
   })
 })
+
+describe('LAMI routing additions (v1.0.1462)', () => {
+  it('routes future/worry phrasings and related gaps', () => {
+    expect(parseOpsSpec('ใบจองไหนจะถอน')).toEqual({ kind: 'cancelrisk' })
+    expect(parseOpsSpec('ลูกค้าคนไหนจะยกเลิกจอง')).toEqual({ kind: 'cancelrisk' })
+    expect(parseOpsSpec('ใบจองที่น่าห่วง')).toEqual({ kind: 'cancelrisk' })
+    expect(parseOpsSpec('ลูกค้าคนไหนยกเลิกจอง').kind).toBe('withdrawn')
+    expect(parseOpsSpec('ยกเลิกจองกี่ใบ')).toEqual({ kind: 'withdrawn', prev: false })
+    expect(parseOpsSpec('ถอนจองเดือนที่แล้วกี่ใบ')).toEqual({ kind: 'withdrawn', prev: true })
+    expect(parseOpsSpec('ยกเลิกจอง สมชาย')).toBeNull()
+    expect(parseOpsSpec('รุ่นไหนขายยาก')).toEqual({ kind: 'modelfunnel' })
+    expect(parseOpsSpec('เดือนนี้จะส่งได้กี่คัน')).toEqual({ kind: 'dlvfc' })
+    expect(parseOpsSpec('เดือนหน้าจะส่งได้กี่คัน')).toEqual({ kind: 'delivery', day: 'nextmonth' })
+    expect(parseOpsSpec('คาดการณ์เดือนหน้า')).toEqual({ kind: 'fcall' })
+  })
+})
