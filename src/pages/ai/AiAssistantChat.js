@@ -448,9 +448,9 @@ export default async function AiAssistantChatPage(container) {
       }
       if (isCallListQuestion(text)) {
         const card = await import('../../utils/lamiCommandCard.js')
-        const cmds = await card.loadCallListCommands(Promise.resolve(chatCustomers)).catch(() => [])
+        const [cmds, timeHint] = await Promise.all([card.loadCallListCommands(Promise.resolve(chatCustomers)).catch(() => []), card.loadCallTimeHint()])
         pendingCmds = cmds
-        try { await createDoc('chat_ai_assistant', { role:'ai', text: card.callListIntro(cmds), cmd: cmds.length > 0, time:now(), uid }) } catch (e) {}
+        try { await createDoc('chat_ai_assistant', { role:'ai', text: card.callListIntro(cmds) + (cmds.length && timeHint ? '\n' + timeHint : ''), cmd: cmds.length > 0, time:now(), uid }) } catch (e) {}
         waiting = false
         await loadData()
         return

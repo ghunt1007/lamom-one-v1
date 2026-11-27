@@ -158,8 +158,8 @@ export function openLamiPanel({ navigate } = {}) {
         if (isCallListQuestion(q)) {
           if (!custPromise) custPromise = import('./lamiCommandCard.js').then(m => m.visibleCustomersForCommands()).catch(() => [])
           const card = await import('./lamiCommandCard.js')
-          const cmds = await card.loadCallListCommands(custPromise)
-          const intro = card.callListIntro(cmds)
+          const [cmds, timeHint] = await Promise.all([card.loadCallListCommands(custPromise), card.loadCallTimeHint()])
+          const intro = card.callListIntro(cmds) + (cmds.length && timeHint ? '\n' + timeHint : '')
           history.push({ role: 'user', text: q }, { role: 'lami', text: intro + '\n' + cmds.map(c => `${c.label} — ${c.desc}`).join('\n') })
           wait.outerHTML = `<div class="lp-a">${esc(intro)}</div><div class="lp-cmdslot"></div>${cmds.length ? `<div class="lp-asks"><button class="lp-ask lp-ai" type="button">✨ ให้ LAMI ช่วยคิดคำพูดเปิดการคุย</button></div>` : ''}`
           const slots = body.querySelectorAll('.lp-cmdslot')
