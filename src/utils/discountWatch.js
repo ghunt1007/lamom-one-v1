@@ -10,7 +10,7 @@ const q = (sorted, p) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorte
 export function discountWatch(bookings = [], today, { days = 183, min = 5 } = {}) {
   const from = shiftDays(today, -days), ym = String(today).slice(0, 7)
   const rows = (bookings || []).filter(b => b && !b.deleted && !isCancelled(b) && money(b.price) > 0)
-    .map(b => ({ b, d: String(b.bookingDate || '').slice(0, 10), key: modelKey(b), extra: money(b.extraDiscount) }))
+    .map(b => ({ b, d: String(b.bookingDate || '').slice(0, 10), key: modelKey(b), extra: money(Math.abs(Number(String(b.extraDiscount ?? '').replace(/[,฿\s]/g, '')) || 0)) }))
     .filter(r => r.d >= from && r.d <= today && r.key)
   // ไม่มีใบไหนใส่ส่วนลดเลย = แยกไม่ออกว่า "ไม่ให้" หรือ "ไม่ได้กรอก" → ไม่สรุป (ไม่โชว์ ฿0 หลอกๆ)
   if (rows.length < min || !rows.some(r => r.extra > 0)) return null
