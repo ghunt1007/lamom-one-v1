@@ -22,7 +22,7 @@ export function parsePaySpec(q, vehicles = []) {
   const s = thaiNumerals(String(q).trim()).replace(/[?？]+$/, '')
   const n = norm(s)
   // เงื่อนไขที่พิมพ์มา
-  const mm = s.match(/(\d{2,3})\s*(?:งวด|เดือน)/), yy = s.match(/(\d)\s*ปี/)
+  const mm = s.match(/(?<![A-Za-z\d])(\d{2,3})\s*(?:งวด|เดือน)/), yy = s.match(/(?<![A-Za-z\d])(\d)\s*ปี/) // (v1.0.1477) "S07 เดือนละ" ไม่ใช่ 7 เดือน
   const months = mm ? +mm[1] : yy ? +yy[1] * 12 : null
   if (months != null && (months < 12 || months > 120)) return null
   const rm = s.match(/ดอก(?:เบี้ย)?\s*(\d{1,2}(?:\.\d+)?)\s*%?/) || s.match(/ผ่อน\s*(0)\s*%/)
