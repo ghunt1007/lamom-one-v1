@@ -1,10 +1,16 @@
 // สรุปรายได้/ค่าคอมรายเซลส์ต่อเดือน จากตัวเลขที่กรอกจริงในใบจอง (มาร์จิ้น, งบการตลาด, คอมเซลส์, คอมไฟแนนซ์)
 // ต่างจากหน้า Commission (/finance/commission) ที่ "คำนวณ" ค่าคอมจากกติกา — หน้านี้รวมยอดที่กรอกไว้ตอนส่งมอบตรงๆ
 // นิยามเดียวกับรายงานประจำวัน: ส่งมอบ = ส่งมอบแล้ว/ตัดตัวเลขรอส่งมอบ นับเดือนตามวันตัดตัวเลข (หรือวันส่งมอบจริง)
-import { DELIVERED_STATUSES, needsIncome } from './deliveryIncome.js'
+// (v1.0.1419) ห้าม import deliveryIncome.js ที่นี่ — มันดึง modal/db/store (ใช้ localStorage) ทำให้ worker รายงานที่ใช้ไฟล์นี้ deploy ไม่ผ่าน
+import { DELIVERED_STATUSES } from './bookingStatus.js'
 
 import { CANCELLED_STATUSES as CANCELLED } from './bookingStatus.js'
 const n = v => Number(v) || 0
+
+// นิยามเดียวกับรายงานประจำวัน: ส่งมอบแล้วแต่ totalIncome ยังเป็น 0/ว่าง
+export function needsIncome(b) {
+  return !!b && !b.deleted && DELIVERED_STATUSES.includes(b.status) && !(Number(b.totalIncome) || 0)
+}
 
 export function deliveredMonth(b) { return String(b?.cutDate || b?.actualDeliveryDate || '').slice(0, 7) }
 
