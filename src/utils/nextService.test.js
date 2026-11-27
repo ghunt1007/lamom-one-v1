@@ -34,3 +34,27 @@ describe('nextServiceReminder', () => {
     expect(plateKey(' 1กข-99 ')).toBe('1กข99')
   })
 })
+
+import { mileageRate } from './nextService.js'
+describe('mileage-based next service (v1.0.1418)', () => {
+  const job = { id: 'j2', type: 'service', plate: 'กข 1234', mileage: 18000, createdAt: '2026-11-20T03:00:00Z' }
+  const old = { id: 'j1', type: 'service', plate: 'กข-1234', mileage: 8000, createdAt: '2026-07-23T03:00:00Z' } // 120 วัน 10,000 km ≈ 83/วัน
+  it('rate from same plate history', () => {
+    expect(mileageRate(job, [old])).toBeCloseTo(10000 / 120, 1)
+    expect(mileageRate(job, [])).toBeNull()
+    expect(mileageRate(job, [{ ...old, createdAt: '2026-11-01' }])).toBeNull() // < 30 วัน
+    expect(mileageRate(job, [{ ...old, plate: 'ขค 9' }])).toBeNull()
+    expect(mileageRate(job, [{ ...old, mileage: 1, createdAt: '2016-01-01' }])).not.toBeNull()
+    expect(mileageRate({ ...job, mileage: 900000 }, [old])).toBeNull() // แปลก
+  })
+  it('heavy user gets an earlier reminder (km reached before 6 months)', () => {
+    const r = nextServiceReminder(job, '2026-11-20', [], [old])
+    // ถึง 20,000 km อีก 2,000 km ÷ 83/วัน = 24 วัน → อย่างน้อย 30 วัน
+    expect(r.dueDate).toBe('2026-12-20')
+    expect(r.detail).toContain('km/วัน')
+  })
+  it('light user keeps 6 months', () => {
+    const r = nextServiceReminder({ ...job, mileage: 10500 }, '2026-11-20', [], [{ ...old, mileage: 10000 }])
+    expect(r.dueDate).toBe('2027-05-20')
+  })
+})
