@@ -87,3 +87,12 @@ describe('no deposit (v1.0.1087)', () => {
     expect(r.list.map(x => x.b.id)).toEqual(['b1'])
   })
 })
+
+describe('waiting-too-long without a question word (v1.0.1465)', () => {
+  it('lists stuck finance / car waits', () => {
+    expect(parseBookingListSpec('รอไฟแนนซ์นาน')).toMatchObject({ statuses: ['รอผลไฟแนนซ์', 'จัดไฟแนนซ์ก่อนจอง'], stuck: true })
+    expect(parseBookingListSpec('ลูกค้าที่รอไฟแนนซ์นานเกินไป')).toMatchObject({ stuck: true })
+    expect(parseBookingListSpec('รอรถนาน')).toMatchObject({ statuses: ['รอรถ'], stuck: true })
+    expect(parseBookingListSpec('รอไฟแนนซ์')).toBeNull()
+  })
+})
