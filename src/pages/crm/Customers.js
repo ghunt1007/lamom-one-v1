@@ -32,7 +32,7 @@ import { maskContacts } from '../../utils/leadText.js'
 import { enhanceMics, bindMic, hasSpeechInput } from '../../utils/micInput.js'
 import { matchesSearch, parseSmartQuery } from '../../utils/customerSearch.js'
 import { stockLine } from '../../utils/stockLine.js'
-import { heuristicScore } from '../../utils/leadScore.js'
+import { heuristicScore, sourceConversion } from '../../utils/leadScore.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
 import { openLineLinkQr, lineLinkState } from '../../utils/lineLink.js'
@@ -54,12 +54,13 @@ import { escHtml } from '../../utils/escape.js'
 import { quickChips } from '../../utils/lamiCommands.js'
 import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
 
+let leadConv = null // (v1.0.1417) อัตราปิดจริงรายช่องทาง คำนวณใหม่ทุกครั้งที่โหลดลูกค้า
 const pendingFuCount = new WeakMap() // ลูกค้า → จำนวนนัดค้าง (ใช้ตัดสินว่าควรเสนอนัดครั้งถัดไปหลังโทรไหม)
 
 // แถบ "โอกาสปิด" เล็กๆ ใต้อุณหภูมิ — เฉพาะ Lead/Prospect ที่ยังไม่เสียดีล (สูตรใน utils/leadScore.js)
 function scoreBar(c) {
   if (c.isLost || !['lead', 'pp'].includes(c.stage)) return ''
-  const { score, signals } = heuristicScore(c)
+  const { score, signals } = heuristicScore(c, Date.now(), { conv: leadConv })
   const color = score >= 80 ? 'var(--danger)' : score >= 60 ? 'var(--warning)' : 'var(--text-muted)'
   return `<div title="โอกาสปิดการขาย ${score}%\n${escHtml(signals.join('\n'))}" style="margin-top:4px;display:flex;align-items:center;gap:4px;font-size:0.62rem;color:var(--text-muted)">
     <div style="width:44px;height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden"><div style="height:100%;width:${score}%;background:${color}"></div></div>${score}%</div>`
@@ -241,6 +242,7 @@ export default async function CustomersPage(container) {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true (กู้คืนได้ใน 30 วันตามที่แจ้งผู้ใช้) — ถ้าไม่กรอง
     // ออกตรงนี้ ลูกค้าที่ "ลบ" ไปแล้วจะยังโผล่กลับมาในตาราง/สถิติทุกครั้งที่โหลดใหม่หรือมี snapshot ใหม่เข้ามา
     try { customers = (await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 400)).filter(c => !c.deleted) } catch { customers = [] }
+    try { leadConv = sourceConversion(customers) } catch { leadConv = null }
     applyFilter()
   }
 
@@ -253,6 +255,7 @@ export default async function CustomersPage(container) {
     unsubCustomers = watchDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 400, rows => {
       if (container.__routerGen !== myGen) { unsubCustomers(); return }
       customers = rows.filter(c => !c.deleted)
+      try { leadConv = sourceConversion(customers) } catch { leadConv = null }
       applyFilter()
     })
   }
@@ -301,7 +304,7 @@ export default async function CustomersPage(container) {
       if (sortMode === 'quiet') return qd(b) - qd(a)
       const newer = (toDate(b.createdAt)?.getTime() || 0) - (toDate(a.createdAt)?.getTime() || 0) // createdAt เป็น Timestamp — new Date() ตรงๆ ได้ NaN
       if (sortMode === 'new') return newer
-      if (sortMode === 'score') return heuristicScore(b).score - heuristicScore(a).score || newer
+      if (sortMode === 'score') return heuristicScore(b, Date.now(), { conv: leadConv }).score - heuristicScore(a, Date.now(), { conv: leadConv }).score || newer
       const ua = rank[quickUrgency(a)], ub = rank[quickUrgency(b)]
       if (ua !== ub) return ua - ub
       return newer

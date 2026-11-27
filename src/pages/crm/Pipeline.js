@@ -5,7 +5,7 @@ import { navigate } from '../../core/router.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { quietDays, QUIET_DAYS } from '../../utils/customerFollowups.js'
-import { heuristicScore } from '../../utils/leadScore.js'
+import { heuristicScore as baseScore, sourceConversion } from '../../utils/leadScore.js'
 import { dealValue } from '../../utils/salesAi.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { escHtml } from '../../utils/escape.js'
@@ -41,7 +41,10 @@ export default async function PipelinePage(container) {
     renderBoard()
   }
 
+  let leadConv = null
+  const heuristicScore = c => baseScore(c, Date.now(), { conv: leadConv })
   function renderBoard() {
+    try { leadConv = sourceConversion(customers) } catch { leadConv = null }
     const board = document.getElementById('pipeline-board')
     if (!board) return
 
