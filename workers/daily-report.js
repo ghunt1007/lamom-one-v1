@@ -63,6 +63,7 @@ import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils
 import { campaignLeads } from '../src/utils/campaignLeads.js'
 import { financeQueue, financeWaitAnswer } from '../src/utils/financeQueue.js'
 import { incomeForecast, incomeForecastLine } from '../src/utils/incomeForecast.js'
+import { leadCountByModel } from '../src/utils/stockLeads.js'
 import { deliveryWeekAnswer, deliveryWeekList } from '../src/utils/deliveryWeek.js'
 import { stockLineAnswer } from '../src/utils/stockList.js'
 import { promoLineAnswer } from '../src/utils/promoQuestions.js'
@@ -772,8 +773,14 @@ async function handleLineWebhook(request, env, cors) {
       const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
       if (me?.name || (owner && owner === userId)) {
         try {
-          const rows = await runQuery(env, accessToken, 'vehicles', null, null, 3000, ['status', 'brand', 'model', 'variant', 'color', 'deleted'])
-          reply = clipLine(stockLineAnswer(rows, { q: cmd.q }))
+          const [rows, custs] = await Promise.all([
+            runQuery(env, accessToken, 'vehicles', null, null, 3000, ['status', 'brand', 'model', 'variant', 'color', 'deleted']),
+            runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'isLost', 'interestedModel', 'assignedTo', 'deleted']).catch(() => []),
+          ])
+          // (v1.0.1424) ลูกค้าที่สนใจแต่ละรุ่น — เซลส์นับเฉพาะลูกค้าของตัวเอง เจ้าของนับทั้งร้าน
+          const isOwner = owner && owner === userId
+          const mineC = isOwner ? custs : custs.filter(c => normSalesName(c.assignedTo) === normSalesName(me?.name))
+          reply = clipLine(stockLineAnswer(rows, { q: cmd.q, leadCounts: leadCountByModel(mineC) }))
         } catch { reply = '⚠️ ดึงข้อมูลสต็อกไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
     } else if (cmd.type === 'promo') {

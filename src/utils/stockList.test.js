@@ -26,3 +26,12 @@ describe('stockLine', () => {
     expect(stockLineAnswer([])).toContain('ยังไม่มีรถในสต็อก')
   })
 })
+
+import { leadCountByModel } from './stockLeads.js'
+describe('สต็อก + interested leads (v1.0.1424)', () => {
+  it('adds lead count under ready models only', () => {
+    const lc = leadCountByModel([{ stage: 'lead', interestedModel: 'Deepal S07' }, { stage: 'pp', interestedModel: 'S07' }, { stage: 'lead', interestedModel: 'S07', isLost: true }])
+    expect(stockLineAnswer(V, { leadCounts: lc })).toContain('🎯 ลูกค้าสนใจรุ่นนี้ 2 คน')
+    expect(stockLineAnswer(V)).not.toContain('🎯')
+  })
+})
