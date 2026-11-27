@@ -447,6 +447,11 @@ export async function loadOpsAnswer(q, customersPromise) {
       const { discountAnswer } = await import('./discountWatch.js')
       res = discountAnswer(await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), { today })
     }
+  } else if (spec.kind === 'speedimpact') {
+    // (v1.0.1446) ทั้งร้าน — % ปิดการขายตามความเร็วโทรครั้งแรก (ไม่มีชื่อลูกค้า)
+    const { speedImpact, speedImpactText } = await import('./speedImpact.js')
+    const r = speedImpact(await listDocs('customers', f, 'createdAt', 'desc', 5000).catch(() => []))
+    res = { n: r ? r.n : 0, text: speedImpactText(r) }
   } else if (spec.kind === 'calltime') {
     // (v1.0.1437) ทั้งร้าน (ช่วงเวลาที่ลูกค้ารับสาย ไม่มีชื่อลูกค้า)
     const { callTimeAnswer } = await import('./callTimes.js')
