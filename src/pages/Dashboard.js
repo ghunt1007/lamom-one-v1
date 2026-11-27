@@ -18,6 +18,7 @@ import { DASH_SECTIONS, loadDashLayout, saveDashLayout, applyDashLayout, moveSec
 import { openModal } from '../utils/modal.js'
 import { escHtml as __escA } from '../utils/escape.js'
 import { escHtml } from '../utils/escape.js'
+import { incomeForecast, incomeForecastNote } from '../utils/incomeForecast.js'
 import { dmy as fmtDMY, hm as fmtHM } from '../utils/format.js'
 import { statusBoard, pickPrevCounts } from '../utils/statusBoard.js'
 import { SB_CSS, statusBoardHtml } from '../utils/statusBoardView.js'
@@ -1257,6 +1258,13 @@ export default async function DashboardPage(container) {
               <div style="font-size:0.72rem;color:var(--text-muted)">💰 รายได้ของคุณเดือนนี้ (ตัดตัวเลข/ส่งมอบ)</div>
               <div style="font-size:1.6rem;font-weight:800;color:var(--primary);margin-top:4px">${formatCurrency(mine.revenue)}</div>
               <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">${mine.count} ดีล</div>
+              ${(() => {
+                // (v1.0.1421) คาดรายได้สิ้นเดือนของเซลส์คนนี้ (เดือนปัจจุบันเท่านั้น · ประวัติไม่ถึง 3 คัน = ไม่แสดง)
+                if (selectedMonth !== todayBangkok().slice(0, 7)) return ''
+                let x = null
+                try { x = incomeForecast({ bookings: bookings.filter(b => !b.deleted && normName(b.salesName) === normName(user.displayName)), today: todayBangkok() }) } catch { x = null }
+                return x && x.moreCars > 0 ? `<div id="dash-my-ifc" title="${escHtml(incomeForecastNote(x))}" style="font-size:0.75rem;margin-top:6px">🔮 คาดสิ้นเดือน <b style="color:var(--accent)">≈ ${formatCurrency(x.expected)}</b></div>` : ''
+              })()}
             </div>`
         } else {
           // อันดับเซลส์: ส่งมอบ (ตัดตัวเลข) ในเดือนนี้ก่อน แล้วจองใหม่ · มีเหรียญ 1–3 และแถบเทียบคนที่ 1
@@ -1524,7 +1532,10 @@ export default async function DashboardPage(container) {
       const el = document.getElementById('dlvfc-body')
       if (!el || !dlvExtras) return
       const fc = computeDeliveryForecast({ bookings, ...dlvExtras, today: todayBangkok(), fmt: formatDate })
-      el.innerHTML = deliveryHeroHtml(fc, { link: true })
+      // (v1.0.1421) ต่อท้ายด้วยคาดรายได้สิ้นเดือน (ยอดคันจากตัวคาดการณ์เดียวกัน × รายได้เฉลี่ยต่อคัน 3 เดือนก่อน)
+      let ifc = null
+      try { ifc = incomeForecast({ bookings, today: todayBangkok(), fc }) } catch { ifc = null }
+      el.innerHTML = deliveryHeroHtml(fc, { link: true }) + (ifc && ifc.moreCars > 0 ? `<a href="/crm/sales-income" data-link id="dash-ifc" title="${escHtml(incomeForecastNote(ifc))}" style="display:block;margin-top:10px;padding:10px 14px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border-subtle);font-size:0.8rem;color:var(--text);text-decoration:none">💰 คาดรายได้สิ้นเดือน <b style="color:var(--accent)">≈ ${formatCurrency(ifc.expected)}</b> <span style="color:var(--text-muted)">(${formatCurrency(ifc.low)}–${formatCurrency(ifc.high)})</span></a>` : '')
       // (v1.0.1411) ส่งต่อให้กระดานสถานะ: แต่ละสถานะคาดว่าส่งได้เดือนนี้กี่คัน
       const m = new Map(); (fc.items || []).forEach(i => m.set(i.status, (m.get(i.status) || 0) + i.p))
       sbExpect = m; renderStatusBoard()
