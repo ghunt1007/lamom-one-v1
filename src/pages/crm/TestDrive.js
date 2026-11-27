@@ -164,7 +164,6 @@ export default async function TestDrivePage(container) {
         </div>` : ''}
 
         <!-- ผลลัพธ์สั้น ๆ บรรทัดเดียว (ตัวเลขแต่ละสถานะอยู่บนปุ่มกรองด้านล่างแล้ว) -->
-        ${convHtml()}
         ${conv?.rate != null ? '' : s.done ? `<div style="font-size:0.82rem;color:var(--text-2);margin-bottom:14px">🎯 ขับแล้วจอง <b style="color:var(--${s.convRate >= 30 ? 'success' : 'warning'})">${s.convRate}%</b> <span style="color:var(--text-muted)">(จองต่อ ${s.booked} จากที่ขับเสร็จ ${s.done} ครั้ง)</span></div>` : ''}
 
         <!-- Today's schedule -->
@@ -185,6 +184,8 @@ export default async function TestDrivePage(container) {
             </div>
           </div>
         ` : ''}
+
+        ${convHtml()}
 
         <!-- Filter -->
         <div class="chip-scroll" style="overflow-x:auto;display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
