@@ -1858,3 +1858,18 @@ describe('leadPaceLine (v1.0.1429)', () => {
     expect(leadPaceLine([...hist, ...now], '2026-11-30')).toBeNull()
   })
 })
+
+describe('v1.0.1454 stuck booking cancel-risk tag', () => {
+  it('tags stuck bookings past the risky age from shop history', () => {
+    const add = (d, n) => new Date(Date.parse(d) + n * 86400000).toISOString().slice(0, 10)
+    const hist = [...Array.from({ length: 20 }, () => ({ bookingDate: '2026-05-01', status: 'ส่งมอบแล้ว', cutDate: add('2026-05-01', 20), totalIncome: 1 })),
+      ...Array.from({ length: 6 }, () => ({ bookingDate: '2026-05-01', status: 'ส่งมอบแล้ว', cutDate: add('2026-05-01', 70), totalIncome: 1 })),
+      ...Array.from({ length: 8 }, (_, i) => ({ bookingDate: '2026-05-01', status: 'ถอนจอง', cancelDate: add('2026-05-01', i < 2 ? 10 : 80) }))]
+    const text = buildMorningReminder({ bookings: [...hist,
+      { salesName: 'A', custName: 'ค้างนาน', status: 'รอรถ', bookingDate: '2026-09-01' },
+      { salesName: 'A', custName: 'ค้างนิดหน่อย', status: 'รอรถ', bookingDate: '2026-10-05' }] }, { today: '2026-10-24' })
+    expect(text).toContain('ค้างนาน · รอรถ · 53 วัน ⚠️ เสี่ยงถอน')
+    expect(text).toContain('ค้างนิดหน่อย · รอรถ · 19 วัน')
+    expect(text).not.toContain('19 วัน ⚠️')
+  })
+})
