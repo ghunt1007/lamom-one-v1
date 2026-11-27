@@ -205,7 +205,7 @@ export default async function JobCardsPage(container) {
       const today = todayBangkok()
       if (!nextServiceReminder(j, today)) return
       const existing = await listDocs('service_reminders', [['plate', '==', String(j.plate).trim()]], 'dueDate', 'desc', 20).catch(() => [])
-      const doc = nextServiceReminder(j, today, existing)
+      const doc = nextServiceReminder(j, today, existing, jobs)
       if (!doc) return
       const id = await createDoc('service_reminders', doc)
       if (id) { j.nextReminderId = id; await updateDocData('job_cards', j.id, { nextReminderId: id }).catch(() => {}) }
