@@ -27,6 +27,7 @@ describe('parseStockSpec', () => {
     expect(parseStockSpec('มีสีดำไหม', vs)).toMatchObject({ color: 'ดำ', model: '' })
   })
   it('ignores other questions', () => {
+    expect(parseStockSpec('รถคันไหนซ่อมนานสุด', [])).toBeNull() // (v1.0.1470) งานซ่อม ไม่ใช่สต็อก
     for (const q of ['มานีมีไหม', 'ลูกค้า hot มีใครบ้าง', 'นัดสมชายพรุ่งนี้', 'ราคา S07 เท่าไหร่', 'ยอดเดือนนี้เป็นไง', 'ใครรอส่งมอบ', 'มูลค่าสต็อกเท่าไหร่', '']) expect(parseStockSpec(q, vs), q).toBeNull()
     expect(maybeStockQuestion('วันนี้มีอะไรบ้าง')).toBe(false)
   })

@@ -106,4 +106,8 @@ describe('not linked to LINE yet (v1.0.1468)', () => {
     const bookings = [{ id: 'b1', status: 'รอรถ', bookingDate: '2026-11-01' }, { id: 'b2', status: 'รอรถ', lineUserId: 'U1', bookingDate: '2026-11-01' }, { id: 'b3', status: 'ส่งมอบแล้ว', bookingDate: '2026-10-01' }]
     expect(bookingTargets({ customers, bookings, today: '2026-11-28', spec }).list.map(x => x.b.id)).toEqual(['b1'])
   })
+  it('leaves service-centre questions alone (v1.0.1470)', () => {
+    expect(parseBookingListSpec('วันนี้ศูนย์รับรถกี่คัน')).toBeNull()
+    expect(parseBookingListSpec('วันนี้ลูกค้ารับรถกี่คน')).not.toBeNull()
+  })
 })
