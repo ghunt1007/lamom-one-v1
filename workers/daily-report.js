@@ -65,6 +65,7 @@ import { financeQueue, financeWaitAnswer } from '../src/utils/financeQueue.js'
 import { incomeForecast, incomeForecastLine } from '../src/utils/incomeForecast.js'
 import { leadCountByModel } from '../src/utils/stockLeads.js'
 import { testDriveConversion } from '../src/utils/testDriveConversion.js'
+import { forecastOverview } from '../src/utils/forecastOverview.js'
 import { deliveryWeekAnswer, deliveryWeekList } from '../src/utils/deliveryWeek.js'
 import { stockLineAnswer } from '../src/utils/stockList.js'
 import { promoLineAnswer } from '../src/utils/promoQuestions.js'
@@ -795,6 +796,12 @@ async function handleLineWebhook(request, env, cors) {
           reply = clipLine(promoLineAnswer(progs, cmd.q, todayBangkok()))
         } catch { reply = '⚠️ ดึงข้อมูลโปรไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'fcall') {
+      // (v1.0.1442) เฉพาะเจ้าของ — ตัวเลขทั้งร้านรวมรายได้ · คนอื่นพิมพ์ = ข้อความปกติ
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      if (owner && owner === userId) {
+        try { reply = clipLine(await buildForecastOverviewText(env, accessToken)) } catch { reply = '⚠️ ดึงข้อมูลคาดการณ์ไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'forecast') {
       // (v1.0.1256) เฉพาะเจ้าของ (ปลายทางรายงาน) — การสั่งรถเป็นเรื่องของเจ้าของ คนอื่นพิมพ์ = ข้อความปกติ
       const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
@@ -885,6 +892,8 @@ export function parseLineCommand(text) {
   // (v1.0.1319) โปรที่ใช้ได้วันนี้: "โปร" ทั้งหมด / "โปร S07" เฉพาะรุ่น / "โปรใกล้หมด" / "โปร ดอกเบี้ย"
   const pr = t.match(/^(?:โปรโมชั่น|โปรโมชัน|โปร|แคมเปญ|promo)(?:\s+(.+)|(ใกล้หมด|เดือนนี้|ดอกเบี้ย.*))?$/i)
   if (pr) return { type: 'promo', q: (pr[1] || pr[2] || '').trim().slice(0, 40) }
+  // (v1.0.1442) เจ้าของดูภาพรวมคาดการณ์เดือนนี้ทุกเรื่อง (ส่งมอบ/จอง/ลูกค้าใหม่/รายได้/เดือนหน้า/รถเข้าศูนย์) — "คาดการณ์" เฉยๆ ยังเป็นคาดการณ์สั่งรถเหมือนเดิม
+  if (/^(?:คาดการณ์เดือนนี้|ภาพรวมคาดการณ์|คาดการณ์ทั้งหมด|คาดการณ์ภาพรวม|สิ้นเดือน|สิ้นเดือนจะได้เท่าไหร่)$/i.test(t.replace(/\s+/g, ''))) return { type: 'fcall' }
   // (v1.0.1256) เจ้าของดูคาดการณ์สั่งรถ 45 วัน (สูตรเดียวกับหน้าตารางสีรถ)
   if (/^(?:สั่งรถ|ควรสั่งรถ|คาดการณ์สั่งรถ|คาดการณ์|forecast)$/i.test(t.replace(/\s+/g, ''))) return { type: 'forecast' }
   return { type: 'none' }
@@ -1140,6 +1149,27 @@ export function swingLineAnswer(rows, today, { seller = '', max = 10 } = {}) {
   return [head, `${swing.length} ใบ · ถ้าปิดได้ครบ ยอดเดือนนี้เพิ่มได้อีก ≈ ${gain.toFixed(1)} คัน (คาดตอนนี้ ≈ ${fc.expected})`,
     ...swing.slice(0, max).map(i => `• ${String(i.name).split(/\s+/)[0]} (${i.car}) ${i.status} ${Math.round(i.p * 100)}%${seller ? '' : ` · ${i.sales}`}${i.risk ? `\n   ⚠️ ${i.risk}` : ''}`),
     ...(swing.length > max ? [`…และอีก ${swing.length - max} ใบ (ดูในแอป › ใบจอง › 🔮 ลุ้นเดือนนี้)`] : [])].join('\n')
+}
+
+// (v1.0.1442) ภาพรวมคาดการณ์ (LINE "คาดการณ์เดือนนี้") — ตัวเลขชุดเดียวกับหน้าศูนย์คาดการณ์/LAMI (forecastOverview.js)
+export const FCALL_BOOKING_FIELDS = [...DLVFC_BOOKING_FIELDS, 'totalIncome', 'com70', 'comFinance']
+export function forecastOverviewLineText({ bookings = [], customers = [], reminders = [], jobs = [], teamTargets = [], today }) {
+  const ym = today.slice(0, 7)
+  const live = (bookings || []).filter(b => b && !b.deleted)
+  const tgt = (teamTargets || []).filter(t => t && !t.deleted && t.period === ym && t.metric === 'units').reduce((s, t) => s + (Number(t.target) || 0), 0)
+  const fc = deliveryForecast({ bookings: live, today, target: tgt || null, fmt: formatShortThai })
+  const next = nextMonthOutlook({ bookings: live, today })
+  return forecastOverview({ fc, next, bookings: live, customers, reminders, jobs, today }).text.replace(/\n💡 .*$/, '\n💡 ดูการ์ดทั้งหมดได้ที่เมนู "ศูนย์คาดการณ์" ในแอป')
+}
+async function buildForecastOverviewText(env, accessToken) {
+  const [bookings, customers, reminders, jobs, teamTargets] = await Promise.all([
+    runQuery(env, accessToken, 'bookings', null, null, 5000, FCALL_BOOKING_FIELDS),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['createdAt', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'service_reminders', null, null, 3000, ['dueDate', 'booked', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'job_cards', null, null, 3000, ['status', 'type', 'createdAt', 'jobDate', 'total', 'labor', 'partsCost', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'team_targets', null, null, 500).catch(() => []),
+  ])
+  return forecastOverviewLineText({ bookings, customers, reminders, jobs, teamTargets, today: todayBangkok() })
 }
 
 export function deliveryForecastLineAnswer(rows, today, { seller = '', teamTargets = [] } = {}) {
@@ -2103,6 +2133,7 @@ export const LINE_HELP_TEXT = [
   '• โปร — โปรที่ใช้ได้วันนี้ (โปร S07 = เฉพาะรุ่น + ข้อความส่งลูกค้า · โปรใกล้หมด)',
   '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
   '• สั่งรถ — คาดการณ์ว่าควรสั่งรถรุ่น/สีไหน (เฉพาะเจ้าของ)',
+  '• คาดการณ์เดือนนี้ — ภาพรวมทุกเรื่อง: ส่งมอบ จอง ลูกค้าใหม่ รายได้ เดือนหน้า (เฉพาะเจ้าของ)',
   '• ลงทะเบียน ชื่อเซลส์ — รับงานค้างทุก 9 โมงเช้า',
   '• ยกเลิก — หยุดรับ',
 ].join('\n')
