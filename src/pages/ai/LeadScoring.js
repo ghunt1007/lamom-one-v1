@@ -9,7 +9,7 @@ import { navigate } from '../../core/router.js'
 import { watchDocs } from '../../core/db.js'
 import { analyzeCustomer, isAiEnabled } from '../../utils/ai.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
-import { heuristicScore } from '../../utils/leadScore.js'
+import { heuristicScore, sourceConversion } from '../../utils/leadScore.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 
@@ -33,10 +33,12 @@ export default async function LeadScoringPage(container) {
 
   // Real-time: ลูกค้าที่ยังเป็น lead/pp — ไม่มีช่องค้นหาในหน้านี้จึงไม่ต้องกันโฟกัส
   let unsubLeads = () => {}
+  let leadConv = null
   function startWatchLeads() {
     unsubLeads()
     unsubLeads = watchDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500, rows => {
       if (container.__routerGen !== myGen) { unsubLeads(); return }
+      try { leadConv = sourceConversion(rows.filter(c => !c.deleted)) } catch { leadConv = null }
       leads = rows.filter(c => (c.stage === 'lead' || c.stage === 'pp') && c.status !== 'lost' && !c.isLost)
       renderPage()
     })
@@ -45,7 +47,7 @@ export default async function LeadScoringPage(container) {
   const offCompanyFilter = on('activeCompanyFilter', startWatchLeads)
 
   function renderPage() {
-    const scored = leads.map(l => ({ ...l, ...heuristicScore(l) }))
+    const scored = leads.map(l => ({ ...l, ...heuristicScore(l, Date.now(), { conv: leadConv }) }))
     const sorted = [...scored].sort((a, b) => b.score - a.score)
     const hot = scored.filter(l => l.score >= 80).length
     const pipeline = scored.filter(l => l.score >= 60).reduce((a, l) => a + (l.budget || 0), 0)
@@ -70,6 +72,10 @@ export default async function LeadScoringPage(container) {
           ${kpi('🧲 Leads ทั้งหมด', leads.length, 'primary')}
         </div>
 
+        ${leadConv ? `<div class="card" id="ls-conv" style="padding:12px 14px;margin-bottom:14px">
+          <div style="font-weight:800;margin-bottom:6px">📈 ช่องทางไหนปิดได้จริง <small style="font-weight:500;color:var(--text-muted)">ลูกค้าที่เข้ามา 1–12 เดือนก่อน · ร้านเฉลี่ย ${Math.round(leadConv.overall * 100)}% · ใช้ปรับคะแนนให้แล้ว</small></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px">${[...leadConv.bySource.values()].sort((a, b) => b.rate - a.rate).slice(0, 12).map(r => `<div style="padding:6px 10px;border-radius:10px;background:var(--surface-2);min-width:0"><div style="font-size:0.72rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(r.label)}">${escHtml(r.label)}</div><div style="font-weight:800;color:var(--${r.rate >= leadConv.overall ? 'success' : 'warning'})">${Math.round(r.rate * 100)}% <small style="font-weight:500;color:var(--text-muted)">${r.won}/${r.n} ราย</small></div></div>`).join('')}</div>
+        </div>` : ''}
         ${!sorted.length ? `<div class="empty-state" style="padding:48px"><div class="empty-icon">🧲</div><div class="empty-title">ยังไม่มี Lead ในระบบ</div><div class="empty-desc">Lead ใหม่จากหน้าลูกค้าจะขึ้นที่นี่อัตโนมัติ</div></div>` : ''}
 
         <div style="display:flex;flex-direction:column;gap:10px">
