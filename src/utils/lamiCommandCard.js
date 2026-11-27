@@ -393,7 +393,8 @@ export async function loadOpsAnswer(q, customersPromise) {
     const ids = new Set([u.displayName, u.email, u.uid].filter(Boolean).map(x => String(x).trim()))
     const logs = await listDocs('comm_logs', f, 'createdAt', 'desc', 2000).catch(() => [])
     const team = spec.team && (whole || vis.hasSubordinates)
-    res = oq.callsAnswer(logs.filter(l => team ? (whole || ids.has(String(l.createdBy || '').trim()) || mine(l.createdBy, l)) : ids.has(String(l.createdBy || '').trim())), { today, day: spec.day, team })
+    let staff = []; if (team) { try { const { getSalesStaff } = await import('../data/masterData.js'); staff = (getSalesStaff() || []).filter(n => whole || mine(n)) } catch { staff = [] } }
+    res = oq.callsAnswer(logs.filter(l => team ? (whole || ids.has(String(l.createdBy || '').trim()) || mine(l.createdBy, l)) : ids.has(String(l.createdBy || '').trim())), { today, day: spec.day, team, staff })
   } else if (spec.kind === 'mktspend') {
     if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 ค่าการตลาดของโชว์รูมดูได้เฉพาะผู้จัดการและเจ้าของ' }
     else {
