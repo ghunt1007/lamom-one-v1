@@ -11,6 +11,7 @@ import { SALES_TARGETS_COLLECTION, targetFor, goalProgress } from '../../utils/s
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { summarizeSalesIncome, lastMonths, undatedDeliveries } from '../../utils/salesIncome.js'
+import { incomeForecast, incomeForecastNote } from '../../utils/incomeForecast.js'
 import { askDeliveryIncome, needsIncome } from '../../utils/deliveryIncome.js'
 import { followupDiscipline, monthRange } from '../../utils/followupDiscipline.js'
 import { speedToLead } from '../../utils/speedToLead.js'
@@ -77,6 +78,9 @@ export default async function SalesIncomePage(container) {
       return `<div style="font-size:0.66rem;font-weight:600;color:var(--${up ? 'success' : 'danger'})">${up ? '▲' : '▼'} ${money ? formatCurrency(Math.abs(cur - old)) : Math.abs(cur - old)}</div>`
     }
     const teamTarget = rows.reduce((t, r) => t + targetFor(targets, r.name), 0)
+    // 🔮 คาดรายได้สิ้นเดือน — เฉพาะเดือนปัจจุบัน และเมื่อมีประวัติรายได้พอ (ไม่พอ = ไม่แสดง)
+    let ifc = null
+    if (month === todayBangkok().slice(0, 7)) { try { ifc = incomeForecast({ bookings, today: todayBangkok() }) } catch { ifc = null } }
     const goalCell = r => {
       const t = targetFor(targets, r.name)
       const g = goalProgress(r.delivered, t)
@@ -160,6 +164,10 @@ export default async function SalesIncomePage(container) {
         </div>
         <div class="kpi-grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:16px">
           ${card('💰', 'รายได้รวม', formatCurrency(total.income), 'accent', `เดือนก่อน ${formatCurrency(prev.total.income)}`)}
+          ${ifc ? `<div class="card" id="si-ifc" style="padding:14px 16px" title="${__escA(incomeForecastNote(ifc))}">
+            <div style="font-size:0.75rem;color:var(--text-muted)">🔮 คาดรายได้สิ้นเดือน</div>
+            <div class="kpi-num" style="font-size:1.35rem;font-weight:800;color:var(--accent)">≈ ${formatCurrency(ifc.expected)}</div>
+            <div style="font-size:0.7rem;color:var(--text-muted)">ช่วง ${formatCurrency(ifc.low)}–${formatCurrency(ifc.high)} · คอมเซลส์ ≈ ${formatCurrency(ifc.com70)}</div></div>` : ''}
           ${card('🚗', 'ส่งมอบ', total.delivered + ' คัน', 'success', `จองใหม่ ${total.booked} คัน${total.cancelled ? ` · ถอนจอง ${total.cancelled} คัน` : ''}${teamTarget ? ` · เป้ารวม ${teamTarget} คัน (${goalProgress(total.delivered, teamTarget).pct}%)` : ''}`)}
           ${card('👤', 'คอมเซลส์', formatCurrency(total.com70), 'primary')}
           ${card('🏦', 'คอมไฟแนนซ์', formatCurrency(total.comFinance), 'primary')}

@@ -6,7 +6,7 @@ import { DELIVERED_STATUSES, needsIncome } from './deliveryIncome.js'
 import { CANCELLED_STATUSES as CANCELLED } from './bookingStatus.js'
 const n = v => Number(v) || 0
 
-export function deliveredMonth(b) { return (b.cutDate || b.actualDeliveryDate || '').slice(0, 7) }
+export function deliveredMonth(b) { return String(b?.cutDate || b?.actualDeliveryDate || '').slice(0, 7) }
 
 export function summarizeSalesIncome(bookings, month) {
   const rows = {}
@@ -15,9 +15,9 @@ export function summarizeSalesIncome(bookings, month) {
     return (rows[key] ||= { name: key, booked: 0, cancelled: 0, delivered: 0, missing: 0, marginLeft: 0, com70: 0, comFinance: 0, income: 0, cars: [] })
   }
   ;(bookings || []).filter(b => b && !b.deleted).forEach(b => {
-    if ((b.bookingDate || '').startsWith(month) && !CANCELLED.includes(b.status)) seller(b.salesName).booked++
+    if (String(b.bookingDate || '').startsWith(month) && !CANCELLED.includes(b.status)) seller(b.salesName).booked++
     // ถอนจอง/ยกเลิกในเดือนนี้ (นับตามวันถอนจริง ถ้าไม่มีใช้วันจอง)
-    if (CANCELLED.includes(b.status) && (b.cancelDate || b.bookingDate || '').startsWith(month)) seller(b.salesName).cancelled++
+    if (CANCELLED.includes(b.status) && String(b.cancelDate || b.bookingDate || '').startsWith(month)) seller(b.salesName).cancelled++
     if (DELIVERED_STATUSES.includes(b.status) && deliveredMonth(b) === month) {
       const r = seller(b.salesName)
       r.delivered++

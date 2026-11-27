@@ -1805,3 +1805,34 @@ describe('cleanBookingDates (v1.0.1414)', () => {
     expect(() => buildReport({ bookings: [b] }, { today: '2026-11-27', time: '18:00' })).not.toThrow()
   })
 })
+
+import { incomeForecastReportLine } from './daily-report.js'
+describe('incomeForecastReportLine (v1.0.1416)', () => {
+  const del = (id, cut, inc) => ({ id, status: 'ส่งมอบแล้ว', bookingDate: '2026-07-01', cutDate: cut, totalIncome: inc, com70: 2000 })
+  const hist = [del('a', '2026-10-05', 30000), del('b', '2026-09-05', 10000), del('c', '2026-08-05', 20000)]
+  it('shows the month-end income forecast with enough history', () => {
+    expect(incomeForecastReportLine([...hist, del('n', '2026-11-03', 40000)], '2026-11-20')).toContain('🔮 คาดรายได้สิ้นเดือน ≈ ฿')
+  })
+  it('hidden with thin history or on the last day', () => {
+    expect(incomeForecastReportLine(hist.slice(0, 2), '2026-11-20')).toBeNull()
+    expect(incomeForecastReportLine(hist, '2026-11-30')).toBeNull()
+  })
+  it('survives odd rows', () => {
+    expect(() => incomeForecastReportLine([null, { status: 5 }, ...hist, { totalIncome: 'abc', status: 'ส่งมอบแล้ว', cutDate: 46351 }], '2026-11-20')).not.toThrow()
+  })
+})
+
+import { myComForecastLine, myStatsText } from './daily-report.js'
+describe('ยอด command com forecast (v1.0.1416)', () => {
+  const del = (id, cut, inc, com) => ({ id, salesName: 'เอ', status: 'ส่งมอบแล้ว', bookingDate: '2026-07-01', cutDate: cut, totalIncome: inc, com70: com })
+  const hist = [del('a', '2026-10-05', 30000, 6000), del('b', '2026-09-05', 10000, 3000), del('c', '2026-08-05', 20000, 3000)]
+  const open = { id: 'o', salesName: 'เอ', status: 'รอส่งมอบ', bookingDate: '2026-11-01', deliveryDate: '2026-11-25' }
+  it('adds the line when there is history and open bookings', () => {
+    expect(myComForecastLine([...hist, open], '2026-11-20')).toMatch(/🔮 คาดคอมเซลส์สิ้นเดือน ≈ [\d,]+ บาท/)
+    expect(myStatsText({ bookings: [...hist, open] }, 'เอ', '2026-11-20')).toContain('🔮 คาดคอมเซลส์')
+  })
+  it('nothing without history or open bookings', () => {
+    expect(myComForecastLine([hist[0], open], '2026-11-20')).toBeNull()
+    expect(myComForecastLine(hist, '2026-11-20')).toBeNull()
+  })
+})

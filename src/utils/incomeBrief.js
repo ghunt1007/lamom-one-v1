@@ -2,6 +2,7 @@
 // ใช้สูตรเดียวกับหน้ารายได้รายเซลส์ (summarizeSalesIncome) ตัวเลขจึงตรงกัน · ฟังก์ชันล้วน ทดสอบได้
 import { summarizeSalesIncome } from './salesIncome.js'
 import { shiftYm, periodLabel } from './dashStats.js'
+import { incomeForecast, incomeForecastLine } from './incomeForecast.js'
 
 const baht = n => '฿' + Math.round(n).toLocaleString('en-US')
 const PREV = /เดือน(?:ก่อน|ที่แล้ว)/
@@ -18,7 +19,9 @@ export function isIncomeQuestion(q) {
 export function incomeStats({ bookings = [], today, prev = false }) {
   const ym = prev ? shiftYm(today.slice(0, 7), -1) : today.slice(0, 7)
   const cur = summarizeSalesIncome(bookings, ym), before = summarizeSalesIncome(bookings, shiftYm(ym, -1))
-  return { ym, label: periodLabel(ym), isPrev: prev, total: cur.total, rows: cur.rows.filter(r => r.delivered), before: before.total }
+  let forecast = null
+  if (!prev) { try { forecast = incomeForecast({ bookings, today }) } catch { forecast = null } }
+  return { ym, label: periodLabel(ym), isPrev: prev, total: cur.total, rows: cur.rows.filter(r => r.delivered), before: before.total, forecast }
 }
 
 export const wantsPrevMonth = q => PREV.test(String(q || ''))
@@ -29,6 +32,7 @@ export function incomeBriefText(s, { scope = '' } = {}) {
   if (!t.delivered) {
     lines.push(`ยังไม่มีรถส่งมอบ${s.isPrev ? 'ในเดือนนั้น' : 'ในเดือนนี้'} จึงยังไม่มีรายได้`)
     if (s.before.delivered) lines.push(`เดือนก่อนหน้า: ส่งมอบ ${s.before.delivered} คัน · รายได้รวม ${baht(s.before.income)}`)
+    if (s.forecast) lines.push(incomeForecastLine(s.forecast))
     if (!s.isPrev) lines.push('💡 รายได้นับเมื่อส่งมอบ/ตัดตัวเลขแล้ว — เร่งใบจองที่รถพร้อมให้ส่งมอบ')
     return lines.join('\n')
   }
@@ -36,6 +40,7 @@ export function incomeBriefText(s, { scope = '' } = {}) {
   lines.push(`🚗 ส่งมอบ ${t.delivered} คัน · รายได้รวม ${baht(t.income)}`)
   lines.push(`• คอมเซลส์ ${baht(t.com70)} · คอมไฟแนนซ์ ${baht(t.comFinance)} · มาร์จิ้นคงเหลือ ${baht(t.marginLeft)}`)
   lines.push(`📅 เดือนก่อนหน้า ${s.before.delivered} คัน · ${baht(s.before.income)}${s.before.delivered ? ` (${d === 0 ? 'เท่าเดิม' : (d > 0 ? '▲' : '▼') + baht(Math.abs(d))})` : ''}`)
+  if (s.forecast) lines.push(incomeForecastLine(s.forecast))
   if (t.missing) lines.push(`⚠️ ยังไม่กรอกรายได้ ${t.missing} คัน — ตัวเลขรวมยังไม่ครบ`)
   if (s.rows.length > 1) {
     lines.push('🏆 รายเซลส์')
