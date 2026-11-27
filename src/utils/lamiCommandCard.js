@@ -447,6 +447,11 @@ export async function loadOpsAnswer(q, customersPromise) {
       const { discountAnswer } = await import('./discountWatch.js')
       res = discountAnswer(await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), { today })
     }
+  } else if (spec.kind === 'modelfunnel') {
+    // (v1.0.1447) ทั้งร้าน — รุ่นที่สนใจ vs ปิดได้จริง (ไม่มีชื่อลูกค้า)
+    const { modelFunnel, modelFunnelText } = await import('./modelFunnel.js')
+    const r = modelFunnel(await listDocs('customers', f, 'createdAt', 'desc', 5000).catch(() => []))
+    res = { n: r ? r.n : 0, text: modelFunnelText(r) }
   } else if (spec.kind === 'speedimpact') {
     // (v1.0.1446) ทั้งร้าน — % ปิดการขายตามความเร็วโทรครั้งแรก (ไม่มีชื่อลูกค้า)
     const { speedImpact, speedImpactText } = await import('./speedImpact.js')

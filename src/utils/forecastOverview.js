@@ -10,6 +10,7 @@ import { bestCallTimes } from './callTimes.js'
 import { sourceConversion } from './leadScore.js'
 import { jobTurnaround } from './jobTurnaround.js'
 import { speedImpact } from './speedImpact.js'
+import { modelFunnel } from './modelFunnel.js'
 
 const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 export const ymThai = ym => TH_M[Number(ym.slice(5, 7)) - 1] + ' ' + (Number(ym.slice(0, 4)) + 543)
@@ -75,7 +76,7 @@ export function isOverviewForecastQuestion(q) {
 
 // (v1.0.1441) การ์ด "ข้อมูลจริงที่ช่วยปิดการขาย" — แสดงในศูนย์คาดการณ์ใต้การ์ดคาดการณ์ (ไม่มีชื่อลูกค้า)
 // ทุกตัวคำนวณจากข้อมูลร้าน ข้อมูลไม่พอ = ok:false พร้อมเหตุผล
-export function insightCards({ testDrives = [], bookings = [], customers = [], logs = [], jobs = [], today, now = Date.now(), money = false, discount = null, speed = speedImpact, tdConv = testDriveConversion, callTimes = bestCallTimes, sourceConv = sourceConversion, turnaround = jobTurnaround } = {}) {
+export function insightCards({ testDrives = [], bookings = [], customers = [], logs = [], jobs = [], today, now = Date.now(), money = false, discount = null, speed = speedImpact, funnel = modelFunnel, tdConv = testDriveConversion, callTimes = bestCallTimes, sourceConv = sourceConversion, turnaround = jobTurnaround } = {}) {
   const cards = []
   const td = tdConv({ testDrives, bookings, customers, today })
   if (td?.rate != null) cards.push({ ok: true, key: 'tdconv', icon: '🚗', title: 'ทดลองขับแล้วจองจริง', display: Math.round(td.rate * 100) + '%', note: `${td.booked} จาก ${td.n} ครั้ง (จองภายใน 45 วัน)${td.chase.length ? ` · ขับแล้วยังไม่จอง ${td.chase.length} ราย ควรโทรตาม` : ''}`, path: '/crm/testdrive' })
@@ -91,6 +92,13 @@ export function insightCards({ testDrives = [], bookings = [], customers = [], l
   const sp = speed(customers, now)
   if (sp) cards.push({ ok: true, key: 'speed', icon: '⚡', title: 'โทรลีดภายใน 1 ชม. ปิดได้', display: Math.round(sp.fast.rate * 100) + '%', note: `ช้ากว่า 24 ชม./ไม่ได้โทร ปิดได้ ${Math.round(sp.slow.rate * 100)}% · จาก ${sp.n} ลีด (ไม่นับ walk-in)`, path: '/crm/my-day' })
   else cards.push({ ok: false, key: 'speed', icon: '⚡', title: 'โทรลีดภายใน 1 ชม. ปิดได้', why: 'ต้องมีลีดอายุ 30 วัน–1 ปี ≥ 30 ราย ที่บันทึกเวลาโทรครั้งแรก (โทรเร็ว ≥ 10 และช้า ≥ 10)', path: '/crm/my-day' })
+  // (v1.0.1447) รุ่นที่คนสนใจเยอะแต่ปิดยาก (หรือรุ่นที่ปิดได้ดีสุด ถ้าไม่มีรุ่นที่ต่ำกว่าเฉลี่ยชัดเจน)
+  const mf = funnel(customers, now)
+  const hard = mf && mf.models.filter(m => m.rate <= mf.overall - 0.1).sort((a, b) => b.n - a.n)[0]
+  const top = mf && [...mf.models].sort((a, b) => b.rate - a.rate || b.n - a.n)[0]
+  if (hard) cards.push({ ok: true, key: 'models', icon: '🚘', title: 'รุ่นที่คนสนใจแต่ปิดยาก', display: hard.label, note: `สนใจ ${hard.n} ราย ปิดได้ ${Math.round(hard.rate * 100)}% (ร้านเฉลี่ย ${Math.round(mf.overall * 100)}%) — ลองดูโปร/ทดลองขับ`, path: '/crm/customers' })
+  else if (top) cards.push({ ok: true, key: 'models', icon: '🚘', title: 'รุ่นที่ปิดได้ดีสุด', display: top.label, note: `สนใจ ${top.n} ราย ปิดได้ ${Math.round(top.rate * 100)}% (ร้านเฉลี่ย ${Math.round(mf.overall * 100)}%)`, path: '/crm/customers' })
+  else cards.push({ ok: false, key: 'models', icon: '🚘', title: 'รุ่นที่คนสนใจ vs ปิดได้', why: 'ต้องมีลูกค้าที่ใส่รุ่นที่สนใจ อายุ 30 วัน–1 ปี ≥ 30 ราย รุ่นละ ≥ 10', path: '/crm/customers' })
   const ta = turnaround(jobs, today)
   if (ta) cards.push({ ok: true, key: 'turnaround', icon: '⏱️', title: 'งานซ่อมปกติเสร็จใน', display: ta.median < 1 ? `${Math.max(1, Math.round(ta.median * 24))} ชม.` : `${Math.round(ta.median * 10) / 10} วัน`, note: `80% เสร็จภายใน ${Math.round(ta.p80 * 10) / 10} วัน · จาก ${ta.n} งานใน 90 วัน`, path: '/service/jobs' })
   else cards.push({ ok: false, key: 'turnaround', icon: '⏱️', title: 'งานซ่อมปกติเสร็จใน', why: 'เริ่มนับจากงานที่กดเสร็จตั้งแต่ 28/11/2569 — ต้องมี ≥ 5 งานใน 90 วัน', path: '/service/jobs' })
