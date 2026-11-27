@@ -79,3 +79,11 @@ describe('listFollowUp is a valid bulk command for every filter', () => {
     expect(parseBulkSpec(f, today)).not.toBe(null)
   })
 })
+
+describe('"สรุป/ลิสต์ลูกค้า …" (v1.0.1474)', () => {
+  it('reads summarise/list phrasing as a list question', () => {
+    expect(parseListSpec('ช่วยสรุปลูกค้า hot')).toMatchObject({ temp: 'hot' })
+    expect(parseListSpec('ลิสต์ลีดใหม่')).toMatchObject({ newToday: true })
+    expect(parseListSpec('สรุปลูกค้าสมชาย')).toBeNull()
+  })
+})
