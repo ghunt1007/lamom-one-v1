@@ -41,6 +41,12 @@ describe('customerBrief', () => {
     expect(txt).toContain('ยังไม่ได้นัดวันส่งมอบ')
     expect(txt).not.toContain('ยังไม่มีนัดติดตาม')
   })
+  it('flags an open booking past the risky age (v1.0.1460)', () => {
+    const bk = { id: 'b1', status: 'รอรถ', bookingDate: '2026-09-01', model: 'S07' }
+    expect(customerBrief({ customer: b, booking: bk, today, riskAge: 60 })).toContain('⚠️ เสี่ยงถอน: ใบจองค้างเกิน 60 วัน')
+    expect(customerBrief({ customer: b, booking: bk, today, riskAge: 90 })).not.toContain('เสี่ยงถอน')
+    expect(customerBrief({ customer: b, booking: { ...bk, status: 'ส่งมอบแล้ว' }, today, riskAge: 60 })).not.toContain('เสี่ยงถอน')
+  })
   it('commands', () => {
     expect(briefCommands(a).map(c => c.kind)).toEqual(['tel', 'open'])
     expect(briefCommands(b).map(c => c.kind)).toEqual(['open'])

@@ -2,12 +2,14 @@
 import { describe, it, expect, vi } from 'vitest'
 
 const today = '2026-10-26'
+const add = (d, n) => new Date(Date.parse(d) + n * 86400000).toISOString().slice(0, 10)
+const extra = { bookings: [] }
 vi.mock('../../utils/format.js', async (orig) => ({ ...(await orig()), todayBangkok: () => today }))
 vi.mock('../../core/db.js', () => ({
   listAllDocs: async (col) => col === 'customers'
     ? [{ id: 'c1', firstName: 'สมชาย', lastName: 'ทดสอบ', stage: 'lead', createdAt: today + 'T02:00:00Z', phone: '0800000000', assignedTo: 'เซลส์ A' },
        { id: 'c2', firstName: 'วิภา', stage: 'pp', temperature: 'hot', createdAt: '2026-10-01T02:00:00Z', assignedTo: 'เซลส์ A' }]
-    : col === 'bookings' ? [{ id: 'b1', custName: 'มานี', status: 'รอส่งมอบ', deliveryDate: today, salesName: 'เซลส์ A' }] : [],
+    : col === 'bookings' ? [{ id: 'b1', custName: 'มานี', status: 'รอส่งมอบ', deliveryDate: today, salesName: 'เซลส์ A' }, ...extra.bookings] : [],
   listDocs: async () => [],
   updateDocData: async () => {},
   readDoc: async () => null,
@@ -30,5 +32,18 @@ describe('MyDay page render', () => {
     expect(container.innerHTML).toContain('อย่างนี้ก่อน')
     expect(container.innerHTML).toContain('โทรหา Lead ใหม่ สมชาย ทดสอบ')
     expect(container.innerHTML).toContain('ทักลูกค้า Hot วิภา')
+  })
+  it('shows my bookings that are past the risky age (v1.0.1458)', async () => {
+    const done = n => ({ bookingDate: '2026-05-01', status: 'ส่งมอบแล้ว', cutDate: add('2026-05-01', n) })
+    const cxl = n => ({ bookingDate: '2026-05-01', status: 'ถอนจอง', cancelDate: add('2026-05-01', n) })
+    extra.bookings = [...Array.from({ length: 20 }, () => done(20)), ...Array.from({ length: 6 }, () => done(70)), ...Array.from({ length: 2 }, () => cxl(10)), ...Array.from({ length: 6 }, () => cxl(80)),
+      { id: 'b9', custName: 'ค้างนาน', status: 'รอรถ', bookingDate: add(today, -50), salesName: 'เซลส์ A' }]
+    const { default: MyDayPage } = await import('./MyDay.js')
+    const container = { __routerGen: 1, innerHTML: '', querySelector: () => el(), querySelectorAll: () => [] }
+    await MyDayPage(container)
+    expect(container.innerHTML).toContain('ใบจองค้างนาน เสี่ยงถอน')
+    expect(container.innerHTML).toContain('ค้างนาน')
+    expect(container.innerHTML).toContain('จองมา 50 วัน')
+    extra.bookings = []
   })
 })

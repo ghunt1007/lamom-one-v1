@@ -162,7 +162,16 @@ export async function loadCustomerBrief(q, customersPromise) {
     import('./callTimes.js'),
   ])
   const callHint = logs.length ? customerCallHint(logs) : ''
-  return { text: cb.customerBrief({ customer: c, followups, booking: booking && !booking.deleted ? booking : null, today, drives, callHint }), cmds: cb.briefCommands(c), customer: c, chips: quickChips(c).filter(x => !/\s$/.test(x)) }
+  const bk = booking && !booking.deleted ? booking : null
+  let riskAge = null // (v1.0.1460) ใบจองค้างนาน → เทียบกับประวัติถอนของร้าน (โหลดเฉพาะตอนใบค้าง ≥ 30 วัน)
+  const bkAge = bk && /^\d{4}-\d{2}-\d{2}/.test(String(bk.bookingDate || '')) ? (Date.parse(today) - Date.parse(String(bk.bookingDate).slice(0, 10))) / 86400000 : 0
+  if (bkAge >= 30 && !['ส่งมอบแล้ว', 'ถอนจอง', 'ยกเลิก'].includes(bk.status)) {
+    try {
+      const [{ listAllDocs }, { cancelRisk }] = await Promise.all([import('../core/db.js'), import('./cancelRisk.js')])
+      riskAge = cancelRisk(await listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc'), today)?.threshold?.age || null
+    } catch { riskAge = null }
+  }
+  return { text: cb.customerBrief({ customer: c, followups, booking: bk, today, drives, callHint, riskAge }), cmds: cb.briefCommands(c), customer: c, chips: quickChips(c).filter(x => !/\s$/.test(x)) }
 }
 
 // (v1.0.1049) "วันนี้มีอะไรบ้าง / สรุปวันนี้" → null ถ้าไม่ใช่ · คืน { text, next: [ประโยคถามต่อ] }
