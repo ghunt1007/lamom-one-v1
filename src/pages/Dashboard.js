@@ -1420,7 +1420,7 @@ export default async function DashboardPage(container) {
       jobs.filter(j => !['done', 'completed', 'delivered'].includes(j.status) && j.createdAt && daysSince(j.createdAt) >= 7).forEach(j => {
         const age = daysSince(j.createdAt)
         items.push({ nav: '/service/jobs', sev: age >= 14 ? 'danger' : 'warning', u: Math.min(1, age / 30),
-          label: `🔧 งานซ่อม ${j.licensePlate || j.vin || j.id} เปิดค้าง ${age} วัน` })
+          label: `🔧 งานซ่อม ${[j.jobNo, j.custName, j.plate || j.licensePlate].filter(Boolean).join(" · ") || "ไม่ระบุเลขงาน"} เปิดค้าง ${age} วัน` })
       })
       leads.filter(l => l.status === 'new' && l.createdAt && daysSince(l.createdAt) >= 3).forEach(l => {
         const age = daysSince(l.createdAt)

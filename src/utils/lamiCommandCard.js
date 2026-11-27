@@ -440,6 +440,10 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'sboard') {
     // (v1.0.1395) สถานะใบจอง — กระดานเดียวกับหน้าภาพรวม (เซลส์เห็นเฉพาะของตัวเองตามสิทธิ์ mine)
     res = oq.sboardAnswer(await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), { today, status: spec.status || '', group: spec.group || '', mine: b => mine(b.salesName, b) })
+  } else if (spec.kind === 'calltime') {
+    // (v1.0.1437) ทั้งร้าน (ช่วงเวลาที่ลูกค้ารับสาย ไม่มีชื่อลูกค้า)
+    const { callTimeAnswer } = await import('./callTimes.js')
+    res = callTimeAnswer(await listDocs('comm_logs', f, 'createdAt', 'desc', 3000).catch(() => []))
   } else if (spec.kind === 'fcall') {
     // (v1.0.1434) รวมทุกการคาดการณ์ — ตัวเลขทั้งร้าน (เหมือนหน้าภาพรวม)
     const [{ loadDeliveryForecast }, { forecastOverview }] = await Promise.all([import('./deliveryForecastData.js'), import('./forecastOverview.js')])
@@ -640,6 +644,13 @@ export async function loadCallListCommands(customersPromise) {
   const readyByModel = new Map()
   vehicles.filter(v => v && !v.deleted && ['available', 'pdi'].includes(v.status)).forEach(v => { const k = modelKey(v); if (k) readyByModel.set(k, (readyByModel.get(k) || 0) + 1) })
   return callListCommands(callList({ customers, followups, today, readyByModel }))
+}
+// (v1.0.1437) บรรทัด "⏰ ช่วงที่ลูกค้ารับสายมากสุด" ต่อท้ายรายชื่อที่ควรโทร (ข้อมูลไม่พอ = '')
+export async function loadCallTimeHint() {
+  try {
+    const [{ listDocs }, { companyScopeFilters }, { bestCallTimes, callTimeLine }] = await Promise.all([import('../core/db.js'), import('../core/companyScope.js'), import('./callTimes.js')])
+    return callTimeLine(bestCallTimes(await listDocs('comm_logs', companyScopeFilters(), 'createdAt', 'desc', 3000)))
+  } catch { return '' }
 }
 export function callListIntro(cmds) {
   return cmds.length ? `📞 วันนี้ควรโทร ${cmds.length} คนนี้ก่อน (เรียงจากเร่งด่วนที่สุด) — กดโทรได้เลย วางสายแล้วระบบถามผลให้บันทึก` : '🎉 วันนี้ไม่มีนัดค้างหรือลูกค้า Hot/Warm ที่เงียบนาน — ลองดูลูกค้าใหม่ในหน้า Lead'
