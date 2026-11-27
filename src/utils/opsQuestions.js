@@ -11,6 +11,7 @@ import { statusBoard, STATUS_GROUPS } from './statusBoard.js'
 import { nextAnniversary } from './anniversary.js'
 import { lostBySeller, classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
 import { entryPointOf, ENTRY_INFO } from './entryPoints.js'
+import { sourceConversion } from './leadScore.js'
 
 const has = (s, re) => re.test(s)
 // คำสั่งให้ทำ (นัด/บันทึก/สร้าง) ไม่ใช่คำถาม → ปล่อยให้ตัวสั่งงานจัดการ
@@ -86,6 +87,8 @@ export function parseOpsSpec(q) {
   // (v1.0.1204) "ลีดจาก QR เดือนนี้กี่คน" / "ใครสแกน QR วันนี้" / "QR ไหนได้ลีดเยอะสุด" → ลีดจากลิงก์/QR ของเราแยกตามจุด
   if (has(s, /\bqr\b|คิวอาร์|สแกน|นามบัตร|ลิงก์แนะนำ/i) && has(s, /ลีด|ลูกค้า|lead|กี่|ใคร|ไหน|บ้าง/i) && !has(s, /สร้าง|พิมพ์|ทำ\s*qr|ขอ\s*qr|qr\s*(?:ของ)?ฉัน/i))
     return { kind: 'qrleads', period: /เมื่อวาน/.test(s) ? 'yesterday' : /วันนี้/.test(s) ? 'today' : /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
+  // (v1.0.1420) "ช่องทางไหนปิดได้ดีสุด" / "ลีดจากไหนปิดได้จริง" → อัตราปิด + ช่องทางที่ปิดได้จริง
+  if (has(s, /ช่องทาง|ที่มา|จากไหน|จากที่ไหน/) && has(s, /ปิด(?:ได้|การขาย)|ได้ผล|คุ้ม|ดีสุด|ดีที่สุด|อัตรา|กลายเป็นจอง/)) return { kind: 'closerate', prev: false }
   if (has(s, /ช่องทาง|ที่มา|มาจาก/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'newcust', ...(sourceOf(s) ? { source: sourceOf(s) } : {}), ...(NOFOLLOW.test(s) ? { nofollow: true } : {}), period: /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
   // (v1.0.1094) "เคลมประกันค้างกี่เรื่อง" (เคลมประกันภัยรถยนต์ ไม่ใช่เคลมรับประกันศูนย์)
   if (has(s, /เคลม/) && !has(s, /รับประกัน|วอร์แรนตี|warranty/i)) return { kind: 'claim' }
@@ -620,6 +623,13 @@ export function closeRateAnswer(customers, bookings, { today, prev = false }) {
     fresh.length ? `👥 ลูกค้าใหม่ ${fresh.length} คน → จองแล้ว ${won} คน (${Math.round(won / fresh.length * 100)}%)${lost ? ` · เสียดีล ${lost} คน` : ''}` : `👥 ${word}ยังไม่มีลูกค้าใหม่`,
     avg != null ? `⏱ ใบจอง${word} ${gaps.length} ใบ ใช้เวลาเฉลี่ย ${avg} วัน จากวันที่ลูกค้าเข้ามาถึงวันจอง` : bks.some(b => ymd(b.bookingDate).startsWith(ym)) ? `⏱ ใบจอง${word}ยังไม่ได้ผูกกับลูกค้า จึงคำนวณเวลาเฉลี่ยไม่ได้` : `⏱ ${word}ยังไม่มีใบจอง`]
   if (fresh.length && won / fresh.length < 0.2) lines.push('💡 ปิดได้ต่ำกว่า 20% — ชวนลูกค้าใหม่มาทดลองขับภายใน 7 วันแรก')
+  // (v1.0.1420) ช่องทางไหนปิดได้จริง (ลูกค้าที่เข้ามา 1–12 เดือนก่อน) — ข้อมูลไม่พอไม่แสดง
+  const conv = sourceConversion(cs, Date.parse(today + 'T12:00:00Z'))
+  if (conv) {
+    const list = [...conv.bySource.values()].sort((a, b) => b.rate - a.rate)
+    lines.push(`📣 ช่องทางที่ปิดได้จริง (ลูกค้า 1–12 เดือนก่อน · เฉลี่ย ${Math.round(conv.overall * 100)}%)`)
+    list.slice(0, 5).forEach(r => lines.push(`• ${r.label} ${Math.round(r.rate * 100)}% (${r.won}/${r.n})`))
+  }
   return { n: fresh.length, text: lines.join('\n') }
 }
 
