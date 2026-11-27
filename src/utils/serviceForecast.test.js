@@ -22,3 +22,17 @@ describe('serviceForecast', () => {
     expect(f.revenue).toBe(12000)
   })
 })
+
+import { serviceForecastAnswer } from './serviceForecast.js'
+import { parseOpsSpec } from './opsQuestions.js'
+describe('LAMI next-month service (v1.0.1428)', () => {
+  it('routes', () => {
+    for (const q of ['เดือนหน้ารถเข้าศูนย์กี่คัน', 'คาดรายได้ศูนย์บริการเดือนหน้า', 'เดือนหน้าจะมีรถเข้าเช็คระยะเท่าไหร่'])
+      expect(parseOpsSpec(q)?.kind, q).toBe('svcfc')
+    expect(parseOpsSpec('รายได้ศูนย์บริการเดือนนี้')?.kind).toBe('servicerev')
+  })
+  it('answers or explains missing history', () => {
+    expect(serviceForecastAnswer([...hist, rem('2026-12-03')], [], { today: T }).text).toContain('🔮 คาดรถเข้าศูนย์เดือนหน้า (ธ.ค. 2569) ≈ 0 คัน')
+    expect(serviceForecastAnswer([], [], { today: T }).text).toContain('ยังคาด')
+  })
+})

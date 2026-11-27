@@ -344,6 +344,9 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.claimAnswer(await listDocs('insurance_claims', [], 'reported', 'desc', 300).catch(() => []), { today })
   } else if (spec.kind === 'parts') {
     res = oq.partsLowAnswer(await listDocs('parts', f, 'name', 'asc', 1000).catch(() => []))
+  } else if (spec.kind === 'svcfc') {
+    const [{ serviceForecastAnswer }, rems, jobs] = await Promise.all([import('./serviceForecast.js'), listDocs('service_reminders', [], 'dueDate', 'desc', 3000).catch(() => []), listDocs('job_cards', f, 'createdAt', 'desc', 1000).catch(() => [])])
+    res = serviceForecastAnswer(rems, jobs, { today })
   } else if (spec.kind === 'servicerev') {
     res = oq.serviceRevAnswer(await listDocs('job_cards', f, 'createdAt', 'desc', 1000).catch(() => []), { today, prev: spec.prev })
   } else if (spec.kind === 'yesterday') {

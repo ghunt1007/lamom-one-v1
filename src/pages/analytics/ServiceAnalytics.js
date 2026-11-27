@@ -13,24 +13,14 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { escHtml } from '../../utils/escape.js'
-import { serviceForecast } from '../../utils/serviceForecast.js'
+import { serviceForecast, jobAmount, jobMonth } from '../../utils/serviceForecast.js'
 
 const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 const TYPE_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4']
 const DONE = ['done', 'delivered', 'completed', 'เสร็จ', 'ส่งมอบแล้ว']
 
-// เดือน (เวลาไทย) ของใบงาน: jobDate ถ้ามี ไม่งั้น createdAt
-function jobMonth(j) {
-  if (typeof j.jobDate === 'string' && /^\d{4}-\d{2}/.test(j.jobDate)) return j.jobDate.slice(0, 7)
-  const d = toDate(j.createdAt)
-  return d ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit' }).format(d).slice(0, 7) : ''
-}
-// ยอดเงินของใบงาน: total ถ้ามี ไม่งั้น ค่าแรง + อะไหล่
-export function jobAmount(j) {
-  if (Number(j.total) > 0) return Number(j.total)
-  const parts = Array.isArray(j.parts) ? j.parts.reduce((a, p) => a + (Number(p.qty) || 1) * (Number(p.price) || 0), 0) : Number(j.partsCost) || 0
-  return (Number(j.labor) || 0) + parts
-}
+// jobMonth/jobAmount ย้ายไป utils/serviceForecast.js (v1.0.1428) — export ต่อไว้ให้ที่อื่นที่ import จากหน้านี้
+export { jobAmount, jobMonth }
 
 export default async function ServiceAnalyticsPage(container) {
   const myGen = container.__routerGen
@@ -97,7 +87,7 @@ export default async function ServiceAnalyticsPage(container) {
         ${(() => {
           // (v1.0.1427) คาดรถเข้าศูนย์เดือนหน้า จากเตือนเช็คระยะที่ครบกำหนด × อัตรานัดได้จริง (ข้อมูลไม่พอไม่แสดง)
           let f = null
-          try { f = serviceForecast({ reminders, jobs, today, amountOf: jobAmount, jobMonthOf: jobMonth }) } catch { f = null }
+          try { f = serviceForecast({ reminders, jobs, today }) } catch { f = null }
           if (!f || !f.due) return ''
           return `<div class="card" id="svc-fc" style="padding:12px 16px;margin-bottom:14px;border-left:3px solid var(--primary)">
             <div style="font-weight:800">🔮 คาดรถเข้าศูนย์เดือนหน้า (${TH_M[Number(f.next.slice(5, 7)) - 1]}) ≈ <span style="color:var(--primary)">${f.expected} คัน</span>${f.revenue != null ? ` · รายได้ ≈ <span style="color:var(--accent)">${formatCurrency(f.revenue)}</span>` : ''}</div>
