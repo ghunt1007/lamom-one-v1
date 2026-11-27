@@ -56,6 +56,9 @@ describe('LAMI routing additions (v1.0.1462)', () => {
     expect(parseOpsSpec('วันนี้ศูนย์รับรถกี่คัน').kind).toBe('service')
     expect(parseOpsSpec('วันนี้ใครเข้างานบ้าง')).toEqual({ kind: 'late' }) // (v1.0.1472)
     expect(parseOpsSpec('เข้างานวันนี้กี่คน')).toEqual({ kind: 'late' })
+    expect(parseOpsSpec('สัปดาห์นี้ขายได้กี่คัน')).toEqual({ kind: 'delivered', period: 'thisweek' }) // (v1.0.1473)
+    expect(parseOpsSpec('วันนี้ส่งมอบไปกี่คัน')).toEqual({ kind: 'delivered', period: 'today' })
+    expect(parseOpsSpec('วันนี้จะส่งมอบกี่คัน').kind).toBe('delivery')
   })
 })
 
@@ -75,5 +78,14 @@ describe('callsAnswer: sellers with no calls (v1.0.1464)', async () => {
   it('routes', () => {
     expect(parseOpsSpec('ใครยังไม่ได้โทรวันนี้')).toEqual({ kind: 'calls', day: 'today', team: true })
     expect(parseOpsSpec('วันนี้ฉันโทรไปกี่คนแล้ว').team).toBe(false)
+  })
+})
+
+describe('deliveredAnswer this week / today (v1.0.1473)', async () => {
+  const { deliveredAnswer } = await import('./opsQuestions.js')
+  it('counts from Monday / today only', () => {
+    const bk = [{ status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-11-23', custName: 'ก' }, { status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-11-28', custName: 'ข' }, { status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-11-22', custName: 'ค' }]
+    expect(deliveredAnswer(bk, { today: '2026-11-28', period: 'thisweek' }).n).toBe(2)
+    expect(deliveredAnswer(bk, { today: '2026-11-28', period: 'today' }).n).toBe(1)
   })
 })
