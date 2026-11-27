@@ -8,7 +8,8 @@ import { loadSalesBudget, sumMonths } from '../../utils/salesBudget.js'
 import { navigate } from '../../core/router.js'
 import { loadDeliveryForecast } from '../../utils/deliveryForecastData.js'
 import { forecastCards, insightCards } from '../../utils/forecastOverview.js'
-import { FH_CSS, forecastHubHtml } from '../../utils/forecastHubView.js'
+import { FH_CSS, forecastHubHtml, readinessHtml } from '../../utils/forecastHubView.js'
+import { dataReadiness } from '../../utils/dataReadiness.js'
 import { getVisibilityScope } from '../../core/hierarchy.js'
 import { discountWatch } from '../../utils/discountWatch.js'
 
@@ -116,6 +117,7 @@ export default async function SalesForecastPage(container) {
       hubHtml = forecastHubHtml(forecastCards({ fc, next, bookings, customers: customersForHub, reminders, jobs, today, money }))
         + '<div style="font-weight:700;font-size:0.92rem;margin:4px 0 10px">💡 ข้อมูลจริงที่ช่วยปิดการขาย <span style="font-size:0.72rem;font-weight:400;color:var(--text-muted)">คำนวณจากประวัติร้าน ไม่มีชื่อลูกค้า</span></div>'
         + forecastHubHtml(insightCards({ testDrives, bookings, customers: customersForHub, logs, jobs, today, money, discount: discountWatch }))
+        + readinessHtml(dataReadiness({ customers: customersForHub, bookings, logs, testDrives, jobs, money }))
     } catch { hubHtml = '<div class="fh-why" style="margin-bottom:18px">อ่านข้อมูลไม่สำเร็จ — ลองรีเฟรชหน้าอีกครั้ง</div>' }
     if (container.__routerGen !== myGen) return
     const el = container.querySelector('#fh-cards')

@@ -22,6 +22,12 @@ export const FH_CSS = `
   .fh-n { font-size:0.74rem; color:var(--text-2); line-height:1.45; }
   .fh-why { font-size:0.76rem; color:var(--text-muted); line-height:1.5; }
   .fh-go { margin-top:auto; font-size:0.72rem; color:var(--primary); font-weight:600; }
+  .fh-ready { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:14px 16px; margin-bottom:18px; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr)); gap:12px 20px; }
+  .fh-ready-h { grid-column:1/-1; font-weight:700; font-size:0.9rem; }
+  .fh-ready-h span { font-size:0.72rem; font-weight:400; color:var(--text-muted); margin-left:4px; }
+  .fh-ready-row { display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .fh-ready-t { display:flex; justify-content:space-between; gap:8px; font-size:0.8rem; font-weight:600; }
+  .fh-ready-t span { min-width:0; overflow-wrap:anywhere; }
 `
 
 const fmt = (c, v) => c.money ? baht(v) : Math.round(v).toLocaleString('en-US')
@@ -52,4 +58,18 @@ export function forecastHubHtml(cards = []) {
       <div class="fh-v" style="font-size:1.3rem">—</div>
       <div class="fh-why">ยังคาดไม่ได้: ${escHtml(c.why)}</div>
     </div>`).join('')}</div>`
+}
+
+// (v1.0.1449) กล่อง "ข้อมูลที่ช่วยให้แม่นขึ้น" — แถบ % กรอกครบ + บอกว่าช่วยการ์ดไหน และทำยังไง (ต่ำสุดขึ้นก่อน)
+export function readinessHtml(items = []) {
+  if (!items.length) return ''
+  const col = r => r >= 0.8 ? 'var(--success)' : r >= 0.5 ? 'var(--warning)' : 'var(--danger)'
+  return `<div class="fh-ready">
+    <div class="fh-ready-h">🧩 ข้อมูลที่ช่วยให้คาดการณ์แม่นขึ้น <span>90 วันล่าสุด · กรอกครบเกิน 80% ดีมาก</span></div>
+    ${items.map(i => `<div class="fh-ready-row">
+      <div class="fh-ready-t"><span>${escHtml(i.label)}</span><b style="color:${col(i.rate)}">${Math.round(i.rate * 100)}%</b></div>
+      <div class="fh-bar" role="img" aria-label="${Math.round(i.rate * 100)}%"><i style="width:${(i.rate * 100).toFixed(1)}%;background:${col(i.rate)}"></i></div>
+      <div class="fh-why">${i.done}/${i.n} · ช่วย: ${escHtml(i.helps)}${i.rate < 0.8 ? ` · วิธี: ${escHtml(i.how)}` : ''}</div>
+    </div>`).join('')}
+  </div>`
 }
