@@ -331,6 +331,8 @@ export const PAGE_COLLECTIONS = {
   "bookings"
  ],
  "/crm/testdrive": [
+  "bookings",
+  "customers",
   "test_drive_records",
   "test_drives"
  ],
