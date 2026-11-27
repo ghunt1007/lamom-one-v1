@@ -90,3 +90,12 @@ describe('เรทไฟแนนซ์จริง (v1.0.1284)', () => {
     expect(c).toContain('ดอกเบี้ย 2.4–2.79% ต่อปี')
   })
 })
+
+describe('model names ending in digits (v1.0.1477)', () => {
+  const vs = [{ brand: 'DEEPAL', model: 'S07', price: 1099000 }, { brand: 'DEEPAL', model: 'S05', price: 869000 }]
+  it('"S07 เดือนละ" is not a 7-month term', () => {
+    expect(parsePaySpec('ผ่อน S07 เดือนละเท่าไหร่', vs)).toMatchObject({ price: 1099000, months: null })
+    expect(parsePaySpec('ผ่อน S05 เดือนละเท่าไหร่ ดาวน์ 20%', vs)).toMatchObject({ price: 869000, downPct: 20 })
+    expect(parsePaySpec('S07 ผ่อน 72 เดือน', vs)).toMatchObject({ months: 72 })
+  })
+})
