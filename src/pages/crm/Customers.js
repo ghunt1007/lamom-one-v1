@@ -9,6 +9,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { getVisibilityScope, scopeIncludesRecord, normName, isProgramOwner } from '../../core/hierarchy.js'
 import { openSheetReconcile } from '../../utils/sheetReconcileModal.js'
 import { formatDate, timeAgo, formatPhone, formatCurrency, initials, fullName, todayBangkok, toDate } from '../../utils/format.js'
+import { customerCallHint } from '../../utils/callTimes.js'
 import { openQuickDatePop } from '../../utils/quickDatePop.js'
 import { newBookingNo } from '../../utils/bookingNo.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -920,6 +921,7 @@ export default async function CustomersPage(container) {
       }
     } catch {}
     const rec = getFollowUpRecommendation(c, commLogs, { stockAvailable, overBudget })
+    const callHint = customerCallHint(commLogs) // (v1.0.1448) ลูกค้าคนนี้เคยรับสายช่วงไหน
     const u = URGENCY[rec.urgency] || URGENCY.low
     if (!document.getElementById('wk-followup-panel')) return
     el.innerHTML = `
@@ -933,6 +935,7 @@ export default async function CustomersPage(container) {
           ${rec.diagnosedProblem ? `<span style="font-size:0.72rem;color:var(--text-muted)">🔎 ${escHtml(rec.diagnosedProblem)}</span>` : ''}
         </div>
         <div style="font-size:0.82rem;color:var(--text-2);line-height:1.5">${escHtml(rec.recommendation)}</div>
+        ${callHint ? `<div style="font-size:0.76rem;color:var(--text-muted);margin-top:6px;overflow-wrap:anywhere">${escHtml(callHint)}</div>` : ''}
       </div>
       <div id="wk-ai-analysis"></div>
       <details id="wk-ai-reply" style="margin-top:8px">

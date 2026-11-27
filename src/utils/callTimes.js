@@ -48,3 +48,31 @@ export function callTimeAnswer(logs, opts = {}) {
     ...[...r.blocks].sort((a, b) => a.from - b.from).map(b => `• ${blockLabel(b)} รับ ${pct(b.rate)} (${b.answered}/${b.n})${b === r.best ? ' ⭐' : ''}`),
     `💡 นัดโทรลูกค้าสำคัญช่วง ${blockLabel(r.best)} จะติดง่ายสุด`].join('\n') }
 }
+
+// (v1.0.1448) ลูกค้าคนนี้เคยรับสายช่วงไหน — จากผลการโทรของลูกค้าคนนี้เอง (180 วัน) · รับสายช่วงเดียวกัน ≥ 2 ครั้ง ถึงจะบอก
+// ไม่รับสาย 3 ครั้งล่าสุดติดกัน (และไม่เคยรับในช่วงนั้น) → แนะนำลองช่องทาง/ช่วงเวลาอื่น · ไม่พอ = ''
+export function customerCallHint(logs = [], { now = Date.now(), days = 180 } = {}) {
+  const from = now - days * 86400000
+  const rows = []
+  for (const l of logs || []) {
+    if (!l || l.deleted || l.type !== 'call') continue
+    const note = String(l.note || '').trim()
+    const ok = ANSWERED.test(note), no = NO_ANSWER.test(note)
+    if (!ok && !no) continue
+    const d = toDate(l.createdAt)
+    if (!d || d.getTime() < from || d.getTime() > now) continue
+    const h = bkkHour(d)
+    rows.push({ t: d.getTime(), ok, blk: CALL_BLOCKS.find(([a, b]) => h >= a && h < b) })
+  }
+  rows.sort((a, b) => b.t - a.t)
+  const cnt = new Map()
+  for (const r of rows) if (r.ok && r.blk) cnt.set(r.blk, (cnt.get(r.blk) || 0) + 1)
+  const best = [...cnt.entries()].sort((a, b) => b[1] - a[1])[0]
+  if (best && best[1] >= 2) return `⏰ เคยรับสายช่วง ${blockLabel({ from: best[0][0], to: best[0][1] })} (${best[1]} ครั้ง) — โทรช่วงนี้ติดง่ายสุด`
+  const last3 = rows.slice(0, 3)
+  if (last3.length === 3 && last3.every(r => !r.ok)) {
+    const tried = [...new Set(last3.map(r => r.blk && blockLabel({ from: r.blk[0], to: r.blk[1] })).filter(Boolean))]
+    return `📵 โทรไม่ติด 3 ครั้งล่าสุด${tried.length ? ` (ช่วง ${tried.join(', ')})` : ''} — ลองทักไลน์ หรือโทรช่วงเวลาอื่น`
+  }
+  return ''
+}
