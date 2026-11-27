@@ -84,7 +84,7 @@ const PAGES = [
   ['โปรโมชั่นส่งเสริมการขาย', '/marketing/promotions', '🎁', 'Promotions', '促销活动'],
   ['อีเว้นท์', '/marketing/events', '🎪', 'Events', '活动'],
   ['Action Plan ขาย', '/crm/action-plan', '🗂️', 'Sales Action Plan', '销售行动计划'],
-  ['พยากรณ์ยอดขาย', '/analytics/forecast', '🔮', 'Sales Forecast', '销售预测'],
+  ['ศูนย์คาดการณ์ (พยากรณ์ยอดขาย)', '/analytics/forecast', '🔮', 'Forecast Hub', '销售预测'],
   ['พนักงาน', '/hr/staff', '🧑‍💼', 'Staff', '员工'],
   ['ตรวจรถก่อนส่งมอบ', '/service/inspection', '✅', 'Pre-Delivery Inspection', '交车前检查'],
   ['ใบส่งมอบรถ', '/dms/delivery', '🚚', 'Delivery Note', '交车单'],

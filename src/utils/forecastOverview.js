@@ -7,33 +7,54 @@ import { serviceForecast } from './serviceForecast.js'
 import { toDate } from './format.js'
 
 const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
-const ymThai = ym => TH_M[Number(ym.slice(5, 7)) - 1] + ' ' + (Number(ym.slice(0, 4)) + 543)
-const baht = v => '฿' + Math.round(v).toLocaleString('en-US')
+export const ymThai = ym => TH_M[Number(ym.slice(5, 7)) - 1] + ' ' + (Number(ym.slice(0, 4)) + 543)
+export const baht = v => '฿' + Math.round(v).toLocaleString('en-US')
 const range = (lo, hi) => hi > lo ? ` (${lo}–${hi})` : ''
 const bkkDate = v => { const d = toDate(v); return d ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(d) : '' }
 
-// หัวข้อ "จะเป็นยังไง" ทั้งเดือน — เฉพาะเมื่อยังเหลือ ≥ 2 วัน (วันท้ายเดือนตัวเลขจริงคือคำตอบแล้ว)
-// money = false → ไม่แสดงตัวเลขเงิน (เซลส์ที่ไม่ได้เห็นทั้งร้าน)
-export function forecastOverview({ fc = null, bookings = [], customers = [], reminders = [], jobs = [], today, money = true } = {}) {
-  const ym = String(today || '').slice(0, 7)
-  const out = []
-  if (fc) out.push(`🚚 ส่งมอบ: แล้ว ${fc.delivered} คัน → คาด ≈ ${fc.expected} คัน${range(fc.worst, fc.best)}${fc.target ? ` · เป้า ${fc.target} (${fc.targetPct}%)` : ''}`)
+// (v1.0.1439) การ์ดคาดการณ์แต่ละเรื่อง — ใช้ทั้งหน้า /analytics/forecast และคำตอบ LAMI (ตัวเลขชุดเดียวกัน)
+// คืนทุกเรื่องเสมอ: ok=false พร้อม why = ทำไมยังคาดไม่ได้ (หน้าแสดงเป็นการ์ดจาง · LAMI ข้าม)
+// money = false → ไม่คำนวณตัวเลขเงิน (เซลส์ที่ไม่ได้เห็นทั้งร้าน)
+export function forecastCards({ fc = null, next = null, bookings = [], customers = [], reminders = [], jobs = [], today, money = true } = {}) {
+  const cards = []
+  const add = c => cards.push({ ok: true, ...c })
+  const no = (key, icon, title, why, path) => cards.push({ key, icon, title, ok: false, why, path })
+  if (fc) add({ key: 'delivery', icon: '🚚', title: 'ส่งมอบเดือนนี้', value: fc.expected, unit: 'คัน', lo: fc.worst, hi: fc.best, soFar: fc.delivered, soFarText: `ส่งมอบแล้ว ${fc.delivered} คัน`, target: fc.target || null,
+    note: fc.target ? `เป้า ${fc.target} คัน → คาด ${fc.targetPct}%` : 'ยังไม่ได้ตั้งเป้าส่งมอบ', path: '/analytics/delivery-forecast',
+    line: `🚚 ส่งมอบ: แล้ว ${fc.delivered} คัน → คาด ≈ ${fc.expected} คัน${range(fc.worst, fc.best)}${fc.target ? ` · เป้า ${fc.target} (${fc.targetPct}%)` : ''}` })
+  else no('delivery', '🚚', 'ส่งมอบเดือนนี้', 'อ่านใบจองไม่ได้', '/analytics/delivery-forecast')
   const live = (bookings || []).filter(b => b && !b.deleted)
   const bp = bookingPace(live.filter(b => !isCancelled(b)).map(b => String(b.bookingDate || '').slice(0, 10)), today)
   if (bp?.method === 'history' && bp.daysInMonth - bp.day >= 2) {
-    const e = Math.max(bp.soFar, bp.expected)
-    out.push(`📝 ยอดจอง: แล้ว ${bp.soFar} ใบ → คาด ≈ ${e} ใบ${range(Math.max(bp.soFar, Math.min(e, bp.low)), Math.max(e, bp.high))}`)
-  }
-  const cd = (customers || []).filter(c => c && !c.deleted).map(c => bkkDate(c.createdAt))
-  const lp = bookingPace(cd, today)
+    const e = Math.max(bp.soFar, bp.expected), lo = Math.max(bp.soFar, Math.min(e, bp.low)), hi = Math.max(e, bp.high)
+    add({ key: 'booking', icon: '📝', title: 'ยอดจองเดือนนี้', value: e, unit: 'ใบ', lo, hi, soFar: bp.soFar, soFarText: `จองแล้ว ${bp.soFar} ใบ`, note: `เดือนก่อนๆ ถึงวันนี้จองได้ราว ${Math.round(bp.share * 100)}% ของทั้งเดือน`, path: '/crm/bookings',
+      line: `📝 ยอดจอง: แล้ว ${bp.soFar} ใบ → คาด ≈ ${e} ใบ${range(lo, hi)}` })
+  } else no('booking', '📝', 'ยอดจองเดือนนี้', bp?.method === 'done' || (bp && bp.daysInMonth - bp.day < 2) ? 'สิ้นเดือนแล้ว — ดูยอดจริงได้เลย' : 'ต้องมีใบจองย้อนหลังอย่างน้อย 3 เดือน (เดือนละ ≥ 3 ใบ)', '/crm/bookings')
+  const lp = bookingPace((customers || []).filter(c => c && !c.deleted).map(c => bkkDate(c.createdAt)), today)
   if (lp?.method === 'history' && lp.daysInMonth - lp.day >= 2) {
-    const e = Math.max(lp.soFar, lp.expected)
-    out.push(`🧲 ลูกค้าใหม่: แล้ว ${lp.soFar} ราย → คาด ≈ ${e} ราย${range(Math.max(lp.soFar, lp.low), Math.max(e, lp.high))}`)
+    const e = Math.max(lp.soFar, lp.expected), lo = Math.max(lp.soFar, lp.low), hi = Math.max(e, lp.high)
+    add({ key: 'lead', icon: '🧲', title: 'ลูกค้าใหม่เดือนนี้', value: e, unit: 'ราย', lo, hi, soFar: lp.soFar, soFarText: `เข้ามาแล้ว ${lp.soFar} ราย`, note: `เดือนก่อนๆ ถึงวันนี้ได้ราว ${Math.round(lp.share * 100)}% ของทั้งเดือน`, path: '/crm/customers',
+      line: `🧲 ลูกค้าใหม่: แล้ว ${lp.soFar} ราย → คาด ≈ ${e} ราย${range(lo, hi)}` })
+  } else no('lead', '🧲', 'ลูกค้าใหม่เดือนนี้', 'ต้องมีลูกค้าย้อนหลังอย่างน้อย 3 เดือน', '/crm/customers')
+  if (money) {
+    const inc = incomeForecast({ bookings: live, today, fc })
+    if (inc) add({ key: 'income', icon: '💰', title: 'รายได้เดือนนี้', value: inc.expected, unit: '', money: true, lo: inc.low, hi: inc.high, soFar: inc.soFar, soFarText: `ได้แล้ว ${baht(inc.soFar)}`, note: `คอมเซลส์ ≈ ${baht(inc.com70)}`, path: '/crm/sales-income',
+      line: `💰 รายได้: แล้ว ${baht(inc.soFar)} → คาด ≈ ${baht(inc.expected)} (${baht(inc.low)}–${baht(inc.high)})` })
+    else no('income', '💰', 'รายได้เดือนนี้', 'ต้องมีรายได้ที่กรอกแล้วอย่างน้อย 3 คันใน 3 เดือนก่อน', '/crm/sales-income')
   }
-  const inc = money ? incomeForecast({ bookings: live, today, fc }) : null
-  if (inc) out.push(`💰 รายได้: แล้ว ${baht(inc.soFar)} → คาด ≈ ${baht(inc.expected)} (${baht(inc.low)}–${baht(inc.high)})`)
+  if (next && next.count) add({ key: 'next', icon: '📅', title: `ส่งมอบเดือนหน้า (${ymThai(next.ym)})`, value: next.expected, unit: 'คัน', lo: next.worst, hi: next.best, note: `จากใบจองค้าง ${next.count} ใบที่น่าจะไปส่งเดือนหน้า`, path: '/analytics/delivery-forecast',
+    line: `📅 ส่งมอบเดือนหน้า (${ymThai(next.ym)}) ≈ ${next.expected} คัน${range(next.worst, next.best)}` })
   const sv = serviceForecast({ reminders, jobs, today })
-  if (sv) out.push(`🔧 รถเข้าศูนย์เดือนหน้า (${ymThai(sv.next)}) ≈ ${sv.expected} คัน${money && sv.revenue != null ? ` · รายได้ ≈ ${baht(sv.revenue)}` : ''}`)
+  if (sv) add({ key: 'service', icon: '🔧', title: `รถเข้าศูนย์เดือนหน้า (${ymThai(sv.next)})`, value: sv.expected, unit: 'คัน', note: `ครบกำหนด ${sv.due} คัน × นัดได้จริง ${Math.round(sv.rate * 100)}%${money && sv.revenue != null ? ` · รายได้ ≈ ${baht(sv.revenue)}` : ''}`, path: '/analytics/service',
+    line: `🔧 รถเข้าศูนย์เดือนหน้า (${ymThai(sv.next)}) ≈ ${sv.expected} คัน${money && sv.revenue != null ? ` · รายได้ ≈ ${baht(sv.revenue)}` : ''}` })
+  else no('service', '🔧', 'รถเข้าศูนย์เดือนหน้า', 'ต้องมีประวัติเตือนเช็คระยะอย่างน้อย 10 รายการใน 6 เดือน', '/analytics/service')
+  return cards
+}
+
+// หัวข้อ "จะเป็นยังไง" ทั้งเดือน — เฉพาะเมื่อยังเหลือ ≥ 2 วัน (วันท้ายเดือนตัวเลขจริงคือคำตอบแล้ว)
+export function forecastOverview(opts = {}) {
+  const ym = String(opts.today || '').slice(0, 7)
+  const out = forecastCards(opts).filter(c => c.ok).map(c => c.line)
   if (!out.length) return { n: 0, text: '🔮 ยังคาดการณ์ไม่ได้ — ต้องมีข้อมูลย้อนหลังอย่างน้อย 3 เดือน (ใบจอง/ลูกค้า) ก่อน LAMI ถึงจะคาดได้แม่น' }
   return { n: out.length, text: [`🔮 คาดการณ์เดือนนี้ ${ymThai(ym)} — ภาพรวม`, ...out,
     '💡 ถามต่อแยกเรื่องได้ เช่น "เดือนนี้จะส่งมอบได้กี่คัน" · "ค่าคอมเดือนนี้เท่าไหร่"'].join('\n') }

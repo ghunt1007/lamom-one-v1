@@ -447,8 +447,8 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'fcall') {
     // (v1.0.1434) รวมทุกการคาดการณ์ — ตัวเลขทั้งร้าน (เหมือนหน้าภาพรวม)
     const [{ loadDeliveryForecast }, { forecastOverview }] = await Promise.all([import('./deliveryForecastData.js'), import('./forecastOverview.js')])
-    const [{ fc, bookings }, customers, reminders, jobs] = await Promise.all([loadDeliveryForecast({ today }), listDocs('customers', f, 'createdAt', 'desc', 5000).catch(() => []), listDocs('service_reminders', f, 'dueDate', 'desc', 3000).catch(() => []), listDocs('job_cards', f, 'createdAt', 'desc', 3000).catch(() => [])])
-    res = forecastOverview({ fc, bookings, customers, reminders, jobs, today, money: !!(vis.unrestricted || vis.companyOnly) })
+    const [{ fc, next, bookings }, customers, reminders, jobs] = await Promise.all([loadDeliveryForecast({ today }), listDocs('customers', f, 'createdAt', 'desc', 5000).catch(() => []), listDocs('service_reminders', f, 'dueDate', 'desc', 3000).catch(() => []), listDocs('job_cards', f, 'createdAt', 'desc', 3000).catch(() => [])])
+    res = forecastOverview({ fc, next, bookings, customers, reminders, jobs, today, money: !!(vis.unrestricted || vis.companyOnly) })
   } else if (spec.kind === 'dlvfc') {
     // (v1.0.1381) คาดการณ์ส่งมอบเดือนนี้ — ตัวเลขเดียวกับหน้า /analytics/delivery-forecast
     const [{ loadDeliveryForecast }, { deliveryForecastText }, { ymThai }] = await Promise.all([import('./deliveryForecastData.js'), import('./deliveryForecast.js'), import('./deliveryForecastView.js')])

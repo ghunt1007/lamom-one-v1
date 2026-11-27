@@ -294,7 +294,7 @@ export const NAV = [
       { icon: '🎯', label: 'KPI บริษัท', labelEn: 'Company KPI', path: '/analytics/kpi' },
       { icon: '📐', label: 'ตัวชี้วัดการขาย', labelEn: 'Sales Metrics', path: '/analytics/sales-metrics' },
       { icon: '🚚', label: 'คาดการณ์ส่งมอบเดือนนี้', labelEn: 'Delivery Forecast', path: '/analytics/delivery-forecast' },
-      { icon: '🔮', label: 'พยากรณ์ยอดขาย', labelEn: 'Sales Forecast', path: '/analytics/forecast' },
+      { icon: '🔮', label: 'ศูนย์คาดการณ์', labelEn: 'Forecast Hub', path: '/analytics/forecast' },
       { icon: '🧠', label: 'วิเคราะห์ลูกค้า', labelEn: 'Customer Insights', path: '/analytics/customers' },
       { icon: '⚙️', label: 'การดำเนินงาน', labelEn: 'Operations', path: '/analytics/operations' },
       { icon: '📈', label: 'วิเคราะห์กำไร', labelEn: 'Profit Analysis', path: '/analytics/profit' },
