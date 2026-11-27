@@ -62,6 +62,7 @@ import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } f
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
 import { campaignLeads } from '../src/utils/campaignLeads.js'
 import { financeQueue, financeWaitAnswer } from '../src/utils/financeQueue.js'
+import { incomeForecast, incomeForecastLine } from '../src/utils/incomeForecast.js'
 import { deliveryWeekAnswer, deliveryWeekList } from '../src/utils/deliveryWeek.js'
 import { stockLineAnswer } from '../src/utils/stockList.js'
 import { promoLineAnswer } from '../src/utils/promoQuestions.js'
@@ -899,7 +900,7 @@ async function buildReportText(env, accessToken) {
   // select เฉพาะ field ที่รายงานใช้ — ใบจองหลายพันใบทั้งเอกสารใหญ่เกินจน parse JSON เกินโควตา CPU ของ cron
   const fuFields = ['dueDate', 'status', 'customerId', 'updatedAt', 'deleted']
   const [bookings, customers, fuPending, fuDone, testDrives, teamTargets] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deliveryDate', 'deliveryTime', 'custName', 'model', 'cancelReason', 'deleted', 'bookingNo']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'com70', 'comFinance', 'deliveryDate', 'deliveryTime', 'custName', 'model', 'cancelReason', 'deleted', 'bookingNo']),
     runQuery(env, accessToken, 'customers', null, null, 5000, EVENING_CUSTOMER_FIELDS),
     // แยกดึงนัดค้าง/นัดที่ทำแล้ว — ถ้าดึงรวมแบบจำกัดจำนวน พอนัดอัตโนมัติสะสมเยอะจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, fuFields, ['status', 'pending']),
@@ -1034,6 +1035,14 @@ export function bookingPaceLine(bookings, today, monthCount = 0) {
   if (!p || p.method !== 'history' || p.daysInMonth - p.day < 2) return null
   const exp = Math.max(monthCount, p.expected), lo = Math.max(monthCount, p.low), hi = Math.max(monthCount, p.high)
   return `  • 🔮 คาดจองสิ้นเดือน ≈ ${exp} คัน${hi > lo ? ` (${lo}–${hi})` : ''} · เดือนก่อนๆ ถึงวันที่ ${p.day} ได้ราว ${Math.round(p.share * 100)}% ของทั้งเดือน`
+}
+
+// (v1.0.1416) คาดรายได้สิ้นเดือน = รายได้ที่กรอกแล้ว + คันที่คาดส่งมอบเพิ่ม × เฉลี่ยต่อคัน 3 เดือนก่อน (ประวัติไม่ถึง 3 คัน/วันสุดท้าย = ไม่ขึ้น)
+export function incomeForecastReportLine(bookings, today) {
+  const d = new Date(today + 'T00:00:00Z'), dim = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate()
+  if (dim - d.getUTCDate() < 1) return null
+  const x = incomeForecast({ bookings: (bookings || []).filter(b => b && !b.deleted), today })
+  return x ? '  ' + incomeForecastLine(x) : null
 }
 
 // (v1.0.1383) คาดการณ์ยอดส่งมอบสิ้นเดือน ในรายงาน 18:00 — สูตรเดียวกับหน้า "คาดการณ์ส่งมอบเดือนนี้" ในแอป
@@ -1312,6 +1321,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   lines.push('',
     `💰 รายได้เดือนนี้: ${fmtBaht(revMonth)}`,
     noIncomeMonth ? `  ⚠️ ยังไม่กรอกรายได้ ${noIncomeMonth} จาก ${dlvMonth.length} คันที่ส่งมอบเดือนนี้` : null,
+    incomeForecastReportLine(bookings, today),
     `💰 รายได้ปีนี้: ${fmtBaht(revYear)}`)
   if (sellerLines.length) lines.push('', '👤 ทีมขาย (เดือนนี้)', ...sellerLines)
   lines.push('', `❌ ถอนจองเดือนนี้: ${cancelMonth} คัน | ปีนี้: ${cancelYear} คัน`,
@@ -1331,7 +1341,7 @@ export const EVENING_CUSTOMER_FIELDS = ['stage', 'createdAt', 'source', 'assigne
 export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel', 'phone', 'wakeSentAt', 'lineOptOut', 'lineBlockedAt', 'marketingConsent']
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves, vehicles, transit, orders, doneJobs, dueReminders] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly', 'colorOut', 'color', 'vin', 'lineUserId']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'com70', 'comFinance', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly', 'colorOut', 'color', 'vin', 'lineUserId']),
     runQuery(env, accessToken, 'customers', null, null, 5000, MORNING_CUSTOMER_FIELDS),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
@@ -2212,6 +2222,13 @@ async function buildTasksReply(env, accessToken, name, isOwner = false) {
     return tasksReplyText(sections, name, today, env.ALLOWED_ORIGIN, sellerGoal(data, goals, name, today))
   } catch { return '⚠️ ดึงงานค้างไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
 }
+// (v1.0.1416) คาดคอมเซลส์สิ้นเดือนของคนนี้ จากคอมเฉลี่ยต่อคันของตัวเอง 3 เดือนก่อน — ประวัติไม่พอ/ไม่เคยกรอกคอม = ไม่ขึ้น
+export function myComForecastLine(mine, today) {
+  try {
+    const x = incomeForecast({ bookings: mine, today })
+    return x && x.per.com70 > 0 && x.moreCars > 0 ? `🔮 คาดคอมเซลส์สิ้นเดือน ≈ ${fmtBaht(x.com70)} (ถ้าส่งมอบได้อีก ≈ ${x.moreCars} คันตามคาด)` : null
+  } catch { return null }
+}
 // คำสั่ง "ยอด" — ตัวเลขเดือนนี้ของเซลส์คนนี้ (นิยามเดียวกับรายงาน 18:00/หน้ารายได้รายเซลส์: ส่งมอบนับตามวันตัดตัวเลข)
 export function myStatsText(data, name, today, goal = null) {
   const TH = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
@@ -2232,6 +2249,7 @@ export function myStatsText(data, name, today, goal = null) {
     `✅ ส่งมอบ: ${dlv.length} คัน · 💰 รายได้ ${fmtBaht(income)}${missing ? ` (ยังไม่กรอกรายได้ ${missing} คัน)` : ''}`,
     `📋 จองใหม่: ${booked} คัน${cancelled ? ` · ❌ ถอนจอง ${cancelled} คัน` : ''}`,
     `🚗 ใบจองที่ยังไม่ส่งมอบ: ${pending} คัน`,
+    myComForecastLine(mine, today),
   ].filter(Boolean).join('\n')
 }
 // คำสั่ง "พรุ่งนี้" — นัดติดตาม/ส่งมอบ/ทดลองขับของเซลส์คนนี้ในวันพรุ่งนี้ (เทียบชื่อแบบเดียวกับเตือน 9 โมง)

@@ -6,7 +6,7 @@ import { listAllDocs, listDocs, updateDocData, readDoc } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
 import { showToast, getState } from '../../core/store.js'
-import { formatDate, todayBangkok, hm } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok, hm } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { navigate } from '../../core/router.js'
 import { askDeliveryIncome } from '../../utils/deliveryIncome.js'
@@ -28,6 +28,7 @@ import { copyText } from '../../utils/copyText.js'
 import { canPushLine, pushLineToCustomer, lineSendBtnHtml } from '../../utils/customerLinePush.js'
 import { escHtml } from '../../utils/escape.js'
 import { deliveryForecast } from '../../utils/deliveryForecast.js'
+import { incomeForecast, incomeForecastNote } from '../../utils/incomeForecast.js'
 import { openQuickDatePop } from '../../utils/quickDatePop.js'
 import { normalizeProgram, nextMonthGap, monthLabelTh, programEarnings, myBonusProgress } from '../../utils/salesPrograms.js'
 import { isManagerRole } from '../../utils/managerRole.js'
@@ -147,8 +148,13 @@ export default async function MyDayPage(container) {
     // (v1.0.1384) คาดการณ์ส่งมอบสิ้นเดือนของคนนี้ (สูตรเดียวกับหน้าคาดการณ์ส่งมอบ) + ใบที่ควรเร่ง
     const fc = who ? deliveryForecast({ bookings: myBookings, today, target: t || null, fmt: formatDate }) : null
     const push = fc ? fc.items.filter(i => i.tier === 'likely' || i.tier === 'maybe' || (i.risk && i.p >= 0.15)).slice(0, 3) : []
+    // (v1.0.1416) คาดคอมเซลส์สิ้นเดือนของคนนี้ — จากคอมเฉลี่ยต่อคันของตัวเอง 3 เดือนก่อน (ประวัติไม่ถึง 3 คัน = ไม่แสดง)
+    let ifc = null
+    if (fc && fc.open && fc.daysLeft > 1) { try { ifc = incomeForecast({ bookings: myBookings, today, fc }) } catch { ifc = null } }
+    const comHtml = ifc && ifc.per.com70 > 0 ? `<div id="md-ifc" style="margin-top:4px" title="${escHtml(incomeForecastNote(ifc))}">💰 คาดคอมเซลส์เดือนนี้ <b style="color:var(--accent)">≈ ${formatCurrency(ifc.com70)}</b></div>` : ''
     const fcHtml = fc && fc.open && fc.daysLeft > 1 ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border-subtle);font-size:0.78rem">
         🔮 คาดว่าเดือนนี้ได้ <b style="color:var(--primary)">≈ ${fc.expected} คัน</b> <span style="color:var(--text-muted)">(แย่สุด ${fc.worst} · ดีสุด ${fc.best})</span>
+        ${comHtml}
         ${push.length ? `<div style="font-size:0.72rem;color:var(--text-muted);margin:4px 0 2px">เร่งใบนี้ให้ทันเดือนนี้:</div>
           ${push.map(i => `<button type="button" class="btn btn-ghost btn-xs md-bk" data-id="${escHtml(i.id)}" style="display:flex;width:100%;justify-content:space-between;gap:8px;text-align:left"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(i.name)} · ${escHtml(i.status)}${i.risk ? ' ⚠️' : ''}</span><b style="flex-shrink:0">${Math.round(i.p * 100)}%</b></button>`).join('')}` : ''}
       </div>` : ''
