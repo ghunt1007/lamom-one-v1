@@ -214,7 +214,7 @@ export function openLamiPanel({ navigate } = {}) {
   import('./managerRole.js').then(({ isManagerRole }) => isManagerRole()).catch(() => false).then(mgr => {
     const hint = body.querySelector('.lp-hint')
     if (!hint) return
-    const quick = ['วันนี้มีอะไรบ้าง', 'พรุ่งนี้มีอะไรบ้าง', 'ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนนี้เท่าไหร่', ...(mgr ? ['ทีมวันนี้เป็นไง', 'คาดการณ์เดือนนี้'] : []), 'มีรถอะไรพร้อมขาย', 'โปรเดือนนี้มีอะไรบ้าง', 'รถไฟฟ้าไม่เกิน 1 ล้าน', 'ลูกค้า hot มีใครบ้าง']
+    const quick = ['วันนี้มีอะไรบ้าง', 'พรุ่งนี้มีอะไรบ้าง', 'ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนนี้เท่าไหร่', ...(mgr ? ['ทีมวันนี้เป็นไง', 'คาดการณ์เดือนนี้', 'ใบจองไหนเสี่ยงถอน'] : []), 'มีรถอะไรพร้อมขาย', 'โปรเดือนนี้มีอะไรบ้าง', 'รถไฟฟ้าไม่เกิน 1 ล้าน', 'ลูกค้า hot มีใครบ้าง']
     hint.insertAdjacentHTML('afterend', `<div class="lp-try lp-quick"><span>⚡ ถามได้ทันที แตะครั้งเดียว:</span>${quick.map(x => `<button type="button" class="lp-ask lp-now" data-q="${esc(x)}">${esc(x)}</button>`).join('')}</div>`)
     body.querySelectorAll('.lp-now').forEach(b => b.addEventListener('click', () => ask(b.dataset.q)))
   })
