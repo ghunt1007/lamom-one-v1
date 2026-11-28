@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseOpsSpec, weekSummaryAnswer, upgradeAnswer, bookDayAnswer, custBySellerAnswer, vipAnswer, tdModelAnswer, deliveredAnswer } from './opsQuestions.js'
+import { parseOpsSpec, weekSummaryAnswer, upgradeAnswer, bookDayAnswer, custBySellerAnswer, vipAnswer, tdModelAnswer, deliveredAnswer, depositsAnswer } from './opsQuestions.js'
 import { parseListSpec } from './listQuestions.js'
 import { periodSpec, periodStats, periodBriefText, isSellerSummaryAsk } from './monthBrief.js'
 import { isCallListQuestion } from './callList.js'
@@ -125,5 +125,13 @@ describe('v1.0.1506 LAMI routes', () => {
     expect(parseOpsSpec('ช่องทางไหนลูกค้าจองเยอะสุด').kind).toBe('closerate')
     expect(parseOpsSpec('ลูกค้าที่ต้องโทรแจ้งรถมาถึง')).toEqual({ kind: 'waiteta' })
     expect(deliveredAnswer([{ status: 'ส่งมอบแล้ว', cutDate: '2026-10-15', customerName: 'ก' }], { today: '2026-11-28', period: 'prevmonth' }).n).toBe(1)
+  })
+  it('v1.0.1515 deposits held, refund phrasing', () => {
+    expect(parseOpsSpec('ยอดเงินจองรวมที่ถืออยู่')).toEqual({ kind: 'deposits' })
+    expect(parseOpsSpec('เงินจองที่ต้องคืนทั้งหมด').kind).toBe('refund')
+    const r = depositsAnswer([{ status: 'จองแล้ว', bookingDeposit: 4000 }, { status: 'จองแล้ว' }, { status: 'ถอนจอง', bookingDeposit: 4000 }, { status: 'ส่งมอบแล้ว', bookingDeposit: 4000 }])
+    expect(r.text).toContain('เงินจองที่ร้านถืออยู่ ฿8,000')
+    expect(r.text).toContain('ยังไม่กรอกยอด 1 ใบ')
+    expect(depositsAnswer([{ status: 'จองแล้ว' }]).text).toContain('ยังไม่ได้กรอกยอดเงินจอง')
   })
 })
