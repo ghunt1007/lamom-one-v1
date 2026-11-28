@@ -20,7 +20,8 @@ const ASK = /ใครบ้าง|มีใคร|คนไหน|กี่ค�
 
 // อ่านคำถาม → เงื่อนไข (null = ไม่ใช่คำถามหารายชื่อ)
 export function parseListSpec(q) {
-  const s = thaiNumerals(String(q || '').trim()).replace(/[?？]+$/, '').trim()
+  // (v1.0.1524) "ลูกค้าเย็นทั้งหมด" / "ลูกค้า hot ทั้งหมดมีใครบ้าง" = รายชื่อตามระดับความสนใจ (ตัดคำว่า ทั้งหมด ทิ้ง)
+  const s = thaiNumerals(String(q || '').trim()).replace(/[?？]+$/, '').trim().replace(/^(ลูกค้า\s*(?:hot|warm|cold|ร้อน|อุ่น|เย็น|🔥))\s*ทั้งหมด/i, '$1')
   if (!s || s.length > 120 || !ASK.test(s)) return null
   // (v1.0.1115) "ลูกค้าที่ยังไม่ได้โทรหาวันนี้" = รายการโทรวันนี้ ไม่ใช่ลูกค้าเงียบ 7 วัน
   if (/ยังไม่(?:ได้)?\s*โทร/.test(s) && /วันนี้/.test(s)) return null
