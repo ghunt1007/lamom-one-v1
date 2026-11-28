@@ -135,6 +135,8 @@ describe('better/worse than last month (v1.0.1469)', () => {
     expect(isMonthQuestion('รุ่นไหนขายดี')).toBe(true)
     expect(isMonthQuestion('สีไหนเหลือในสต็อก')).toBe(false)
     expect(isMonthQuestion('รุ่นไหนคนสนใจเยอะ')).toBe(false)
+    expect(isMonthQuestion('ฉันขายได้กี่คันแล้ว')).toBe(true) // (v1.0.1480)
+    expect(isMonthQuestion('ส่งมอบไปกี่คันแล้ว')).toBe(true)
   })
 })
 
