@@ -62,6 +62,9 @@ import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } f
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
 import { campaignLeads } from '../src/utils/campaignLeads.js'
 import { financeQueue, financeWaitAnswer } from '../src/utils/financeQueue.js'
+import { deliveryPrepMorningLines, deliveryPrepText, PREP_STEPS, AFTER_STEPS } from '../src/utils/deliveryPrep.js'
+// (v1.0.1557) ช่องขั้นเตรียมส่งมอบ/หลังส่งมอบ (Allocate, แจ้งประกัน, เลขรับแจ้ง …)
+export const PREP_FIELDS = [...PREP_STEPS, ...AFTER_STEPS].map(s => s.f).filter(f => f !== 'vin')
 import { incomeForecast, incomeForecastLine } from '../src/utils/incomeForecast.js'
 import { leadCountByModel } from '../src/utils/stockLeads.js'
 import { testDriveConversion } from '../src/utils/testDriveConversion.js'
@@ -771,6 +774,17 @@ async function handleLineWebhook(request, env, cors) {
           reply = clipLine(refundAnswer(mine).text.replace(/\n💡 กด[^\n]*$/, '\n💡 กดส่งเอกสาร/โอนคืนได้ที่หน้าคืนเงินในแอป'))
         } catch { reply = '⚠️ ดึงข้อมูลใบจองไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'prep') {
+      // (v1.0.1557) รถเตรียมส่งมอบถึงขั้นไหน ขาดอะไร (แจ้งประกัน/เลขรับแจ้ง …) — เจ้าของเห็นทั้งร้าน / เซลส์เห็นของตัวเอง
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      const isOwner = !!owner && owner === userId
+      if (me?.name || isOwner) {
+        try {
+          const rows = await runQuery(env, accessToken, 'bookings', null, null, 5000, PREP_BOOKING_FIELDS)
+          reply = clipLine(deliveryPrepText(rows, { today: todayBangkok(), seller: isOwner ? '' : me.name, focus: cmd.focus || '' }).text)
+        } catch { reply = '⚠️ ดึงข้อมูลใบจองไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'booth') {
       // (v1.0.1523) เวรบูธ 7 วันข้างหน้า (หรือวันนี้/พรุ่งนี้) — ตารางเวรเป็นข้อมูลทีม ไม่มีข้อมูลลูกค้า แต่ให้เฉพาะคนในทีม (ลงทะเบียนแล้ว) หรือเจ้าของ
       const me = await readSalesTarget(env, accessToken, userId)
@@ -921,6 +935,10 @@ export function parseLineCommand(text) {
   if (/^(?:สถานะ|สถานะใบจอง|ใบจองค้าง|ค้างกี่ใบ|ยอดจองค้าง(?:กี่ใบ)?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'sboard' }
   // (v1.0.1520) ใบถอนจองที่รอคืนเงิน: "คืนเงิน" / "รอคืนเงิน" / "คืนจอง"
   { const m = t.replace(/\s+/g, '').match(/^(?:เวร)?(?:บูธ|ออกบูธ)(วันนี้|พรุ่งนี้)?$|^เวร(วันนี้|พรุ่งนี้)?$/); if (m) return { type: 'booth', day: (m[1] || m[2]) === 'วันนี้' ? 'today' : (m[1] || m[2]) === 'พรุ่งนี้' ? 'tomorrow' : 'week' } }
+  // (v1.0.1557) "เตรียมส่งมอบ" / "แจ้งประกัน" / "เลขรับแจ้ง" → ขั้นเตรียมส่งมอบที่ยังขาด
+  { const u = t.replace(/\s+/g, ''); if (/^(?:เตรียมส่งมอบ|เช็คส่งมอบ|ส่งมอบถึงไหน|งานส่งมอบ)$/.test(u)) return { type: 'prep' }
+    if (/^(?:แจ้งประกัน|ยังไม่แจ้งประกัน)(?:หรือยัง)?$/.test(u)) return { type: 'prep', focus: 'แจ้งประกัน' }
+    if (/^(?:เลขรับแจ้ง|ยังไม่ได้เลขรับแจ้ง)(?:หรือยัง)?$/.test(u)) return { type: 'prep', focus: 'เลขรับแจ้ง' } }
   if (/^(?:คืนเงิน|คืนเงินจอง|รอคืนเงิน|รอคืนเงินจอง|คืนจอง|คืนมัดจำ|refunds?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'refund' }
   // (v1.0.1456) ใบจองเสี่ยงถอน
   if (/^(?:เสี่ยงถอน|ใบเสี่ยงถอน|ใบจองเสี่ยงถอน|เสี่ยงหลุด|ใครเสี่ยงถอน)$/i.test(t.replace(/\s+/g, ''))) return { type: 'cxrisk' }
@@ -1179,6 +1197,7 @@ export function statusBoardLineAnswer(rows, today, { seller = '', logs = [], max
 }
 
 export const BOOTH_EVENT_FIELDS = ['title', 'venue', 'startDate', 'endDate', 'startTime', 'status', 'shifts', 'staff', 'deleted']
+export const PREP_BOOKING_FIELDS = ['status', 'deliveryDate', 'actualDeliveryDate', 'cutDate', 'custName', 'brand', 'model', 'salesName', 'vin', 'deleted', ...PREP_FIELDS]
 export const REFUND_BOOKING_FIELDS = ['status', 'refundStatus', 'depositRefunded', 'refundDocsSent', 'refundDocsDate', 'refundAmount', 'bookingDeposit', 'down', 'cancelDate', 'bookingDate', 'custName', 'salesName', 'deleted']
 export const DLVFC_BOOKING_FIELDS = ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'custName', 'brand', 'model', 'salesName', 'price', 'deleted']
 // คำตอบ LINE "คาดการณ์ส่งมอบ": seller ว่าง = ทั้งร้าน (มีเป้าทีม) · มี seller = เฉพาะใบของคนนั้น + ใบที่ควรเร่ง (ชื่อลูกค้า ส่งให้เซลส์เจ้าของเท่านั้น)
@@ -1440,7 +1459,7 @@ export const EVENING_CUSTOMER_FIELDS = ['stage', 'createdAt', 'source', 'assigne
 export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel', 'phone', 'wakeSentAt', 'lineOptOut', 'lineBlockedAt', 'marketingConsent', 'firstContactAt']
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves, vehicles, transit, orders, doneJobs, dueReminders] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'customerId', 'phone', 'brand', 'model', 'totalIncome', 'com70', 'comFinance', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'depositRefunded', 'refundDocsSent', 'refundDocsDate', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly', 'colorOut', 'color', 'vin', 'lineUserId', 'price', 'extraDiscount']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'customerId', 'phone', 'brand', 'model', 'totalIncome', 'com70', 'comFinance', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'depositRefunded', 'refundDocsSent', 'refundDocsDate', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly', 'colorOut', 'color', 'vin', 'lineUserId', 'price', 'extraDiscount', ...PREP_FIELDS]),
     runQuery(env, accessToken, 'customers', null, null, 5000, MORNING_CUSTOMER_FIELDS),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
@@ -1726,6 +1745,7 @@ export function buildMorningReminder(data, opts) {
   const noCar = noSupplyLines(data, today)
   const lateOrd = lateOrderLines(data, today)
   const swing = swingMorningLines(data.bookings, today)
+  const prep = deliveryPrepMorningLines(data.bookings, today)
 
   const text = [
     '☀️ LAMOM ONE เตือนงานเช้านี้',
@@ -1738,6 +1758,7 @@ export function buildMorningReminder(data, opts) {
     ...(noCar.length ? ['', ...noCar] : []),
     ...(lateOrd.length ? ['', ...lateOrd] : []),
     ...(swing.length ? ['', ...swing] : []),
+    ...(prep.length ? ['', ...prep] : []),
     ...(svc.length ? ['', ...svc] : []),
     ...(pickup.length ? ['', ...pickup] : []),
     ...(dueLine ? ['', dueLine] : []),
@@ -2205,6 +2226,7 @@ export const LINE_HELP_TEXT = [
   '• ลุ้น — ใบจองที่ลุ้นส่งทันเดือนนี้ เร่งแล้วเพิ่มยอดได้',
   '• บูธ / บูธพรุ่งนี้ — งานออกบูธ 7 วันข้างหน้า + ใครเข้าเวร',
   '• คืนเงิน — ใบถอนจองที่ยังรอคืนเงินจอง + ยังไม่ส่งเอกสาร',
+  '• เตรียมส่งมอบ — รถที่จะส่งมอบถึงขั้นไหน ขาดอะไร · แจ้งประกัน / เลขรับแจ้ง — คันที่ยังไม่ได้',
   '• เสี่ยงถอน — ใบจองที่ค้างนานถึงช่วงที่ร้านเคยถอนสูง ควรโทรเช็ก',
   '• สต็อก — รถพร้อมขาย/กำลังมา/จองแล้ว แยกรุ่นและสี (สต็อก S07 = เฉพาะรุ่น)',
   '• โปร — โปรที่ใช้ได้วันนี้ (โปร S07 = เฉพาะรุ่น + ข้อความส่งลูกค้า · โปรใกล้หมด)',

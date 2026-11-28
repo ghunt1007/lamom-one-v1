@@ -4,6 +4,7 @@ import { carOf } from './carLabel.js'
 // ใบจองค้างเกิน 14 วัน) + นัดส่งมอบ 7 วันข้างหน้า และ Lead ใหม่วันนี้ — ฟังก์ชันล้วน ไม่แตะฐานข้อมูล เทสได้
 import { toDate } from './format.js'
 import { DELIVERED_STATUSES, needsIncome } from './deliveryIncome.js'
+import { usedSteps, stepStatus, PREP_STEPS } from './deliveryPrep.js'
 import { classifyLostReason } from './lostReason.js'
 import { isFinancePassed } from './finance.js'
 
@@ -164,6 +165,8 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
   out.stuck.sort((a, b) => b.days - a.days)
   out.finance.sort((a, b) => Number(b.rejected) - Number(a.rejected) || b.days - a.days)
   out.deliveries.sort((a, b) => a.inDays - b.inDays)
+  // (v1.0.1557) ขั้นเตรียมส่งมอบที่ยังขาด (เฉพาะช่องที่ร้านกรอกใน Sheet จริง)
+  { const steps = usedSteps(bookings, PREP_STEPS); out.deliveries.forEach(b => { b.prepMissing = steps.length ? stepStatus(b, steps).missing : [] }) }
   // ลูกค้าของฉันที่ติดต่อแล้ววันนี้ (ทุกสถานะ) — ให้กำลังใจ/วัดกิจกรรมของวัน
   out.contactedToday = alive(customers).filter(c => bangkokDate(c.lastContactAt) === today && mine(c.assignedTo, c)).length
   out.total = out.followups.length + out.stale.length + out.income.length + out.stuck.length + out.finance.length + out.unscheduled.length
@@ -185,7 +188,8 @@ export function topPriorities(d, limit = 3, { short = false } = {}) {
   ;(d.newLeads || []).forEach(c => add({ key: 'new:' + c.id, icon: '🧲', title: `โทรหา Lead ใหม่ ${nm(c)}`, why: `${c.waitDays ? `เข้ามา${c.waitDays === 1 ? 'เมื่อวาน' : ` ${c.waitDays} วันก่อน`} ยังไม่มีใครติดต่อ` : `เข้ามาวันนี้${leadWait(c) ? ` (${leadWait(c).label})` : ''}`}${c.interestedModel ? ` สนใจ ${c.interestedModel}` : ''} · โทรภายในชั่วโมงแรกโอกาสปิดสูงสุด`, score: c.lastContactAt && bangkokDate(c.lastContactAt) === bangkokDate(c.createdAt) ? 20 : 100, customerId: c.id, phone: c.phone }))
   ;(d.returning || []).forEach(c => add({ key: 'back:' + c.id, icon: '📣', title: `โทรกลับ ${nm(c)} (ลูกค้าเดิมทักมาอีกครั้ง)`, why: `${c.backDays ? (c.backDays === 1 ? 'ทักมาเมื่อวาน' : `ทักมา ${c.backDays} วันก่อน`) : 'ทักมาวันนี้'}${c.reEnquiredModel || c.interestedModel ? ` สนใจ ${c.reEnquiredModel || c.interestedModel}` : ''} · ลูกค้าที่กลับมาเองพร้อมคุยที่สุด`, score: 98 - Math.min(6, (c.backDays || 0) * 3), customerId: c.id, phone: c.phone }))
   ;(d.lineWaiting || []).forEach(w => add({ key: 'line:' + w.id, icon: '💬', title: `ตอบ LINE ${nm(w)}`, why: `ทักมายังไม่มีใครตอบ${w.text ? `: "${String(w.text).slice(0, 40)}"` : ''}`, score: 88, customerId: w.customerId, lineThread: w.id }))
-  ;(d.deliveries || []).filter(b => b.inDays === 0).forEach(b => add({ key: 'dlv:' + b.id, icon: '🚗', title: `ส่งมอบรถ ${nm(b)} วันนี้`, why: `${car(b) || 'รถ'}${b.deliveryTime ? ` เวลา ${b.deliveryTime}` : ''} · เช็กรถและเอกสารให้พร้อม`, score: 95, bookingId: b.id, phone: b.phone || b.custPhone }))
+  ;(d.deliveries || []).filter(b => b.inDays > 0 && b.inDays <= 3 && (b.prepMissing || []).length).forEach(b => add({ key: 'prep:' + b.id, icon: '🧾', title: `เตรียมส่งมอบ ${nm(b)} (${b.inDays === 1 ? 'พรุ่งนี้' : `อีก ${b.inDays} วัน`})`, why: `ยังขาด: ${b.prepMissing.join(', ')}`, score: 92 - b.inDays, bookingId: b.id }))
+  ;(d.deliveries || []).filter(b => b.inDays === 0).forEach(b => add({ key: 'dlv:' + b.id, icon: '🚗', title: `ส่งมอบรถ ${nm(b)} วันนี้`, why: `${car(b) || 'รถ'}${b.deliveryTime ? ` เวลา ${b.deliveryTime}` : ''} · ${(b.prepMissing || []).length ? `⚠️ ยังขาด: ${b.prepMissing.join(', ')}` : 'เช็กรถและเอกสารให้พร้อม'}`, score: 95, bookingId: b.id, phone: b.phone || b.custPhone }))
   ;(d.hotNoPlan || []).forEach(c => add({ key: 'hot:' + c.id, icon: '🔴', title: `นัดลูกค้า Hot ${nm(c)}`, why: 'สนใจมากแต่ยังไม่มีนัดครั้งถัดไป', score: 90, customerId: c.id, phone: c.phone }))
   ;(d.followups || []).forEach(f => add({ key: 'fu:' + f.id, icon: '📞', title: `ติดต่อ ${nm(f)}`, why: `${f.purpose || 'นัดติดตาม'}${f.late > 0 ? ` · เลยกำหนด ${f.late} วัน` : ' · ครบกำหนดวันนี้'}`, score: 78 + Math.min(10, f.late || 0), customerId: f.customerId, phone: f.phone }))
   ;(d.finance || []).forEach(b => add({ key: 'fin:' + b.id, icon: '🏦', title: b.rejected ? `หาไฟแนนซ์ใหม่ให้ ${nm(b)}` : `ตามผลไฟแนนซ์ ${nm(b)}`, why: b.rejected ? 'ไฟแนนซ์ไม่ผ่าน ลูกค้ายังรอรถอยู่' : `รอผลมา ${b.days} วันแล้ว`, score: b.rejected ? 76 : 60 + Math.min(10, b.days || 0), bookingId: b.id, phone: b.phone || b.custPhone }))
