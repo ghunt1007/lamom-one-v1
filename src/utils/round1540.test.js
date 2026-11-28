@@ -132,3 +132,11 @@ describe('ใบจองวันนี้ (v1.0.1551)', () => {
     expect(parseOpsSpec('ใบจองเมื่อวาน')).toMatchObject({ kind: 'bookday', day: 'yesterday' })
   })
 })
+
+describe('ลีดที่ยังไม่มีคนรับ (v1.0.1552)', () => {
+  it('routes to unassigned', () => {
+    expect(parseOpsSpec('ลีดใหม่ที่ยังไม่มีคนรับ')?.kind).toBe('unassigned')
+    expect(parseOpsSpec('ลูกค้าที่ยังไม่มีใครรับ')?.kind).toBe('unassigned')
+    expect(parseOpsSpec('ลูกค้าที่ยังไม่มีคนรับสาย')?.kind).not.toBe('unassigned')
+  })
+})
