@@ -14,6 +14,22 @@ const ASK = /ใครบ้าง|มีใคร|คนไหน|กี่ค�
 const FIN = ['รอผลไฟแนนซ์', 'จัดไฟแนนซ์ก่อนจอง']
 const WAIT_DELIV = ['รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
 
+// (v1.0.1539) คอลัมน์ Y/N ของ Sheet ที่ถามได้ว่า "ใบไหนยังไม่ได้…"
+const YN_ASK = [
+  { re: /เบิก\s*สาย\s*ชาร์จ/, f: 'chargerRequested', h: 'เบิกสายชาร์จ', label: 'เบิกสายชาร์จ' },
+  { re: /สาย\s*ชาร์จ/, f: 'chargerGiven', h: 'ให้สายชาร์จ', label: 'ให้สายชาร์จ' },
+  { re: /(?:แจ้ง|ทำ|ส่ง)\s*ประกัน/, f: 'insuranceNotified', h: 'แจ้งประกัน', label: 'แจ้งประกัน', not: /ต่อ\s*ประกัน|หมด/ },
+  { re: /allocate|อัลโล\S*|แอลโล\S*/i, f: 'allocated', h: 'Allocate', label: ' Allocate' },
+  { re: /ชุด\s*ขาย/, f: 'salesKit', h: 'ชุดขาย', label: 'ให้ชุดขาย' },
+  { re: /เช็ค\s*รายการ|checklist|เช็คลิสต์/i, f: 'checklistDone', h: 'เช็ครายการ', label: 'เช็ครายการ' },
+  { re: /(?:จอง|ลง|คีย์)\s*(?:ใน)?\s*dms/i, f: 'dmsBooked', h: 'จองDMS', label: 'จองใน DMS' },
+]
+export function bookingYnColumn(s) {
+  const m = String(s || '').match(/ยัง\s*ไม่(?:ได้)?\s*(?:มี|ให้|รับ|ได้|ทำ)?\s*(.{0,30})/)
+  if (!m) return null
+  const y = YN_ASK.find(x => x.re.test(m[1]) && !(x.not && x.not.test(s)))
+  return y ? { f: y.f, h: y.h, label: y.label } : null
+}
 export function parseBookingListSpec(q) {
   const s = thaiNumerals(String(q || '').trim()).replace(/[?？]+$/, '').trim()
   // (v1.0.1465) "รอไฟแนนซ์นาน" / "ลูกค้าที่รอไฟแนนซ์นานเกินไป" — ไม่มีคำถาม แต่ชัดว่าอยากเห็นรายการ
@@ -24,10 +40,10 @@ export function parseBookingListSpec(q) {
   // (v1.0.1533) "ใครยังไม่ได้ตัดรถ" / "รถที่ยังไม่ได้เบิก" → ใบที่พร้อมเบิกรถ (ผ่านไฟแนนซ์รอเบิก + ซื้อสดรอเบิกรถ)
   const drawWait = !cutWait && /ยัง\s*ไม่(?:ได้)?\s*(?:ตัด|เบิก)\s*(?:รถ|ตัวเลข|เลข)?(?!\S*(?:ส่งมอบ|ซ่อม|เงิน))/.test(s) && !/ทะเบียน|ป้าย/.test(s)
   // (v1.0.1538) "รถที่จองแล้วยังไม่มีเลขตัวถัง" — ไม่มีคำถาม แต่ชัดว่าอยากเห็นรายการ
-  // (v1.0.1538) "ใบจองที่ยังไม่ได้แจ้งประกัน" / "ใครยังไม่ได้รับสายชาร์จ" → คอลัมน์ Y/N ใน Sheet
-  const noIns = /ยัง\s*ไม่(?:ได้)?\s*(?:แจ้ง|ทำ|ส่ง)\s*ประกัน/.test(s) && !/ต่อ\s*ประกัน|หมด/.test(s)
-  const noCharger = /ยัง\s*ไม่(?:ได้)?\s*(?:ให้|รับ|ได้|เบิก)?\s*สาย\s*ชาร์จ/.test(s)
-  const vinAsk = noIns || noCharger || /จอง/.test(s) && /ยัง\s*ไม่(?:ได้)?\s*(?:มี|ใส่|กรอก|ลง)?\s*(?:เลข)?\s*(?:ตัวถัง|vin|คัสซี)/i.test(s)
+  // (v1.0.1538–1539) "ใบจองที่ยังไม่ได้แจ้งประกัน" / "ใครยังไม่ได้รับสายชาร์จ" / "ยังไม่ allocate" → คอลัมน์ Y/N ใน Sheet
+  const ynCol = bookingYnColumn(s)
+  const noIns = !!ynCol
+  const vinAsk = noIns || /จอง/.test(s) && /ยัง\s*ไม่(?:ได้)?\s*(?:มี|ใส่|กรอก|ลง)?\s*(?:เลข)?\s*(?:ตัวถัง|vin|คัสซี)/i.test(s)
   if (!s || s.length > 120 || !(ASK.test(s) || modelAsk || cutWait || drawWait || vinAsk || (/^(?:ลูกค้า|ใบจอง)/.test(s) && /(?:เกิน|นานกว่า|มากกว่า)\s*\d{1,3}\s*วัน|^(?:ลูกค้า|ใบจอง)\s*(?:ที่)?\s*(?:ยัง)?\s*รอ\S{0,14}\s*(?:จาก)?\s*ไฟแนนซ์/.test(s)) || /^(?:ลูกค้า|ใบจอง)?\s*(?:ที่)?\s*(?:รอ(?:ผล)?\s*ไฟแนนซ์|รอรถ|รอส่งมอบ)\s*(?:นาน|ค้างนาน)/.test(s))) return null
   // (v1.0.1116) "ทีมฉันมีใบจองค้างกี่ใบ" — คำว่าทีมใช้ได้ถ้าถามเรื่องใบจอง (ขอบเขตทีมจัดการโดยสิทธิ์อยู่แล้ว)
   if (/ทีม/.test(s) && !/ใบจอง/.test(s)) return null
@@ -71,12 +87,12 @@ export function parseBookingListSpec(q) {
   const noLine = /(?:ยังไม่|ไม่)(?:ได้)?\s*(?:มี|ผูก|เชื่อม|ลิงก์|ลิ้งค์|แอด|add)\s*(?:กับ)?\s*(?:ไลน์|line)/i.test(s)
   // (v1.0.1505) "ใบจองที่ยังไม่ได้ส่งเคสไฟแนนซ์" → ใบผ่อนที่ยังเปิด ยังไม่มีวันที่ส่งเคส และยังไม่ผ่านไฟแนนซ์
   const noSubmit = /ยัง\s*ไม่(?:ได้)?\s*(?:ส่ง|ยื่น)\s*(?:เคส|เอกสาร)?\s*(?:ไฟแนนซ์|แบงค์|แบงก์|ธนาคาร)|ยัง\s*ไม่(?:ได้)?\s*ส่ง\s*เคส/.test(s)
-  const none = !noIns && !noCharger && !noSign && !statuses && !when && !stuck && !noVin && !noDeposit && !noDown && !noColor && !noDocs && !finFail && !allOpen && !late && !noLine && !noSubmit
+  const none = !noIns && !noSign && !statuses && !when && !stuck && !noVin && !noDeposit && !noDown && !noColor && !noDocs && !finFail && !allOpen && !late && !noLine && !noSubmit
   if (none && !(seller && /ใบจอง/.test(s)) && !modelAsk) return null
   // (v1.0.1478) "ลูกค้าที่จอง S07 ยังไม่ได้รถ" → กรองตามรุ่นที่พิมพ์ (คำภาษาอังกฤษที่มีตัวเลข เช่น S07 / L07 / ATTO 3 / AION V)
   const mt = s.replace(/line|vin|hot|warm|cold|lead|sms|dms/ig, ' ').match(/[A-Za-z]+(?:\s?[A-Za-z]*\d+[A-Za-z]?|\s[A-Za-z]{1,2}(?![A-Za-z]))|[A-Za-z]\d{1,3}/)
   const modelQ = mt ? mt[0].trim() : ''
-  return { ...(modelQ ? { modelQ } : {}), ...(noIns ? { noIns } : {}), ...(noCharger ? { noCharger } : {}), ...(noSign ? { noSign } : {}), late, allOpen: (allOpen || none) && !noSubmit && !noSign && !noIns && !noCharger, ...(seller ? { seller: true } : {}), noVin, noDeposit, noDown, ...(noColor ? { noColor } : {}), ...(noLine ? { noLine } : {}), ...(noDocs && !noSubmit ? { noDocs } : {}), ...(noSubmit ? { noSubmit } : {}), ...(finFail ? { finFail } : {}), ...(arrive && !noDate && !finFail ? { arrive: true } : {}), statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
+  return { ...(modelQ ? { modelQ } : {}), ...(ynCol ? { ynCol } : {}), ...(noSign ? { noSign } : {}), late, allOpen: (allOpen || none) && !noSubmit && !noSign && !noIns, ...(seller ? { seller: true } : {}), noVin, noDeposit, noDown, ...(noColor ? { noColor } : {}), ...(noLine ? { noLine } : {}), ...(noDocs && !noSubmit ? { noDocs } : {}), ...(noSubmit ? { noSubmit } : {}), ...(finFail ? { finFail } : {}), ...(arrive && !noDate && !finFail ? { arrive: true } : {}), statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
 }
 
 export function bookingListLabel(spec) {
@@ -89,8 +105,7 @@ function bookingListLabel0(spec) {
   if (spec.late) return 'นัดส่งมอบเลยวันแล้วแต่ยังไม่ส่งมอบ'
   if (spec.allOpen && !spec.noSign && !spec.noVin && !spec.noDeposit && !spec.noDown && !spec.noColor && !spec.noLine && !spec.noDocs && !spec.finFail && !spec.stuck) return 'ใบจองที่ยังไม่ส่งมอบ'
   if (spec.noColor) return 'ใบจองที่ยังไม่ได้ใส่สีรถ'
-  if (spec.noIns) return 'ใบจองที่ยังไม่ได้แจ้งประกัน (คอลัมน์ แจ้งประกัน ใน Sheet)'
-  if (spec.noCharger) return 'ใบจองที่ยังไม่ได้ให้สายชาร์จ (คอลัมน์ ให้สายชาร์จ ใน Sheet)'
+  if (spec.ynCol) return `ใบจองที่ยังไม่ได้${spec.ynCol.label} (คอลัมน์ ${spec.ynCol.h} ใน Sheet ยังไม่เป็น Y)`
   if (spec.noLine) return 'ใบจองที่ลูกค้ายังไม่ผูก LINE'
   if (spec.noSign) return 'ใบจองผ่อนที่ยังไม่ได้เซ็นสัญญา'
   if (spec.noSubmit) return 'ใบจองผ่อนที่ยังไม่ได้ส่งเคสไฟแนนซ์'
@@ -130,8 +145,7 @@ export function bookingTargets({ customers = [], bookings = [], today, spec, tom
     if (spec.noDown && ((Number(b.down) || 0) > 0 || b.finStatus === 'ซื้อสด')) return
     if (spec.noColor && String(b.color || '').trim()) return
     if (spec.noLine && (b.lineUserId || !isOpenBooking(b))) return
-    if (spec.noIns && (String(b.insuranceNotified || '').toUpperCase() === 'Y' || !isOpenBooking(b))) return
-    if (spec.noCharger && (String(b.chargerGiven || '').toUpperCase() === 'Y' || !isOpenBooking(b))) return
+    if (spec.ynCol && (String(b[spec.ynCol.f] || '').toUpperCase() === 'Y' || !isOpenBooking(b))) return
     if (spec.noDocs && (b.files || []).length) return
     if (spec.finFail && b.finStatus !== 'ไม่ผ่าน') return
     if (spec.noSign && !(b.finStatus === 'รอเซ็นสัญญา' || b.finStatus === 'รอเซ็นต์' || (b.finStatus === 'ผ่าน' && !isDate(b.signDate)))) return
