@@ -137,3 +137,15 @@ describe('better/worse than last month (v1.0.1469)', () => {
     expect(isMonthQuestion('รุ่นไหนคนสนใจเยอะ')).toBe(false)
   })
 })
+
+describe('findModel (v1.0.1479)', async () => {
+  const { findModel, sameModel } = await import('./monthBrief.js')
+  it('finds the model the question names', () => {
+    const bk = [{ brand: 'DEEPAL', model: 'S07' }, { brand: 'AION', model: 'AION V' }, { brand: 'DEEPAL', model: 'L07' }]
+    expect(findModel('S07 ขายได้กี่คันเดือนนี้', bk)).toBe('S07')
+    expect(findModel('ยอดจอง aion v เดือนนี้', bk)).toBe('AION V')
+    expect(findModel('ยอดเดือนนี้เป็นไง', bk)).toBe('')
+    expect(sameModel({ brand: 'DEEPAL', model: 'S07' }, 'S07')).toBe(true)
+    expect(sameModel({ brand: 'DEEPAL', model: 'L07' }, 'S07')).toBe(false)
+  })
+})

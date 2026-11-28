@@ -231,12 +231,14 @@ export async function loadMonthBrief(q) {
   const outside = !seller && !whole && mb.findSeller(q, all.map(b => b.salesName))
   if (outside) return { text: `🔒 ดูยอดของ ${outside} ไม่ได้ — คุณดูได้เฉพาะยอดของตัวเอง${vis.hasSubordinates ? 'และลูกทีม' : ''}`, next: ['ยอดเดือนนี้เป็นไง', 'ทีมวันนี้เป็นไง'] }
   if (seller) bookings = bookings.filter(b => normName(b.salesName) === normName(seller))
-  const target = Object.entries(tdoc?.targets || {}).reduce((s, [n, v]) => s + ((seller ? normName(n) === normName(seller) : whole || vis.names?.has(normName(n))) ? Number(v) || 0 : 0), 0)
-  const scopeLabel = seller ? `👤 ${seller}` : whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ'
+  const model = mb.findModel(q, bookings) // (v1.0.1479) ถามเจาะรุ่น → นับเฉพาะรุ่นนั้น (ไม่มีเป้ารายรุ่น)
+  if (model) bookings = bookings.filter(b => mb.sameModel(b, model))
+  const target = model ? 0 : Object.entries(tdoc?.targets || {}).reduce((s, [n, v]) => s + ((seller ? normName(n) === normName(seller) : whole || vis.names?.has(normName(n))) ? Number(v) || 0 : 0), 0)
+  const scopeLabel = (seller ? `👤 ${seller}` : whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ') + (model ? ` · 🚗 ${model}` : '')
   if (per) return { text: mb.periodBriefText(mb.periodStats({ bookings, today, period: per.period, prev: per.prev }), { scope: scopeLabel, colors: mb.isColorRankQuestion(q) }), next: ['ยอดเดือนนี้เป็นไง', per.period === 'year' ? 'ยอดไตรมาสนี้' : 'ปีนี้ขายได้กี่คัน', 'รถรุ่นไหนขายดีสุดเดือนนี้'] }
   const st = mb.monthStats({ bookings, today, target })
   if (past) return { text: mb.monthBriefText(st, { scope: scopeLabel, past: true, models: mb.isModelRankQuestion(q), colors: mb.isColorRankQuestion(q), value: mb.isValueQuestion(q) }), next: ['ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนก่อนเท่าไหร่', 'ลูกค้าเสียดีลเดือนก่อนมีใครบ้าง'] }
-  return { text: mb.monthBriefText(st, { scope: scopeLabel, models: mb.isModelRankQuestion(q), colors: mb.isColorRankQuestion(q), value: mb.isValueQuestion(q) }), next: mb.monthFollowUps(st) }
+  return { text: mb.monthBriefText(st, { scope: scopeLabel, models: !model && mb.isModelRankQuestion(q), colors: mb.isColorRankQuestion(q), value: mb.isValueQuestion(q), noTarget: !!model }), next: mb.monthFollowUps(st) }
 }
 
 // (v1.0.1058) "ค่าคอมเดือนนี้เท่าไหร่ / รายได้เดือนก่อน" → null ถ้าไม่ใช่ · คืน { text, next, go } · ขอบเขตเดียวกับหน้ารายได้รายเซลส์

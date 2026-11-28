@@ -53,6 +53,17 @@ export function findSeller(q, names = []) {
   return first.length === 1 ? first[0] : ''
 }
 
+// (v1.0.1479) "S07 ขายได้กี่คันเดือนนี้" / "ยอดจอง AION V" → หารุ่นจากชื่อรุ่นในใบจองจริง (เต็ม/คำที่มีตัวเลข) · ไม่เจอ = ''
+export function findModel(q, bookings = []) {
+  const s = squash(q)
+  const names = [...new Set(bookings.map(b => String(b?.model || '').trim()).filter(Boolean))].sort((a, b) => b.length - a.length)
+  const full = names.find(m => squash(m).length >= 2 && s.includes(squash(m)))
+  if (full) return full
+  const part = names.find(m => m.split(/\s+/).some(w => w.length >= 2 && /\d/.test(w) && s.includes(squash(w))))
+  return part ? part.split(/\s+/).find(w => w.length >= 2 && /\d/.test(w) && s.includes(squash(w))) : ''
+}
+export const sameModel = (b, m) => !!m && squash([b?.brand, b?.model].join(' ')).includes(squash(m))
+
 // (v1.0.1086) "ยอดเดือนก่อนเป็นไง" / "เดือนที่แล้วขายได้กี่คัน" → สรุปเดือนก่อนทั้งเดือน (เทียบกับเดือนก่อนหน้านั้น)
 const PREV = /เดือน(?:ก่อน|ที่แล้ว)/
 export function isPrevMonthQuestion(q) {
@@ -109,7 +120,7 @@ const bahtM = n => '฿' + Math.round(n).toLocaleString('en-US')
 const valueLines = (s, word) => [`💵 มูลค่ารถที่ส่งมอบ${word} ${bahtM(s.deliveredValue || 0)}${s.deliveredNoPrice ? ` (ไม่นับ ${s.deliveredNoPrice} คันที่ใบจองยังไม่ใส่ราคา)` : ''}`,
   ...(s.bookedValue ? [`📝 มูลค่าใบจองใหม่${word} ${bahtM(s.bookedValue)} (ไม่รวมใบที่ถอน)`] : [])]
 export function isValueQuestion(q) { return /เป็นเงิน|มูลค่า|กี่บาท|เป็นบาท|เท่าไหร่บาท/.test(String(q || '')) }
-export function monthBriefText(s, { scope = '', past = false, models = false, colors = false, value = false } = {}) {
+export function monthBriefText(s, { scope = '', past = false, models = false, colors = false, value = false, noTarget = false } = {}) {
   if (past) {
     const out = [`📊 ยอดเดือนก่อน ${s.label}${scope ? ` — ${scope}` : ''} (ทั้งเดือน)`,
       `🚗 ส่งมอบ ${s.delivered} คัน · เดือนก่อนหน้านั้น ${s.prevDelivered} คัน (${diff(s.delivered, s.prevDelivered)})`,
@@ -128,7 +139,7 @@ export function monthBriefText(s, { scope = '', past = false, models = false, co
   if (value) lines.push(...valueLines(s, 'เดือนนี้'))
   if (s.open) lines.push(`📦 ใบจองที่ยังไม่ส่งมอบ ${s.open} ใบ${s.waitDeliv ? ` · รถพร้อมรอส่งมอบ ${s.waitDeliv} คัน` : ''}${s.fin ? ` · รอไฟแนนซ์ ${s.fin} ใบ` : ''}`)
   if (s.target) lines.push(`🎯 เป้าส่งมอบ ${s.target} คัน · ทำได้ ${Math.round(s.delivered / s.target * 100)}%${s.left ? ` · ขาดอีก ${s.left} คัน` : ' · ถึงเป้าแล้ว 🎉'} · เหลือ ${s.daysLeft} วัน`)
-  else lines.push('🎯 ยังไม่ได้ตั้งเป้าส่งมอบเดือนนี้ (ตั้งได้ที่หน้ารายได้รายเซลส์)')
+  else if (!noTarget) lines.push('🎯 ยังไม่ได้ตั้งเป้าส่งมอบเดือนนี้ (ตั้งได้ที่หน้ารายได้รายเซลส์)')
   if (models) lines.push(...modelLines(s, 'เดือนนี้'))
   if (colors) lines.push(...colorLines(s, 'เดือนนี้'))
   if (s.board.length) lines.push('🏆 อันดับเดือนนี้', ...s.board.map((r, i) => `${i + 1}. ${r.name} — ส่งมอบ ${r.delivered} · จอง ${r.booked}`))
