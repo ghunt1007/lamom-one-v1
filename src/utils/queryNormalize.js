@@ -5,6 +5,16 @@ const MAP = [
   [/\bwho\s+(?:should\s+i|to)\s+call(?:\s+today)?\b/gi, 'วันนี้ควรโทรหาใคร'],
   [/\bcall\s*list\b/gi, 'วันนี้ควรโทรหาใคร'],
   [/\btest\s*-?\s*drives?\b/gi, 'ทดลองขับ'],
+  // (v1.0.1532) เพิ่มคำที่ทีมพิมพ์บ่อย
+  [/\b(?:who\s+is\s+)?waiting\s+for\s+(?:the\s+)?cars?\b/gi, 'ใครรอรถ'],
+  [/\btop\s+sell(?:er|ers|ing)\b/gi, 'เซลส์คนไหนขายดีสุด'],
+  [/\boverdue\s+follow\s*-?\s*ups?\b/gi, 'นัดเลยกำหนด'],
+  [/\bfollow\s*-?\s*ups?\s+today\b/gi, 'วันนี้ควรโทรหาใคร'],
+  [/\bpending\s+finance\b/gi, 'ใครรอไฟแนนซ์'],
+  [/\bfollow\s*-?\s*ups?\b/gi, 'นัดติดตาม'],
+  [/\boverdue\b/gi, 'เลยกำหนด'],
+  [/\bpending\b/gi, 'รอ'],
+  [/\bbooths?\b/gi, 'บูธ'],
   [/\bwalk\s*-?\s*ins?\b/gi, 'walk-in'],
   [/\bhot\s+leads?\b/gi, 'ลูกค้า hot'],
   [/\bnew\s+leads?\b/gi, 'ลูกค้าใหม่'],
@@ -29,7 +39,7 @@ const MAP = [
   [/\byesterday\b/gi, 'เมื่อวาน'],
   [/\bthis\s+year\b/gi, 'ปีนี้'],
 ]
-const ANY = /\b(?:who|call|test|walk|hot|new|leads?|customers?|bookings?|deliver\w*|sales|target|commissions?|stock|finance|refunds?|this|last|next|today|tomorrow|yesterday)\b/i
+const ANY = /\b(?:waiting|top|follow|overdue|pending|booths?|who|call|test|walk|hot|new|leads?|customers?|bookings?|deliver\w*|sales|target|commissions?|stock|finance|refunds?|this|last|next|today|tomorrow|yesterday)\b/i
 
 export function normalizeQuery(q) {
   const s = String(q ?? '')
