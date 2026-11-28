@@ -81,3 +81,18 @@ describe('refund docs + wdcomp (v1.0.1503)', async () => {
     expect(oq.parseOpsSpec('ลูกค้าถอนจองไปซื้อยี่ห้ออะไร')).toEqual({ kind: 'wdcomp' })
   })
 })
+
+describe('v1.0.1505 noSubmit + withdrawn by seller', async () => {
+  const bq = await import('./bookingQuestions.js')
+  const oq = await import('./opsQuestions.js')
+  it('noSubmit list keeps only finance bookings without submitDate', () => {
+    const spec = bq.parseBookingListSpec('ใบจองที่ยังไม่ได้ส่งเคสไฟแนนซ์')
+    const cs = [{ id: 'c1', bookingId: 'b1' }, { id: 'c2', bookingId: 'b2' }, { id: 'c3', bookingId: 'b3' }]
+    const bs = [{ id: 'b1', status: 'ยอดจองคงค้าง', financeCo: 'KBANK', bookingDate: '2026-11-01' }, { id: 'b2', status: 'ยอดจองคงค้าง', financeCo: 'ซื้อสด', bookingDate: '2026-11-01' }, { id: 'b3', status: 'รอผลไฟแนนซ์', financeCo: 'KBANK', submitDate: '2026-11-05', bookingDate: '2026-11-01' }]
+    expect(bq.bookingTargets({ customers: cs, bookings: bs, today: '2026-11-28', spec }).list.map(x => x.b.id)).toEqual(['b1'])
+  })
+  it('by seller', () => {
+    const t = oq.withdrawnBySellerAnswer([{ status: 'ถอนจอง', salesName: 'ก', bookingDate: '2026-11-01' }, { status: 'ส่งมอบแล้ว', salesName: 'ก', bookingDate: '2026-11-02' }], { today: '2026-11-28' }).text
+    expect(t).toContain('1. ก — ถอน 1 จาก 2 ใบ (50%)')
+  })
+})

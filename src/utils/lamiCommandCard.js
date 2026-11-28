@@ -560,7 +560,7 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.deliveredAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, period: spec.period })
   } else if (spec.kind === 'withdrawn' || spec.kind === 'finbank') {
     const bks = (await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b))
-    res = spec.kind === 'withdrawn' ? oq.withdrawnAnswer(bks, { today, prev: spec.prev }) : oq.finBankAnswer(bks, { today })
+    res = spec.kind === 'withdrawn' ? (spec.bySeller ? oq.withdrawnBySellerAnswer(bks, { today }) : oq.withdrawnAnswer(bks, { today, prev: spec.prev })) : oq.finBankAnswer(bks, { today })
   } else if (spec.kind === 'noshow') {
     const [appts, drives] = await Promise.all([listDocs('appointments', f, 'date', 'desc', 500).catch(() => []), listDocs('test_drives', f, 'date', 'desc', 500).catch(() => [])])
     res = oq.noShowAnswer(appts.filter(a => mine(a.salesperson, a)), drives.filter(t => mine(t.staff, t)), { today, range: spec.range, cancelled: spec.cancelled })

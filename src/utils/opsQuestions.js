@@ -96,8 +96,8 @@ export function parseOpsSpec(q) {
   // (v1.0.1091) "ใครถอนจองเดือนนี้" / "เดือนนี้ถอนจองกี่ใบ"
   // (v1.0.1503) "ลูกค้าถอนจองไปซื้อยี่ห้ออะไร" → ยี่ห้อ/รุ่นคู่แข่งที่บันทึกตอนถอนจอง
   if (has(s, /ถอน|ยกเลิก\s*จอง/) && has(s, /ไป\s*ซื้อ|ยี่ห้อ(?:อื่น|ไหน|อะไร)|คู่แข่ง|เสียให้/) && !has(s, /^(?:ใส่|แก้|บันทึก)/)) return { kind: 'wdcomp' }
-  if (/^(?:ถอน|ยกเลิก)\s*(?:ใบ)?\s*จอง.{0,14}(?:กี่|เท่าไ|บ้าง|มีใคร|ใครบ้าง)/.test(s)) return { kind: 'withdrawn', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) } // (v1.0.1462) "ยกเลิกจองกี่ใบ"
-  if (has(s, /ถอนจอง|ยกเลิกจอง|ถอนใบจอง|ยกเลิกใบจอง|ถอนการจอง|ยกเลิกการจอง|จอง(?:แล้ว)?(?:แต่)?\s*(?:ถอน|ยกเลิก)/) && !has(s, /^(?:ถอน|ยกเลิก)/)) return { kind: 'withdrawn', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
+  if (/^(?:ถอน|ยกเลิก)\s*(?:ใบ)?\s*จอง.{0,14}(?:กี่|เท่าไ|บ้าง|มีใคร|ใครบ้าง)/.test(s)) return { kind: 'withdrawn', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s), ...(/เซลส์|เซล|ใคร|คนไหน/.test(s) && /เยอะ|มาก|บ่อย|สุด|แต่ละ|รายคน/.test(s) ? { bySeller: true } : {}) } // (v1.0.1462) "ยกเลิกจองกี่ใบ"
+  if (has(s, /ถอนจอง|ยกเลิกจอง|ถอนใบจอง|ยกเลิกใบจอง|ถอนการจอง|ยกเลิกการจอง|จอง(?:แล้ว)?(?:แต่)?\s*(?:ถอน|ยกเลิก)/) && !has(s, /^(?:ถอน|ยกเลิก)/)) return { kind: 'withdrawn', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s), ...(has(s, /เซลส์|เซล|ใคร|คนไหน/) && has(s, /เยอะ|มาก|บ่อย|สุด|แต่ละ|รายคน/) ? { bySeller: true } : {}) }
   // (v1.0.1091) "ลูกค้าที่นัดแล้วไม่มา" (นัดโชว์รูม + ทดลองขับที่บันทึกว่าไม่มา)
   // (v1.0.1121) "ใครยกเลิกนัด" · "ลูกค้าที่ยกเลิกนัดทดลองขับ" → นัดที่ถูกยกเลิก (ไม่ใช่คำสั่งยกเลิกนัด)
   if (has(s, /ยกเลิก\s*(?:การ)?\s*นัด|นัด.{0,20}(?:โดน|ถูก)?ยกเลิก|แคนเซิล\s*นัด/) && has(s, /^ใคร|ใครบ้าง|มีใคร|ลูกค้า(?:ที่|คนไหน)|กี่(?:คน|ราย)|บ้าง|ไหม|มั้ย/) && !has(s, /^(?:ช่วย)?ยกเลิก/)) return { kind: 'noshow', cancelled: true, range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : 30 }
@@ -450,6 +450,21 @@ const monthRange = (today, prev) => {
   return [from, addDays(today.slice(0, 7) + '-01', -1), 'เดือนก่อน']
 }
 // ใบจองที่ถอนในเดือน (นับตามเดือนที่จอง · ตรงกับตัวเลข "ถอน" ในสรุปยอด)
+// (v1.0.1505) "เซลส์คนไหนถอนจองเยอะสุด" → 90 วัน รายเซลส์: ใบที่ถอน / ใบจองทั้งหมดของคนนั้น (ตามวันจอง)
+export function withdrawnBySellerAnswer(bookings, { today, days = 90 }) {
+  const from = addDays(today, -days)
+  const inR = alive(bookings).filter(b => { const d = String(b.bookingDate || '').slice(0, 10); return d >= from && d <= today })
+  const g = {}
+  inR.forEach(b => { const k = String(b.salesName || '').trim() || '(ไม่ระบุเซลส์)'; const r = (g[k] ||= { name: k, n: 0, wd: 0 }); r.n++; if (CANCEL.test(b.status || '')) r.wd++ })
+  const rows = Object.values(g).filter(r => r.wd).sort((a, b) => b.wd - a.wd || b.wd / b.n - a.wd / a.n)
+  const span = `${days} วันล่าสุด (${dmy(from)}–${dmy(today)}) ตามวันจอง`
+  if (!rows.length) return { n: 0, text: `✅ ไม่มีใบจองที่ถอนใน ${span} · จองทั้งหมด ${inR.length} ใบ` }
+  const tot = rows.reduce((a, r) => a + r.wd, 0)
+  return { n: tot, text: [`↩️ ถอนจองรายเซลส์ — ${span} · รวม ${tot} จาก ${inR.length} ใบ`,
+    ...rows.slice(0, 10).map((r, i) => `${i + 1}. ${r.name} — ถอน ${r.wd} จาก ${r.n} ใบ (${Math.round(r.wd / r.n * 100)}%)`),
+    'ℹ️ % = ใบที่ถอน ÷ ใบจองของคนนั้นในช่วงเดียวกัน'].join('\n') }
+}
+
 export function withdrawnAnswer(bookings, { today, prev = false }) {
   const [from, to, label] = monthRange(today, prev)
   const inM = alive(bookings).filter(b => { const d = String(b.bookingDate || '').slice(0, 10); return d >= from && d <= to })
