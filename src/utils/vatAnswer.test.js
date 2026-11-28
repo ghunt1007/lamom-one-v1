@@ -259,3 +259,12 @@ describe('modelInterestText (v1.0.1500)', async () => {
     expect(oq.parseOpsSpec('รุ่นไหนมีคนถามเยอะสุดเดือนนี้')).toEqual({ kind: 'modelfunnel', period: 'month' })
   })
 })
+
+describe('routing v1.0.1504', async () => {
+  const oq = await import('./opsQuestions.js')
+  it('ready-to-deliver goes to booking list; plates count words', () => {
+    expect(oq.parseOpsSpec('มีรถพร้อมส่งมอบกี่คัน')).toBe(null)
+    expect(oq.parseOpsSpec('ส่งมอบวันนี้กี่คัน')).toMatchObject({ kind: 'delivery', day: 'today' })
+    expect(oq.parseOpsSpec('ป้ายแดงหายไปกี่ป้าย')).toEqual({ kind: 'plate' })
+  })
+})
