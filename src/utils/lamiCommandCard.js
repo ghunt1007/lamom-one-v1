@@ -280,6 +280,11 @@ export async function loadStockAnswer(q) {
 // (v1.0.1054) "S07 ดาวน์ 20% ผ่อน 60 งวดเท่าไหร่ / ผ่อน AION V เดือนละเท่าไหร่" → null ถ้าไม่ใช่ · คืน { text, next, go }
 export async function loadPayAnswer(q) {
   const pq = await import('./payQuestions.js')
+  if (pq.isRateQuestion(q)) {
+    let banks = []
+    try { const { listDocs } = await import('../core/db.js'); banks = await listDocs('finance_banks', [], 'name', 'asc', 50) } catch {}
+    return { text: pq.ratesAnswer(banks), next: ['ผ่อน DEEPAL S07 ดาวน์ 20% 60 งวด เดือนละเท่าไหร่', 'ไฟแนนซ์ไหนอนุมัติเยอะสุด'], go: { path: '/finance/loan-calc', label: '🧮 เปิดหน้าคำนวณค่างวด' } }
+  }
   if (!pq.maybePayQuestion(q)) return null
   const { getVehicles } = await import('../data/vehicleDatabase.js')
   const parsed = pq.parsePaySpec(q, getVehicles())

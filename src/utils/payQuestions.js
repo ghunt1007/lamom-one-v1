@@ -68,6 +68,21 @@ export function realRates(banks = []) {
   }
   return Object.keys(out).length ? out : null
 }
+// (v1.0.1507) "ดอกเบี้ยไฟแนนซ์เท่าไหร่" / "ไฟแนนซ์ไหนดอกถูกสุด" / "เรทไฟแนนซ์ตอนนี้" → ตารางเรทจริงที่ตั้งไว้
+export function isRateQuestion(q) {
+  const s = String(q || '')
+  return s.length <= 70 && /ดอกเบี้ย|ดอก\s*(?:ถูก|ต่ำ|แพง|สูง)|เรท\s*(?:ไฟแนนซ์|ดอก|แบงค์|แบงก์|ธนาคาร)|อัตรา\s*ดอก/.test(s) && !/\d\s*(?:งวด|เดือน|%)|ดาวน์|ค่างวด|ผ่อน\s*(?:เดือนละ|งวดละ)|ตั้ง|แก้|เปลี่ยน|บันทึก/.test(s)
+}
+export function ratesAnswer(banks = []) {
+  const list = (banks || []).filter(b => b && !b.deleted && Object.values(b.rates || {}).some(v => Number(v) > 0))
+  if (!list.length) return '🏦 ยังไม่ได้ตั้งเรทดอกเบี้ยไฟแนนซ์จริงในระบบ — ตั้งได้ที่หน้าคำนวณค่างวด (✏️ ตั้งอัตราดอกเบี้ย) แล้ว LAMI จะตอบจากเรทจริง'
+  const terms = [...new Set(list.flatMap(b => Object.keys(b.rates || {}).filter(m => Number(b.rates[m]) > 0)))].map(Number).sort((a, b) => a - b)
+  const best = realRates(list)
+  const pct = v => `${Math.round(Number(v) * 100) / 100}%`
+  return ['🏦 เรทดอกเบี้ยไฟแนนซ์ (flat ต่อปี · ตามที่ตั้งไว้ในหน้าคำนวณค่างวด)',
+    ...list.map(b => `• ${String(b.name || 'ไม่ระบุชื่อ').trim()} — ` + terms.filter(m => Number(b.rates[m]) > 0).map(m => `${m} งวด ${pct(b.rates[m])}`).join(' · ')),
+    best ? '🏅 ถูกสุด: ' + terms.filter(m => best[m]).map(m => `${m} งวด ${pct(best[m].rate)} (${best[m].name})`).join(' · ') : ''].filter(Boolean).join('\n')
+}
 // ใส่อัตราจริงลง spec (เฉพาะเมื่อผู้ใช้ไม่ได้พิมพ์ดอกเบี้ยเอง) — ใช้ตอนโหลดคำตอบ
 export function withRealRates(spec, banks) {
   const real = spec && spec.rate == null ? realRates(banks) : null
