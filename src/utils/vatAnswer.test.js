@@ -148,3 +148,19 @@ describe('empty data is not "all good" (v1.0.1492)', () => {
     expect(noPhoneAnswer([{ id: 'a', phone: '0811111111' }]).text).toContain('มีเบอร์โทรแล้ว')
   })
 })
+
+import { closeRateAnswer } from './opsQuestions.js'
+describe('per-seller close rate (v1.0.1493)', () => {
+  it('ranks sellers with ≥3 new customers in 90 days', () => {
+    const c = (id, who, created, extra = {}) => ({ id, assignedTo: who, createdAt: created, ...extra })
+    const cs = [c('a1', 'เอ', '2026-11-01', { bookingId: 'b1' }), c('a2', 'เอ', '2026-11-02', { bookingId: 'b2' }), c('a3', 'เอ', '2026-11-03'),
+      c('k1', 'บี', '2026-10-01', { bookingId: 'b3' }), c('k2', 'บี', '2026-10-02'), c('k3', 'บี', '2026-10-03'), c('z1', 'ซี', '2026-11-01')]
+    const bks = [{ id: 'b1', bookingDate: '2026-11-11', salesName: 'เอ' }, { id: 'b2', bookingDate: '2026-11-12', salesName: 'เอ' }, { id: 'b3', bookingDate: '2026-10-03', salesName: 'บี' }]
+    const r = closeRateAnswer(cs, bks, { today: '2026-11-28', bySeller: true })
+    expect(r.text).toContain('1. เอ — 2/3 คน (67%) · เฉลี่ย 10 วันถึงจอง')
+    expect(r.text).toContain('2. บี — 1/3 คน (33%) · เฉลี่ย 2 วันถึงจอง')
+    expect(r.text).not.toContain('ซี —')
+    const f = closeRateAnswer(cs, bks, { today: '2026-11-28', bySeller: true, fast: true })
+    expect(f.text.indexOf('บี —')).toBeLessThan(f.text.indexOf('เอ —'))
+  })
+})
