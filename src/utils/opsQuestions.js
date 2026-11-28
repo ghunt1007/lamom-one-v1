@@ -168,6 +168,9 @@ export function parseOpsSpec(q) {
   // (v1.0.1117) "ค่าการตลาดเดือนนี้" / "ต้นทุนต่อลีดเท่าไหร่" → ค่าโฆษณาที่ใส่ไว้ + ค่าบูธที่ใช้จริง ÷ ลูกค้าใหม่ (ไม่ใช่ค่าใช้จ่ายเบิก)
   if (has(s, /ค่า(?:ใช้จ่าย)?(?:การ)?ตลาด|ค่าโฆษณา|ค่า(?:ยิง)?แอด|งบ(?:การ)?ตลาด|งบโฆษณา|ต้นทุน\s*(?:ต่อ|หา)\s*(?:ลีด|ลูกค้า|lead)|\bcac\b|\bcpl\b|cost\s*per\s*lead|ลีดละ/i) && !has(s, /^(?:ใส่|บันทึก|เพิ่ม|แก้)/))
     return { kind: 'mktspend', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
+  // (v1.0.1483) "ภาษีขายเดือนนี้" / "เดือนนี้ต้องจ่าย VAT เท่าไหร่" → ภาษีขาย − ภาษีซื้อ (ถอด 7/107 จากราคาจริง แบบหน้า /finance/vat)
+  if (has(s, /ภาษี\s*(?:ขาย|ซื้อ|มูลค่าเพิ่ม)|\bvat\b|แวต|ภ\.?\s*พ\.?\s*30|ภาษี\s*(?:ที่)?\s*ต้อง\s*(?:จ่าย|ชำระ|ยื่น)|ยื่นภาษี/i) && !has(s, /หัก\s*ณ\s*ที่จ่าย|ภาษีรถ|ต่อภาษี|ป้ายภาษี|ภาษีประจำปี|รวม\s*vat|รวมภาษี|ก่อน\s*vat|ไม่รวม/i))
+    return { kind: 'vat', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
   // (v1.0.1098) "ค่าใช้จ่ายเดือนนี้เท่าไหร่" / "กำไรเดือนนี้เท่าไหร่" (ภาพรวมโชว์รูม · เฉพาะผู้จัดการ/เจ้าของ)
   if (has(s, /กำไร|ขาดทุน|p\s*&\s*l|ค่าใช้จ่าย|รายจ่าย|ใช้เงินไป/i) && !has(s, /ต่อคัน|คันละ|รุ่น|ลูกค้า|ดาวน์|ผ่อน|ค่าคอม|อะไหล่|ศูนย์บริการ|ซ่อม|เบิก(?:ได้|ยังไง)/) && !has(s, /^(?:เพิ่ม|บันทึก|เบิก)/))
     return { kind: has(s, /กำไร|ขาดทุน|p\s*&\s*l/i) ? 'profit' : 'expense', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
@@ -935,6 +938,28 @@ function lowStockBase(vehicles, bookings) {
 const thb = n => '฿' + Math.round(Number(n) || 0).toLocaleString('th-TH')
 const prevYm = ym => { const [y, m] = ym.split('-').map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}` }
 const g0 = (real, low) => low && real[0].g < 0 ? `⚠️ ขาดทุน ${real.filter(r => r.g < 0).length} คัน — เช็กส่วนลด/ของแถมก่อนปิดดีลครั้งหน้า` : ''
+// (v1.0.1483) ภาษีมูลค่าเพิ่มรายเดือน — ราคา/ต้นทุนในระบบรวม VAT แล้ว จึงถอด 7/107 (ตรงกับหน้า /finance/vat)
+// ขาออก = ราคาขายจริงของคันที่ขายในเดือน · ขาเข้า = ต้นทุนรถจริง + ใบสั่งซื้อที่รับของแล้ว (ไม่ใช่รถ) · ไม่มีราคาขาย → บอกตรงๆ ไม่โชว์ ฿0
+export function vatAnswer({ sales = [], pos = [], today, prev = false }) {
+  const ym = prev ? prevYm(today.slice(0, 7)) : today.slice(0, 7)
+  const label = `${prev ? 'เดือนก่อน' : 'เดือนนี้'} (${ym.slice(5, 7)}/${+ym.slice(0, 4) + 543})`
+  const vatOf = v => Math.round((Number(v) || 0) * 7 / 107)
+  const inMonth = sales.filter(x => String(x.date || '').slice(0, 7) === ym)
+  const priced = inMonth.filter(x => Number(x.salePrice) > 0)
+  if (!priced.length) return { n: 0, text: `🧾 ภาษีขาย${label}: ${inMonth.length ? `ขายไป ${inMonth.length} คัน แต่ยังไม่มีคันไหนกรอกราคาขาย` : 'ยังไม่มีรถที่ขายในเดือนนี้'} จึงยังคำนวณ VAT ไม่ได้\n💡 ใส่ราคาขายในใบจอง แล้วดูรายละเอียดได้ที่หน้ารายงาน VAT` }
+  const out = priced.reduce((a, x) => a + vatOf(x.salePrice), 0)
+  const costed = inMonth.filter(x => Number(x.cost) > 0)
+  const poIn = pos.filter(p => p && p.status === 'received' && p.cat !== 'vehicle' && Number(p.amount) > 0 && String(p.requestDate || '').slice(0, 7) === ym)
+  const vin = costed.reduce((a, x) => a + vatOf(x.cost), 0) + poIn.reduce((a, p) => a + vatOf(p.amount), 0)
+  const net = out - vin
+  const lines = [`🧾 VAT ${label}`, `• ภาษีขาย ${thb(out)} (${priced.length} คัน${inMonth.length > priced.length ? ` จาก ${inMonth.length} · ${inMonth.length - priced.length} คันยังไม่มีราคาขาย` : ''})`]
+  lines.push(costed.length || poIn.length ? `• ภาษีซื้อ ${thb(vin)} (ต้นทุนรถ ${costed.length} คัน${poIn.length ? ` + ใบสั่งซื้อ ${poIn.length} ใบ` : ''})` : '• ภาษีซื้อ: ยังไม่มีคันไหนกรอกต้นทุนรถ / ใบสั่งซื้อที่รับของ')
+  lines.push(net >= 0 ? `💰 ต้องชำระสุทธิประมาณ ${thb(net)}` : `💰 ขอคืนได้ประมาณ ${thb(-net)}`)
+  if (!costed.length && !poIn.length) lines.push('⚠️ ยังไม่หักภาษีซื้อ ตัวเลขสุทธิจึงสูงกว่าจริง')
+  lines.push('ℹ️ ถอด VAT 7/107 จากราคาที่รวม VAT แล้ว · ใช้ประกอบ ภ.พ.30 ให้บัญชีตรวจอีกครั้ง')
+  return { n: priced.length, text: lines.join('\n') }
+}
+
 export function moneyMonthAnswer({ sales = [], opex = [], today, prev = false, kind = 'expense', saleCost, perUnit = false, low = false, byModel = false }) {
   const ym = prev ? prevYm(today.slice(0, 7)) : today.slice(0, 7)
   const word = prev ? 'เดือนก่อน' : 'เดือนนี้'
@@ -1593,6 +1618,7 @@ export const OPS_LINKS = {
   mktspend: { path: '/marketing/channels', label: '📣 เปิดหน้าช่องทางโซเชียล' },
   csat: { path: '/crm/csat', label: '⭐ เปิดหน้าความพึงพอใจ' },
   profit: { path: '/finance/pl', label: '📈 เปิดหน้ากำไร-ขาดทุน' },
+  vat: { path: '/finance/vat', label: '🧾 เปิดรายงาน VAT' },
   incoming: { path: '/dms/orders', label: '📦 เปิดหน้าสั่งรถ' },
   lowstock: { path: '/dms/stock', label: '🚙 เปิดหน้าสต็อก' },
   forecast: { path: '/dms/color-matrix', label: '📈 เปิดหน้าคาดการณ์สั่งรถ' },
