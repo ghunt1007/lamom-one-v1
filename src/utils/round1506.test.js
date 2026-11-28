@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { parseOpsSpec, weekSummaryAnswer, upgradeAnswer, bookDayAnswer } from './opsQuestions.js'
+import { parseOpsSpec, weekSummaryAnswer, upgradeAnswer, bookDayAnswer, custBySellerAnswer } from './opsQuestions.js'
+import { parseListSpec } from './listQuestions.js'
 import { periodSpec, periodStats, periodBriefText, isSellerSummaryAsk } from './monthBrief.js'
 import { isCallListQuestion } from './callList.js'
 import { parseBookingListSpec } from './bookingQuestions.js'
@@ -80,5 +81,15 @@ describe('v1.0.1506 LAMI routes', () => {
     expect(parseBookingListSpec('ลูกค้าที่จองแล้ว')).toBeNull()
     expect(parseOpsSpec('ลูกค้าที่โทรไม่ติด')).toEqual({ kind: 'noanswer' })
     expect(parseOpsSpec('ลูกค้าที่ต้องส่งมอบก่อนสิ้นเดือน')).toEqual({ kind: 'delivery', day: 'restmonth' })
+  })
+  it('v1.0.1511 customers per seller, trade-in phrasing, no delivery date, model + not booked', () => {
+    expect(parseOpsSpec('เซลส์คนไหนมีลูกค้าเยอะสุด')).toEqual({ kind: 'custbyseller' })
+    const r = custBySellerAnswer([{ assignedTo: 'A', temperature: 'hot', stage: 'lead' }, { assignedTo: 'A', stage: 'pp' }, { stage: 'lead' }, { assignedTo: 'B', isLost: true }])
+    expect(r.text).toContain('1. A — 2 คน · 🔥 HOT 1')
+    expect(r.text).toContain('ยังไม่มีผู้ดูแล — 1 คน')
+    expect(parseOpsSpec('ลูกค้าที่มีรถเก่าจะขาย')).toEqual({ kind: 'tradein' })
+    expect(parseBookingListSpec('ใบจองที่ยังไม่มีวันส่งมอบ').noDate).toBe(true)
+    expect(parseBookingListSpec('ใบจองที่ยังไม่ส่งมอบ').noDate).toBe(false)
+    expect(parseListSpec('ลูกค้าที่สนใจ S07 แต่ยังไม่จอง').model).toBe('s07')
   })
 })

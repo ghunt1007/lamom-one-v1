@@ -35,7 +35,7 @@ export function parseListSpec(q) {
   const quietDays = qm ? (+qm[1] || 7) : null
   const newToday = /(?:ลีด|lead|ลูกค้า)\s*ใหม่/i.test(s) && (!never || /วันนี้/.test(s))
   const noFu = /(?:ยัง)?ไม่(?:มี|ได้)\s*นัด/.test(s)
-  const mm = s.match(/สนใจ\s*(?:รุ่น)?\s*([A-Za-z0-9ก-๙][A-Za-z0-9ก-๙ .\-]{1,24}?)\s*(?=มีใคร|ใครบ้าง|คนไหน|กี่คน|กี่ราย|มี|บ้าง|$)/)
+  const mm = s.match(/สนใจ\s*(?:รุ่น)?\s*([A-Za-z0-9ก-๙][A-Za-z0-9ก-๙ .\-]{1,24}?)\s*(?=\s(?:แต่|ยังไม่|ที่ยัง)|แต่|ยังไม่|มีใคร|ใครบ้าง|คนไหน|กี่คน|กี่ราย|มี|บ้าง|$)/)
   let model = mm ? mm[1].trim().toLowerCase() : null
   // (v1.0.1126) "สนใจแต่ติดเรื่องราคา" ไม่ใช่ชื่อรุ่น
   if (model && /^(?:แต่|ที่|และ|ยัง|อยู่|มาก|จะ|แล้ว|ติด)/.test(model)) model = null
