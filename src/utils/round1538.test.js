@@ -5,8 +5,8 @@ import { parseOpsSpec } from './opsQuestions.js'
 describe('ใบจอง: เลขตัวถัง / แจ้งประกัน / สายชาร์จ (v1.0.1538)', () => {
   it('parses without a question word', () => {
     expect(parseBookingListSpec('รถที่จองแล้วยังไม่มีเลขตัวถัง')?.noVin).toBe(true)
-    expect(parseBookingListSpec('ใบจองที่ยังไม่ได้แจ้งประกัน')?.noIns).toBe(true)
-    expect(parseBookingListSpec('ลูกค้าคนไหนยังไม่ได้รับสายชาร์จ')?.noCharger).toBe(true)
+    expect(parseBookingListSpec('ใบจองที่ยังไม่ได้แจ้งประกัน')?.ynCol?.f).toBe('insuranceNotified')
+    expect(parseBookingListSpec('ลูกค้าคนไหนยังไม่ได้รับสายชาร์จ')?.ynCol?.f).toBe('chargerGiven')
     expect(parseBookingListSpec('ใบจองที่ยังไม่ได้แจ้งประกัน').allOpen).toBe(false)
     expect(bookingListLabel(parseBookingListSpec('ใบจองที่ยังไม่ได้แจ้งประกัน'))).toContain('แจ้งประกัน')
   })
@@ -24,5 +24,12 @@ describe('ใบจอง: เลขตัวถัง / แจ้งประ�
     ]
     const r = bookingTargets({ customers: [{ id: 'ca' }, { id: 'cb' }, { id: 'cc' }], bookings, today: '2026-11-28', spec: parseBookingListSpec('ใบจองที่ยังไม่ได้แจ้งประกัน') })
     expect(r.list.map(x => x.b.id)).toEqual(['b'])
+  })
+  it('maps other Y/N columns (v1.0.1539)', () => {
+    expect(parseBookingListSpec('ใบจองที่ยังไม่ได้ allocate')?.ynCol?.f).toBe('allocated')
+    expect(parseBookingListSpec('รถที่ยังไม่ได้ชุดขาย')?.ynCol?.f).toBe('salesKit')
+    expect(parseBookingListSpec('ใครยังไม่ได้เบิกสายชาร์จ')?.ynCol?.f).toBe('chargerRequested')
+    expect(parseBookingListSpec('ใบจองไหนยังไม่ได้ลง DMS')?.ynCol?.f).toBe('dmsBooked')
+    expect(parseBookingListSpec('ใบจองไหนยังไม่มีเลขตัวถัง')?.ynCol).toBeUndefined()
   })
 })
