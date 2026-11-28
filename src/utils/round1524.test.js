@@ -115,3 +115,13 @@ describe('v1.0.1531 revive lost customer + model words', () => {
     expect(parseLamiCommand('วิไลสนใจมากๆ อยากได้ S07', cs, '2026-11-28')[0]).toMatchObject({ kind: 'model', model: 'S07' })
   })
 })
+
+describe('v1.0.1533 not yet drawn', () => {
+  it('lists bookings waiting to draw the car', () => {
+    const sp = parseBookingListSpec('ใครยังไม่ได้ตัดรถ')
+    expect(sp.statuses).toEqual(['ผ่านไฟแนนซ์รอเบิก', 'ซื้อสดรอเบิกรถ'])
+    expect(bookingListLabel(sp)).toBe('ใบจองที่รอเบิกรถ (ผ่านไฟแนนซ์รอเบิก + ซื้อสดรอเบิกรถ)')
+    expect(parseBookingListSpec('รถที่ยังไม่ได้เบิก').statuses).toEqual(['ผ่านไฟแนนซ์รอเบิก', 'ซื้อสดรอเบิกรถ'])
+    expect(parseBookingListSpec('รถที่ตัดแล้วยังไม่ส่งมอบ').statuses).toEqual(['ตัดตัวเลขรอส่งมอบ'])
+  })
+})
