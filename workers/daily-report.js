@@ -55,7 +55,7 @@ import { runApptRemind } from './apptRemind.js'
 import { runServiceDue, dueListAnswer, serviceDueMorningLine } from './serviceDueRemind.js'
 import { runJobReady } from './jobReadyLine.js'
 import { matchReadyCars, etaForBookings, needsBooking, ORDER_LIVE } from '../src/utils/orderNeeds.js'
-import { waitEtaAnswer, forecastAnswer, refundAnswer } from '../src/utils/opsQuestions.js'
+import { waitEtaAnswer, forecastAnswer, refundAnswer, boothShiftAnswer } from '../src/utils/opsQuestions.js'
 import { parseLinkCode, parseOptCommand, linkByCode, setOptOut, markFollow, runStatusLine, STATUS_BOOKING_FIELDS, STATUS_CUSTOMER_FIELDS } from './lineLink.js'
 import { runScheduledPosts, schedulePost, unschedulePost, listScheduledPosts } from './scheduledPost.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
@@ -771,6 +771,16 @@ async function handleLineWebhook(request, env, cors) {
           reply = clipLine(refundAnswer(mine).text.replace(/\n💡 กด[^\n]*$/, '\n💡 กดส่งเอกสาร/โอนคืนได้ที่หน้าคืนเงินในแอป'))
         } catch { reply = '⚠️ ดึงข้อมูลใบจองไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'booth') {
+      // (v1.0.1523) เวรบูธ 7 วันข้างหน้า (หรือวันนี้/พรุ่งนี้) — ตารางเวรเป็นข้อมูลทีม ไม่มีข้อมูลลูกค้า แต่ให้เฉพาะคนในทีม (ลงทะเบียนแล้ว) หรือเจ้าของ
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      if (me?.name || (!!owner && owner === userId)) {
+        try {
+          const events = await runQuery(env, accessToken, 'marketing_events', null, null, 300, BOOTH_EVENT_FIELDS)
+          reply = clipLine(boothShiftAnswer(events, { today: todayBangkok(), day: cmd.day }).text.replace(/\n💡 [^\n]*$/, '\n💡 จัดเวรได้ที่หน้าออกบูธในแอป'))
+        } catch { reply = '⚠️ ดึงข้อมูลงานออกบูธไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'cxrisk') {
       // (v1.0.1456) ใบจองเสี่ยงถอน — สถิติทั้งร้าน · เซลส์เห็นใบของตัวเอง / เจ้าของเห็นทั้งร้าน
       const me = await readSalesTarget(env, accessToken, userId)
@@ -910,6 +920,7 @@ export function parseLineCommand(text) {
   // (v1.0.1394) สถานะใบจองที่ค้าง: "สถานะ" / "สถานะใบจอง" / "ใบจองค้าง" / "ค้างกี่ใบ"
   if (/^(?:สถานะ|สถานะใบจอง|ใบจองค้าง|ค้างกี่ใบ|ยอดจองค้าง(?:กี่ใบ)?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'sboard' }
   // (v1.0.1520) ใบถอนจองที่รอคืนเงิน: "คืนเงิน" / "รอคืนเงิน" / "คืนจอง"
+  { const m = t.replace(/\s+/g, '').match(/^(?:เวร)?(?:บูธ|ออกบูธ)(วันนี้|พรุ่งนี้)?$|^เวร(วันนี้|พรุ่งนี้)?$/); if (m) return { type: 'booth', day: (m[1] || m[2]) === 'วันนี้' ? 'today' : (m[1] || m[2]) === 'พรุ่งนี้' ? 'tomorrow' : 'week' } }
   if (/^(?:คืนเงิน|คืนเงินจอง|รอคืนเงิน|รอคืนเงินจอง|คืนจอง|คืนมัดจำ|refunds?)$/i.test(t.replace(/\s+/g, ''))) return { type: 'refund' }
   // (v1.0.1456) ใบจองเสี่ยงถอน
   if (/^(?:เสี่ยงถอน|ใบเสี่ยงถอน|ใบจองเสี่ยงถอน|เสี่ยงหลุด|ใครเสี่ยงถอน)$/i.test(t.replace(/\s+/g, ''))) return { type: 'cxrisk' }
@@ -1167,6 +1178,7 @@ export function statusBoardLineAnswer(rows, today, { seller = '', logs = [], max
   return lines.join('\n')
 }
 
+export const BOOTH_EVENT_FIELDS = ['title', 'venue', 'startDate', 'endDate', 'startTime', 'status', 'shifts', 'staff', 'deleted']
 export const REFUND_BOOKING_FIELDS = ['status', 'refundStatus', 'depositRefunded', 'refundDocsSent', 'refundDocsDate', 'refundAmount', 'bookingDeposit', 'down', 'cancelDate', 'bookingDate', 'custName', 'salesName', 'deleted']
 export const DLVFC_BOOKING_FIELDS = ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'custName', 'brand', 'model', 'salesName', 'price', 'deleted']
 // คำตอบ LINE "คาดการณ์ส่งมอบ": seller ว่าง = ทั้งร้าน (มีเป้าทีม) · มี seller = เฉพาะใบของคนนั้น + ใบที่ควรเร่ง (ชื่อลูกค้า ส่งให้เซลส์เจ้าของเท่านั้น)
@@ -2191,6 +2203,7 @@ export const LINE_HELP_TEXT = [
   '• คาดการณ์ส่งมอบ — เดือนนี้น่าจะส่งมอบได้กี่คัน + ใบที่ลุ้นได้',
   '• สถานะ — ใบจองที่ค้างแยกตามสถานะ (รอส่งมอบ/รอเบิก/รอรถ/ไฟแนนซ์)',
   '• ลุ้น — ใบจองที่ลุ้นส่งทันเดือนนี้ เร่งแล้วเพิ่มยอดได้',
+  '• บูธ / บูธพรุ่งนี้ — งานออกบูธ 7 วันข้างหน้า + ใครเข้าเวร',
   '• คืนเงิน — ใบถอนจองที่ยังรอคืนเงินจอง + ยังไม่ส่งเอกสาร',
   '• เสี่ยงถอน — ใบจองที่ค้างนานถึงช่วงที่ร้านเคยถอนสูง ควรโทรเช็ก',
   '• สต็อก — รถพร้อมขาย/กำลังมา/จองแล้ว แยกรุ่นและสี (สต็อก S07 = เฉพาะรุ่น)',
