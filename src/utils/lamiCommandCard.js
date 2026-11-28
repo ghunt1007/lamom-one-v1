@@ -423,9 +423,9 @@ export async function loadOpsAnswer(q, customersPromise) {
     const [appts, drives, fus, customers] = await Promise.all([listDocs('appointments', f, 'date', 'desc', 300).catch(() => []), listDocs('test_drives', f, 'date', 'desc', 300).catch(() => []),
       listDocs('followups', [...f, ...followupWindowFilters(today)], 'dueDate', 'asc', 2000).catch(() => []), customersPromise || visibleCustomersForCommands()])
     const ids = new Set((customers || []).filter(c => c && !c.deleted && mine(c.assignedTo, c)).map(c => c.id))
-    const date = spec.day === 'tomorrow' ? oq.addDaysIso(today, 1) : today
+    const date = oq.apptDate(today, spec)
     const fuDue = fus.filter(x => x && !x.deleted && x.status === 'pending' && ids.has(x.customerId) && String(x.dueDate || '').slice(0, 10) === date).length
-    res = oq.apptDayAnswer(appts.filter(a => mine(a.salesperson, a)), drives.filter(t => mine(t.staff, t)), { today, day: spec.day, fuDue })
+    res = oq.apptDayAnswer(appts.filter(a => mine(a.salesperson, a)), drives.filter(t => mine(t.staff, t)), { today, day: spec.day, wd: spec.wd, next: spec.next, fuDue })
   } else if (spec.kind === 'petty') {
     if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 ยอดเงินสดย่อยดูได้เฉพาะผู้บริหาร/บัญชี' }
     else res = oq.pettyAnswer(await listDocs('petty_cash', f, 'time', 'desc', 500).catch(() => []), { today })
@@ -447,7 +447,7 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'leave') {
     const whole = !!(vis.unrestricted || vis.companyOnly)
     if (!whole && !vis.hasSubordinates) res = { n: 0, locked: true, text: '👥 ข้อมูลการลาของพนักงานดูได้เฉพาะหัวหน้าทีมและผู้จัดการ — เปิดหน้าการลาเพื่อดูของตัวเอง' }
-    else { const rows = await listDocs('leave_requests', f, 'from', 'desc', 500).catch(() => []); res = oq.leaveAnswer(whole ? rows : rows.filter(r => mine(r.staff, r)), { today, day: spec.day }) }
+    else { const rows = await listDocs('leave_requests', f, 'from', 'desc', 500).catch(() => []); res = oq.leaveAnswer(whole ? rows : rows.filter(r => mine(r.staff, r)), { today, day: spec.day, wd: spec.wd, next: spec.next }) }
   } else if (spec.kind === 'arrived') {
     res = oq.arrivedAnswer(await listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), { today, days: spec.days })
   } else if (spec.kind === 'incoming') {

@@ -85,3 +85,11 @@ describe('customer-ready copy (v1.0.1063)', () => {
     expect(ans('รถค้างสต็อกนานมีคันไหน').copy).toBeUndefined()
   })
 })
+
+describe('aged stock phrasing (v1.0.1484)', () => {
+  it('รถในสต็อกเก่าสุด → aged', () => {
+    expect(parseStockSpec('รถในสต็อกเก่าสุด', []).aged).toBe(true)
+    expect(parseStockSpec('สต็อกเก่าๆมีคันไหน', []).aged).toBe(true)
+    expect(parseStockSpec('รถในสต็อกมีอะไร', []).aged).toBe(false)
+  })
+})
