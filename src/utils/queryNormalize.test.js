@@ -18,3 +18,14 @@ describe('normalizeQuery (v1.0.1518)', () => {
     expect(normalizeQuery('hot lead')).toBe('ลูกค้า hot')
   })
 })
+
+describe('v1.0.1532 more English words', () => {
+  it('maps common phrases', () => {
+    expect(normalizeQuery('pending finance')).toBe('ใครรอไฟแนนซ์')
+    expect(normalizeQuery('who is waiting for car')).toBe('ใครรอรถ')
+    expect(normalizeQuery('booth this week')).toBe('บูธ สัปดาห์นี้')
+    expect(normalizeQuery('follow up today')).toBe('วันนี้ควรโทรหาใคร')
+    expect(normalizeQuery('overdue follow up')).toBe('นัดเลยกำหนด')
+    expect(normalizeQuery('top seller this month')).toBe('เซลส์คนไหนขายดีสุด เดือนนี้')
+  })
+})
