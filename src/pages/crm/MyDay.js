@@ -456,7 +456,7 @@ export default async function MyDayPage(container) {
 
         ${section('🚗', `นัดส่งมอบ ${UPCOMING_DELIVERY_DAYS} วันข้างหน้า`, 'เตรียมรถ/เอกสารให้พร้อม', d.deliveries, b => line(
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml(carOf(b) || '—')}`,
-          `${formatDate(b.deliveryDate)}${b.deliveryTime ? ' ' + escHtml(b.deliveryTime) : ''} · ${b.inDays === 0 ? '<b style="color:var(--danger)">วันนี้</b>' : b.inDays === 1 ? 'พรุ่งนี้' : `อีก ${b.inDays} วัน`} · ${escHtml(b.status || '')}${ownerTag(b.salesName)}`,
+          `${formatDate(b.deliveryDate)}${b.deliveryTime ? ' ' + escHtml(b.deliveryTime) : ''} · ${b.inDays === 0 ? '<b style="color:var(--danger)">วันนี้</b>' : b.inDays === 1 ? 'พรุ่งนี้' : `อีก ${b.inDays} วัน`} · ${escHtml(b.status || '')}${ownerTag(b.salesName)}${(b.prepMissing || []).length ? `<br><span style="color:var(--warning);font-weight:600">ยังขาด: ${escHtml(b.prepMissing.join(', '))}</span>` : ''}`,
           `${callBtn(b.phone || b.custPhone)}<button class="btn btn-secondary btn-xs md-bk" data-id="${escHtml(b.id)}">ใบจอง</button>`))}
 
         ${d.finance.length ? section('🏦', `ไฟแนนซ์รอผลเกิน ${FINANCE_WAIT_DAYS} วัน / ไม่ผ่าน`, 'ตามผลกับไฟแนนซ์ หรือหาไฟแนนซ์ใหม่ให้ลูกค้า', d.finance, b => line(

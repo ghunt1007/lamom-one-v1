@@ -396,6 +396,9 @@ export async function loadOpsAnswer(q, customersPromise) {
     const [bks, comps] = await Promise.all([listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('complaints', f, 'createdAt', 'desc', 300).catch(() => [])])
     const complainedNames = new Set(comps.map(c => String(c.customerName || c.customer || c.name || '').replace(/\s+/g, '')).filter(Boolean))
     res = oq.referAskAnswer(bks.filter(b => mine(b.salesName, b)), { today, complainedNames })
+  } else if (spec.kind === 'prep') {
+    const { deliveryPrepText } = await import('./deliveryPrep.js')
+    res = deliveryPrepText((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, focus: spec.focus || '' })
   } else if (spec.kind === 'aftersales') {
     const { followupWindowFilters } = await import('./customerFollowups.js')
     const fus = await listDocs('followups', [...f, ...followupWindowFilters(today)], 'dueDate', 'asc', 2000).catch(() => [])
