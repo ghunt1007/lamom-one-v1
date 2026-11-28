@@ -29,3 +29,13 @@ describe('v1.0.1532 more English words', () => {
     expect(normalizeQuery('top seller this month')).toBe('เซลส์คนไหนขายดีสุด เดือนนี้')
   })
 })
+
+describe('more English words (v1.0.1542)', () => {
+  it('maps', () => {
+    expect(normalizeQuery('today appointments')).toBe('วันนี้มีนัดอะไร')
+    expect(normalizeQuery('who is on leave today')).toBe('ใครลา วันนี้')
+    expect(normalizeQuery('pending quotations')).toBe('ใบเสนอราคาค้างอยู่กี่ใบ')
+    expect(normalizeQuery('payroll this month')).toBe('สรุปเงินเดือน เดือนนี้')
+    expect(normalizeQuery('profit this month')).toBe('กำไร เดือนนี้')
+  })
+})
