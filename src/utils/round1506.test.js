@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parseOpsSpec, weekSummaryAnswer, upgradeAnswer, bookDayAnswer } from './opsQuestions.js'
-import { periodSpec, periodStats, periodBriefText } from './monthBrief.js'
+import { periodSpec, periodStats, periodBriefText, isSellerSummaryAsk } from './monthBrief.js'
 import { isCallListQuestion } from './callList.js'
 import { parseBookingListSpec } from './bookingQuestions.js'
 import { isRateQuestion, ratesAnswer } from './payQuestions.js'
@@ -72,5 +72,13 @@ describe('v1.0.1506 LAMI routes', () => {
     expect(parseOpsSpec('ลูกค้าที่เลยนัดโทร')).toEqual({ kind: 'overdue' })
     expect(parseOpsSpec('ลูกค้าที่ถอนจองไปซื้อยี่ห้ออื่น')).toEqual({ kind: 'wdcomp' })
     expect(parseOpsSpec('ลูกค้าไปซื้อยี่ห้ออื่น').kind).toBe('lost')
+  })
+  it('v1.0.1510 seller summary, model bookings, no-answer, deliver before month end', () => {
+    expect(isSellerSummaryAsk('สรุปยอดของสมชาย')).toBe(true)
+    expect(isSellerSummaryAsk('ยอดจองวันนี้')).toBe(false)
+    expect(parseBookingListSpec('ลูกค้าที่จองรุ่น S07')).toMatchObject({ modelQ: 'S07', allOpen: true })
+    expect(parseBookingListSpec('ลูกค้าที่จองแล้ว')).toBeNull()
+    expect(parseOpsSpec('ลูกค้าที่โทรไม่ติด')).toEqual({ kind: 'noanswer' })
+    expect(parseOpsSpec('ลูกค้าที่ต้องส่งมอบก่อนสิ้นเดือน')).toEqual({ kind: 'delivery', day: 'restmonth' })
   })
 })
