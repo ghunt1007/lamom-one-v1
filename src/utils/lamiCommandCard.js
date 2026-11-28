@@ -396,6 +396,15 @@ export async function loadOpsAnswer(q, customersPromise) {
     const [bks, comps] = await Promise.all([listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('complaints', f, 'createdAt', 'desc', 300).catch(() => [])])
     const complainedNames = new Set(comps.map(c => String(c.customerName || c.customer || c.name || '').replace(/\s+/g, '')).filter(Boolean))
     res = oq.referAskAnswer(bks.filter(b => mine(b.salesName, b)), { today, complainedNames })
+  } else if (spec.kind === 'payroll') {
+    const { getState } = await import('../core/store.js')
+    const role = getState('role') || getState('user')?.role || 'staff'
+    if (!['owner', 'admin', 'manager', 'finance'].includes(role)) res = { n: 0, locked: true, text: '🔒 สรุปเงินเดือนดูได้เฉพาะเจ้าของ/ผู้จัดการ/การเงิน' }
+    else {
+      const [y, m] = today.slice(0, 7).split('-').map(Number)
+      const month = spec.prev ? `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}` : today.slice(0, 7)
+      res = oq.payrollAnswer(await listDocs('payroll_records', [['month', '==', month]], 'createdAt', 'asc', 500).catch(() => []), { month, label: spec.prev ? 'เดือนก่อน' : 'เดือนนี้' })
+    }
   } else if (spec.kind === 'datacheck') {
     if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 การตรวจข้อมูลใบจองทั้งร้านดูได้เฉพาะเจ้าของ/ผู้จัดการ' }
     else {
