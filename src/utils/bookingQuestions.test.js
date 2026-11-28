@@ -111,3 +111,15 @@ describe('not linked to LINE yet (v1.0.1468)', () => {
     expect(parseBookingListSpec('วันนี้ลูกค้ารับรถกี่คน')).not.toBeNull()
   })
 })
+
+describe('model filter (v1.0.1478)', () => {
+  it('keeps only the asked model', () => {
+    const spec = parseBookingListSpec('ลูกค้าที่จอง S07 ยังไม่ได้รถ')
+    expect(spec.modelQ).toBe('S07')
+    expect(bookingListLabel(spec)).toContain('รุ่น S07')
+    const customers = [{ id: 'c1', bookingId: 'b1' }, { id: 'c2', bookingId: 'b2' }]
+    const bookings = [{ id: 'b1', status: 'รอรถ', brand: 'DEEPAL', model: 'S07', bookingDate: '2026-11-01' }, { id: 'b2', status: 'รอรถ', brand: 'DEEPAL', model: 'L07', bookingDate: '2026-11-01' }]
+    expect(bookingTargets({ customers, bookings, today: '2026-11-28', spec }).list.map(x => x.b.id)).toEqual(['b1'])
+    expect(parseBookingListSpec('ใครยังไม่ผูก LINE').modelQ).toBeUndefined()
+  })
+})
