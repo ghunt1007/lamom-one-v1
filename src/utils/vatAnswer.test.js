@@ -66,3 +66,15 @@ describe('LAMI downavg (v1.0.1485)', () => {
     expect(downAvgAnswer([b('2026-11-01', 1, 0)], { today: '2026-11-28' }).text).not.toContain('฿0')
   })
 })
+
+import { arrivedAnswer } from './opsQuestions.js'
+describe('routing fixes (v1.0.1486)', () => {
+  it('seller with no sales, arrivals yesterday', () => {
+    expect(parseOpsSpec('เดือนนี้ใครยังไม่ได้ยอดเลย')?.kind).toBe('nobookseller')
+    expect(parseOpsSpec('รถมาถึงเมื่อวานกี่คัน')).toMatchObject({ kind: 'arrived', days: 'yesterday' })
+    expect(parseOpsSpec('รถเข้ามาใหม่เดือนนี้')).toMatchObject({ kind: 'arrived', days: 'month' })
+    expect(parseOpsSpec('รถจะมาถึงเมื่อไหร่')?.kind).not.toBe('arrived')
+    const r = arrivedAnswer([{ arrivedAt: '2026-11-27', model: 'S07' }, { arrivedAt: '2026-11-28', model: 'S05' }], { today: '2026-11-28', days: 'yesterday' })
+    expect(r.n).toBe(1); expect(r.text).toContain('เมื่อวาน 1 คัน (27/11/2569)')
+  })
+})
