@@ -452,7 +452,7 @@ export async function loadOpsAnswer(q, customersPromise) {
       const [{ opexEntries }, { saleCost }, { getSalesData }, claims, petty] = await Promise.all([import('./opex.js'), import('./saleCost.js'), import('../core/db.js'),
         listDocs('expense_claims', f, 'date', 'desc', 2000).catch(() => []), listDocs('petty_cash', f, 'time', 'desc', 2000).catch(() => [])])
       const sales = spec.kind === 'profit' ? await getSalesData().catch(() => []) : []
-      res = oq.moneyMonthAnswer({ sales, opex: opexEntries(claims, petty), today, prev: spec.prev, kind: spec.kind, saleCost, perUnit: !!spec.perUnit, low: !!spec.low, byModel: !!spec.byModel })
+      res = oq.moneyMonthAnswer({ sales, opex: opexEntries(claims, petty), today, prev: spec.prev, kind: spec.kind, saleCost, perUnit: !!spec.perUnit, low: !!spec.low, byModel: !!spec.byModel, cat: spec.cat || '', byWho: !!spec.byWho })
     }
   } else if (spec.kind === 'calls') {
     const whole = !!(vis.unrestricted || vis.companyOnly)

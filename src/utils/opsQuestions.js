@@ -267,6 +267,10 @@ export function parseOpsSpec(q) {
   // (v1.0.1483) "ภาษีขายเดือนนี้" / "เดือนนี้ต้องจ่าย VAT เท่าไหร่" → ภาษีขาย − ภาษีซื้อ (ถอด 7/107 จากราคาจริง แบบหน้า /finance/vat)
   if (has(s, /ภาษี\s*(?:ขาย|ซื้อ|มูลค่าเพิ่ม)|\bvat\b|แวต|ภ\.?\s*พ\.?\s*30|ภาษี\s*(?:ที่)?\s*ต้อง\s*(?:จ่าย|ชำระ|ยื่น)|ยื่นภาษี/i) && !has(s, /หัก\s*ณ\s*ที่จ่าย|ภาษีรถ|ต่อภาษี|ป้ายภาษี|ภาษีประจำปี|รวม\s*vat|รวมภาษี|ก่อน\s*vat|ไม่รวม/i))
     return { kind: 'vat', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
+  // (v1.0.1546) "ค่าน้ำมันเดือนนี้" / "ใครเบิกเงินเยอะสุด"
+  { const cat = opexCatOf(s)
+    if (cat && /เดือน|เท่าไหร่|เท่าไร|รวม|กี่บาท|ใช้ไป|เบิก/.test(s) && !/ลูกค้า|รถ\s*(?:รุ่น|คัน)|ราคา\s*น้ำมัน|ประหยัด|กินน้ำมัน|ต่อ\s*กม/.test(s)) return { kind: 'expense', cat, prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
+    if (/ใคร\s*(?:เบิก|ใช้เงิน)\s*(?:เงิน)?\s*(?:เยอะ|มาก)\s*(?:สุด|ที่สุด)|(?:เบิก|ค่าใช้จ่าย)\s*(?:เงิน)?\s*(?:ราย|แยก|ตาม)\s*(?:คน|พนักงาน)/.test(s)) return { kind: 'expense', byWho: true, prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) } }
   // (v1.0.1098) "ค่าใช้จ่ายเดือนนี้เท่าไหร่" / "กำไรเดือนนี้เท่าไหร่" (ภาพรวมโชว์รูม · เฉพาะผู้จัดการ/เจ้าของ)
   if (has(s, /กำไร|ขาดทุน|p\s*&\s*l|ค่าใช้จ่าย|รายจ่าย|ใช้เงินไป/i) && !has(s, /ต่อคัน|คันละ|รุ่น|ลูกค้า|ดาวน์|ผ่อน|ค่าคอม|อะไหล่|ศูนย์บริการ|ซ่อม|เบิก(?:ได้|ยังไง)/) && !has(s, /^(?:เพิ่ม|บันทึก|เบิก)/))
     return { kind: has(s, /กำไร|ขาดทุน|p\s*&\s*l/i) ? 'profit' : 'expense', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
@@ -1239,7 +1243,10 @@ export function vatAnswer({ sales = [], pos = [], today, prev = false }) {
   return { n: priced.length, text: lines.join('\n') }
 }
 
-export function moneyMonthAnswer({ sales = [], opex = [], today, prev = false, kind = 'expense', saleCost, perUnit = false, low = false, byModel = false }) {
+const OPEX_CAT_NAMES = { fuel: 'ค่าน้ำมัน', meals: 'ค่าอาหาร', transport: 'ค่าเดินทาง', phone: 'ค่าโทรศัพท์', accom: 'ค่าที่พัก', office: 'ค่าเครื่องเขียน', supplies: 'ของใช้สำนักงาน', refresh: 'ค่ารับรองลูกค้า', postage: 'ค่าไปรษณีย์/เอกสาร', repair: 'ค่าซ่อมเล็กน้อย' }
+const OPEX_CAT_WORDS = [['fuel', /น้ำมัน/], ['meals', /ค่า\s*อาหาร|ค่า\s*ข้าว/], ['transport', /ค่า\s*(?:เดินทาง|รถ\s*(?:แท็กซี่|เมล์)|ทางด่วน)/], ['phone', /ค่า\s*(?:โทรศัพท์|มือถือ)/], ['accom', /ค่า\s*ที่พัก|ค่า\s*โรงแรม/], ['office', /เครื่องเขียน/], ['supplies', /ของใช้\s*สำนักงาน/], ['refresh', /รับรอง\s*ลูกค้า/], ['postage', /ไปรษณีย์|ค่า\s*ส่ง\s*เอกสาร/], ['repair', /ค่า\s*ซ่อม\s*(?:เล็กน้อย|ออฟฟิศ|สำนักงาน)/]]
+export function opexCatOf(s) { const h = OPEX_CAT_WORDS.find(([, re]) => re.test(s)); return h ? h[0] : '' }
+export function moneyMonthAnswer({ sales = [], opex = [], today, prev = false, kind = 'expense', saleCost, perUnit = false, low = false, byModel = false, cat = '', byWho = false }) {
   const ym = prev ? prevYm(today.slice(0, 7)) : today.slice(0, 7)
   const word = prev ? 'เดือนก่อน' : 'เดือนนี้'
   const label = `${word} (${ym.slice(5, 7)}/${+ym.slice(0, 4) + 543})`
@@ -1249,6 +1256,20 @@ export function moneyMonthAnswer({ sales = [], opex = [], today, prev = false, k
   ex.forEach(e => { byCat[e.label] = (byCat[e.label] || 0) + e.amt })
   const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1])
   const exLines = cats.length ? cats.slice(0, 5).map(([k, v]) => `• ${k} ${thb(v)}`) : []
+  if (kind === 'expense' && (cat || byWho)) {
+    // (v1.0.1546) "ค่าน้ำมันเดือนนี้" / "ใครเบิกเยอะสุด"
+    const rows = cat ? ex.filter(e => e.cat === cat) : ex
+    const name = cat ? (OPEX_CAT_NAMES[cat] || 'หมวดนี้') : 'ค่าใช้จ่าย'
+    const before = cat ? opex.filter(e => e.month === prevYm(ym) && e.cat === cat).reduce((a, e) => a + e.amt, 0) : 0
+    if (!rows.length) return { n: 0, text: `💸 ${name}${label}: ยังไม่มีรายการเบิกที่อนุมัติ${before ? ` · เดือนก่อนหน้า ${thb(before)}` : ''}\nℹ️ นับจากเบิกพนักงาน + เงินสดย่อยที่อนุมัติแล้ว` }
+    const by = {}
+    rows.forEach(e => { const k = e.who || 'ไม่ระบุชื่อ'; by[k] = (by[k] || 0) + e.amt })
+    const ppl = Object.entries(by).sort((a, b) => b[1] - a[1])
+    const tot = rows.reduce((a, e) => a + e.amt, 0)
+    return { n: rows.length, text: [`💸 ${name}${label} ${thb(tot)} · ${rows.length} รายการ${before ? ` · เดือนก่อนหน้า ${thb(before)}` : ''}`,
+      ...(byWho || ppl.length > 1 ? ppl.slice(0, 6).map(([k, v], i) => `${byWho && i === 0 ? '🥇' : '•'} ${k} ${thb(v)}`) : []),
+      'ℹ️ นับจากเบิกพนักงาน + เงินสดย่อยที่อนุมัติแล้ว'].join('\n') }
+  }
   if (kind === 'expense') {
     const before = opex.filter(e => e.month === prevYm(ym)).reduce((a, e) => a + e.amt, 0)
     if (!ex.length) return { n: 0, text: `💸 ค่าใช้จ่าย${label}: ยังไม่มีรายการเบิกที่อนุมัติ${before ? ` · เดือนก่อนหน้า ${thb(before)}` : ''}\nℹ️ นับจากเบิกพนักงาน + เงินสดย่อยที่อนุมัติแล้ว (ไม่รวมเงินเดือน)` }
