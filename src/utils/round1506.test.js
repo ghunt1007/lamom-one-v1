@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseOpsSpec, weekSummaryAnswer, upgradeAnswer, bookDayAnswer, custBySellerAnswer, vipAnswer } from './opsQuestions.js'
+import { parseOpsSpec, weekSummaryAnswer, upgradeAnswer, bookDayAnswer, custBySellerAnswer, vipAnswer, tdModelAnswer, deliveredAnswer } from './opsQuestions.js'
 import { parseListSpec } from './listQuestions.js'
 import { periodSpec, periodStats, periodBriefText, isSellerSummaryAsk } from './monthBrief.js'
 import { isCallListQuestion } from './callList.js'
@@ -112,5 +112,18 @@ describe('v1.0.1506 LAMI routes', () => {
     expect(t[0]).toMatchObject({ kind: 'temp', desc: 'เดิม 🟡 Warm' })
     expect(parseLamiCommand('มานะไม่สนใจแล้ว', cs, '2026-11-28')[0].kind).toBe('lost')
     expect(parseLamiCommand('เปลี่ยนผู้ดูแลมานะเป็นวิภา', cs, '2026-11-28')[0]).toMatchObject({ kind: 'assign', to: 'วิภา' })
+  })
+  it('v1.0.1514 delivered last month, waiting finance docs, booked > N days', () => {
+    expect(parseOpsSpec('ลูกค้าที่รับรถเดือนก่อน')).toEqual({ kind: 'delivered', period: 'prevmonth' })
+    expect(parseBookingListSpec('ลูกค้าที่รอเอกสารจากไฟแนนซ์').statuses).toContain('รอผลไฟแนนซ์')
+    expect(parseBookingListSpec('ลูกค้าที่จองนานกว่า 30 วัน')).toMatchObject({ stuck: true, stuckDays: 30 })
+  })
+  it('v1.0.1514 test-drive models, source with most bookings, car arrived, delivered by cut date', () => {
+    expect(parseOpsSpec('รุ่นไหนทดลองขับเยอะสุด')).toEqual({ kind: 'tdmodel' })
+    const r = tdModelAnswer([{ date: '2026-11-20', model: 'S07' }, { date: '2026-11-21', model: 'S07' }, { date: '2026-11-22', model: 'L07' }, { date: '2026-11-23', model: 'L07', status: 'cancelled' }], { today: '2026-11-28' })
+    expect(r.text).toContain('1. S07 — 2 ครั้ง (67%)')
+    expect(parseOpsSpec('ช่องทางไหนลูกค้าจองเยอะสุด').kind).toBe('closerate')
+    expect(parseOpsSpec('ลูกค้าที่ต้องโทรแจ้งรถมาถึง')).toEqual({ kind: 'waiteta' })
+    expect(deliveredAnswer([{ status: 'ส่งมอบแล้ว', cutDate: '2026-10-15', customerName: 'ก' }], { today: '2026-11-28', period: 'prevmonth' }).n).toBe(1)
   })
 })

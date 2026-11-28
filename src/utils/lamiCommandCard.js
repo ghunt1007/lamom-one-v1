@@ -336,6 +336,8 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'tdnobook') {
     const [drives, bks] = await Promise.all([listDocs('test_drives', f, 'date', 'desc', 500).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])])
     res = oq.tdNoBookAnswer(drives.filter(t => mine(t.staff, t)), bks, { today, range: spec.range })
+  } else if (spec.kind === 'tdmodel') {
+    res = oq.tdModelAnswer((await listDocs('test_drives', f, 'date', 'desc', 1000).catch(() => [])).filter(t => mine(t.staff, t)), { today })
   } else if (spec.kind === 'tdconv') {
     const [drives, bks, customers] = await Promise.all([listDocs('test_drives', f, 'date', 'desc', 1000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), customersPromise || visibleCustomersForCommands()])
     res = oq.tdConvAnswer(drives.filter(t => mine(t.staff, t)), bks, customers || [], { today })
