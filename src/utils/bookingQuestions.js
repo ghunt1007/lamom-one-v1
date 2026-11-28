@@ -6,6 +6,7 @@ import { dmy, addDaysBangkok } from './format.js'
 import { carOf } from './carLabel.js'
 
 export const BK_LIST_MAX = 10
+const sq = v => String(v || '').toLowerCase().replace(/[\s\-_.]+/g, '')
 const DAY = 86400e3
 const dayNum = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / DAY
 const isDate = d => /^\d{4}-\d{2}-\d{2}/.test(d || '')
@@ -57,12 +58,16 @@ export function parseBookingListSpec(q) {
   const noLine = /(?:ยังไม่|ไม่)(?:ได้)?\s*(?:ผูก|เชื่อม|ลิงก์|ลิ้งค์|แอด|add)\s*(?:กับ)?\s*(?:ไลน์|line)/i.test(s)
   const none = !statuses && !when && !stuck && !noVin && !noDeposit && !noDown && !noColor && !noDocs && !finFail && !allOpen && !late && !noLine
   if (none && !(seller && /ใบจอง/.test(s))) return null
-  return { late, allOpen: allOpen || none, ...(seller ? { seller: true } : {}), noVin, noDeposit, noDown, ...(noColor ? { noColor } : {}), ...(noLine ? { noLine } : {}), ...(noDocs ? { noDocs } : {}), ...(finFail ? { finFail } : {}), ...(arrive && !noDate && !finFail ? { arrive: true } : {}), statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
+  // (v1.0.1478) "ลูกค้าที่จอง S07 ยังไม่ได้รถ" → กรองตามรุ่นที่พิมพ์ (คำภาษาอังกฤษที่มีตัวเลข เช่น S07 / L07 / ATTO 3 / AION V)
+  const mt = s.replace(/line|vin|hot|warm|cold|lead|sms|dms/ig, ' ').match(/[A-Za-z]+(?:\s?[A-Za-z]*\d+[A-Za-z]?|\s[A-Za-z]{1,2}(?![A-Za-z]))|[A-Za-z]\d{1,3}/)
+  const modelQ = mt ? mt[0].trim() : ''
+  return { ...(modelQ ? { modelQ } : {}), late, allOpen: allOpen || none, ...(seller ? { seller: true } : {}), noVin, noDeposit, noDown, ...(noColor ? { noColor } : {}), ...(noLine ? { noLine } : {}), ...(noDocs ? { noDocs } : {}), ...(finFail ? { finFail } : {}), ...(arrive && !noDate && !finFail ? { arrive: true } : {}), statuses, noDate, when, stuck, stuckDays: stuck ? (sd ? +sd[1] : 14) : null, countOnly: /กี่คน|กี่ราย|กี่ใบ|กี่คัน/.test(s) }
 }
 
 export function bookingListLabel(spec) {
   const lbl = bookingListLabel0(spec)
-  return spec.sellerName ? `${lbl} ของ ${spec.sellerName}` : lbl
+  const l2 = spec.modelQ ? `${lbl} · รุ่น ${spec.modelQ}` : lbl
+  return spec.sellerName ? `${l2} ของ ${spec.sellerName}` : l2
 }
 const ST_LABEL = { 'รอผลไฟแนนซ์': 'รอไฟแนนซ์', 'ผ่านไฟแนนซ์รอจอง': 'ผ่านไฟแนนซ์แล้ว' }
 function bookingListLabel0(spec) {
@@ -96,6 +101,7 @@ export function bookingTargets({ customers = [], bookings = [], today, spec, tom
     const open = isOpenBooking(b) || b.status === 'ตัดตัวเลขรอส่งมอบ'
     if (!open) return
     if (spec.statuses && !spec.statuses.includes(b.status)) return
+    if (spec.modelQ && !sq([b.brand, b.model, carOf(b)].join(' ')).includes(sq(spec.modelQ))) return
     if (spec.sellerName && String(b.salesName || '').trim() !== spec.sellerName) return
     if (spec.noDate && isDate(b.deliveryDate)) return
     if (spec.late && !(isDate(b.deliveryDate) && String(b.deliveryDate).slice(0, 10) < today)) return
