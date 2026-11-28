@@ -137,3 +137,14 @@ describe('list model capture (v1.0.1491)', () => {
     expect(parseListSpec('ลูกค้าที่สนใจ S07')?.model).toBe('s07')
   })
 })
+
+import { partsLowAnswer, insuranceAnswer, noPhoneAnswer, incomeMissingAnswer } from './opsQuestions.js'
+describe('empty data is not "all good" (v1.0.1492)', () => {
+  it('says there is no data instead of praising', () => {
+    expect(partsLowAnswer([]).text).toContain('ยังไม่มีรายการอะไหล่')
+    expect(insuranceAnswer([], { today: '2026-11-28' }).text).toContain('ยังไม่มีข้อมูลกรมธรรม์')
+    expect(noPhoneAnswer([]).text).toContain('ยังไม่มีรายชื่อลูกค้า')
+    expect(incomeMissingAnswer([], { today: '2026-11-28' }).text).toContain('ยังไม่มีคันที่ส่งมอบ')
+    expect(noPhoneAnswer([{ id: 'a', phone: '0811111111' }]).text).toContain('มีเบอร์โทรแล้ว')
+  })
+})

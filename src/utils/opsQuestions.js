@@ -530,6 +530,7 @@ export function myCustomersAnswer(customers, { today }) {
 // (v1.0.1126) ลูกค้าที่กำลังคุยแต่ยังไม่ได้ระบุรุ่นที่สนใจ
 export function noModelAnswer(customers) {
   const list = alive(customers).filter(c => !c.isLost && !c.bookingId && ['lead', 'pp', undefined, ''].includes(c.stage) && !String(c.interestedModel || '').trim())
+  if (!alive(customers).length) return { n: 0, text: '👥 ยังไม่มีรายชื่อลูกค้าที่คุณดูแลในระบบ' }
   if (!list.length) return { n: 0, text: '✅ ลูกค้าที่กำลังคุยทุกคนระบุรุ่นที่สนใจแล้ว' }
   const rank = c => c.temperature === 'hot' ? 0 : c.temperature === 'warm' ? 1 : 2
   list.sort((a, b) => rank(a) - rank(b))
@@ -554,6 +555,7 @@ export function apptDayAnswer(appts, drives, { today, day = 'today', wd = -1, ne
 
 export function noPhoneAnswer(customers) {
   const list = alive(customers).filter(c => !c.isLost && String(c.phone || '').replace(/\D/g, '').length < 9)
+  if (!alive(customers).length) return { n: 0, text: '👥 ยังไม่มีรายชื่อลูกค้าที่คุณดูแลในระบบ' }
   if (!list.length) return { n: 0, text: '✅ ลูกค้าทุกคนมีเบอร์โทรแล้ว' }
   const rank = c => c.temperature === 'hot' ? 0 : c.temperature === 'warm' ? 1 : 2
   list.sort((a, b) => rank(a) - rank(b))
@@ -592,6 +594,7 @@ export function noQuoteAnswer(customers, quotes) {
   const full = c => nameK([c.firstName, c.lastName].filter(Boolean).join(''))
   const list = alive(customers).filter(c => !c.isLost && !c.bookingId && ['lead', 'pp', undefined, ''].includes(c.stage)
     && !ids.has(c.id) && !(phoneK(c.phone).length >= 9 && ph.has(phoneK(c.phone))) && !(full(c) && nmz.has(full(c))))
+  if (!alive(customers).length) return { n: 0, text: '👥 ยังไม่มีรายชื่อลูกค้าที่คุณดูแลในระบบ' }
   if (!list.length) return { n: 0, text: '📄 ลูกค้าที่กำลังคุยทุกคนมีใบเสนอราคาแล้ว 👍' }
   const rank = c => c.temperature === 'hot' ? 0 : c.temperature === 'warm' ? 1 : 2
   list.sort((a, b) => rank(a) - rank(b))
@@ -1140,6 +1143,8 @@ export function claimAnswer(claims, { today }) {
 
 export function partsLowAnswer(parts) {
   const list = alive(parts).filter(p => (Number(p.qty) || 0) <= (Number(p.minQty) || 0)).sort((a, b) => (Number(a.qty) || 0) - (Number(b.qty) || 0))
+  // (v1.0.1492) ไม่มีรายการอะไหล่เลย ≠ "เหลือพอทุกรายการ"
+  if (!alive(parts).length) return { n: 0, text: '📦 ยังไม่มีรายการอะไหล่ในคลังของระบบ จึงยังบอกไม่ได้ว่าตัวไหนใกล้หมด\n💡 เพิ่มอะไหล่และจุดสั่งซื้อที่หน้าคลังอะไหล่' }
   if (!list.length) return { n: 0, text: `✅ อะไหล่ทุกรายการยังเหลือเกินจุดสั่งซื้อ (${alive(parts).length} รายการ)` }
   const out = list.filter(p => !(Number(p.qty) > 0)).length
   return { n: list.length, text: [`📦 อะไหล่ถึงจุดสั่งซื้อ ${list.length} รายการ${out ? ` (หมดแล้ว ${out})` : ''}`,
@@ -1311,6 +1316,8 @@ export function deliveryAnswer(bookings, { today, day = 'today', wd = -1, next =
 export function incomeMissingAnswer(bookings, { today }) {
   const month = today.slice(0, 7)
   const list = alive(bookings).filter(b => ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status) && !(Number(b.totalIncome) || 0) && String(b.cutDate || b.actualDeliveryDate || '').startsWith(month))
+  // (v1.0.1492) เดือนนี้ยังไม่มีคันส่งมอบ ≠ "กรอกครบแล้ว"
+  if (!list.length && !alive(bookings).some(b => ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status) && String(b.cutDate || b.actualDeliveryDate || '').startsWith(month))) return { text: '💰 เดือนนี้ยังไม่มีคันที่ส่งมอบ จึงยังไม่มีรายได้ให้กรอก', n: 0 }
   if (!list.length) return { text: '💰 คันที่ส่งมอบเดือนนี้ กรอกรายได้ครบแล้ว 👍', n: 0 }
   const by = {}
   list.forEach(b => { const k = String(b.salesName || 'ไม่ระบุเซลส์').trim(); by[k] = (by[k] || 0) + 1 })
@@ -1390,6 +1397,7 @@ export function serviceAnswer(appts, jobs, { today, day = 'today' }) {
 export function unassignedAnswer(customers) {
   const list = alive(customers).filter(c => !c.isLost && !String(c.assignedTo || '').trim())
     .sort((a, b) => ymd(b.createdAt).localeCompare(ymd(a.createdAt)))
+  if (!alive(customers).length) return { n: 0, text: '👥 ยังไม่มีรายชื่อลูกค้าที่คุณดูแลในระบบ' }
   if (!list.length) return { text: '👤 ลูกค้าทุกคนมีผู้ดูแลแล้ว 👍', n: 0 }
   return { n: list.length, text: [`👤 ลูกค้าที่ยังไม่มีผู้ดูแล ${list.length} คน`, ...list.slice(0, MAX).map(c => `• ${nm(c)}${c.temperature === 'hot' ? ' 🔴' : ''}${c.interestedModel ? ' · ' + c.interestedModel : ''}${ymd(c.createdAt) ? ' · เข้ามา ' + dmy(ymd(c.createdAt)) : ''}`), ...more(list.length), '', 'มอบผู้ดูแลได้ที่หน้าลูกค้า (เลือกหลายคน → มอบหมาย)'].join('\n') }
 }
@@ -1422,6 +1430,7 @@ const daysTo = (today, d) => Math.round((Date.parse(d) - Date.parse(today)) / 86
 export function insuranceAnswer(rows, { today, range = 30 }) {
   const list = alive(rows).filter(p => !['renewed', 'cancelled'].includes(p.status) && ymd(p.expiryDate))
     .map(p => ({ p, d: daysTo(today, ymd(p.expiryDate)) })).filter(x => x.d <= range && x.d >= -30).sort((a, b) => a.d - b.d)
+  if (!alive(rows).some(p => ymd(p.expiryDate))) return { n: 0, text: '🛡 ยังไม่มีข้อมูลกรมธรรม์ (วันหมดอายุ) ในระบบ จึงยังบอกไม่ได้ว่าใครต้องต่อประกัน\n💡 เพิ่มกรมธรรม์ได้ที่หน้าต่อประกัน' }
   if (!list.length) return { text: `🛡 ไม่มีประกันภัยที่จะหมดใน ${range} วันนี้ 👍`, n: 0 }
   const gone = list.filter(x => x.d < 0).length
   return { n: list.length, text: [`🛡 ประกันภัยใกล้หมด/หมดแล้วยังไม่ต่อ ${list.length} ราย${gone ? ` (หมดไปแล้ว ${gone})` : ''}`,
@@ -1607,6 +1616,7 @@ export function noServiceAnswer(bookings, jobs, { today, minDays = 30 }) {
     || (phoneK(b.phone || b.custPhone).length >= 9 && phones.has(phoneK(b.phone || b.custPhone))) || (nameK(b.custName) && names.has(nameK(b.custName)))
   const list = alive(bookings).filter(b => (b.status === 'ส่งมอบแล้ว' || b.status === 'delivered') && dOf(b) >= from && dOf(b) <= to && !seen(b))
     .sort((a, b) => dOf(a).localeCompare(dOf(b)))
+  if (!list.length && !alive(bookings).some(b => (b.status === 'ส่งมอบแล้ว' || b.status === 'delivered') && dOf(b) >= from && dOf(b) <= to)) return { n: 0, text: `🔧 ยังไม่มีลูกค้าที่รับรถไปเกิน ${minDays} วันในช่วงที่ดู` }
   if (!list.length) return { n: 0, text: `🔧 ลูกค้าที่รับรถเกิน ${minDays} วัน เข้าศูนย์แล้วทุกคน 👍` }
   const days = b => Math.round((Date.parse(today) - Date.parse(dOf(b))) / 86400000)
   return { n: list.length, text: [`🔧 รับรถแล้วยังไม่เคยเข้าศูนย์ ${list.length} คน (รับรถเกิน ${minDays} วัน · ย้อนหลัง 18 เดือน)`,
