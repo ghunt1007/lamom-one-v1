@@ -217,3 +217,23 @@ describe('bookings by source fallback (v1.0.1497)', () => {
     expect(r.text).toContain('• Facebook 2 คน (67%)')
   })
 })
+
+describe('source match ignores case/emoji (v1.0.1498)', async () => {
+  const oq = await import('./opsQuestions.js')
+  it('newCustomerAnswer counts Facebook as facebook', () => {
+    const cs = [{ id: 'a', firstName: 'ก', createdAt: '2026-11-20', source: 'Facebook' }, { id: 'b', firstName: 'ข', createdAt: '2026-11-21', source: '📘 Facebook' }, { id: 'c', firstName: 'ค', createdAt: '2026-11-21', source: 'line' }]
+    const r = oq.newCustomerAnswer(cs, { today: '2026-11-28', source: 'facebook', sourceLabel: { facebook: '📘 Facebook' } })
+    expect(r.n).toBe(2)
+  })
+  it('calls question with หาลูกค้า', () => {
+    expect(oq.parseOpsSpec('ใครโทรหาลูกค้าเยอะสุดเดือนนี้')).toMatchObject({ kind: 'calls', day: 'month', team: true })
+  })
+})
+
+describe('list by source only (v1.0.1498)', async () => {
+  const { parseListSpec } = await import('./listQuestions.js')
+  it('source-only list', () => {
+    expect(parseListSpec('ลิสต์ลูกค้าจากเฟสบุ๊ค')).toMatchObject({ source: 'facebook' })
+    expect(parseListSpec('ลูกค้าจากไลน์เดือนนี้กี่คน')).toBe(null)
+  })
+})

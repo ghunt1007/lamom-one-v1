@@ -72,7 +72,7 @@ export function parseOpsSpec(q) {
   if (has(s, /ส่งมอบแล้ว|ซื้อ(?:รถ)?(?:ไป)?แล้ว|ที่ส่งมอบ|รับรถ(?:ไป)?แล้ว|ออกรถ(?:ไป)?แล้ว/) && has(s, /ลูกค้า|ใคร|รายชื่อ|กี่คน/) && !has(s, /นัด|พรุ่งนี้|ยอด|เป้า/))
     return { kind: 'delivered', period: /เดือน(?:ก่อน|ที่แล้ว)/.test(s) ? 'prevmonth' : /ปี/.test(s) ? 'year' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'month' }
   // (v1.0.1118) "วันนี้ฉันโทรไปกี่คนแล้ว" / "เมื่อวานโทรไปกี่สาย" / "ทีมโทรไปกี่สายวันนี้" → นับจากบันทึกผลการโทรในแอป
-  if (has(s, /โทร\s*(?:ไป|ออก)?\s*(?:หา)?\s*(?:ลูกค้า)?\s*(?:ไป|ได้)?\s*(?:แล้ว)?\s*กี่\s*(?:สาย|คน|ครั้ง|ราย)|ยอดโทร|จำนวนสาย|โทรไปแล้วกี่|(?:ใคร|คนไหน)\s*โทร\s*(?:ออก)?\s*(?:เยอะ|มาก|น้อย|บ่อย)|(?:ใคร|เซลส์|เซล|คนไหน)\s*(?:คนไหน)?\s*ยังไม่(?:ได้)?\s*โทร(?:\s*(?:เลย|วันนี้|เมื่อวาน|สัปดาห์นี้|เดือนนี้))*$/) && !has(s, /ควร|ต้อง|นัด|ค่าโทร/))
+  if (has(s, /โทร\s*(?:ไป|ออก)?\s*(?:หา)?\s*(?:ลูกค้า)?\s*(?:ไป|ได้)?\s*(?:แล้ว)?\s*กี่\s*(?:สาย|คน|ครั้ง|ราย)|ยอดโทร|จำนวนสาย|โทรไปแล้วกี่|(?:ใคร|คนไหน)\s*โทร\s*(?:ออก|หา)?\s*(?:ลูกค้า)?\s*(?:เยอะ|มาก|น้อย|บ่อย)|(?:ใคร|เซลส์|เซล|คนไหน)\s*(?:คนไหน)?\s*ยังไม่(?:ได้)?\s*โทร(?:\s*(?:เลย|วันนี้|เมื่อวาน|สัปดาห์นี้|เดือนนี้))*$/) && !has(s, /ควร|ต้อง|นัด|ค่าโทร/))
     return { kind: 'calls', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7\s*วัน/.test(s) ? 'week' : /เดือนนี้/.test(s) ? 'month' : 'today', team: has(s, /ทีม|แต่ละคน|รายคน|ใครโทร|เซลส์|ใคร|คนไหน/) }
   // (v1.0.1092) "ลูกค้าของฉันมีกี่คน" → สรุปลูกค้าในมือตามขั้น/ความร้อน
   if (has(s, /ลูกค้า\s*(?:ของ)?\s*(?:ฉัน|ผม|หนู|เรา|ตัวเอง)|ลูกค้าที่(?:ฉัน|ผม)?ดูแล|ลูกค้าในมือ|ลูกค้าทั้งหมด|(?:ฉัน|ผม|หนู|เรา)\s*มี\s*ลูกค้า/) && has(s, /กี่|สรุป|เท่าไ|มีเท่า|ภาพรวม/) && !has(s, /ใหม่|เพิ่ง|เดือน|สัปดาห์|วันนี้|เมื่อวาน/)) return { kind: 'mycust' }
@@ -1262,6 +1262,13 @@ export function campaignBestAnswer(bookings, { today, months = 6 }) {
   return { n: rows.length, text: [`📣 แคมเปญในใบจอง ${months} เดือนล่าสุด (${dmy(from)}–${dmy(today)})`, ...rows.slice(0, 8).map(([k, r], i) => `${i + 1}. ${k} — จอง ${r.live} ใบ · ส่งมอบ ${r.del}${r.n > r.live ? ` · ถอน ${r.n - r.live}` : ''}`)].join('\n') }
 }
 
+// (v1.0.1498) ช่องทางในข้อมูลจริงอาจเป็น 'facebook' / 'Facebook' / '📘 Facebook' → เทียบแบบไม่สนตัวพิมพ์ และเทียบกับชื่อที่แสดงด้วย
+function srcNorm(v) { return String(v || '').replace(/[^\p{L}\p{N}]+/gu, '').toLowerCase() }
+export function sourceIs(c, source, sourceLabel = {}) {
+  const v = srcNorm(c && c.source)
+  return !!v && (v === srcNorm(source) || v === srcNorm(sourceLabel[source]))
+}
+
 export function newCustomerAnswer(customers, { today, period = 'month', sourceLabel = {}, source = '', nofollow = false }) {
   let from, to = today, label
   if (period === 'today') { from = today; label = 'วันนี้' }
@@ -1272,7 +1279,7 @@ export function newCustomerAnswer(customers, { today, period = 'month', sourceLa
   const all = alive(customers).filter(c => { const d = ymd(c.createdAt); return d && d >= from && d <= to })
   if (nofollow) {
     const lab = source ? ' จาก ' + (sourceLabel[source] || source) : ''
-    const pool = all.filter(c => !source || String(c.source || '').trim() === source)
+    const pool = all.filter(c => !source || sourceIs(c, source, sourceLabel))
     const nf = pool.filter(c => !c.isLost && !c.bookingId && !['booking', 'booked', 'delivered'].includes(c.stage) && !ymd(c.lastContactAt))
     if (!nf.length) return { n: 0, text: `👍 ลูกค้าใหม่${label}${lab} ติดต่อแล้วทุกคน (${pool.length} คน · ${dmy(from)}–${dmy(to)})` }
     return { n: nf.length, text: [`📞 ลูกค้าใหม่${label}${lab} ที่ยังไม่ได้ติดต่อ ${nf.length} คน (จาก ${pool.length} คน · ${dmy(from)}–${dmy(to)})`,
@@ -1281,7 +1288,7 @@ export function newCustomerAnswer(customers, { today, period = 'month', sourceLa
   }
   if (source) {
     const lab = sourceLabel[source] || source
-    const hit = all.filter(c => String(c.source || '').trim() === source)
+    const hit = all.filter(c => sourceIs(c, source, sourceLabel))
     if (!hit.length) return { n: 0, text: `👥 ลูกค้าใหม่${label}จาก ${lab}: ยังไม่มี (${dmy(from)}–${dmy(to)}) · ลูกค้าใหม่ทุกช่องทาง ${all.length} คน` }
     return { n: hit.length, text: [`👥 ลูกค้าใหม่${label}จาก ${lab} ${hit.length} คน (${dmy(from)}–${dmy(to)}) · จากทั้งหมด ${all.length} คน`,
       `🔴 Hot ${hit.filter(c => c.temperature === 'hot').length} · 📝 จองแล้ว ${hit.filter(c => c.bookingId || ['booking', 'booked', 'delivered'].includes(c.stage)).length}`,
