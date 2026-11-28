@@ -148,3 +148,20 @@ describe('รถที่จองยังไม่มา (v1.0.1553)', () => {
     expect(parseOpsSpec('ลูกค้าที่นัดแล้วไม่มา')?.kind).toBe('noshow')
   })
 })
+
+describe('ช่องที่ยังว่าง (v1.0.1554)', () => {
+  it('lists open bookings missing price / finance company', () => {
+    const spec = parseBookingListSpec('ใบจองไหนยังไม่ได้ใส่ราคา')
+    expect(spec.ynCol).toMatchObject({ f: 'price', missing: true })
+    const bookings = [
+      { id: 'a', customerId: 'ca', status: 'รอส่งมอบ', price: 0 },
+      { id: 'b', customerId: 'cb', status: 'รอส่งมอบ', price: 990000 },
+      { id: 'c', customerId: 'cc', status: 'ส่งมอบแล้ว' },
+    ]
+    expect(bt1550({ customers: ['ca', 'cb', 'cc'].map(id => ({ id })), bookings, today: '2026-11-28', spec }).list.map(x => x.b.id)).toEqual(['a'])
+    const fs = parseBookingListSpec('ใบจองที่ยังไม่ได้ใส่ไฟแนนซ์')
+    const fb = [{ id: 'a', customerId: 'ca', status: 'รอรถ', financeCo: '' }, { id: 'b', customerId: 'cb', status: 'รอรถ', financeCo: '', finStatus: 'ซื้อสด' }, { id: 'c', customerId: 'cc', status: 'รอรถ', financeCo: 'ธนาคาร ก' }]
+    expect(bt1550({ customers: ['ca', 'cb', 'cc'].map(id => ({ id })), bookings: fb, today: '2026-11-28', spec: fs }).list.map(x => x.b.id)).toEqual(['a'])
+    expect(parseBookingListSpec('ใบจองที่ยังไม่ผ่านไฟแนนซ์')?.ynCol).toBeUndefined()
+  })
+})

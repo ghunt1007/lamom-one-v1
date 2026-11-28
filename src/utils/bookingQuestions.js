@@ -93,6 +93,7 @@ function bookingListLabel0(spec) {
   if (spec.late) return 'นัดส่งมอบเลยวันแล้วแต่ยังไม่ส่งมอบ'
   if (spec.allOpen && !spec.noSign && !spec.noVin && !spec.noDeposit && !spec.noDown && !spec.noColor && !spec.noLine && !spec.noDocs && !spec.finFail && !spec.stuck) return 'ใบจองที่ยังไม่ส่งมอบ'
   if (spec.noColor) return 'ใบจองที่ยังไม่ได้ใส่สีรถ'
+  if (spec.ynCol?.missing) return `ใบจองที่ยังไม่ได้${spec.ynCol.label} (ช่อง ${spec.ynCol.h} ว่าง)`
   if (spec.ynCol?.delivered) return `ใบจองที่ส่งมอบแล้ว (90 วันล่าสุด) แต่ยังไม่ได้${spec.ynCol.label} (คอลัมน์ ${spec.ynCol.h} ใน Sheet ยังไม่เป็น Y)`
   if (spec.ynCol) return `ใบจองที่ยังไม่ได้${spec.ynCol.label} (คอลัมน์ ${spec.ynCol.h} ใน Sheet ยังไม่เป็น Y)`
   if (spec.noLine) return 'ใบจองที่ลูกค้ายังไม่ผูก LINE'
@@ -136,7 +137,8 @@ export function bookingTargets({ customers = [], bookings = [], today, spec, tom
     if (spec.noDown && ((Number(b.down) || 0) > 0 || b.finStatus === 'ซื้อสด')) return
     if (spec.noColor && String(b.color || '').trim()) return
     if (spec.noLine && (b.lineUserId || !isOpenBooking(b))) return
-    if (spec.ynCol && (String(b[spec.ynCol.f] || '').toUpperCase() === 'Y' || (!spec.ynCol.delivered && !isOpenBooking(b)))) return
+    if (spec.ynCol?.missing) { const v = b[spec.ynCol.f]; if (spec.ynCol.f === 'financeCo' && /สด/.test(String(b.finStatus || ''))) return; if (spec.ynCol.f === 'price' ? Number(v) > 0 : String(v || '').trim() && String(v).trim() !== '-') return }
+    else if (spec.ynCol && (String(b[spec.ynCol.f] || '').toUpperCase() === 'Y' || (!spec.ynCol.delivered && !isOpenBooking(b)))) return
     if (spec.noDocs && (b.files || []).length) return
     if (spec.finFail && b.finStatus !== 'ไม่ผ่าน') return
     if (spec.noSign && !(b.finStatus === 'รอเซ็นสัญญา' || b.finStatus === 'รอเซ็นต์' || (b.finStatus === 'ผ่าน' && !isDate(b.signDate)))) return
