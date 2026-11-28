@@ -75,3 +75,16 @@ describe('v1.0.1528 visit / test drive done = log', () => {
     expect(kinds('นัดสมชายทดลองขับเสาร์')).toEqual(['td:'])
   })
 })
+
+import { commandHref, quotePrefill } from './lamiCommands.js'
+describe('v1.0.1529 quote command', () => {
+  const cs = [{ id: 'a', firstName: 'สมชาย', lastName: 'ดี', phone: '0811111111', interestedModel: 'AION V' }]
+  it('opens a prefilled quote', () => {
+    const [c] = parseLamiCommand('สมชายขอใบเสนอราคา S07', cs, '2026-11-28')
+    expect(c.kind).toBe('quote'); expect(c.model).toBe('S07')
+    expect(commandHref(c)).toBe('/crm/quotation')
+    expect(quotePrefill(c)).toEqual({ customerId: 'a', customerName: 'สมชาย ดี', phone: '0811111111', email: '', lineId: '', interestedModel: 'S07' })
+    expect(parseLamiCommand('ทำใบเสนอราคาให้สมชาย', cs, '2026-11-28')[0].model).toBe('AION V')
+    expect(parseLamiCommand('สมชายได้ใบเสนอราคาหรือยัง', cs, '2026-11-28')).toEqual([])
+  })
+})
