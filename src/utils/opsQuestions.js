@@ -452,8 +452,13 @@ export function withdrawnAnswer(bookings, { today, prev = false }) {
   const list = inM.filter(b => CANCEL.test(b.status || ''))
   const span = `${dmy(from)}–${dmy(to)}`
   if (!list.length) return { n: 0, text: `✅ ${label}ยังไม่มีใบจองที่ถอน (${span}) · จองทั้งหมด ${inM.length} ใบ` }
-  return { n: list.length, text: [`↩️ ถอนจอง${label} ${list.length} ใบ จาก ${inM.length} ใบ (${Math.round(list.length / inM.length * 100)}%) · ${span}`,
-    ...list.slice(0, MAX).map(b => `• ${nm(b)}${carOf(b) ? ' · ' + carOf(b) : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''} · จอง ${dmy(String(b.bookingDate).slice(0, 10))}${b.cancelReason || b.withdrawReason ? ' · ' + (b.cancelReason || b.withdrawReason) : ''}`),
+  // (v1.0.1502) แยกตามหมวดเหตุผล (หมวดที่เลือกตอนถอนจอง · ไม่มีหมวด = จัดจากข้อความ · ไม่มีเหตุผล = ไม่นับ)
+  const cats = {}
+  list.forEach(b => { const k = b.cancelCategory || (b.cancelReason && b.cancelReason !== 'other' ? classifyLostReason(b.cancelReason) : ''); if (k) cats[k] = (cats[k] || 0) + 1 })
+  const CAT_TH = { ...LOST_REASON_LABELS, moved: 'ย้ายไปจองใบใหม่', model: 'รอรถนาน/ไม่มีรุ่น-สี' }
+  const catLine = Object.keys(cats).length ? '📊 เหตุผล: ' + Object.entries(cats).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${CAT_TH[k] || k} ${v}`).join(' · ') : 'ℹ️ ใบที่ถอนยังไม่มีการระบุเหตุผล จึงยังสรุปเหตุผลไม่ได้'
+  return { n: list.length, text: [`↩️ ถอนจอง${label} ${list.length} ใบ จาก ${inM.length} ใบ (${Math.round(list.length / inM.length * 100)}%) · ${span}`, catLine,
+    ...list.slice(0, MAX).map(b => `• ${nm(b)}${carOf(b) ? ' · ' + carOf(b) : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''} · จอง ${dmy(String(b.bookingDate).slice(0, 10))}${(b.cancelReason && b.cancelReason !== 'other') || b.withdrawReason ? ' · ' + ((b.cancelReason !== 'other' && b.cancelReason) || b.withdrawReason) : ''}${b.cancelCompetitor ? ' · ไปซื้อ ' + b.cancelCompetitor : ''}${b.newBookingNo ? ' · ย้ายไป ' + b.newBookingNo : ''}`),
     ...more(list.length)].join('\n') }
 }
 
