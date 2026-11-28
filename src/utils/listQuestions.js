@@ -3,6 +3,10 @@
 // เลือกจากลูกค้าที่ผู้ใช้เห็นเท่านั้น · ฟังก์ชันล้วน ทดสอบได้
 import { thaiNumerals } from './lamiCommands.js'
 
+const SRC_LABEL = { facebook: 'Facebook', line: 'LINE', tiktok: 'TikTok', instagram: 'Instagram', phone: 'โทรเข้า', referral: 'คนแนะนำ', event: 'บูธ/อีเวนต์' }
+// (v1.0.1498) 'Facebook' ใน Sheet = 'facebook' ในแอป
+const srcNorm = v => String(v || '').replace(/[^\p{L}\p{N}]+/gu, '').toLowerCase()
+
 export const LIST_MAX = 10
 const DAY = 86400e3
 const dayNum = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / DAY
@@ -44,13 +48,14 @@ export function parseListSpec(q) {
   // (v1.0.1120) "ลีดจากเฟซบุ๊กที่ยังไม่มีนัด" → กรองช่องทางด้วย (เดิมไม่กรอง ได้ลีดทุกช่องทาง)
   const SRC = [['facebook', /เฟส|เฟซ|facebook|\bfb\b/i], ['line', /ไลน์|\bline\b/i], ['tiktok', /ติ๊?กต็?อก|tiktok/i], ['instagram', /ไอจี|instagram|\big\b/i], ['phone', /โทรเข้า/], ['referral', /แนะนำ|บอกต่อ/], ['event', /บูธ|อีเวนต์|event/i]]
   const source = /จาก|ช่องทาง|ที่มา/.test(s) ? (SRC.find(([, re]) => re.test(s)) || [])[0] || null : null
-  if (!temp && !quietDays && !newToday && !noFu && !model && !fuel && !never && !(seller && /ลูกค้า|ลีด/.test(s))) return null
+  if (!temp && !quietDays && !newToday && !noFu && !model && !fuel && !never && !(seller && /ลูกค้า|ลีด/.test(s)) && !(source && !/เดือน|สัปดาห์|อาทิตย์|วันนี้|เมื่อวาน|ปี/.test(s))) return null
+  // (v1.0.1498) "ลิสต์ลูกค้าจากเฟสบุ๊ค" / "ลูกค้าจากไลน์ที่ยังไม่จอง" = รายชื่อตามช่องทางอย่างเดียวก็ได้
   return { temp, quietDays, newToday, noFu, model, ...(never ? { never: true } : {}), ...(fuel ? { fuel } : {}), ...(source ? { source } : {}), ...(seller ? { seller: true } : {}), leadsOnly, countOnly: /กี่คน|กี่ราย/.test(s) }
 }
 
 export function listLabel(spec) {
   return [spec.newToday ? 'ลีดใหม่วันนี้' : spec.leadsOnly ? 'ลีด' : 'ลูกค้า', spec.temp ? spec.temp.toUpperCase() : '',
-    spec.model ? `สนใจ ${spec.model.toUpperCase()}` : '', spec.sellerName ? `ของ ${spec.sellerName}` : '', spec.source ? `จาก ${{ facebook: 'Facebook', line: 'LINE', tiktok: 'TikTok', instagram: 'Instagram', phone: 'โทรเข้า', referral: 'คนแนะนำ', event: 'บูธ/อีเวนต์' }[spec.source]}` : '', spec.fuel ? `สนใจ${spec.fuel === 'ev' ? 'รถไฟฟ้า' : 'รถไฮบริด'}` : '', spec.quietDays ? `เงียบ ≥ ${spec.quietDays} วัน` : '', spec.never ? 'ที่ยังไม่เคยติดต่อเลย' : '', spec.noFu ? 'ยังไม่มีนัด' : ''].filter(Boolean).join(' ')
+    spec.model ? `สนใจ ${spec.model.toUpperCase()}` : '', spec.sellerName ? `ของ ${spec.sellerName}` : '', spec.source ? `จาก ${SRC_LABEL[spec.source]}` : '', spec.fuel ? `สนใจ${spec.fuel === 'ev' ? 'รถไฟฟ้า' : 'รถไฮบริด'}` : '', spec.quietDays ? `เงียบ ≥ ${spec.quietDays} วัน` : '', spec.never ? 'ที่ยังไม่เคยติดต่อเลย' : '', spec.noFu ? 'ยังไม่มีนัด' : ''].filter(Boolean).join(' ')
 }
 
 // catalog = รุ่นรถจากฐานข้อมูล [{ model, fuel }] ใช้เมื่อถามตามประเภทรถ (spec.fuel)
@@ -65,7 +70,7 @@ export function listTargets({ customers = [], followups = [], today, spec, catal
     if (!c || c.deleted || c.isLost || c.stage === 'delivered' || c.bookingId) return false
     if (spec.leadsOnly ? c.stage !== 'lead' : !['lead', 'pp'].includes(c.stage)) return false
     if (spec.temp && c.temperature !== spec.temp) return false
-    if (spec.source && String(c.source || '').trim() !== spec.source) return false
+    if (spec.source && ![spec.source, SRC_LABEL[spec.source]].map(srcNorm).includes(srcNorm(c.source))) return false
     if (spec.newToday && bkkDate(c.createdAt) !== today) return false
     if (spec.fuel && !fuelModels.some(m => String(c.interestedModel || '').toLowerCase().replace(/[\s\-]+/g, '').includes(m))) return false
     if (spec.model && !String(c.interestedModel || '').toLowerCase().replace(/[\s\-]+/g, '').includes(String(spec.model).replace(/[\s\-]+/g, ''))) return false
