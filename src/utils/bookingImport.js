@@ -154,6 +154,9 @@ export function mapBookingRow(r) {
     cutDate: fmtDate(r['วันที่ตัดตัวเลข']),
     actualDeliveryDate: fmtDate(r['วันที่รับจริง']),
     salesName: str(r['ชื่อเซลล์']),
+    // (v1.0.1516) คอลัมน์เสริมที่ Sheet ยังไม่มี — เพิ่มหัวคอลัมน์เมื่อไรซิงก์รับได้ทันที (ว่าง = ไม่ทับค่าที่กดในแอป)
+    cancelDate: fmtDate(r['วันที่ถอนจอง'] ?? r['วันที่ถอน'] ?? r['วันถอนจอง']),
+    refundedAt: fmtDate(r['วันที่คืนเงินจอง'] ?? r['วันที่คืนเงิน'] ?? r['วันที่คืนจอง']),
     nid: fmtNid(r['เลขประจำตัวประชาชน']),
     // (v1.0.954) ช่องที่เหลือของ Sheet (จองDMS, Allocate, ชุดขาย, แจ้งประกัน, สายชาร์จ, คืนจอง ฯลฯ) — ดู sheetColumns.js
     ...mapExtraColumns(r, { str, num, fmtDate }),
@@ -164,7 +167,7 @@ export function mapBookingRow(r) {
 const UPDATABLE = ['status', 'custName', 'phone', 'address', 'source', 'brand', 'model', 'colorOut', 'colorIn', 'vin', 'motorNo',
   'engineNo', 'batNo', 'redPlate', 'whitePlate', 'price', 'down', 'financeCo', 'finStatus', 'campaign', 'margin', 'budgetUsed',
   'comFinance', 'accessoryAmount', 'bookingDate', 'submitDate', 'signDate', 'approveDate', 'deliveryDate', 'cutDate',
-  'actualDeliveryDate', 'salesName', ...EXTRA_COLUMNS.map(c => c.f)]
+  'actualDeliveryDate', 'salesName', 'cancelDate', 'refundedAt', ...EXTRA_COLUMNS.map(c => c.f)]
 
 function isEmpty(v) { return v == null || v === '' || v === 0 }
 function same(a, b) {
