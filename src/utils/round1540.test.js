@@ -63,3 +63,27 @@ describe('นัดดูแลหลังการขาย (v1.0.1545)', () =
     expect(afterSalesAnswer([], { today: '2026-11-28' }).n).toBe(0)
   })
 })
+
+import { moneyMonthAnswer } from './opsQuestions.js'
+import { opexEntries } from './opex.js'
+describe('ค่าใช้จ่ายรายหมวด/รายคน (v1.0.1546)', () => {
+  it('routes', () => {
+    expect(parseOpsSpec('ค่าน้ำมันเดือนนี้')).toMatchObject({ kind: 'expense', cat: 'fuel' })
+    expect(parseOpsSpec('ใครเบิกเยอะสุด')).toMatchObject({ kind: 'expense', byWho: true })
+    expect(parseOpsSpec('รถรุ่นไหนประหยัดน้ำมัน')?.kind).not.toBe('expense')
+    expect(parseOpsSpec('ค่าใช้จ่ายเดือนนี้เท่าไหร่')).toEqual({ kind: 'expense', prev: false })
+  })
+  it('answers by category and by person', () => {
+    const opex = opexEntries([
+      { date: '2026-11-03', cat: 'fuel', amount: 500, staffName: 'ก', status: 'approved' },
+      { date: '2026-11-05', cat: 'fuel', amount: 300, staffName: 'ข', status: 'paid' },
+      { date: '2026-11-06', cat: 'meals', amount: 1000, staffName: 'ข', status: 'approved' },
+      { date: '2026-11-07', cat: 'fuel', amount: 999, staffName: 'ค', status: 'pending' },
+    ], [])
+    const f = moneyMonthAnswer({ opex, today: '2026-11-28', kind: 'expense', cat: 'fuel' })
+    expect(f.text).toContain('ค่าน้ำมันเดือนนี้ (11/2569) ฿800 · 2 รายการ')
+    const w = moneyMonthAnswer({ opex, today: '2026-11-28', kind: 'expense', byWho: true })
+    expect(w.text).toContain('🥇 ข ฿1,300')
+    expect(moneyMonthAnswer({ opex: [], today: '2026-11-28', kind: 'expense', cat: 'fuel' }).text).toContain('ยังไม่มีรายการ')
+  })
+})

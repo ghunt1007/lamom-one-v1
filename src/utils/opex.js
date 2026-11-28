@@ -8,8 +8,8 @@ export const OPEX_LABELS = {
 // คืน [{ month: 'YYYY-MM', cat, label, amt }]
 export function opexEntries(claims = [], petty = []) {
   const out = []
-  const add = (d, cat, amt) => { const month = String(d || '').slice(0, 7); if (month) out.push({ month, cat, label: OPEX_LABELS[cat] || OPEX_LABELS.other, amt: Number(amt) || 0 }) }
-  claims.filter(c => c && !c.deleted && (c.status === 'approved' || c.status === 'paid')).forEach(c => add(c.date, c.cat, c.amount))
-  petty.filter(p => p && !p.deleted && p.type === 'out' && p.status === 'approved').forEach(p => add(p.time, p.cat, p.amount))
+  const add = (d, cat, amt, who) => { const month = String(d || '').slice(0, 7); if (month) out.push({ month, cat, label: OPEX_LABELS[cat] || OPEX_LABELS.other, amt: Number(amt) || 0, who: String(who || '').trim() }) }
+  claims.filter(c => c && !c.deleted && (c.status === 'approved' || c.status === 'paid')).forEach(c => add(c.date, c.cat, c.amount, c.staffName))
+  petty.filter(p => p && !p.deleted && p.type === 'out' && p.status === 'approved').forEach(p => add(p.time, p.cat, p.amount, p.by && p.by !== '—' ? p.by : ''))
   return out
 }
