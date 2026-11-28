@@ -7,6 +7,7 @@ import { parseBookingListSpec } from './bookingQuestions.js'
 import { isRateQuestion, ratesAnswer } from './payQuestions.js'
 import { parseStockSpec } from './stockQuestions.js'
 import { briefTarget, customerBrief } from './customerBrief.js'
+import { parseLamiCommand } from './lamiCommands.js'
 
 describe('v1.0.1506 LAMI routes', () => {
   it('weekly summary is not a walk-in count', () => {
@@ -104,5 +105,12 @@ describe('v1.0.1506 LAMI routes', () => {
     const cs = [{ id: 'a', firstName: 'มานะ', lastName: 'ดี', stage: 'booking' }]
     expect(briefTarget('มานะอยู่ขั้นไหน', cs)?.id).toBe('a')
     expect(customerBrief({ customer: cs[0], today: '2026-11-28' })).toContain('📝 จองแล้ว')
+  })
+  it('v1.0.1513 named-customer commands', () => {
+    const cs = [{ id: 'a', firstName: 'มานะ', lastName: 'ดี', stage: 'lead', temperature: 'warm', assignedTo: 'A' }, { id: 'b', firstName: 'ปิติ', stage: 'lead', assignedTo: 'วิภา' }]
+    const t = parseLamiCommand('มานะเป็น hot', cs, '2026-11-28')
+    expect(t[0]).toMatchObject({ kind: 'temp', desc: 'เดิม 🟡 Warm' })
+    expect(parseLamiCommand('มานะไม่สนใจแล้ว', cs, '2026-11-28')[0].kind).toBe('lost')
+    expect(parseLamiCommand('เปลี่ยนผู้ดูแลมานะเป็นวิภา', cs, '2026-11-28')[0]).toMatchObject({ kind: 'assign', to: 'วิภา' })
   })
 })

@@ -95,6 +95,14 @@ export function openLamiPanel({ navigate } = {}) {
             card.mountCommandCard(slots[slots.length - 1], bulk.cmds, { multi: true })
             return
           }
+          const pcmds = await card.priorityCommands(q, custPromise).catch(() => [])
+          if (pcmds.length) {
+            history.push({ role: 'user', text: q }, { role: 'lami', text: card.commandIntro(pcmds) })
+            wait.outerHTML = `<div class="lp-a">${esc(card.commandIntro(pcmds))}</div><div class="lp-cmdslot"></div>`
+            const slots = body.querySelectorAll('.lp-cmdslot')
+            card.mountCommandCard(slots[slots.length - 1], pcmds)
+            return
+          }
         }
         // (v1.0.1049) "วันนี้มีอะไรบ้าง / สรุปวันนี้" → สรุปงานวันนี้จากข้อมูลจริง + ปุ่มถามต่อเฉพาะหัวข้อที่มีงาน
         {
