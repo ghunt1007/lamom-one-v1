@@ -38,3 +38,25 @@ describe('afterWithdraw', () => {
     expect(await afterWithdraw({ id: 'b1' }, 'x')).toEqual({ reverted: false, followup: false })
   })
 })
+
+describe('withdrawPatch (v1.0.1502)', async () => {
+  const { withdrawPatch, withdrawCategoryLabel } = await import('./bookingWithdraw.js')
+  it('net refund after deduct, category extras only when relevant', () => {
+    const p = withdrawPatch({ cancelDate: '2026-11-28', reason: 'ไปซื้อยี่ห้ออื่น', category: 'competitor', competitor: 'BYD ATTO 3', newBookingNo: 'X', deposit: 5000, deduct: 1000, hasMoney: true, by: 'วิภา', now: 't' })
+    expect(p).toMatchObject({ refundAmount: 4000, refundDeduct: 1000, refundStatus: 'รอคืนเงิน', depositRefunded: 'N', cancelCompetitor: 'BYD ATTO 3', newBookingNo: '', cancelledBy: 'วิภา' })
+    const q = withdrawPatch({ cancelDate: '2026-11-28', reason: 'ย้าย', category: 'moved', newBookingNo: 'SK2511001', deposit: 4000, deduct: 9000, hasMoney: true })
+    expect(q).toMatchObject({ refundAmount: 0, refundDeduct: 4000, refundStatus: 'ไม่ต้องคืน', newBookingNo: 'SK2511001', cancelCompetitor: '' })
+    expect(withdrawCategoryLabel('moved')).toBe('ย้ายไปจองใบใหม่')
+  })
+})
+
+describe('withdrawnAnswer categories (v1.0.1502)', async () => {
+  const { withdrawnAnswer } = await import('./opsQuestions.js')
+  it('groups by category', () => {
+    const bs = [{ status: 'ถอนจอง', bookingDate: '2026-11-05', cancelCategory: 'finance' }, { status: 'ถอนจอง', bookingDate: '2026-11-06', cancelReason: 'ไฟแนนซ์ไม่ผ่าน - x' }, { status: 'ถอนจอง', bookingDate: '2026-11-07', cancelCategory: 'moved', newBookingNo: 'N1' }, { status: 'ส่งมอบแล้ว', bookingDate: '2026-11-08' }]
+    const t = withdrawnAnswer(bs, { today: '2026-11-28' }).text
+    expect(t).toContain('📊 เหตุผล: ไฟแนนซ์ไม่ผ่าน 2 · ย้ายไปจองใบใหม่ 1')
+    expect(t).toContain('ย้ายไป N1')
+    expect(withdrawnAnswer([{ status: 'ถอนจอง', bookingDate: '2026-11-05', cancelReason: 'other' }], { today: '2026-11-28' }).text).toContain('ยังไม่มีการระบุเหตุผล')
+  })
+})

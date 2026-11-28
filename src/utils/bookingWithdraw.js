@@ -34,9 +34,37 @@ export async function afterWithdraw(b, reason) {
     const patch = withdrawCustomerPatch(c, b.id)
     if (patch) { await updateDocData('customers', b.customerId, patch); out.reverted = true }
   } catch { /* ข้าม */ }
+  // (v1.0.1502) ย้ายไปจองใบใหม่ = ลูกค้ายังอยู่ ไม่ต้องนัดโทรตามกลับ
+  if (b.cancelCategory === 'moved') return out
   try {
     await createDoc('followups', { ...buildWinBackFollowup(b, reason), companyId: b.companyId ?? myEffectiveCompanyId() })
     out.followup = true
   } catch { /* ข้าม */ }
   return out
+}
+
+// (v1.0.1502) หมวดเหตุผลถอนจอง — เลือกได้ 1 หมวด (ใช้นับสถิติ) + ข้อความรายละเอียดเหมือนเดิม
+// key ตรงกับ classifyLostReason() ยกเว้น moved = ย้ายไปจองใบใหม่ (ไม่ใช่ลูกค้าหาย)
+export const WITHDRAW_CATEGORIES = [
+  ['finance', 'ไฟแนนซ์ไม่ผ่าน'], ['model', 'รอรถนาน / ไม่มีรุ่น-สี'], ['competitor', 'ไปซื้อยี่ห้อ/ร้านอื่น'],
+  ['price', 'ราคา / งบไม่พอ'], ['changed_mind', 'เปลี่ยนใจ / ปัญหาการเงิน'], ['moved', 'ย้ายไปจองใบใหม่'],
+  ['timing', 'ยังไม่พร้อม'], ['no_contact', 'ติดต่อไม่ได้'], ['other', 'อื่นๆ'],
+]
+export const withdrawCategoryLabel = k => (WITHDRAW_CATEGORIES.find(([v]) => v === k) || [])[1] || ''
+
+// ข้อมูลที่บันทึกตอนกด ❌ ถอนจอง — ยอดคืนสุทธิ = เงินจอง − ค่าดำเนินการที่หัก (ไม่ติดลบ)
+export function withdrawPatch({ cancelDate, reason, category = '', competitor = '', newBookingNo = '', deposit = 0, deduct = 0, hasMoney = false, by = '', now = new Date().toISOString() }) {
+  const dep = Math.max(0, Number(deposit) || 0)
+  const ded = hasMoney ? Math.min(dep, Math.max(0, Number(deduct) || 0)) : 0
+  const net = hasMoney ? dep - ded : 0
+  return {
+    status: 'ถอนจอง', cancelDate, cancelReason: String(reason || '').trim(),
+    cancelCategory: category || '',
+    cancelCompetitor: category === 'competitor' ? String(competitor || '').trim() : '',
+    newBookingNo: category === 'moved' ? String(newBookingNo || '').trim() : '',
+    refundDeduct: ded, refundAmount: net,
+    refundStatus: net > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน',
+    depositRefunded: net > 0 ? 'N' : '',
+    cancelledBy: by || '', cancelledAt: now, updatedAt: now,
+  }
 }

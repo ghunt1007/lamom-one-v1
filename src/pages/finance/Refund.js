@@ -14,6 +14,8 @@ import { escHtml } from '../../utils/escape.js'
 import { myName } from '../../utils/myName.js'
 import { notifyTeam } from '../../utils/teamNotify.js'
 import { refundStatusOf, refundDocsSent } from '../../utils/financeQueue.js'
+import { uploadFile, STORAGE_ENABLED } from '../../utils/storage.js'
+import { withdrawCategoryLabel } from '../../utils/bookingWithdraw.js'
 
 
 // (v1.0.518) เงินจอง (bookingDeposit) แยกจากเงินดาวน์ (down) — ใบจองเก่ามีแค่ down ตัวเดียว ยอดที่เซลส์เก็บ
@@ -122,12 +124,13 @@ export default async function RefundPage(container) {
                     <span style="font-size:0.7rem;color:var(--primary)">${escHtml(b.bookingNo || '')}</span>
                     <span style="font-size:0.64rem;font-weight:700;padding:1px 8px;border-radius:8px;background:${rc}22;color:${rc};border:1px solid ${rc}55">💸 ${escHtml(rs)}</span>
                   </div>
-                  <div style="font-size:0.7rem;color:var(--text-muted)">ถอนเมื่อ ${formatDate(b.cancelDate) || '—'} · เหตุผล: ${escHtml(b.cancelReason || b.refundReason || '—')} · เซลส์ ${escHtml(b.salesName || '—')}${b.refundedAt ? ' · โอนคืนแล้ว ' + formatDate(b.refundedAt) : ''}${amt > 0 ? (refundDocsSent(b) ? ' · 📄 ส่งเอกสารคืนจองแล้ว' + (b.refundDocsDate ? ' ' + formatDate(b.refundDocsDate) : '') : ' · 📄 ยังไม่ส่งเอกสารคืนจอง') : ''}</div>
+                  <div style="font-size:0.7rem;color:var(--text-muted)">ถอนเมื่อ ${formatDate(b.cancelDate) || '—'} · เหตุผล: ${b.cancelCategory ? escHtml(withdrawCategoryLabel(b.cancelCategory)) + ' — ' : ''}${escHtml(b.cancelReason || b.refundReason || '—')} · เซลส์ ${escHtml(b.salesName || '—')}${b.refundDeduct ? ' · หักค่าดำเนินการ ' + formatCurrency(b.refundDeduct) : ''}${b.refundedAt ? ' · โอนคืนแล้ว ' + formatDate(b.refundedAt) + (b.refundedBy ? ' โดย ' + escHtml(b.refundedBy) : '') : ''}${/^https:\/\//.test(b.refundSlipUrl || '') ? ` · <a href="${escHtml(b.refundSlipUrl)}" target="_blank" rel="noopener">📎 สลิป</a>` : ''}${amt > 0 ? (refundDocsSent(b) ? ' · 📄 ส่งเอกสารคืนจองแล้ว' + (b.refundDocsDate ? ' ' + formatDate(b.refundDocsDate) : '') : ' · 📄 ยังไม่ส่งเอกสารคืนจอง') : ''}</div>
                 </div>
                 <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
                   <div style="font-size:0.95rem;font-weight:900;color:${amt > 0 ? 'var(--danger)' : 'var(--text-muted)'}">${amt > 0 ? '-' + formatCurrency(amt) : 'ไม่มียอดคืน'}</div>
                   <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
                   ${rs === 'รอคืนเงิน' && !refundDocsSent(b) ? `<button class="btn btn-xs btn-secondary refund-docs-btn" data-id="${b.id}">📄 ส่งเอกสารคืนจองแล้ว</button>` : ''}
+                  ${rs === 'คืนเงินแล้ว' && STORAGE_ENABLED && !b.refundSlipUrl ? `<label class="btn btn-xs btn-secondary" style="cursor:pointer">📎 แนบสลิปโอนคืน<input type="file" accept="image/*,application/pdf" class="refund-slip-in" data-id="${b.id}" style="display:none"></label>` : ''}
                   ${rs === 'รอคืนเงิน' ? `<button class="btn btn-xs btn-primary refund-done-btn" data-id="${b.id}" style="background:var(--success);border-color:var(--success)">💸 โอนคืนลูกค้าแล้ว</button>` : ''}
                   </div>
                 </div>
@@ -174,6 +177,20 @@ export default async function RefundPage(container) {
       await loadData()
     }))
 
+    // (v1.0.1502) แนบสลิปโอนคืน (เก็บไฟล์ใน R2 เฉพาะเมื่อเปิดใช้ที่เก็บไฟล์ — ไม่มีก็ไม่โชว์ปุ่ม)
+    container.querySelectorAll('.refund-slip-in').forEach(inp => inp.addEventListener('change', async () => {
+      const b = bookings.find(x => x.id === inp.dataset.id)
+      const f = inp.files?.[0]
+      if (!b || !f) return
+      try {
+        const r = await uploadFile(f, 'refund-slips')
+        if (!r?.ok || r.demo || !/^https:\/\//.test(r.url || '')) throw new Error('upload')
+        await updateDocData('bookings', b.id, { refundSlipUrl: r.url, refundSlipKey: r.key || '' })
+        showToast('📎 แนบสลิปโอนคืนแล้ว', 'success')
+        await loadData()
+      } catch { showToast('แนบสลิปไม่สำเร็จ', 'error') }
+    }))
+
     container.querySelectorAll('.refund-done-btn').forEach(btn => btn.addEventListener('click', async () => {
       const b = bookings.find(x => x.id === btn.dataset.id)
       if (!b) return
@@ -182,7 +199,7 @@ export default async function RefundPage(container) {
       if (!ok) return
       const today = todayBangkok()
       try {
-        await updateDocData('bookings', b.id, { refundStatus: 'คืนเงินแล้ว', depositRefunded: 'Y', refundAmount: amt, refundedAt: today })
+        await updateDocData('bookings', b.id, { refundStatus: 'คืนเงินแล้ว', depositRefunded: 'Y', refundAmount: amt, refundedAt: today, refundedBy: myName() })
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
       try { await notifySales('💸 การเงินคืนเงินจองให้ลูกค้าแล้ว', `ใบจอง ${b.bookingNo} — คืนเงิน ${formatCurrency(amt)} ให้ ${b.custName || ''} เรียบร้อย (${formatDate(today)})`, b) } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบสถานะที่บันทึกไปแล้ว */ }
       showToast('💸 บันทึกการคืนเงินแล้ว — ฝ่ายขายเห็นสถานะทันที', 'success')

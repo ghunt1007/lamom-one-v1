@@ -242,7 +242,8 @@ export function newBookingDoc(m, { companyId = null, customerId = null } = {}) {
     com70: 0,
     insuranceAmount: 0,
     totalIncome: rest.marginLeft + rest.comFinance,
-    cancelReason: rest.status === 'ถอนจอง' ? 'other' : '',
+    // (v1.0.1502) ใช้เหตุผลจากคอลัมน์ "เหตุผลที่ถอนจอง" ใน Sheet ก่อน
+    cancelReason: rest.cancelReason || (rest.status === 'ถอนจอง' ? 'other' : ''),
     notes: '',
     createdAt: (rest.bookingDate || todayBangkok()) + 'T00:00:00.000Z',
     importedFromExcel: true,

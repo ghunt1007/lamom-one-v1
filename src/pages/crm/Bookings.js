@@ -7,7 +7,7 @@ import { customerStatusMessage } from '../../utils/bookingNotify.js'
 import { needsBooking, etaForBookings, etaLabel, orderNeeds, altColorText } from '../../utils/orderNeeds.js'
 import { openLineLinkQr, lineLinkState, needsLineLink, pickLineInviteTargets, prepareLineLink, lineInviteSmsText, LINE_INVITE_COOLDOWN_DAYS } from '../../utils/lineLink.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
-import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
+import { reasonChipsHtml, bindReasonChips, classifyLostReason } from '../../utils/lostReason.js'
 import { showToast, getState, setState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getVisibilityScope, isProgramOwner, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
@@ -23,7 +23,7 @@ import { printBooking, printCancellation } from '../../utils/bookingDocs.js'
 import { openBookingDocs, printBookingForm } from '../../utils/bookingDocsMenu.js'
 import { scheduleAfterSales } from '../../utils/afterSales.js'
 import { closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
-import { afterWithdraw } from '../../utils/bookingWithdraw.js'
+import { afterWithdraw, withdrawPatch, WITHDRAW_CATEGORIES, withdrawCategoryLabel } from '../../utils/bookingWithdraw.js'
 import { maybeMarkCustomerDelivered, syncStockForBookings, stockStatusForBooking, customerStageAfterSave } from '../../utils/bookingSync.js'
 import { askDeliveryIncome, needsIncome, statusDatePatch, DELIVERED_STATUSES } from '../../utils/deliveryIncome.js'
 import { openSheetReconcile } from '../../utils/sheetReconcileModal.js'
@@ -33,6 +33,7 @@ import { bookingOutlook, deliveryForecast } from '../../utils/deliveryForecast.j
 import { TIER_META } from '../../utils/deliveryForecastView.js'
 import { cancelRisk } from '../../utils/cancelRisk.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { myName } from '../../utils/myName.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { copyText } from '../../utils/copyText.js'
 import { canPushLine, pushLineToCustomer, lineSendBtnHtml } from '../../utils/customerLinePush.js'
@@ -1088,6 +1089,8 @@ export default async function BookingsPage(container) {
     const hasMoney = downAmt > 0 && !b.rightsOnly
     // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
     const today = todayBangkok()
+    // (v1.0.1502) หมวดเหตุผล 1 หมวด + ยี่ห้อคู่แข่ง / เลขใบจองใหม่ + ยอดหักค่าดำเนินการ → ยอดคืนสุทธิ + ผู้ถอนจอง
+    const catNow = b.cancelCategory || (b.cancelReason ? classifyLostReason(b.cancelReason) : '')
     const { el, close } = openModal({
       title: '❌ ถอนจอง ' + escHtml(b.bookingNo),
       size: 'sm',
@@ -1095,14 +1098,29 @@ export default async function BookingsPage(container) {
         <div class="input-group"><label class="input-label">วันที่ถอนจอง *</label>
           <input class="input" type="date" id="wd-date" value="${escHtml(b.cancelDate || today)}">
         </div>
-        <div class="input-group"><label class="input-label">เหตุผลที่ถอนจอง *</label>
+        <div class="input-group"><label class="input-label">หมวดเหตุผล *</label>
+          <select class="input" id="wd-cat"><option value="">— เลือก —</option>${WITHDRAW_CATEGORIES.map(([v, l]) => `<option value="${v}"${v === catNow ? ' selected' : ''}>${l}</option>`).join('')}</select>
+        </div>
+        <div class="input-group" id="wd-comp-g" style="display:none"><label class="input-label">ไปซื้อยี่ห้อ/รุ่นอะไร</label>
+          <input class="input" id="wd-comp" value="${escHtml(b.cancelCompetitor || '')}" placeholder="เช่น BYD ATTO 3">
+        </div>
+        <div class="input-group" id="wd-new-g" style="display:none"><label class="input-label">เลขใบจองใหม่</label>
+          <input class="input" id="wd-new" value="${escHtml(b.newBookingNo || '')}" placeholder="เลขใบจองที่ย้ายไป">
+        </div>
+        <div class="input-group"><label class="input-label">รายละเอียดเหตุผล *</label>
           ${reasonChipsHtml('wd-chip')}
           <textarea class="input" id="wd-reason" rows="3" placeholder="เลือกเหตุผลด้านบน แล้วพิมพ์รายละเอียดต่อได้">${escHtml(b.cancelReason || '')}</textarea>
         </div>
         ${hasMoney ? `
-          <div class="input-group"><label class="input-label">ยอดเงินจองที่ต้องคืน (บาท)</label>
-            <input class="input" type="number" id="wd-refund" value="${__escA(downAmt)}" min="0">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px">
+            <div class="input-group"><label class="input-label">เงินจองที่ชำระไว้</label>
+              <input class="input" type="number" id="wd-dep" value="${__escA(downAmt)}" min="0">
+            </div>
+            <div class="input-group"><label class="input-label">หักค่าดำเนินการ</label>
+              <input class="input" type="number" id="wd-deduct" value="${__escA(Number(b.refundDeduct) || 0)}" min="0">
+            </div>
           </div>
+          <div id="wd-net" style="font-size:0.8rem;font-weight:700;margin:-4px 0 8px"></div>
           <div style="font-size:0.74rem;color:var(--warning);background:var(--surface-2);padding:8px 10px;border-radius:8px">
             💸 ระบบจะเปิดเรื่อง "รอคืนเงิน" และแจ้งฝ่ายการเงินอัตโนมัติ — ติดตามสถานะได้จนการเงินโอนคืนลูกค้าแล้ว
           </div>` : `
@@ -1113,19 +1131,34 @@ export default async function BookingsPage(container) {
       footer: '<button class="btn btn-secondary" id="wd-c">ยกเลิก</button><button class="btn btn-danger" id="wd-s">❌ ยืนยันถอนจอง</button>',
     })
     el.querySelector('#wd-c').addEventListener('click', close)
-    bindReasonChips(el, 'wd-chip', el.querySelector('#wd-reason'))
+    const catEl = el.querySelector('#wd-cat'), reasonEl = el.querySelector('#wd-reason')
+    const showExtra = () => {
+      el.querySelector('#wd-comp-g').style.display = catEl.value === 'competitor' ? '' : 'none'
+      el.querySelector('#wd-new-g').style.display = catEl.value === 'moved' ? '' : 'none'
+    }
+    catEl.addEventListener('change', showExtra); showExtra()
+    bindReasonChips(el, 'wd-chip', reasonEl)
+    // กดปุ่มเหตุผล/พิมพ์เหตุผล → เดาหมวดให้ถ้ายังไม่ได้เลือก (เปลี่ยนเองได้)
+    const guess = () => { if (!catEl.value && reasonEl.value.trim()) { const k = classifyLostReason(reasonEl.value); catEl.value = WITHDRAW_CATEGORIES.some(([v]) => v === k) ? k : 'other'; showExtra() } }
+    el.querySelectorAll('.wd-chip').forEach(c => c.addEventListener('click', guess))
+    reasonEl.addEventListener('blur', guess)
+    const net = () => {
+      const o = el.querySelector('#wd-net'); if (!o) return
+      const d = Number(el.querySelector('#wd-dep').value) || 0, x = Number(el.querySelector('#wd-deduct').value) || 0
+      o.textContent = '💵 ยอดคืนสุทธิ ' + formatCurrency(Math.max(0, d - Math.min(d, x)))
+    }
+    el.querySelectorAll('#wd-dep,#wd-deduct').forEach(i => i.addEventListener('input', net)); net()
     el.querySelector('#wd-s').addEventListener('click', async () => {
-      const reason = el.querySelector('#wd-reason').value.trim().replace(/\s*[-–—:]$/, '').trim()
-      if (!reason) { showToast('⚠️ กรุณาระบุเหตุผลที่ถอนจอง', 'warning'); return }
-      const cancelDate = el.querySelector('#wd-date').value || today
-      const refundAmount = hasMoney ? (Number(el.querySelector('#wd-refund').value) || 0) : 0
-      const patch = {
-        status: 'ถอนจอง', cancelDate, cancelReason: reason,
-        refundAmount, refundStatus: refundAmount > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน',
-        // (v1.0.1501) ให้ตรงคอลัมน์ "คืนเงินจอง" ใน Sheet
-        depositRefunded: refundAmount > 0 ? 'N' : '',
-        updatedAt: new Date().toISOString(),
-      }
+      const reason = reasonEl.value.trim().replace(/\s*[-–—:]$/, '').trim()
+      if (!catEl.value) { showToast('⚠️ กรุณาเลือกหมวดเหตุผล', 'warning'); return }
+      if (!reason) { showToast('⚠️ กรุณาระบุรายละเอียดเหตุผลที่ถอนจอง', 'warning'); return }
+      const patch = withdrawPatch({
+        cancelDate: el.querySelector('#wd-date').value || today, reason, category: catEl.value,
+        competitor: el.querySelector('#wd-comp').value, newBookingNo: el.querySelector('#wd-new').value,
+        deposit: hasMoney ? el.querySelector('#wd-dep').value : 0, deduct: hasMoney ? el.querySelector('#wd-deduct').value : 0,
+        hasMoney, by: myName(),
+      })
+      const refundAmount = patch.refundAmount
       const btn = el.querySelector('#wd-s'); btn.disabled = true
       try {
         await updateDocData('bookings', b.id, patch)
@@ -1134,7 +1167,7 @@ export default async function BookingsPage(container) {
         const wb = await afterWithdraw(b, reason)
         if (refundAmount > 0) {
           await notifyDept('💸 ถอนจอง — รอคืนเงินจองลูกค้า',
-            `${b.custName || b.bookingNo} ถอนจอง ${b.bookingNo} · ยอดคืน ${formatCurrency(refundAmount)} · เหตุผล: ${reason}`,
+            `${b.custName || b.bookingNo} ถอนจอง ${b.bookingNo} · ยอดคืน ${formatCurrency(refundAmount)}${patch.refundDeduct ? ` (หัก ${formatCurrency(patch.refundDeduct)})` : ''} · เหตุผล: ${reason}`,
             '/finance/refund')
         }
         close()
@@ -1156,7 +1189,7 @@ export default async function BookingsPage(container) {
           <textarea class="input" id="cp-reason" rows="3" placeholder="ระบุเหตุผลที่ลูกค้าขอถอนจอง...">${escHtml(b.cancelReason || b.notes || '')}</textarea>
         </div>
         <div class="input-group"><label class="input-label">หักค่าดำเนินการ (บาท)</label>
-          <input class="input" type="number" id="cp-deduct" value="0" min="0">
+          <input class="input" type="number" id="cp-deduct" value="${__escA(Number(b.refundDeduct) || 0)}" min="0">
         </div>
         <div style="font-size:0.76rem;color:var(--text-muted);background:var(--surface-2);padding:8px 10px;border-radius:8px">
           เงินจอง/ดาวน์ที่ชำระไว้ <b>${formatCurrency(downAmt)}</b> บาท — ยอดคืนสุทธิจะคำนวณจากค่าที่หักด้านบน
@@ -1168,9 +1201,13 @@ export default async function BookingsPage(container) {
     el.querySelector('#cp-p').addEventListener('click', async () => {
       const reason = el.querySelector('#cp-reason').value.trim()
       const deduct = Number(el.querySelector('#cp-deduct').value) || 0
-      if (reason && reason !== b.cancelReason) {
-        try { await updateDocData('bookings', b.id, { cancelReason: reason }); b.cancelReason = reason } catch {}
+      // (v1.0.1502) เก็บยอดหักไว้ด้วย ยอดรอคืนบนหน้าการเงินจะตรงกับใบที่พิมพ์
+      const fix = {}
+      if (reason && reason !== b.cancelReason) fix.cancelReason = reason
+      if (deduct !== (Number(b.refundDeduct) || 0) && b.status === 'ถอนจอง' && b.refundStatus !== 'คืนเงินแล้ว') {
+        fix.refundDeduct = Math.min(downAmt, deduct); fix.refundAmount = Math.max(0, downAmt - fix.refundDeduct)
       }
+      if (Object.keys(fix).length) { try { await updateDocData('bookings', b.id, fix); Object.assign(b, fix) } catch {} }
       close()
       printCancellation(b, { reason, deduct })
     })
@@ -1514,8 +1551,15 @@ export default async function BookingsPage(container) {
           const rc = rs === 'คืนเงินแล้ว' ? 'var(--success)' : rs === 'รอคืนเงิน' ? 'var(--warning)' : 'var(--text-muted)'
           return sec('❌ ข้อมูลถอนจอง / การคืนเงินจอง') +
             dRow('วันที่ถอนจอง', formatDate(b.cancelDate) || '-') +
+            (b.cancelCategory ? dRow('หมวดเหตุผล', withdrawCategoryLabel(b.cancelCategory) || b.cancelCategory) : '') +
             dRow('เหตุผลที่ถอนจอง', b.cancelReason || b.refundReason || '-') +
-            dRow('ยอดคืนเงินจอง', formatCurrency(b.refundAmount || depositAmt(b) || 0)) +
+            (b.cancelCompetitor ? dRow('ไปซื้อ', b.cancelCompetitor) : '') +
+            (b.newBookingNo ? dRow('ย้ายไปใบจอง', b.newBookingNo) : '') +
+            (b.refundDeduct ? dRow('หักค่าดำเนินการ', formatCurrency(b.refundDeduct)) : '') +
+            dRow(b.refundDeduct ? 'ยอดคืนสุทธิ' : 'ยอดคืนเงินจอง', formatCurrency(b.refundAmount || (b.refundDeduct ? 0 : depositAmt(b)) || 0)) +
+            (b.cancelledBy ? dRow('ผู้บันทึกถอนจอง', b.cancelledBy) : '') +
+            (b.refundedBy ? dRow('ผู้โอนคืน', b.refundedBy) : '') +
+            (/^https:\/\//.test(b.refundSlipUrl || '') ? '<div class="d-row" style="font-size:0.82rem;display:flex;gap:6px;padding:2px 0"><span style="color:var(--text-muted);min-width:110px;flex-shrink:0">สลิปโอนคืน</span><a href="' + escHtml(b.refundSlipUrl) + '" target="_blank" rel="noopener">📎 เปิดดู</a></div>' : '') +
             dRow('ส่งเอกสารคืนจอง', refundDocsSent(b) ? '✅ ส่งแล้ว' + (b.refundDocsDate ? ' ' + formatDate(b.refundDocsDate) : '') : '⏳ ยังไม่ส่ง') +
             '<div style="display:flex;gap:6px;padding:4px 0;align-items:center"><span style="color:var(--text-muted);min-width:110px;flex-shrink:0;font-size:0.82rem">สถานะคืนเงิน</span>' +
             '<span style="font-size:0.74rem;font-weight:700;padding:2px 10px;border-radius:10px;background:' + rc + '22;color:' + rc + ';border:1px solid ' + rc + '55">💸 ' + escHtml(rs) + '</span></div>' +
