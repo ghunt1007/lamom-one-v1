@@ -48,3 +48,21 @@ describe('leave on a weekday (v1.0.1484)', () => {
     expect(r.text).toContain('ก')
   })
 })
+
+import { downAvgAnswer } from './opsQuestions.js'
+describe('LAMI downavg (v1.0.1485)', () => {
+  it('routes and leaves loan calcs alone', () => {
+    expect(parseOpsSpec('ยอดดาวน์เฉลี่ยเท่าไหร่')?.kind).toBe('downavg')
+    expect(parseOpsSpec('ซื้อสดกี่คน')?.kind).toBe('downavg')
+    expect(parseOpsSpec('S07 ดาวน์ 20% เดือนละเท่าไหร่')?.kind).not.toBe('downavg')
+  })
+  it('summarises real bookings, honest when thin', () => {
+    const b = (d, price, down, extra = {}) => ({ bookingDate: d, price, down, ...extra })
+    const r = downAvgAnswer([b('2026-11-01', 1000000, 100000, { financeAmount: 900000, installments: '72' }), b('2026-11-02', 1000000, 200000, { installments: 72 }), b('2026-11-03', 1000000, 0, { finStatus: 'ซื้อสด' }), b('2026-11-04', 900000, 0, { status: 'ถอนจอง' }), b('2026-11-05', 800000, 80000, { installments: 60 })], { today: '2026-11-28' })
+    expect(r.n).toBe(4)
+    expect(r.text).toContain('ดาวน์เฉลี่ย ฿126,667 ≈ 13%')
+    expect(r.text).toContain('ผ่อนบ่อยสุด 72 งวด (2 จาก 3 ใบ)')
+    expect(r.text).toContain('ซื้อสด 1 ใบ (25%)')
+    expect(downAvgAnswer([b('2026-11-01', 1, 0)], { today: '2026-11-28' }).text).not.toContain('฿0')
+  })
+})
