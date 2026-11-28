@@ -4,6 +4,7 @@ import { listDocs, createDoc, softDelete, seedDemoData, getSalesData, readDoc } 
 import { SALES_TARGETS_COLLECTION, targetFor } from '../../utils/salesTargets.js'
 import { confirmDialog } from '../../utils/modal.js'
 import { askLami, isAiEnabled, aiErrorText } from '../../utils/ai.js'
+import { normalizeQuery } from '../../utils/queryNormalize.js'
 import { formatCurrency, todayBangkok, toDateStr } from '../../utils/format.js'
 import { heuristicScore } from './LeadScoring.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
@@ -383,12 +384,14 @@ export default async function AiAssistantChatPage(container) {
       // เรียก askLami() จริง (เหมือน pattern เดียวกับ LamiBrain.js) แทน CANNED keyword-match เดิม — ประวัติแชท
       // ต้องแปลง role 'ai' ในไฟล์นี้เป็น 'lami' ตามที่ askLami() คาดหวัง (ไม่กระทบ role ที่เก็บจริงใน Firestore)
       const history = messages.slice(0, -1).map(m => ({ role: m.role === 'ai' ? 'lami' : m.role, text: m.text }))
+      // (v1.0.1518) คำอังกฤษปนไทย ("booking today") → ไทยก่อนเข้าตัวตอบทันที · AI ยังได้ข้อความเดิม
+      const qn = normalizeQuery(text)
       // (v1.0.981) "X อยู่ตรงไหน / หาไม่เจอ" → ตอบจากเมนูจริงทันที พร้อมปุ่มเปิดหน้า (ไม่ต้องรอ AI และไม่เดาชื่อหน้าผิด)
       // (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อจริงพร้อมปุ่มโทร ไม่ต้องรอ AI
       // (v1.0.1039) "นัดลูกค้า hot ทุกคนพรุ่งนี้ 10 โมง" → รายชื่อพร้อมปุ่ม ✅ ทำทั้งหมด
       {
         const card = await import('../../utils/lamiCommandCard.js')
-        const bulk = await card.loadBulkCommands(text, Promise.resolve(chatCustomers)).catch(() => null)
+        const bulk = await card.loadBulkCommands(qn, Promise.resolve(chatCustomers)).catch(() => null)
         if (bulk) {
           pendingCmds = bulk.cmds; pendingMulti = true
           try { await createDoc('chat_ai_assistant', { role:'ai', text: bulk.intro, cmd: bulk.cmds.length > 0, time:now(), uid }) } catch (e) {}
@@ -396,7 +399,7 @@ export default async function AiAssistantChatPage(container) {
           await loadData()
           return
         }
-        const pcmds = await card.priorityCommands(text, Promise.resolve(chatCustomers)).catch(() => [])
+        const pcmds = await card.priorityCommands(qn, Promise.resolve(chatCustomers)).catch(() => [])
         if (pcmds.length) {
           pendingCmds = pcmds; pendingMulti = false
           try { await createDoc('chat_ai_assistant', { role:'ai', text: commandIntro(pcmds), cmd: true, time:now(), uid }) } catch (e) {}
@@ -409,7 +412,7 @@ export default async function AiAssistantChatPage(container) {
       // (v1.0.1049) "วันนี้มีอะไรบ้าง / สรุปวันนี้" → สรุปงานวันนี้จากข้อมูลจริงทันที
       {
         const card = await import('../../utils/lamiCommandCard.js')
-        const tb = await card.loadTodayBrief(text, Promise.resolve(chatCustomers)).catch(() => null) || await card.loadAheadBrief(text, Promise.resolve(chatCustomers)).catch(() => null) || await card.loadMonthBrief(text).catch(() => null) || await card.loadIncomeBrief(text).catch(() => null) || await card.loadTeamBrief(text, Promise.resolve(chatCustomers)).catch(() => null) || await card.loadQuoteAnswer(text).catch(() => null) || await card.loadOpsAnswer(text, Promise.resolve(chatCustomers)).catch(() => null) || await card.loadCarPick(text).catch(() => null) || await card.loadStockAnswer(text).catch(() => null) || await card.loadPayAnswer(text).catch(() => null) || await card.loadPromoAnswer(text).catch(() => null) || await card.loadModelAnswer(text).catch(() => null) // (v1.0.1051) + ยอดเดือนนี้ (v1.0.1053) + สต็อก
+        const tb = await card.loadTodayBrief(qn, Promise.resolve(chatCustomers)).catch(() => null) || await card.loadAheadBrief(qn, Promise.resolve(chatCustomers)).catch(() => null) || await card.loadMonthBrief(qn).catch(() => null) || await card.loadIncomeBrief(qn).catch(() => null) || await card.loadTeamBrief(qn, Promise.resolve(chatCustomers)).catch(() => null) || await card.loadQuoteAnswer(qn).catch(() => null) || await card.loadOpsAnswer(qn, Promise.resolve(chatCustomers)).catch(() => null) || await card.loadCarPick(qn).catch(() => null) || await card.loadStockAnswer(qn).catch(() => null) || await card.loadPayAnswer(qn).catch(() => null) || await card.loadPromoAnswer(qn).catch(() => null) || await card.loadModelAnswer(qn).catch(() => null) // (v1.0.1051) + ยอดเดือนนี้ (v1.0.1053) + สต็อก
         if (tb) {
           pendingCmds = []
           try { await createDoc('chat_ai_assistant', { role:'ai', text: tb.text, next: tb.next, ...(tb.copy ? { copy: tb.copy } : {}), ...(tb.go ? { links: [tb.go, tb.go2].filter(Boolean).map(g => ({ label: g.label, path: g.path })) } : {}), time:now(), uid }) } catch (e) {} // (v1.0.1055) ถามต่อเป็นปุ่มกดได้ ไม่ต้องพิมพ์เอง
@@ -421,7 +424,7 @@ export default async function AiAssistantChatPage(container) {
       // (v1.0.1048) "สมชายถึงไหนแล้ว / สรุปมานี" → สรุปลูกค้าจากข้อมูลจริงทันที พร้อมปุ่มโทร/เปิด
       {
         const card = await import('../../utils/lamiCommandCard.js')
-        const br = await card.loadCustomerBrief(text, Promise.resolve(chatCustomers)).catch(() => null)
+        const br = await card.loadCustomerBrief(qn, Promise.resolve(chatCustomers)).catch(() => null)
         if (br) {
           pendingCmds = br.cmds
           try { await createDoc('chat_ai_assistant', { role:'ai', text: br.text, cmd: true, time:now(), uid }) } catch (e) {}
@@ -433,7 +436,7 @@ export default async function AiAssistantChatPage(container) {
       // (v1.0.1046) ถามหาใบจอง "ใครรอไฟแนนซ์ / ใครยังไม่นัดส่งมอบ" → รายการใบจองจริงพร้อมปุ่มเปิด
       {
         const card = await import('../../utils/lamiCommandCard.js')
-        const bl = await card.loadBookingListCommands(text, Promise.resolve(chatCustomers)).catch(() => null)
+        const bl = await card.loadBookingListCommands(qn, Promise.resolve(chatCustomers)).catch(() => null)
         if (bl) {
           pendingCmds = bl.cmds
           try { await createDoc('chat_ai_assistant', { role:'ai', text: bl.intro, cmd: bl.cmds.length > 0, time:now(), uid }) } catch (e) {}
@@ -445,7 +448,7 @@ export default async function AiAssistantChatPage(container) {
       // (v1.0.1045) ถามหารายชื่อ "ลูกค้า hot มีใครบ้าง" → รายชื่อจริงพร้อมปุ่มโทร
       {
         const card = await import('../../utils/lamiCommandCard.js')
-        const lst = await card.loadListCommands(text, Promise.resolve(chatCustomers)).catch(() => null)
+        const lst = await card.loadListCommands(qn, Promise.resolve(chatCustomers)).catch(() => null)
         if (lst) {
           pendingCmds = lst.cmds
           try { await createDoc('chat_ai_assistant', { role:'ai', text: lst.intro + (lst.next ? '\n💡 กดปุ่มด้านล่างเพื่อนัดทั้งกลุ่มในครั้งเดียว' : ''), next: lst.next ? [lst.next] : [], cmd: lst.cmds.length > 0, time:now(), uid }) } catch (e) {}
@@ -454,7 +457,7 @@ export default async function AiAssistantChatPage(container) {
           return
         }
       }
-      if (isCallListQuestion(text)) {
+      if (isCallListQuestion(qn)) {
         const card = await import('../../utils/lamiCommandCard.js')
         const [cmds, timeHint] = await Promise.all([card.loadCallListCommands(Promise.resolve(chatCustomers)).catch(() => []), card.loadCallTimeHint()])
         pendingCmds = cmds
@@ -463,9 +466,9 @@ export default async function AiAssistantChatPage(container) {
         await loadData()
         return
       }
-      if (isCommandHelp(text)) {
+      if (isCommandHelp(qn)) {
         const n = exampleName(chatCustomers)
-        const h = isFullHelp(text) ? { text: commandHelpText(n), next: ['วันนี้มีอะไรบ้าง', 'วันนี้ควรโทรหาใคร'] } : commandHelpBrief(n)
+        const h = isFullHelp(qn) ? { text: commandHelpText(n), next: ['วันนี้มีอะไรบ้าง', 'วันนี้ควรโทรหาใคร'] } : commandHelpBrief(n)
         try { await createDoc('chat_ai_assistant', { role:'ai', text: h.text, next: h.next, time:now(), uid }) } catch (e) {}
         waiting = false
         await loadData()
@@ -479,7 +482,7 @@ export default async function AiAssistantChatPage(container) {
         return
       }
       // (v1.0.1031) พิมพ์สั่งงาน เช่น "นัดสมชายพรุ่งนี้ 10 โมง" / "มานี hot" → การ์ดทำเลยครั้งเดียว ไม่ต้องรอ AI
-      const cmds = parseLamiCommand(text, chatCustomers, todayBangkok())
+      const cmds = parseLamiCommand(qn, chatCustomers, todayBangkok())
       pendingCmds = cmds
       if (cmds.length) {
         try { await createDoc('chat_ai_assistant', { role:'ai', text: commandIntro(cmds), cmd: true, time:now(), uid }) } catch (e) {}
