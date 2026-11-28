@@ -396,6 +396,14 @@ export default async function AiAssistantChatPage(container) {
           await loadData()
           return
         }
+        const pcmds = await card.priorityCommands(text, Promise.resolve(chatCustomers)).catch(() => [])
+        if (pcmds.length) {
+          pendingCmds = pcmds; pendingMulti = false
+          try { await createDoc('chat_ai_assistant', { role:'ai', text: commandIntro(pcmds), cmd: true, time:now(), uid }) } catch (e) {}
+          waiting = false
+          await loadData()
+          return
+        }
       }
       pendingMulti = false
       // (v1.0.1049) "วันนี้มีอะไรบ้าง / สรุปวันนี้" → สรุปงานวันนี้จากข้อมูลจริงทันที

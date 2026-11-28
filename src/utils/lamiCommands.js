@@ -239,7 +239,7 @@ export function parseLamiCommand(q, customers = [], today) {
       const type = /ไลน์|line|แชท/i.test(s) ? 'chat' : /เจอ|มาโชว์รูม|เข้าโชว์รูม|เข้าพบ|มาที่/.test(s) ? 'visit' : /โทร/.test(s) ? 'call' : 'internal'
       out.push({ kind: 'note', customer: c, text, type, label: `📝 จดไว้ที่ ${name}`, desc: text.length > 60 ? text.slice(0, 60) + '…' : text })
     } else if (isTd) out.push({ kind: 'td', customer: c, hint: s, label: `🚗 นัดลองขับ ${name}`, desc: 'เปิดฟอร์มที่กรอกชื่อ/รุ่น/วันเวลาให้แล้ว' })
-    else if (isTemp && !isFu) out.push({ kind: 'temp', customer: c, temp: tempHit[1], label: `ปรับความสนใจ ${name} → ${tempHit[2]}`, desc: c.temperature ? `เดิม ${c.temperature}` : '' })
+    else if (isTemp && !isFu) out.push({ kind: 'temp', customer: c, temp: tempHit[1], label: `ปรับความสนใจ ${name} → ${tempHit[2]}`, desc: c.temperature ? `เดิม ${({ hot: '🔴 Hot', warm: '🟡 Warm', cold: '🔵 Cold' })[c.temperature] || c.temperature}` : '' })
     else if (isFu) {
       const due = suggestNextDue(s, today)
       if (due.skip) continue

@@ -711,6 +711,16 @@ export async function loadTeamBrief(q, customersPromise) {
   return { text: tm.teamBriefText(st, dmy(today)), next: tm.teamFollowUps(st), go: { path: '/crm/followup', label: '📞 เปิดหน้าติดตามลูกค้า' } }
 }
 
+// (v1.0.1513) คำสั่งที่เอ่ยชื่อลูกค้าชัดเจน ("มานะไม่สนใจแล้ว" / "มานะเป็น hot" / "ย้ายมานะให้วิภา") ต้องได้ปุ่ม ✅ ทำเลย
+// ก่อนคำตอบสรุป (เดิมไปตอบรายการเสียดีล / รายชื่อ hot ทั้งร้าน) · คืน [] ถ้าไม่ใช่
+const PRIORITY_CMDS = new Set(['lost', 'temp', 'assign'])
+export async function priorityCommands(q, customersPromise) {
+  if (/ไหม|มั้ย|มั๊ย|หรือเปล่า|หรือยัง|รึยัง|ใคร|บ้าง|กี่|[?？]/.test(String(q || ''))) return []
+  const [{ parseLamiCommand }, { todayBangkok }] = await Promise.all([import('./lamiCommands.js'), import('./format.js')])
+  const cmds = parseLamiCommand(q, (await customersPromise) || [], todayBangkok())
+  return cmds.length && cmds.every(c => PRIORITY_CMDS.has(c.kind)) ? cmds : []
+}
+
 // (v1.0.1035) "วันนี้ควรโทรหาใคร" → รายชื่อพร้อมปุ่มโทร (ลูกค้าที่ผู้ใช้เห็นเท่านั้น)
 export async function loadCallListCommands(customersPromise) {
   const [{ listDocs }, { companyScopeFilters }, { followupWindowFilters }, { todayBangkok }, { callList, callListCommands }] = await Promise.all([
