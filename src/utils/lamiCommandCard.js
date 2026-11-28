@@ -380,6 +380,8 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.campaignBestAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today })
   } else if (spec.kind === 'csat') {
     res = oq.csatAnswer(await listDocs('csat', [], 'createdAt', 'desc', 500).catch(() => []), { today, prev: spec.prev, low: spec.low })
+  } else if (spec.kind === 'downavg') {
+    res = oq.downAvgAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today })
   } else if (spec.kind === 'vat') {
     if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 ตัวเลขภาษีของโชว์รูมดูได้เฉพาะผู้จัดการและเจ้าของ' }
     else {
