@@ -161,7 +161,9 @@ export function parseLamiCommand(q, customers = [], today) {
   const stage = !isNote ? bookingStageIn(s) : null
   // (v1.0.1034) จอง: เปิดฟอร์มสร้างใบจองของลูกค้าคนนั้น (ไม่บันทึกเงินเองอัตโนมัติ — ต้องกรอกเงินจองก่อน)
   const isBook = !isNote && !stage && /^(?:ช่วย\s*)?(?:จอง(?!ลองขับ)|ทำใบจอง|ออกใบจอง|เปิดใบจอง|สร้างใบจอง)|(?:ตกลง|ขอ)?จองแล้ว|ปิดการขาย(?:ได้)?แล้ว|ปิดดีล(?:ได้)?แล้ว|ตกลงจอง|จะจอง(?:วันนี้|เลย)/.test(s)
-  const isTd = !isNote && !isLog && !isBook && /ลองขับ|ทดลองขับ|test\s*drive/i.test(s)
+  // (v1.0.1529) "ทำใบเสนอราคาให้สมชาย" / "สมชายขอใบเสนอราคา S07" → เปิดฟอร์มใบเสนอราคาที่กรอกชื่อ/เบอร์/รุ่นให้ (ยังไม่บันทึกเอง)
+  const isQuote = !isNote && !isLog && !isBook && !stage && /ใบเสนอราคา|quotation/i.test(s) && !/หรือยัง|รึยัง|ไหม|มั้ย|กี่|บ้าง|ใคร|[?？]/.test(s)
+  const isTd = !isNote && !isLog && !isBook && !isQuote && /ลองขับ|ทดลองขับ|test\s*drive/i.test(s)
   const tempHit = TEMP.find(([re]) => re.test(s))
   const isTempOnly = !isNote && !isLog && !isBook && tempHit && (/^(?:ปรับ|ตั้ง|เปลี่ยน|ให้)|เป็น\s*(?:hot|warm|cold|ร้อน|อุ่น|เย็น)/i.test(s) || (!WHEN.test(s) && s.replace(/hot|warm|cold/i, '').trim().split(/\s+/).length <= 2))
   const hasWhen = WHEN.test(s)
@@ -216,6 +218,11 @@ export function parseLamiCommand(q, customers = [], today) {
       const targets = hits.filter(c => !sq(seller).includes(sq(c.firstName)) && String(c.assignedTo || '').trim() !== seller)
       return targets.map(c => ({ kind: 'assign', customer: c, to: seller, label: `👤 ให้ ${seller} ดูแล ${fullName(c)}`, desc: c.assignedTo ? `เดิม ${c.assignedTo}` : 'ยังไม่มีผู้ดูแล' }))
     }
+  }
+  if (isQuote) {
+    const mm = s.replace(/line|hot|warm|cold/ig, ' ').match(/[A-Za-z]+(?:\s?[A-Za-z]*\d+[A-Za-z]?|\s[A-Za-z]{1,2}(?![A-Za-z]))|[A-Za-z]\d{1,3}/)
+    return hits.map(c => { const model = mm ? mm[0].trim() : (c.interestedModel || '')
+      return { kind: 'quote', customer: c, model, label: `📄 ทำใบเสนอราคา ${fullName(c)}`, desc: `${model ? '🚗 ' + model + ' · ' : ''}เปิดฟอร์มที่กรอกชื่อ/เบอร์ให้แล้ว เลือกรุ่น/ส่วนลดแล้วกดบันทึก` } })
   }
   for (const c of hits) {
     const name = fullName(c)
@@ -278,6 +285,7 @@ export function commandHref(cmd) {
   const id = encodeURIComponent(cmd?.customer?.id || '')
   if (cmd?.kind === 'stage') return `/crm/bookings?id=${encodeURIComponent(cmd.customer.bookingId)}&status=${encodeURIComponent(cmd.status)}`
   if (cmd?.kind === 'book') return `/crm/customers?id=${id}&book=1`
+  if (cmd?.kind === 'quote') return '/crm/quotation'
   if (cmd?.kind === 'open') return `/crm/customers?id=${id}`
   if (cmd?.kind === 'bk') return `/crm/bookings?id=${encodeURIComponent(cmd.bookingId || '')}` // (v1.0.1046) เปิดใบจองนั้นเลย
   return ''
@@ -393,4 +401,10 @@ export async function runLamiCommand(cmd, { me = '', db, companyId, followupFilt
     return `✅ ${fullName(c)} เป็น ${cmd.temp.toUpperCase()} แล้ว`
   }
   return ''
+}
+
+// (v1.0.1529) ข้อมูลตั้งต้นของฟอร์มใบเสนอราคา (รูปแบบเดียวกับปุ่ม 📄 ในหน้าลูกค้า → sessionStorage 'lamom_quote_prefill')
+export function quotePrefill(cmd) {
+  const c = cmd?.customer || {}
+  return { customerId: c.id || '', customerName: fullName(c), phone: c.phone || '', email: c.email || '', lineId: c.lineId || '', interestedModel: cmd?.model || c.interestedModel || '' }
 }

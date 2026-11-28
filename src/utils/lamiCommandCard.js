@@ -24,7 +24,7 @@ export function mountCommandCard(slot, cmds, { onDone, multi = false } = {}) {
   slot.innerHTML = `<div class="lami-cmds">${cmds.map((c, i) => `
     <div class="lami-cmd" data-i="${i}">
       <div class="lami-cmd-t"><b>${esc(c.label)}</b>${c.desc ? `<small>${esc(c.desc)}</small>` : ''}</div>
-      <button type="button" class="btn btn-primary btn-sm lami-cmd-go" data-i="${i}">${c.kind === 'tel' ? '📞 โทรเลย' : c.kind === 'td' ? '🚗 เปิดฟอร์ม' : c.kind === 'lead' ? '➕ เปิดฟอร์ม' : c.kind === 'book' ? '📝 เปิดฟอร์มจอง' : c.kind === 'open' ? '👤 เปิด' : c.kind === 'bk' ? '📝 เปิดใบจอง' : c.kind === 'stage' ? '📝 อัปเดตใบจอง' : '✅ ทำเลย'}</button>
+      <button type="button" class="btn btn-primary btn-sm lami-cmd-go" data-i="${i}">${c.kind === 'tel' ? '📞 โทรเลย' : c.kind === 'td' ? '🚗 เปิดฟอร์ม' : c.kind === 'lead' ? '➕ เปิดฟอร์ม' : c.kind === 'book' ? '📝 เปิดฟอร์มจอง' : c.kind === 'quote' ? '📄 เปิดฟอร์ม' : c.kind === 'open' ? '👤 เปิด' : c.kind === 'bk' ? '📝 เปิดใบจอง' : c.kind === 'stage' ? '📝 อัปเดตใบจอง' : '✅ ทำเลย'}</button>
     </div>`).join('')}</div>${multi && cmds.length > 1 ? `<div class="lami-cmds-all"><button type="button" class="btn btn-primary lami-cmd-all">✅ ทำทั้งหมด ${cmds.length} คน</button></div>` : ''}`
   const done = new Set()
   // บันทึกใบที่ i (คำสั่งที่บันทึกได้ทันที) — คืน true ถ้าสำเร็จ
@@ -69,6 +69,7 @@ export function mountCommandCard(slot, cmds, { onDone, multi = false } = {}) {
       location.href = 'tel:' + cmd.phone; return
     }
     const href = commandHref(cmd)
+    if (cmd.kind === 'quote') { try { const { quotePrefill } = await import('./lamiCommands.js'); sessionStorage.setItem('lamom_quote_prefill', JSON.stringify(quotePrefill(cmd))) } catch { /* เปิดฟอร์มเปล่า */ } }
     if (href) {
       const [{ navigate }, panel] = await Promise.all([import('../core/router.js'), import('./lamiPanel.js')])
       panel.closeLamiPanel?.()
@@ -734,7 +735,7 @@ export async function loadTeamBrief(q, customersPromise) {
 // (v1.0.1513) คำสั่งที่เอ่ยชื่อลูกค้าชัดเจน ("มานะไม่สนใจแล้ว" / "มานะเป็น hot" / "ย้ายมานะให้วิภา") ต้องได้ปุ่ม ✅ ทำเลย
 // ก่อนคำตอบสรุป (เดิมไปตอบรายการเสียดีล / รายชื่อ hot ทั้งร้าน) · คืน [] ถ้าไม่ใช่
 // (v1.0.1528) + log: "มานะมาโชว์รูมแล้ว" / "มานะทดลองขับแล้ว" / "โทรหามานะแล้ว" (เดิมไปตอบรายการนัดโชว์รูม/ลองขับวันนี้)
-const PRIORITY_CMDS = new Set(['lost', 'temp', 'assign', 'log'])
+const PRIORITY_CMDS = new Set(['lost', 'temp', 'assign', 'log', 'quote'])
 export async function priorityCommands(q, customersPromise) {
   if (/ไหม|มั้ย|มั๊ย|หรือเปล่า|หรือยัง|รึยัง|ใคร|บ้าง|กี่|[?？]/.test(String(q || ''))) return []
   const [{ parseLamiCommand }, { todayBangkok }] = await Promise.all([import('./lamiCommands.js'), import('./format.js')])
