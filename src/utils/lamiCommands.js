@@ -231,6 +231,9 @@ export function parseLamiCommand(q, customers = [], today) {
       return targets.map(c => ({ kind: 'assign', customer: c, to: seller, label: `👤 ให้ ${seller} ดูแล ${fullName(c)}`, desc: c.assignedTo ? `เดิม ${c.assignedTo}` : 'ยังไม่มีผู้ดูแล' }))
     }
   }
+  // (v1.0.1548) "สมชายมีรถเก่ามาเทิร์น" / "สมชายจะเทิร์นรถ" → เปิดฟอร์มประเมินรถเทิร์น (ใส่ชื่อ + รุ่นที่สนใจให้)
+  if (plain && !isLineChat && !isQuote && /เทิร์น|trade\s*-?\s*in|รถเก่า\s*(?:มา)?\s*(?:แลก|ขาย)/i.test(s) && !/กี่|ใคร|บ้าง|ไหม|มั้ย|เท่าไหร่|ราคา/.test(s) && hits.length)
+    return hits.slice(0, 1).map(c => ({ kind: 'tradein', customer: c, label: `🔄 ประเมินรถเทิร์น ${fullName(c)}`, desc: 'เปิดฟอร์มประเมินรถเทิร์น ใส่ชื่อลูกค้า' + (c.interestedModel ? ` + รถใหม่ ${c.interestedModel}` : '') + ' ให้แล้ว' }))
   if (isLineChat) return hits.map(c => c.lineUserId
     ? { kind: 'linechat', customer: c, label: `💚 แชท LINE ${fullName(c)}`, desc: 'เปิดกล่องแชท LINE ของลูกค้าคนนี้ พิมพ์แล้วกดส่งเองในหน้านั้น' }
     : { kind: 'open', customer: c, label: `👤 ${fullName(c)} ยังไม่ผูก LINE`, desc: `เปิดหน้าลูกค้าเพื่อส่ง QR ผูก LINE${c.phone ? ' หรือโทร ' + c.phone : ''}` })
@@ -301,6 +304,7 @@ export function commandHref(cmd) {
   if (cmd?.kind === 'stage') return `/crm/bookings?id=${encodeURIComponent(cmd.customer.bookingId)}&status=${encodeURIComponent(cmd.status)}`
   if (cmd?.kind === 'book') return `/crm/customers?id=${id}&book=1`
   if (cmd?.kind === 'quote') return '/crm/quotation'
+  if (cmd?.kind === 'tradein') return `/dms/tradein?new=1&name=${encodeURIComponent(fullName(cmd.customer))}${cmd.customer?.interestedModel ? '&car=' + encodeURIComponent(cmd.customer.interestedModel) : ''}`
   if (cmd?.kind === 'linechat') return `/marketing/channels?tab=inbox&open=${encodeURIComponent('line_' + String(cmd.customer?.lineUserId || '').replace(/[^A-Za-z0-9-]/g, ''))}`
   if (cmd?.kind === 'open') return `/crm/customers?id=${id}`
   if (cmd?.kind === 'bk') return `/crm/bookings?id=${encodeURIComponent(cmd.bookingId || '')}` // (v1.0.1046) เปิดใบจองนั้นเลย

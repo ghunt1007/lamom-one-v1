@@ -156,7 +156,7 @@ export default async function TradeInPage(container) {
     document.getElementById('add-ti-btn')?.addEventListener('click', () => openAppraisalModal())
   }
 
-  function openAppraisalModal(t = null) {
+  function openAppraisalModal(t = null, pre = {}) {
     const modal = openModal({
       title: t ? '🔍 ประเมินใหม่: ' + escHtml(t.oldCar) : '+ ประเมินรถเทิร์น',
       size: 'md',
@@ -166,7 +166,7 @@ export default async function TradeInPage(container) {
           <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px">เลือกรูปรอบคัน + หน้าปัดเลขไมล์ ได้สูงสุด 4 รูป · AI เติมรุ่น ไมล์ เกรด และช่วงราคาคร่าวๆ ให้</div>
           <div id="ti-ai-out"></div>
         </div>
-        <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="ti-name" value="${escHtml(t?.customer||'')}"></div>
+        <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="ti-name" value="${escHtml(t?.customer||pre.name||'')}"></div>
         <div class="input-group"><label class="input-label">รถเก่า (ยี่ห้อ รุ่น ปี)</label><input class="input" id="ti-car" value="${escHtml(t?.oldCar||'')}" placeholder="Toyota Camry 2018"></div>
         <div class="input-group"><label class="input-label">ทะเบียน</label><input class="input" id="ti-plate" value="${escHtml(t?.plate||'')}"></div>
         <div class="input-group"><label class="input-label">เลขไมล์ (km)</label><input class="input" type="number" id="ti-mileage" value="${__escA(t?.mileage||0)}"></div>
@@ -174,7 +174,7 @@ export default async function TradeInPage(container) {
         <div class="input-group"><label class="input-label">เกรดสภาพ</label>
           <select class="input" id="ti-grade">${Object.entries(CONDITION_GRADES).map(([k,v])=>`<option value="${__escA(k)}" ${t?.grade===k?'selected':''}>${v.label} (×${v.adj})</option>`).join('')}</select>
         </div>
-        <div class="input-group" style="grid-column:1/-1"><label class="input-label">รถใหม่ที่สนใจ</label><input class="input" id="ti-newcar" value="${escHtml(t?.newCar||'')}"></div>
+        <div class="input-group" style="grid-column:1/-1"><label class="input-label">รถใหม่ที่สนใจ</label><input class="input" id="ti-newcar" value="${escHtml(t?.newCar||pre.car||'')}"></div>
         <div class="input-group"><label class="input-label">🏦 ยอดหนี้ค้างชำระ (บาท)</label><input class="input" type="number" id="ti-loan" value="${__escA(t?.outstandingLoan||0)}" placeholder="0 ถ้าไม่มีภาระผ่อน"></div>
         <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;cursor:pointer;align-self:end;padding-bottom:8px">
           <input type="checkbox" id="ti-accident" ${t?.accidentHistory?'checked':''} style="accent-color:var(--danger);width:15px;height:15px"> ⚠️ มีประวัติอุบัติเหตุ
@@ -259,5 +259,12 @@ export default async function TradeInPage(container) {
   }
 
   await loadData()
+  // (v1.0.1548) เปิดจาก LAMI "สมชายมีรถเก่ามาเทิร์น" → /dms/tradein?new=1&name=…&car=… เปิดฟอร์มพร้อมชื่อ
+  try {
+    const qp = new URLSearchParams(location.search)
+    if (qp.get('new') === '1' && container.__routerGen === myGen) {
+      openAppraisalModal(null, { name: (qp.get('name') || '').slice(0, 80), car: (qp.get('car') || '').slice(0, 80) })
+      history.replaceState(history.state, '', location.pathname)
+    }
+  } catch { /* ข้าม */ }
 }
-

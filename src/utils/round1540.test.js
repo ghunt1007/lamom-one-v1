@@ -98,3 +98,14 @@ describe('เปลี่ยนเบอร์ (v1.0.1547)', () => {
     expect(parseLamiCommand('แก้เบอร์ คุณวิไล เป็น 081-234-5678', cs, '2026-11-28')[0]).toMatchObject({ kind: 'phone', phone: '0812345678' })
   })
 })
+
+import { commandHref } from './lamiCommands.js'
+describe('คำสั่งรถเทิร์น (v1.0.1548)', () => {
+  const cs = [{ id: 'a', firstName: 'สมชาย', lastName: 'ดี', interestedModel: 'DEEPAL S07' }]
+  it('opens the trade-in form prefilled', () => {
+    const r = parseLamiCommand('สมชายมีรถเก่ามาเทิร์น', cs, '2026-11-28')
+    expect(r[0].kind).toBe('tradein')
+    expect(commandHref(r[0])).toBe('/dms/tradein?new=1&name=' + encodeURIComponent('สมชาย ดี') + '&car=' + encodeURIComponent('DEEPAL S07'))
+    expect(parseLamiCommand('มีรถเทิร์นกี่คัน', cs, '2026-11-28')).toEqual([])
+  })
+})
