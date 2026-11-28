@@ -1,7 +1,7 @@
 // (v1.0.1046) ถามหาใบจอง: "ใครรอไฟแนนซ์" / "ใครรอรถ" / "ใครยังไม่นัดส่งมอบ" / "ใบจองไหนค้างนานสุด" / "ส่งมอบพรุ่งนี้มีใครบ้าง"
 // → LAMI ตอบเป็นรายการใบจองจริงพร้อมปุ่มเปิดใบจอง (ไม่ต้องรอ AI) · ฟังก์ชันล้วน ทดสอบได้
 import { thaiNumerals } from './lamiCommands.js'
-import { isOpenBooking } from './bookingStatus.js'
+import { isOpenBooking, isDelivered } from './bookingStatus.js'
 import { dmy, addDaysBangkok } from './format.js'
 import { carOf } from './carLabel.js'
 
@@ -91,6 +91,7 @@ function bookingListLabel0(spec) {
   if (spec.late) return 'นัดส่งมอบเลยวันแล้วแต่ยังไม่ส่งมอบ'
   if (spec.allOpen && !spec.noSign && !spec.noVin && !spec.noDeposit && !spec.noDown && !spec.noColor && !spec.noLine && !spec.noDocs && !spec.finFail && !spec.stuck) return 'ใบจองที่ยังไม่ส่งมอบ'
   if (spec.noColor) return 'ใบจองที่ยังไม่ได้ใส่สีรถ'
+  if (spec.ynCol?.delivered) return `ใบจองที่ส่งมอบแล้ว (90 วันล่าสุด) แต่ยังไม่ได้${spec.ynCol.label} (คอลัมน์ ${spec.ynCol.h} ใน Sheet ยังไม่เป็น Y)`
   if (spec.ynCol) return `ใบจองที่ยังไม่ได้${spec.ynCol.label} (คอลัมน์ ${spec.ynCol.h} ใน Sheet ยังไม่เป็น Y)`
   if (spec.noLine) return 'ใบจองที่ลูกค้ายังไม่ผูก LINE'
   if (spec.noSign) return 'ใบจองผ่อนที่ยังไม่ได้เซ็นสัญญา'
@@ -120,7 +121,9 @@ export function bookingTargets({ customers = [], bookings = [], today, spec, tom
     const c = byBooking.get(b.id) || byId.get(b.customerId)
     if (!c) return
     const open = isOpenBooking(b) || b.status === 'ตัดตัวเลขรอส่งมอบ'
-    if (!open) return
+    // (v1.0.1550) คอลัมน์หลังส่งมอบ (ส่งมอบDMS) ดูเฉพาะใบที่ส่งมอบแล้ว
+    if (spec.ynCol?.delivered ? !isDelivered(b) : !open) return
+    if (spec.ynCol?.delivered) { const dd = String(b.actualDeliveryDate || b.cutDate || '').slice(0, 10); if (!isDate(dd) || t - dayNum(dd) > 90) return }
     if (spec.statuses && !spec.statuses.includes(b.status)) return
     if (spec.modelQ && !sq([b.brand, b.model, carOf(b)].join(' ')).includes(sq(spec.modelQ))) return
     if (spec.sellerName && String(b.salesName || '').trim() !== spec.sellerName) return
@@ -131,7 +134,7 @@ export function bookingTargets({ customers = [], bookings = [], today, spec, tom
     if (spec.noDown && ((Number(b.down) || 0) > 0 || b.finStatus === 'ซื้อสด')) return
     if (spec.noColor && String(b.color || '').trim()) return
     if (spec.noLine && (b.lineUserId || !isOpenBooking(b))) return
-    if (spec.ynCol && (String(b[spec.ynCol.f] || '').toUpperCase() === 'Y' || !isOpenBooking(b))) return
+    if (spec.ynCol && (String(b[spec.ynCol.f] || '').toUpperCase() === 'Y' || (!spec.ynCol.delivered && !isOpenBooking(b)))) return
     if (spec.noDocs && (b.files || []).length) return
     if (spec.finFail && b.finStatus !== 'ไม่ผ่าน') return
     if (spec.noSign && !(b.finStatus === 'รอเซ็นสัญญา' || b.finStatus === 'รอเซ็นต์' || (b.finStatus === 'ผ่าน' && !isDate(b.signDate)))) return

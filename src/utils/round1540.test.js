@@ -109,3 +109,19 @@ describe('คำสั่งรถเทิร์น (v1.0.1548)', () => {
     expect(parseLamiCommand('มีรถเทิร์นกี่คัน', cs, '2026-11-28')).toEqual([])
   })
 })
+
+import { bookingTargets as bt1550 } from './bookingQuestions.js'
+describe('ส่งมอบใน DMS (v1.0.1550)', () => {
+  it('lists recently delivered bookings without the DMS mark', () => {
+    const spec = parseBookingListSpec('ใครยังไม่ได้ส่งมอบใน DMS')
+    expect(spec.ynCol).toMatchObject({ f: 'dmsDelivered', delivered: true })
+    const bookings = [
+      { id: 'a', customerId: 'ca', status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-11-20' },
+      { id: 'b', customerId: 'cb', status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-11-21', dmsDelivered: 'Y' },
+      { id: 'c', customerId: 'cc', status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-01-01' },
+      { id: 'd', customerId: 'cd', status: 'รอส่งมอบ' },
+    ]
+    const r = bt1550({ customers: ['ca', 'cb', 'cc', 'cd'].map(id => ({ id })), bookings, today: '2026-11-28', spec })
+    expect(r.list.map(x => x.b.id)).toEqual(['a'])
+  })
+})
