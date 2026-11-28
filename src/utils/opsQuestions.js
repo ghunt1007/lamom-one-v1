@@ -17,6 +17,7 @@ import { refundStatusOf, refundDocsSent } from './financeQueue.js'
 import { testDriveConversion } from './testDriveConversion.js'
 import { isOverviewForecastQuestion } from './forecastOverview.js'
 import { bookingDataIssues, issueCount, rowLabel } from './bookingDataCheck.js'
+import { bookingYnColumn } from './bookingYn.js'
 
 const has = (s, re) => re.test(s)
 // คำสั่งให้ทำ (นัด/บันทึก/สร้าง) ไม่ใช่คำถาม → ปล่อยให้ตัวสั่งงานจัดการ
@@ -58,6 +59,8 @@ export function parseOpsSpec(q) {
   if (s.length < 4 || s.length > 80 || (COMMAND.test(s) && !topicOnly)) return null
   // (v1.0.1526) ค้นโน้ตลูกค้า: "ลูกค้าที่จดไว้ว่ารอโบนัส" · "ใครบอกว่าแพง" · "หาโน้ต สีขาว" · "ลูกค้าที่รอโบนัส"
   { const t = noteSearchTerm(s); if (t) return { kind: 'notesearch', term: t } }
+  // (v1.0.1541) "ใครยังไม่ได้เช็ครายการก่อนส่งมอบ" → รายการใบจองตามคอลัมน์ Y/N ใน Sheet (ไม่ใช่นัดส่งมอบ)
+  if (bookingYnColumn(s)) return null
   // (v1.0.1537) "ลิงก์ฟอร์มลงทะเบียนของฉัน" / "QR ลีดของฉัน" → ลิงก์ฟอร์มลีดส่วนตัว (ลีดเข้าชื่อเซลส์คนนี้)
   if (isMyLinkQuestion(s)) return { kind: 'mylink' }
   // (v1.0.1540) "เงินเดือนเดือนนี้รวมเท่าไหร่" / "เงินเดือนค้างจ่ายกี่คน" → สรุปจากหน้าเงินเดือน (เฉพาะเจ้าของ/ผู้จัดการ/การเงิน)
