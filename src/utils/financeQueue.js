@@ -24,7 +24,8 @@ export function financeQueue(bookings = [], today) {
     return Number.isFinite(at) ? Math.max(m, Math.floor((t0 - at) / DAY)) : m
   }, 0)
   const refundAmt = refund.reduce((s, b) => s + (Number(b.refundAmount) || depositOf(b)), 0)
-  return { verify, refund, oldestDays, refundAmt, total: verify.length + refund.length }
+  const noDocs = refund.filter(b => !refundDocsSent(b)).length
+  return { verify, refund, oldestDays, refundAmt, noDocs, total: verify.length + refund.length }
 }
 
 // (v1.0.1295) คำสั่ง LINE "ไฟแนนซ์" — ใบจองที่ยังเปิดอยู่และไฟแนนซ์ยังไม่จบ (รอส่ง/รอผล/รอโยกหัว/รอเซ็น) เรียงยื่นนานสุดก่อน

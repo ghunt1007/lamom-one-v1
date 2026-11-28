@@ -12,7 +12,7 @@ import { nextAnniversary } from './anniversary.js'
 import { lostBySeller, classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
 import { entryPointOf, ENTRY_INFO } from './entryPoints.js'
 import { sourceConversion } from './leadScore.js'
-import { refundStatusOf } from './financeQueue.js'
+import { refundStatusOf, refundDocsSent } from './financeQueue.js'
 import { testDriveConversion } from './testDriveConversion.js'
 import { isOverviewForecastQuestion } from './forecastOverview.js'
 
@@ -94,6 +94,8 @@ export function parseOpsSpec(q) {
   // (v1.0.1090) "ยอดจองวันนี้" / "เมื่อวานปิดได้กี่คัน" / "สัปดาห์นี้มีใครจองบ้าง"
   if (has(s, /ยอดจอง|จองใหม่|ใบจองใหม่|เพิ่งจอง|ลูกค้า(?:ที่)?จอง(?!แล้วยัง)|ปิดการขาย|ปิดได้|ปิดดีล|ใครจอง|มีคนจอง|จองกี่|จองไป|จองได้/) && has(s, /วันนี้|เมื่อวาน|สัปดาห์|อาทิตย์|7 วัน/) && !has(s, /ส่งมอบ|ทดลองขับ|ลองขับ/)) return { kind: 'bookday', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
   // (v1.0.1091) "ใครถอนจองเดือนนี้" / "เดือนนี้ถอนจองกี่ใบ"
+  // (v1.0.1503) "ลูกค้าถอนจองไปซื้อยี่ห้ออะไร" → ยี่ห้อ/รุ่นคู่แข่งที่บันทึกตอนถอนจอง
+  if (has(s, /ถอน|ยกเลิก\s*จอง/) && has(s, /ไป\s*ซื้อ|ยี่ห้อ(?:อื่น|ไหน|อะไร)|คู่แข่ง|เสียให้/) && !has(s, /^(?:ใส่|แก้|บันทึก)/)) return { kind: 'wdcomp' }
   if (/^(?:ถอน|ยกเลิก)\s*(?:ใบ)?\s*จอง.{0,14}(?:กี่|เท่าไ|บ้าง|มีใคร|ใครบ้าง)/.test(s)) return { kind: 'withdrawn', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) } // (v1.0.1462) "ยกเลิกจองกี่ใบ"
   if (has(s, /ถอนจอง|ยกเลิกจอง|ถอนใบจอง|ยกเลิกใบจอง|ถอนการจอง|ยกเลิกการจอง|จอง(?:แล้ว)?(?:แต่)?\s*(?:ถอน|ยกเลิก)/) && !has(s, /^(?:ถอน|ยกเลิก)/)) return { kind: 'withdrawn', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
   // (v1.0.1091) "ลูกค้าที่นัดแล้วไม่มา" (นัดโชว์รูม + ทดลองขับที่บันทึกว่าไม่มา)
@@ -190,7 +192,7 @@ export function parseOpsSpec(q) {
   // (v1.0.1116) "ลูกค้าซ้ำมีไหม" / "มีลูกค้าเบอร์ซ้ำไหม"
   if (has(s, /(?:ลูกค้า|ลีด|รายชื่อ|เบอร์|ชื่อ)\s*(?:ที่)?\s*ซ้ำ|ซ้ำกัน|บันทึกซ้ำ|duplicate/i) && !has(s, /ป้ายแดง|ใบจอง|ป้าย/)) return { kind: 'dup' }
   // (v1.0.1114) "ลูกค้าคนไหนค้างจ่าย" (ลูกหนี้ที่บันทึกไว้) · "ลูกค้าที่รอคืนเงินมัดจำ" (ถอนจองแล้วยังไม่คืนเงิน)
-  if (has(s, /คืนเงิน|คืนมัดจำ|รอคืน|ยังไม่(?:ได้)?คืน/) && !has(s, /บันทึก|ขอคืน(?:ได้)?ไหม/)) return { kind: 'refund' }
+  if (has(s, /คืนเงิน|คืนมัดจำ|รอคืน|ยังไม่(?:ได้)?คืน|เอกสาร\s*คืน\s*จอง/) && !has(s, /บันทึก|ขอคืน(?:ได้)?ไหม/)) return { kind: 'refund', ...(has(s, /เอกสาร/) ? { docs: true } : {}) }
   if (has(s, /ค้างจ่าย|ค้างชำระ|ลูกหนี้|หนี้ค้าง|ยังไม่จ่ายเงิน|ติดหนี้/) && !has(s, /ค่างวด|งวด|ผ่อน|ดาวน์|มัดจำ|ไฟแนนซ์/)) return { kind: 'debt' }
   // (v1.0.1113) "ดอกเบี้ย floor plan เดือนนี้" / "ภาระดอกเบี้ยรถในสต็อก"
   if (has(s, /floor\s*plan|ฟลอร์\s*แพลน|ฟลอแพลน|ดอกเบี้ย(?:รถ)?\s*(?:ใน)?\s*สต็อก|ดอกเบี้ยสต็อก/i)) return { kind: 'floorplan' }
@@ -449,7 +451,8 @@ const monthRange = (today, prev) => {
 export function withdrawnAnswer(bookings, { today, prev = false }) {
   const [from, to, label] = monthRange(today, prev)
   const inM = alive(bookings).filter(b => { const d = String(b.bookingDate || '').slice(0, 10); return d >= from && d <= to })
-  const list = inM.filter(b => CANCEL.test(b.status || ''))
+  // (v1.0.1503) นับตามวันที่ถอนจอง (cancelDate) ถ้ามี — ไม่มีวันถอนใช้วันจองเหมือนเดิม
+  const list = alive(bookings).filter(b => CANCEL.test(b.status || '')).filter(b => { const d = String(b.cancelDate || b.bookingDate || '').slice(0, 10); return d >= from && d <= to })
   const span = `${dmy(from)}–${dmy(to)}`
   if (!list.length) return { n: 0, text: `✅ ${label}ยังไม่มีใบจองที่ถอน (${span}) · จองทั้งหมด ${inM.length} ใบ` }
   // (v1.0.1502) แยกตามหมวดเหตุผล (หมวดที่เลือกตอนถอนจอง · ไม่มีหมวด = จัดจากข้อความ · ไม่มีเหตุผล = ไม่นับ)
@@ -457,7 +460,7 @@ export function withdrawnAnswer(bookings, { today, prev = false }) {
   list.forEach(b => { const k = b.cancelCategory || (b.cancelReason && b.cancelReason !== 'other' ? classifyLostReason(b.cancelReason) : ''); if (k) cats[k] = (cats[k] || 0) + 1 })
   const CAT_TH = { ...LOST_REASON_LABELS, moved: 'ย้ายไปจองใบใหม่', model: 'รอรถนาน/ไม่มีรุ่น-สี' }
   const catLine = Object.keys(cats).length ? '📊 เหตุผล: ' + Object.entries(cats).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${CAT_TH[k] || k} ${v}`).join(' · ') : 'ℹ️ ใบที่ถอนยังไม่มีการระบุเหตุผล จึงยังสรุปเหตุผลไม่ได้'
-  return { n: list.length, text: [`↩️ ถอนจอง${label} ${list.length} ใบ จาก ${inM.length} ใบ (${Math.round(list.length / inM.length * 100)}%) · ${span}`, catLine,
+  return { n: list.length, text: [`↩️ ถอนจอง${label} ${list.length} ใบ · ${span} · ใบจองใหม่${label} ${inM.length} ใบ`, catLine,
     ...list.slice(0, MAX).map(b => `• ${nm(b)}${carOf(b) ? ' · ' + carOf(b) : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''} · จอง ${dmy(String(b.bookingDate).slice(0, 10))}${(b.cancelReason && b.cancelReason !== 'other') || b.withdrawReason ? ' · ' + ((b.cancelReason !== 'other' && b.cancelReason) || b.withdrawReason) : ''}${b.cancelCompetitor ? ' · ไปซื้อ ' + b.cancelCompetitor : ''}${b.newBookingNo ? ' · ย้ายไป ' + b.newBookingNo : ''}`),
     ...more(list.length)].join('\n') }
 }
@@ -872,16 +875,35 @@ export function debtAnswer(rows) {
     ...list.slice(0, MAX).map(d => `• ${d.customer || 'ลูกค้า'} — ${thb(d.used)} · ${DEBT_TH[d.status] || d.status || ''}${d.phone ? ' · 📞 ' + d.phone : ''}`), ...more(list.length)].join('\n') }
 }
 
+// (v1.0.1503) ถอนจองไปซื้อคู่แข่ง: ยี่ห้อ/รุ่นที่บันทึก (cancelCompetitor) ในรอบ days วัน ตามวันที่ถอน (ไม่มีวันถอนใช้วันจอง)
+export function wdCompAnswer(bookings, { today, days = 180 }) {
+  const from = addDays(today, -days)
+  const wd = alive(bookings).filter(b => CANCEL.test(b.status || '')).filter(b => { const d = String(b.cancelDate || b.bookingDate || '').slice(0, 10); return d >= from && d <= today })
+  const comp = wd.filter(b => b.cancelCategory === 'competitor' || (!b.cancelCategory && b.cancelReason && classifyLostReason(b.cancelReason) === 'competitor'))
+  const span = `${days} วันล่าสุด (${dmy(from)}–${dmy(today)})`
+  if (!wd.length) return { n: 0, text: `↩️ ไม่มีใบจองที่ถอนใน ${span}` }
+  if (!comp.length) return { n: 0, text: `↩️ ถอนจอง ${wd.length} ใบใน ${span} — ยังไม่มีใบที่บันทึกว่าไปซื้อยี่ห้อ/ร้านอื่น\nℹ️ ตอนกด ❌ ถอนจอง เลือกหมวด "ไปซื้อยี่ห้อ/ร้านอื่น" แล้วใส่ยี่ห้อ/รุ่น LAMI จะสรุปให้ได้` }
+  const g = {}
+  comp.forEach(b => { const k = String(b.cancelCompetitor || '').trim().replace(/\s+/g, ' ') || 'ไม่ได้ระบุยี่ห้อ'; const key = k.toUpperCase(); (g[key] ||= { label: k, n: 0 }).n++ })
+  const rows = Object.values(g).sort((a, b) => b.n - a.n)
+  return { n: comp.length, text: [`🥊 ถอนจองไปซื้อที่อื่น ${comp.length} จาก ${wd.length} ใบ · ${span}`,
+    ...rows.slice(0, 8).map((r, i) => `${i + 1}. ${r.label} — ${r.n} ใบ`),
+    ...comp.slice(0, 5).map(b => `• ${nm(b)}${carOf(b) ? ' · จอง ' + carOf(b) : ''}${b.cancelCompetitor ? ' → ' + b.cancelCompetitor : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''}`)].join('\n') }
+}
+
 // (v1.0.1114) ถอนจองแล้ว มีเงินมัดจำ ยังไม่คืน (สูตรเดียวกับหน้าคืนเงิน)
-export function refundAnswer(bookings) {
-  const dep = b => Number(b?.bookingDeposit) || Number(b?.down) || 0
-  const list = alive(bookings).filter(b => b.status === 'ถอนจอง' && refundStatusOf(b) === 'รอคืนเงิน')
+export function refundAnswer(bookings, { docs = false } = {}) {
+  const amt = b => Number(b?.refundAmount) || Number(b?.bookingDeposit) || Number(b?.down) || 0
+  const all = alive(bookings).filter(b => b.status === 'ถอนจอง' && refundStatusOf(b) === 'รอคืนเงิน')
     .sort((a, b) => String(a.cancelDate || a.bookingDate || '').localeCompare(String(b.cancelDate || b.bookingDate || '')))
-  if (!list.length) return { n: 0, text: '💵 ไม่มีลูกค้าที่ถอนจองแล้วรอคืนเงินมัดจำ 👍' }
-  const total = list.reduce((a, b) => a + dep(b), 0)
-  return { n: list.length, text: [`💵 รอคืนเงินมัดจำ ${list.length} ราย · รวม ${thb(total)}`,
-    ...list.slice(0, MAX).map(b => `• ${b.custName || 'ลูกค้า'} — ${thb(dep(b))}${b.cancelDate ? ' · ถอน ' + dmy(String(b.cancelDate).slice(0, 10)) : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''}`), ...more(list.length),
-    '💡 ทำเรื่องคืนเงินได้ที่หน้าคืนเงิน'].join('\n') }
+  // (v1.0.1503) "ใครยังไม่ได้ส่งเอกสารคืนจอง" → เฉพาะใบที่รอคืนเงินและยังไม่ส่งเอกสาร · ทุกแถวบอกสถานะเอกสาร
+  const noDocs = all.filter(b => !refundDocsSent(b))
+  const list = docs ? noDocs : all
+  if (!list.length) return { n: 0, text: docs ? (all.length ? `📄 ส่งเอกสารคืนจองครบแล้วทุกใบที่รอคืนเงิน (${all.length} ใบ)` : '💵 ไม่มีลูกค้าที่ถอนจองแล้วรอคืนเงินมัดจำ') : '💵 ไม่มีลูกค้าที่ถอนจองแล้วรอคืนเงินมัดจำ' }
+  const total = list.reduce((a, b) => a + amt(b), 0)
+  return { n: list.length, text: [docs ? `📄 ยังไม่ส่งเอกสารคืนจอง ${list.length} ใบ · ยอดรอคืน ${thb(total)}` : `💵 รอคืนเงินมัดจำ ${list.length} ราย · รวม ${thb(total)}${noDocs.length ? ` · ยังไม่ส่งเอกสาร ${noDocs.length} ใบ` : ''}`,
+    ...list.slice(0, MAX).map(b => `• ${b.custName || 'ลูกค้า'} — ${thb(amt(b))}${b.cancelDate ? ' · ถอน ' + dmy(String(b.cancelDate).slice(0, 10)) : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''}${docs ? '' : refundDocsSent(b) ? ' · 📄 ส่งเอกสารแล้ว' : ' · 📄 ยังไม่ส่งเอกสาร'}`), ...more(list.length),
+    '💡 กด "📄 ส่งเอกสารคืนจองแล้ว" / "💸 โอนคืนลูกค้าแล้ว" ได้ที่หน้าคืนเงิน'].join('\n') }
 }
 
 // (v1.0.1113) ภาระ floor plan: ยอดเงินกู้รถที่ยังไม่ปิด · ดอกเบี้ยสะสม · ต่อวัน · เดือนนี้ · คันที่ค้างนาน (สูตรเดียวกับหน้า Floor Plan)
@@ -1710,6 +1732,7 @@ export const OPS_LINKS = {
   testdrive: { path: '/crm/testdrive', label: '🚗 เปิดหน้าทดลองขับ' },
   bookday: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   withdrawn: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
+  wdcomp: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   delivered: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   repeat: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   claim: { path: '/insurance/claims', label: '🛡 เปิดหน้าเคลมประกัน' },
