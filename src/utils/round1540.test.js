@@ -36,3 +36,10 @@ describe('ลูกค้าใหม่ตามช่องทางแบบ�
     expect(parseOpsSpec('ลูกค้าที่ควรขอให้แนะนำเพื่อน')?.kind).not.toBe('newcust')
   })
 })
+
+describe('รถซ่อมเสร็จรอรับ (v1.0.1544)', () => {
+  it('routes', () => {
+    for (const q of ['รถลูกค้าซ่อมเสร็จยัง', 'รถซ่อมเสร็จแล้วคันไหน', 'ซ่อมเสร็จหรือยัง']) expect(parseOpsSpec(q)?.kind).toBe('jobready')
+    expect(parseOpsSpec('งานซ่อมวันนี้กี่งาน')?.kind).toBe('service')
+  })
+})
