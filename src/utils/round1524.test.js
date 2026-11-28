@@ -63,3 +63,15 @@ describe('v1.0.1527 booking data check in LAMI', () => {
     expect(dataCheckAnswer([]).text).toContain('ยังไม่มีใบจองในระบบ')
   })
 })
+
+import { parseLamiCommand } from './lamiCommands.js'
+describe('v1.0.1528 visit / test drive done = log', () => {
+  const cs = [{ id: 'a', firstName: 'สมชาย', lastName: 'ดี', phone: '0811111111' }]
+  const kinds = q => [].concat(parseLamiCommand(q, cs, '2026-11-28') || []).map(x => x.kind + ':' + (x.type || ''))
+  it('logs a visit', () => {
+    expect(kinds('สมชายมาโชว์รูมแล้ว')).toEqual(['log:visit'])
+    expect(kinds('สมชายทดลองขับแล้ว')).toEqual(['log:visit'])
+    expect(kinds('สมชายทดลองขับแล้วหรือยัง')).toEqual([])
+    expect(kinds('นัดสมชายทดลองขับเสาร์')).toEqual(['td:'])
+  })
+})
