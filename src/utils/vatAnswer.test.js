@@ -247,3 +247,15 @@ describe('routing v1.0.1499', async () => {
     expect(oq.parseOpsSpec('ใครรอรถบ้าง')).toEqual({ kind: 'waiteta' })
   })
 })
+
+describe('modelInterestText (v1.0.1500)', async () => {
+  const { modelInterestText } = await import('./modelFunnel.js')
+  const oq = await import('./opsQuestions.js')
+  it('counts interested models in period', () => {
+    const cs = [{ createdAt: '2026-11-10T03:00:00Z', interestedModel: 'DEEPAL S07' }, { createdAt: '2026-11-11T03:00:00Z', interestedModel: 'DEEPAL S07', stage: 'booking' }, { createdAt: '2026-11-12T03:00:00Z', interestedModel: 'AION V' }, { createdAt: '2026-10-01T03:00:00Z', interestedModel: 'AION V' }]
+    const r = modelInterestText(cs, { fromYmd: '2026-11-01', toYmd: '2026-11-28' })
+    expect(r.text).toContain('1. DEEPAL S07 — 2 คน (67%) · จองแล้ว 1')
+    expect(modelInterestText([{ createdAt: '2026-11-10T03:00:00Z' }], { fromYmd: '2026-11-01', toYmd: '2026-11-28' }).text).toContain('ยังไม่มีใครใส่')
+    expect(oq.parseOpsSpec('รุ่นไหนมีคนถามเยอะสุดเดือนนี้')).toEqual({ kind: 'modelfunnel', period: 'month' })
+  })
+})
