@@ -380,6 +380,9 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'yesterday') {
     const [customers, bks, walkins, drives] = await Promise.all([customersPromise || visibleCustomersForCommands(), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('walk_ins', [], 'visitTime', 'desc', 300).catch(() => []), listDocs('test_drives', f, 'date', 'desc', 300).catch(() => [])])
     res = oq.yesterdayAnswer({ customers: (customers || []).filter(c => mine(c.assignedTo, c)), bookings: bks.filter(b => mine(b.salesName, b)), walkins: walkins.filter(w => mine(w.staff, w)), drives: drives.filter(t => mine(t.staff, t)) }, { today })
+  } else if (spec.kind === 'daysum') {
+    const [customers, bks, walkins, drives] = await Promise.all([customersPromise || visibleCustomersForCommands(), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('walk_ins', [], 'visitTime', 'desc', 300).catch(() => []), listDocs('test_drives', f, 'date', 'desc', 300).catch(() => [])])
+    res = oq.daySummaryAnswer({ customers: (customers || []).filter(c => mine(c.assignedTo, c)), bookings: bks.filter(b => mine(b.salesName, b)), walkins: walkins.filter(w => mine(w.staff, w)), drives: drives.filter(t => mine(t.staff, t)) }, { today, day: spec.day })
   } else if (spec.kind === 'weeksum') {
     const [customers, bks, walkins, drives] = await Promise.all([customersPromise || visibleCustomersForCommands(), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('walk_ins', [], 'visitTime', 'desc', 1000).catch(() => []), listDocs('test_drives', f, 'date', 'desc', 1000).catch(() => [])])
     res = oq.weekSummaryAnswer({ customers: (customers || []).filter(c => mine(c.assignedTo, c)), bookings: bks.filter(b => mine(b.salesName, b)), walkins: walkins.filter(w => mine(w.staff, w)), drives: drives.filter(t => mine(t.staff, t)) }, { today, prev: spec.prev })

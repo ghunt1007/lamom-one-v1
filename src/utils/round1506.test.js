@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { parseOpsSpec, weekSummaryAnswer, upgradeAnswer, bookDayAnswer, custBySellerAnswer, vipAnswer, tdModelAnswer, deliveredAnswer, depositsAnswer } from './opsQuestions.js'
+import { parseOpsSpec, weekSummaryAnswer, upgradeAnswer, bookDayAnswer, custBySellerAnswer, vipAnswer, tdModelAnswer, deliveredAnswer, depositsAnswer, daySummaryAnswer } from './opsQuestions.js'
 import { parseListSpec } from './listQuestions.js'
-import { periodSpec, periodStats, periodBriefText, isSellerSummaryAsk } from './monthBrief.js'
+import { periodSpec, periodStats, periodBriefText, isSellerSummaryAsk, isMonthQuestion } from './monthBrief.js'
 import { isCallListQuestion } from './callList.js'
 import { parseBookingListSpec } from './bookingQuestions.js'
 import { isRateQuestion, ratesAnswer } from './payQuestions.js'
@@ -141,5 +141,12 @@ describe('v1.0.1506 LAMI routes', () => {
     expect(m.refundedAt).toBe('2026-11-25')
     const none = mapBookingRow({ 'เลขที่ใบจอง': 'B1', 'ชื่อลูกค้า': 'ก' })
     expect(none.cancelDate).toBe('')
+  })
+  it('v1.0.1517 short questions', () => {
+    expect(parseOpsSpec('ยอดวันนี้')).toEqual({ kind: 'daysum', day: 'today' })
+    expect(parseOpsSpec('วันนี้มีจองไหม')).toEqual({ kind: 'bookday', day: 'today' })
+    expect(isMonthQuestion('เป้า')).toBe(true)
+    const r = daySummaryAnswer({ bookings: [{ bookingDate: '2026-11-28', status: 'จองแล้ว', customerName: 'ก' }] }, { today: '2026-11-28' })
+    expect(r.text).toContain('📝 จองใหม่ 1 ใบ · ✅ ส่งมอบ 0 คัน')
   })
 })
