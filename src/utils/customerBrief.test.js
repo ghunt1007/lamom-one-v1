@@ -52,3 +52,12 @@ describe('customerBrief', () => {
     expect(briefCommands(b).map(c => c.kind)).toEqual(['open'])
   })
 })
+
+describe('brief field questions (v1.0.1491)', () => {
+  it('จองหรือยัง / นัดไว้วันไหน → brief', () => {
+    const cs = [{ id: 'a', firstName: 'มานะ', lastName: 'ใจดี', phone: '0811111111' }]
+    expect(briefTarget('มานะจองหรือยัง', cs)?.id).toBe('a')
+    expect(briefTarget('มานะนัดไว้วันไหน', cs)?.id).toBe('a')
+    expect(briefTarget('ใครจองหรือยัง', cs)).toBeNull()
+  })
+})

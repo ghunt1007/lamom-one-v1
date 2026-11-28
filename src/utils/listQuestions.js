@@ -32,6 +32,8 @@ export function parseListSpec(q) {
   let model = mm ? mm[1].trim().toLowerCase() : null
   // (v1.0.1126) "สนใจแต่ติดเรื่องราคา" ไม่ใช่ชื่อรุ่น
   if (model && /^(?:แต่|ที่|และ|ยัง|อยู่|มาก|จะ|แล้ว|ติด)/.test(model)) model = null
+  // (v1.0.1491) "ลูกค้าคนนี้สนใจรุ่นอะไร" = ถามข้อมูล ไม่ใช่ชื่อรุ่น
+  if (model && /^(?:อะไร|ไหน|รุ่นไหน|รุ่นอะไร|ยี่ห้อ|แบบไหน|คันไหน)/.test(model)) model = null
   // (v1.0.1115) "สนใจรถไฟฟ้า / EV / ไฮบริด" = ประเภทรถ ไม่ใช่ชื่อรุ่น → เทียบกับรุ่นในฐานข้อมูลรถตามชนิดเชื้อเพลิง
   const fuel = model && /^(?:รถ)?\s*(?:ไฟฟ้า|ev|bev)(?:\s*100\s*%)?$/i.test(model) ? 'ev' : model && /^(?:รถ)?\s*(?:ไฮบริด|hybrid|hev|phev|ปลั๊กอิน)/i.test(model) ? 'hybrid' : null
   if (fuel) model = null

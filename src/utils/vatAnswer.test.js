@@ -129,3 +129,11 @@ describe('year brief honesty (v1.0.1489)', () => {
     expect(t).toContain('เฉลี่ยส่งมอบเดือนละ 1.2 คัน') // (0+0+0+3+3)/5 = Jun–Oct
   })
 })
+
+import { parseListSpec } from './listQuestions.js'
+describe('list model capture (v1.0.1491)', () => {
+  it('question words are not model names', () => {
+    expect(parseListSpec('ลูกค้าคนนี้สนใจรุ่นอะไร')).toBeNull()
+    expect(parseListSpec('ลูกค้าที่สนใจ S07')?.model).toBe('s07')
+  })
+})
