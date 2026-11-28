@@ -70,6 +70,9 @@ export function openLamiPanel({ navigate } = {}) {
     body.insertAdjacentHTML('beforeend', `<div class="lp-q">${esc(ai ? '✨ ช่วยคิดคำพูดเปิดการคุย' : (asks.find(a => a.q === q)?.label || q))}</div><div class="lp-a lp-wait"><span></span><span></span><span></span></div>`)
     body.scrollTop = body.scrollHeight
     const wait = body.querySelector('.lp-wait')
+    // (v1.0.1518) คำอังกฤษปนไทย ("booking today") → ไทยก่อนเข้าตัวตอบทันที · AI ยังได้ข้อความเดิม
+    const qRaw = q
+    if (!ai) q = (await import('./queryNormalize.js')).normalizeQuery(q)
     try {
       // (v1.0.1034) "สั่งอะไรได้บ้าง" → ตัวอย่างคำสั่งจากชื่อลูกค้าจริง
       const lc = await import('./lamiCommands.js')
@@ -179,7 +182,7 @@ export function openLamiPanel({ navigate } = {}) {
       }
       // (v1.0.981) "X อยู่ตรงไหน / หาไม่เจอ" → ตอบจากเมนูจริงทันที พร้อมปุ่มพาไปหน้านั้น
       const [{ isWhereQuestion, findPages, whereAnswer }, { NAV }] = await Promise.all([import('./whereIs.js'), import('../data/navMenu.js')])
-      const where = isWhereQuestion(q) ? findPages(q, NAV) : []
+      const where = isWhereQuestion(qRaw) ? findPages(qRaw, NAV) : []
       if (where.length) {
         const ans = whereAnswer(where)
         history.push({ role: 'user', text: q }, { role: 'lami', text: ans })
@@ -199,7 +202,7 @@ export function openLamiPanel({ navigate } = {}) {
         return
       }
       const { askLami } = await import('./ai.js')
-      const ans = await askLami(q, history, pageContextFor(screen))
+      const ans = await askLami(qRaw, history, pageContextFor(screen))
       history.push({ role: 'user', text: q }, { role: 'lami', text: ans })
       // ถามต่อได้ด้วยปุ่มเดียว: โชว์คำถามของหน้านี้ที่ยังไม่ได้ถาม (สูงสุด 3) ใต้คำตอบ
       const asked = new Set(history.filter(h => h.role === 'user').map(h => h.text))
