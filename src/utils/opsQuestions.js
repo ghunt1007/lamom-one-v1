@@ -99,6 +99,8 @@ export function parseOpsSpec(q) {
   if (has(s, /ไม่มา(?:ตามนัด)?|no\s*-?\s*show|เบี้ยวนัด|ผิดนัด/i) && !has(s, /ทำไม|มาถึง|รถ(?:คัน)?(?:ไหน|ยัง)|ได้รถ|ใบสั่ง|สั่งรถ|รถที่สั่ง/)) return { kind: 'noshow', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : 30 }
   // (v1.0.1091) "เซลส์คนไหนยังไม่มีใบจองเดือนนี้"
   if (has(s, /เซลส์|เซล|พนักงานขาย|ลูกทีม|ใครใน(?:ทีม)?|ทีม\s*(?:ฉัน|ผม|เรา)?\s*ใคร/) && has(s, /ยังไม่(?:มี|ได้)?\s*(?:ใบ)?จอง|ยังไม่มียอด|ไม่มียอด|ยังไม่ปิด(?:การขาย|ได้)?|ยังไม่ได้ขาย|ขายไม่ได้/)) return { kind: 'nobookseller' }
+  // (v1.0.1486) "เดือนนี้ใครยังไม่ได้ยอดเลย" / "ใครยังไม่เปิดบิล"
+  if (has(s, /ใคร\s*(?:ยัง)?\s*ไม่\s*(?:ได้|มี)\s*ยอด|ใคร\s*ยังไม่\s*(?:ได้)?\s*เปิด\s*(?:บิล|ยอด)/) && !has(s, /ลูกค้า|ลีด/)) return { kind: 'nobookseller' }
   // (v1.0.1091) "ไฟแนนซ์ไหนอนุมัติเยอะสุด" / "ยื่นไฟแนนซ์ที่ไหนบ่อยสุด"
   // (v1.0.1485) "ยอดดาวน์เฉลี่ยเท่าไหร่" / "ลูกค้าดาวน์กี่เปอร์เซ็นต์" / "ยอดจัดเฉลี่ย" / "ซื้อสดกี่คน" → สรุปเงินดาวน์/ยอดจัดของใบจอง 90 วัน
   if (has(s, /(?:ยอด|เงิน)?\s*ดาวน์\s*(?:เฉลี่ย|เท่าไหร่|เท่าไร|กี่\s*(?:%|เปอร์|เปอร์เซ็นต์)|ส่วนใหญ่)|เฉลี่ย\s*(?:ยอด|เงิน)?\s*ดาวน์|ยอดจัด\s*(?:ไฟแนนซ์)?\s*เฉลี่ย|ฟรีดาวน์\s*กี่|ซื้อ\s*(?:เงิน)?สด\s*(?:กี่|เท่าไ|มี(?:กี่|ใคร))|(?:ผ่อน|จัด)\s*กี่\s*งวด\s*(?:เฉลี่ย|ส่วนใหญ่|มากสุด|บ่อย)/) && !has(s, /รุ่น\s*[A-Za-z0-9]|[A-Za-z]+\s*\d|ค่างวด|เดือนละ|คำนวณ|^(?:ใส่|แก้|บันทึก)/))
@@ -194,7 +196,7 @@ export function parseOpsSpec(q) {
   if (has(s, /ลา(?:งาน|ป่วย|กิจ|พักร้อน|หยุด)|ใครลา|มีคนลา|ลากี่คน|ขอลา|หยุดงาน|พนักงาน\s*(?:ที่)?\s*ลา|ลา\s*(?:วันนี้|พรุ่งนี้|สัปดาห์นี้)\s*(?:มี)?\s*(?:ใคร|กี่)/) && !has(s, /^(?:ขอ)?ลา(?:งาน|ป่วย|กิจ)?\s*(?:พรุ่งนี้|วันที่|\d)/)) { const wd = weekdayOf(s); return wd >= 0 && !/พรุ่งนี้|เดือนนี้/.test(s) ? { kind: 'leave', day: 'wd', wd, next: /หน้า/.test(s) } : { kind: 'leave', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /เดือนนี้/.test(s) ? 'month' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' } }
   // (v1.0.1097) "รถที่กำลังจะมาถึงมีกี่คัน" / "รถสั่งไว้มาเมื่อไหร่"
   // (v1.0.1107) "รถเข้าใหม่สัปดาห์นี้" / "เดือนนี้รับรถเข้าสต็อกกี่คัน"
-  if (has(s, /รถ(?:เข้า|มา)(?:ใหม่|แล้ว)|รถ(?:ที่)?เพิ่ง(?:เข้า|มา)|รับรถเข้า(?:สต็อก|สต๊อก)?|เข้าสต็อก|เข้าสต๊อก|รถล็อตใหม่/) && !has(s, /ลูกค้า|ศูนย์|ซ่อม|เมื่อไหร่|กำลัง/)) return { kind: 'arrived', days: /เดือน/.test(s) ? 'month' : /วันนี้/.test(s) ? 1 : 7 }
+  if (has(s, /รถ(?:เข้า|มา)\s*(?:มา)?\s*(?:ใหม่|แล้ว)|รถ(?:ที่)?เพิ่ง(?:เข้า|มา)|รับรถเข้า(?:สต็อก|สต๊อก)?|เข้าสต็อก|เข้าสต๊อก|รถล็อตใหม่|รถ\s*(?:ที่)?\s*(?:มา)?ถึง\s*(?:แล้ว)?\s*(?:วันนี้|เมื่อวาน|สัปดาห์|อาทิตย์|เดือน)?\s*(?:กี่|มี|คันไหน|อะไร|บ้าง)/) && !has(s, /ลูกค้า|ศูนย์|ซ่อม|เมื่อไหร่|กำลัง|จะ/)) return { kind: 'arrived', days: /เดือน/.test(s) ? 'month' : /เมื่อวาน/.test(s) ? 'yesterday' : /วันนี้/.test(s) ? 1 : 7 }
   // (v1.0.1241) "ลูกค้าที่รอรถจะได้รถเมื่อไหร่" / "ใครรอรถบ้าง" → รายชื่อลูกค้าที่จองรอ + รถจะมาเมื่อไหร่
   if ((has(s, /(?:ลูกค้า|ใคร)[^?]*รอรถ|รอรถ[^?]*(?:เมื่อไหร่|กี่คน|ใครบ้าง|มีใคร)|ได้รถเมื่อไหร่|รถของลูกค้า[^?]*(?:มา|ถึง)เมื่อไหร่/)) && !has(s, /อะไหล่|ซ่อม|ศูนย์/)) return { kind: 'waiteta' }
   // (v1.0.1233) "คาดการณ์สั่งรถ" / "เดือนหน้าควรสั่งรถกี่คัน" → คาดการณ์ล่วงหน้า (จังหวะจอง + ลีดร้อน)
@@ -735,14 +737,16 @@ export function pdiAnswer(pdis, { today }) {
 
 // (v1.0.1107) รถที่รับเข้าสต็อกล่าสุด (vehicles.arrivedAt)
 export function arrivedAnswer(vehicles, { today, days = 7 }) {
-  const from = days === 'month' ? today.slice(0, 7) + '-01' : addDays(today, -(days - 1))
-  const label = days === 'month' ? 'เดือนนี้' : days === 1 ? 'วันนี้' : 'ในรอบ 7 วัน'
-  const list = alive(vehicles).filter(v => { const d = ymd(v.arrivedAt); return d && d >= from && d <= today }).sort((a, b) => ymd(b.arrivedAt).localeCompare(ymd(a.arrivedAt)))
-  if (!list.length) return { n: 0, text: `🚙 ${label}ยังไม่มีรถรับเข้าสต็อก (${dmy(from)}–${dmy(today)})` }
+  // (v1.0.1486) days 'yesterday' = เมื่อวานวันเดียว
+  const to = days === 'yesterday' ? addDays(today, -1) : today
+  const from = days === 'month' ? today.slice(0, 7) + '-01' : days === 'yesterday' ? to : addDays(today, -(days - 1))
+  const label = days === 'month' ? 'เดือนนี้' : days === 'yesterday' ? 'เมื่อวาน' : days === 1 ? 'วันนี้' : 'ในรอบ 7 วัน'
+  const list = alive(vehicles).filter(v => { const d = ymd(v.arrivedAt); return d && d >= from && d <= to }).sort((a, b) => ymd(b.arrivedAt).localeCompare(ymd(a.arrivedAt)))
+  if (!list.length) return { n: 0, text: `🚙 ${label}ยังไม่มีรถรับเข้าสต็อก (${from === to ? dmy(from) : `${dmy(from)}–${dmy(to)}`})` }
   const by = {}
   list.forEach(v => { const k = carOf(v) || 'ไม่ระบุรุ่น'; by[k] = (by[k] || 0) + 1 })
   const sold = list.filter(v => v.status && v.status !== 'available' && v.status !== 'transit').length
-  return { n: list.length, text: [`🚙 รถเข้าสต็อก${label} ${list.length} คัน (${dmy(from)}–${dmy(today)})${sold ? ` · จอง/ขายไปแล้ว ${sold} คัน` : ''}`,
+  return { n: list.length, text: [`🚙 รถเข้าสต็อก${label} ${list.length} คัน (${from === to ? dmy(from) : `${dmy(from)}–${dmy(to)}`})${sold ? ` · จอง/ขายไปแล้ว ${sold} คัน` : ''}`,
     Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · '),
     ...list.slice(0, MAX).map(v => `• ${dmy(ymd(v.arrivedAt))} ${carOf(v) || 'รถ'}${v.color ? ' ' + v.color : ''}${v.status === 'available' ? ' · พร้อมขาย' : ''}`), ...more(list.length)].join('\n') }
 }
