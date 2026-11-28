@@ -36,6 +36,8 @@ export function parseOpsSpec(q) {
   if (s.length < 4 || s.length > 80 || (COMMAND.test(s) && !topicOnly)) return null
   // (v1.0.1526) ค้นโน้ตลูกค้า: "ลูกค้าที่จดไว้ว่ารอโบนัส" · "ใครบอกว่าแพง" · "หาโน้ต สีขาว" · "ลูกค้าที่รอโบนัส"
   { const t = noteSearchTerm(s); if (t) return { kind: 'notesearch', term: t } }
+  // (v1.0.1536) "โพสต์ที่ตั้งเวลาไว้" / "บรอดแคสต์ครั้งต่อไปเมื่อไหร่" → คิวโพสต์ FB/IG + LINE Broadcast ที่ตั้งเวลาไว้
+  if (/(?:โพสต์|บรอดแคสต์|broadcast|ข้อความ\s*line|ไลน์\s*โอเอ).{0,20}(?:ตั้งเวลา|ครั้ง\s*(?:ต่อไป|หน้า)|รอส่ง|รอโพสต์|จะ\s*(?:ส่ง|โพสต์))|(?:ตั้งเวลา|รอ)\s*(?:โพสต์|ส่ง\s*(?:บรอดแคสต์|broadcast|line|ไลน์))/i.test(s)) return { kind: 'schedposts' }
   // (v1.0.1527) "ใบจองที่ข้อมูลไม่ครบ" / "ต้องแก้อะไรใน Sheet" → ตรวจข้อมูลใบจองแบบปุ่ม 🧹 หน้าใบจอง
   if (/ข้อมูล\s*(?:ใบจอง|ลูกค้า)?\s*(?:ยัง)?\s*(?:ไม่ครบ|ผิด|ขาด|หาย|ตกหล่น)|(?:ต้อง|ควร)\s*แก้\s*(?:อะไร|ข้อมูล|ตรงไหน|แถวไหน)?\s*(?:ใน)?\s*(?:sheet|ชีท|ชีต)|ตรวจ\s*(?:สอบ)?\s*ข้อมูล\s*(?:ใบจอง|ใน\s*(?:sheet|ชีท|ชีต))|ใบจอง\s*(?:ที่)?\s*(?:ต้อง|ควร)\s*แก้/i.test(s) && !/เบอร์\s*(?:โทร)?\s*$|ไม่มีเบอร์/.test(s)) return { kind: 'datacheck' }
   // (v1.0.1437) "ควรโทรช่วงไหน" / "โทรเวลาไหนลูกค้ารับสาย" → อัตรารับสายตามช่วงเวลา
@@ -1938,6 +1940,7 @@ export const OPS_LINKS = {
   eventbest: { path: '/marketing/events', label: '🎪 เปิดหน้าออกบูธ/อีเวนต์' },
   boothshift: { path: '/marketing/events', label: '🎪 เปิดหน้าออกบูธ/อีเวนต์' },
   notesearch: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
+  schedposts: { path: '/marketing/channels', label: '🔗 เปิดหน้าช่องทางโซเชียล' },
   datacheck: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   campaignbest: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   mycust: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
@@ -2082,4 +2085,20 @@ export function dataCheckAnswer(bookings = [], { today = '', knownNames = null }
   })
   lines.push('💡 แก้ใน Sheet แล้วกด 🔄 ซิงก์ Sheet · ดูรายการเต็มที่ปุ่ม 🧹 หน้าใบจอง')
   return { n, text: lines.join('\n') }
+}
+
+// (v1.0.1536) คิวที่ตั้งเวลาไว้: โพสต์เพจ FB/IG (จาก worker) + LINE Broadcast (สถานะ scheduled) · posts=null = โหลดไม่ได้/ไม่มีสิทธิ์
+export function schedPostsAnswer({ posts = null, broadcasts = [], nowIso = new Date().toISOString() } = {}) {
+  const fmt = iso => { const t = new Date(iso); if (isNaN(t)) return ''; const b = new Date(t.getTime() + 7 * 3600e3).toISOString(); return `${dmy(b.slice(0, 10))} ${b.slice(11, 16)}` }
+  const cut = (x, n = 50) => { const v = String(x || '').replace(/\s+/g, ' ').trim(); return v.length > n ? v.slice(0, n) + '…' : v }
+  const bc = (broadcasts || []).filter(b => b && !b.deleted && b.status === 'scheduled' && b.scheduledAt && String(b.scheduledAt) >= nowIso.slice(0, 16))
+    .sort((a, b) => String(a.scheduledAt).localeCompare(String(b.scheduledAt)))
+  const ps = (posts || []).slice().sort((a, b) => String(a.at).localeCompare(String(b.at)))
+  const lines = []
+  if (ps.length) { lines.push(`📣 โพสต์เพจที่ตั้งเวลาไว้ ${ps.length} รายการ`); ps.slice(0, 5).forEach(p => lines.push(`• ${fmt(p.at)} · ${(p.pageNames || []).join(', ') || `${p.pages || 1} เพจ`}${p.toInstagram ? ' + IG' : ''} — ${cut(p.message) || '(รูปอย่างเดียว)'}`)) }
+  else if (posts) lines.push('📣 ยังไม่มีโพสต์เพจที่ตั้งเวลาไว้')
+  if (bc.length) { lines.push(`💬 LINE Broadcast ที่ตั้งเวลาไว้ ${bc.length} รายการ`); bc.slice(0, 5).forEach(b => lines.push(`• ${fmt(b.scheduledAt)} · ${cut(b.title || b.message)}${b.autoSend === false ? ' (เตือนให้กดส่งเอง)' : ''}`)) }
+  else lines.push('💬 ยังไม่มี LINE Broadcast ที่ตั้งเวลาไว้')
+  if (!posts) lines.push('ℹ️ คิวโพสต์เพจดูได้เฉพาะผู้จัดการ/การตลาด (หน้าช่องทางโซเชียล)')
+  return { n: ps.length + bc.length, text: ['⏰ งานที่ตั้งเวลาไว้', ...lines].join('\n') }
 }
