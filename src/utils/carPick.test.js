@@ -49,3 +49,18 @@ describe('carPick', () => {
     suv.next.forEach(q => expect(parseCarPick(q)).not.toBeNull())
   })
 })
+
+describe('range sort + for-customer budget (v1.0.1490)', () => {
+  it('parses', () => {
+    expect(parseCarPick('รถไฟฟ้าวิ่งได้ไกลสุด')).toMatchObject({ fuel: ['BEV'], sort: 'range' })
+    expect(parseCarPick('แนะนำรุ่นให้ลูกค้างบ 8 แสน')).toMatchObject({ max: 880000, min: 640000 })
+    expect(parseCarPick('ลูกค้าคนไหนงบ 8 แสน')).toBeNull()
+  })
+  it('sorts by range desc', () => {
+    const vs = [{ brand: 'A', model: 'X', price: 900000, fuel: 'BEV', range: 400 }, { brand: 'B', model: 'Y', price: 1000000, fuel: 'BEV', range: 600 }, { brand: 'C', model: 'Z', price: 800000, fuel: 'BEV' }]
+    const r = carPick({ fuel: ['BEV'], sort: 'range' }, vs)
+    expect(r.text.indexOf('Y')).toBeLessThan(r.text.indexOf('X'))
+    expect(r.text).not.toContain('Z ·')
+    expect(r.text).toContain('600 กม.')
+  })
+})

@@ -27,16 +27,20 @@ function money(s) {
   return n ? Number(n[1].replace(/,/g, '')) : null
 }
 
+// (v1.0.1490) "รถไฟฟ้าวิ่งได้ไกลสุด" → เรียงตามระยะทาง · "แนะนำรุ่นให้ลูกค้างบ 8 แสน" ("ให้ลูกค้า" ไม่ใช่คำถามเรื่องลูกค้า)
+const FAR = /(?:วิ่ง\s*)?(?:ได้\s*)?ไกล\s*(?:สุด|ที่สุด)|วิ่งได้ไกล|ระยะ(?:ทาง|วิ่ง)?\s*(?:ไกล|เยอะ|มาก)\s*(?:สุด|ที่สุด)?|range\s*(?:ไกล|เยอะ|มาก)/i
+const forCustomer = s => s.replace(/(?:ให้|สำหรับ)\s*ลูกค้า\s*(?:ที่)?\s*(?:มี)?\s*(?=งบ|ต้องการ|อยากได้|ชอบ)/g, ' ')
 export function maybeCarPick(q) {
-  const s = String(q || '')
+  const s = forCustomer(String(q || ''))
   if (s.length < 4 || s.length > 90 || OTHER.test(s)) return false
-  return ASK.test(s) || (BUDGET.test(s) && /รถ|suv|ev|ไฟฟ้า|ไฮบริด|ที่นั่ง|เก๋ง|กระบะ|mpv/i.test(s))
+  return ASK.test(s) || (BUDGET.test(s) && /รถ|suv|ev|ไฟฟ้า|ไฮบริด|ที่นั่ง|เก๋ง|กระบะ|mpv/i.test(s)) || (FAR.test(s) && /รถ|รุ่น|ev|ไฟฟ้า|คัน/i.test(s))
 }
 
 export function parseCarPick(q) {
   if (!maybeCarPick(q)) return null
-  const s = thaiNumerals(String(q).trim()).replace(/[?？]+$/, '')
-  const fuel = FUEL.find(([re]) => re.test(s))?.[1] || null
+  const s = forCustomer(thaiNumerals(String(q).trim()).replace(/[?？]+$/, ''))
+  const far = FAR.test(s)
+  const fuel = FUEL.find(([re]) => re.test(s))?.[1] || (far ? ['BEV'] : null)
   const body = BODY.find(([re]) => re.test(s))?.[1] || null
   const sm = s.match(/(\d)\s*ที่นั่ง/)
   const seats = sm ? +sm[1] : /ครอบครัวใหญ่|7 คน/.test(s) ? 7 : null
@@ -48,7 +52,7 @@ export function parseCarPick(q) {
     else { max = Math.round(amt * 1.1); min = Math.round(amt * 0.8) } // "งบ 1 ล้าน" = ราว 0.8–1.1 ล้าน
   }
   if (!fuel && !body && !seats && max == null && min == null) return null
-  return { fuel, body, seats, max, min }
+  return { fuel, body, seats, max, min, ...(far ? { sort: 'range' } : {}) }
 }
 
 // สร้างคำถามกลับจากเงื่อนไข (ใช้เป็นปุ่มถามต่อ) — แปลงกลับด้วย parseCarPick ได้
@@ -59,8 +63,9 @@ export function pickQuery(spec) {
   if (spec.max != null && spec.min == null) parts.push(`ไม่เกิน ${millions(spec.max)}`)
   else if (spec.min != null && spec.max == null) parts.push(`${millions(spec.min)} ขึ้นไป`)
   else if (spec.max != null) parts.push(`งบ ${millions((spec.max / 1.1 + spec.min / 0.8) / 2)}`)
+  if (spec.sort === 'range') parts.push('วิ่งได้ไกลสุด')
   const q = parts.filter(Boolean).join(' ')
-  return /แนะนำ|ไม่เกิน|งบ/.test(q) ? q : q + ' แนะนำ'
+  return /แนะนำ|ไม่เกิน|งบ|ไกลสุด/.test(q) ? q : q + ' แนะนำ'
 }
 
 const baht = n => '฿' + Math.round(n).toLocaleString('en-US')
@@ -84,13 +89,17 @@ export function carPick(spec, vehicles = [], { dealerRank = () => 99, dealerCoun
     else if ((Number(v.year) || 0) === cur.year) cur.vs.push(v)
   })
   const groups = [...by.values()].map(g => ({ ...g, vs: g.vs.sort((a, b) => a.price - b.price), ours: dealerRank(g.brand) < dealerCount }))
-  const ours = groups.filter(g => g.ours).sort((a, b) => dealerRank(a.brand) - dealerRank(b.brand) || a.vs[0].price - b.vs[0].price)
-  const others = groups.filter(g => !g.ours).sort((a, b) => a.vs[0].price - b.vs[0].price)
+  const rng = g => Math.max(0, ...g.vs.map(x => Number(x.range) || 0))
+  const byRange = spec.sort === 'range' ? (a, b) => rng(b) - rng(a) : null
+  const ours = groups.filter(g => g.ours && (!byRange || rng(g) > 0)).sort(byRange || ((a, b) => dealerRank(a.brand) - dealerRank(b.brand) || a.vs[0].price - b.vs[0].price))
+  const others = groups.filter(g => !g.ours && (!byRange || rng(g) > 0)).sort(byRange || ((a, b) => a.vs[0].price - b.vs[0].price))
   const want = [
     spec.fuel ? (spec.fuel.includes('BEV') && spec.fuel.length === 1 ? 'รถไฟฟ้า' : spec.fuel.join('/')) : '',
     spec.body || '', spec.seats ? `${spec.seats} ที่นั่งขึ้นไป` : '',
     spec.max != null && spec.min != null ? `ราว ${baht(spec.min)}–${baht(spec.max)}` : spec.max != null ? `ไม่เกิน ${baht(spec.max)}` : spec.min != null ? `ตั้งแต่ ${baht(spec.min)}` : '',
+    byRange ? 'เรียงวิ่งได้ไกลสุดก่อน' : '',
   ].filter(Boolean).join(' · ')
+  if (byRange && groups.length && !ours.length && !others.length) return { text: `🔎 ${want}: ฐานข้อมูลรถยังไม่มีระยะวิ่งของรุ่นที่ตรงเงื่อนไข`, next: [], copy: '', top: [] }
   if (!groups.length) {
     // ปุ่มถามต่อ: ขยับงบขึ้น 20% (เงื่อนไขเดิม) และลองตัดจำนวนที่นั่ง/ประเภทตัวถังออก
     const next = []
