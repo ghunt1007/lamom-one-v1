@@ -12,9 +12,17 @@ const YN_ASK = [
   { re: /^ส่ง\s*(?:ใบ)?\s*จอง/, f: 'bookingSent', h: 'ส่งจอง', label: 'ส่งจอง' },
   { re: /^แจ้ง\s*ลูกค้า/, f: 'customerNotified', h: 'แจ้งลูกค้า', label: 'แจ้งลูกค้า' },
 ]
+// (v1.0.1554) ช่องที่ควรกรอกแต่ยังว่าง: "ใบจองไหนยังไม่ได้ใส่ราคา" · "ใบจองที่ยังไม่ได้ใส่ไฟแนนซ์"
+const MISSING_ASK = [
+  { re: /^(?:ใส่|กรอก|มี)\s*ราคา/, f: 'price', h: 'ราคา', label: 'ใส่ราคา' },
+  { re: /^(?:ใส่|กรอก|ระบุ|มี)\s*(?:ชื่อ)?\s*(?:ไฟแนนซ์|ไฟแนนท์|บริษัทไฟแนนซ์)/, f: 'financeCo', h: 'ไฟแนนซ์', label: 'ใส่ไฟแนนซ์' },
+]
 export function bookingYnColumn(s) {
   const m = String(s || '').match(/ยัง\s*ไม่(?:ได้)?\s*(?:มี|ให้|รับ|ได้|ทำ)?\s*(.{0,30})/)
   if (!m) return null
+  const raw = String(s).match(/ยัง\s*ไม่(?:ได้)?\s*(.{0,30})/)
+  const miss = raw && /จอง/.test(s) && MISSING_ASK.find(x => x.re.test(raw[1]))
+  if (miss) return { f: miss.f, h: miss.h, label: miss.label, missing: true }
   const y = YN_ASK.find(x => x.re.test(m[1]) && !(x.not && x.not.test(s)))
   return y ? { f: y.f, h: y.h, label: y.label, ...(y.delivered ? { delivered: true } : {}) } : null
 }
