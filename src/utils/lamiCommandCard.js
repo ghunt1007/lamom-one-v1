@@ -560,6 +560,8 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'notd') {
     const [customers, drives] = await Promise.all([customersPromise || visibleCustomersForCommands(), listDocs('test_drives', f, 'date', 'desc', 2000).catch(() => [])])
     res = oq.noTestDriveAnswer((customers || []).filter(c => mine(c.assignedTo, c)), drives, { model: spec.model, temp: spec.temp })
+  } else if (spec.kind === 'custbyseller') {
+    res = oq.custBySellerAnswer(((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c)))
   } else if (spec.kind === 'mycust' || spec.kind === 'nophone' || spec.kind === 'topscore') {
     const customers = ((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c))
     if (spec.kind === 'topscore') { const { heuristicScore } = await import('./leadScore.js'); res = oq.topScoreAnswer(customers, { scoreOf: c => heuristicScore(c) }) }
