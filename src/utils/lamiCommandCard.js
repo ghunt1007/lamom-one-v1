@@ -403,6 +403,10 @@ export async function loadOpsAnswer(q, customersPromise) {
         listDocs('staff', f, 'firstName', 'asc', 1000).catch(() => []), listDocs('users', [], 'createdAt', 'desc', 1000).catch(() => []), import('./bookingDataCheck.js')])
       res = oq.dataCheckAnswer(bks, { today, knownNames: staffRows.length || userRows.length ? knownPeopleNames(staffRows, userRows) : null })
     }
+  } else if (spec.kind === 'schedposts') {
+    const [broadcasts, posts] = await Promise.all([listDocs('broadcasts', [], 'sentAt', 'desc', 200).catch(() => []),
+      import('./socialApi.js').then(m => m.metaPostScheduled()).then(d => d?.pending || []).catch(() => null)])
+    res = oq.schedPostsAnswer({ posts, broadcasts })
   } else if (spec.kind === 'notesearch') {
     const customers = ((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c))
     const notes = await listDocs('customer_notes', [], 'time', 'desc', 3000).catch(() => [])
