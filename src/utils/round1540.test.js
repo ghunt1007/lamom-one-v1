@@ -165,3 +165,10 @@ describe('ช่องที่ยังว่าง (v1.0.1554)', () => {
     expect(parseBookingListSpec('ใบจองที่ยังไม่ผ่านไฟแนนซ์')?.ynCol).toBeUndefined()
   })
 })
+
+describe('โทรเข้าวันนี้ (v1.0.1555)', () => {
+  it('routes to new customers from inbound calls', () => {
+    expect(parseOpsSpec('วันนี้ใครโทรเข้า')).toMatchObject({ kind: 'newcust', source: 'phone', period: 'today' })
+    expect(parseOpsSpec('วันนี้ควรโทรหาใคร')).toBeNull()
+  })
+})
