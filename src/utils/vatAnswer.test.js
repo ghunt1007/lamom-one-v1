@@ -187,3 +187,23 @@ describe('seller lists + lead periods (v1.0.1495)', () => {
     expect(listIntro({ sellerName: 'กมล' }, { list: [], total: 0 })).toContain('กมล ยังไม่มีลูกค้าที่กำลังคุยอยู่')
   })
 })
+
+import { listTargets } from './listQuestions.js'
+describe('never-contacted lists + plate phrasing (v1.0.1496)', () => {
+  it('ลีดที่ยังไม่มีใครโทร → only customers without any contact', () => {
+    const spec = parseListSpec('ลีดที่ยังไม่มีใครโทร')
+    expect(spec).toMatchObject({ never: true, leadsOnly: true, quietDays: null })
+    const r = listTargets({ customers: [{ id: 'a', stage: 'lead', createdAt: '2026-11-20' }, { id: 'b', stage: 'lead', createdAt: '2026-11-20', lastContactAt: '2026-11-21' }], followups: [], today: '2026-11-28', spec })
+    expect(r.list.map(x => x.c.id)).toEqual(['a'])
+    expect(parseListSpec('ลูกค้าที่ไม่ได้ติดต่อเกิน 14 วัน')?.quietDays).toBe(14)
+    expect(parseOpsSpec('รถคันไหนจองแล้วแต่ยังไม่ได้เลขทะเบียน')?.kind).toBe('plate')
+  })
+})
+
+import { listCommands } from './listQuestions.js'
+describe('list row wording (v1.0.1496)', () => {
+  it('never contacted is not "ติดต่อวันนี้"', () => {
+    expect(listCommands([{ c: { id: 'a', phone: '0811111111' }, quiet: 0, hasFu: false }])[0].desc).toContain('เข้ามาวันนี้ · ยังไม่เคยติดต่อ')
+    expect(listCommands([{ c: { id: 'a', lastContactAt: '2026-11-20' }, quiet: 8, hasFu: false }])[0].desc).toContain('เงียบ 8 วัน')
+  })
+})
