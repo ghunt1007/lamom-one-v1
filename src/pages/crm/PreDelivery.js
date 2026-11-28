@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { printDocument, docHeader, docFooter, esc } from '../../utils/print.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { deliveryPrepRows, afterDeliveryRows, stepFlags, missingCounts } from '../../utils/deliveryPrep.js'
 
 // เช็คลิสต์ฝั่งเซลส์ (กลุ่ม) — แต่ละข้อ pass/fail/na
 const CHECKLIST = {
@@ -33,10 +34,14 @@ export default async function PreDeliveryPage(container) {
   seedDemoData()
 
   let bookings = []
-  let filter = 'pending'  // pending | ready | all
+  let allBookings = []     // รวมใบที่ส่งมอบแล้ว (ใช้ตรวจงานทะเบียนค้าง)
+  // (v1.0.1558) แท็บแรก = ขั้นตอนเตรียมส่งมอบตามช่องใน Sheet (Allocate/แจ้งประกัน/เลขรับแจ้ง ฯลฯ)
+  let filter = /[?&]tab=check\b/.test(location.hash + location.search) ? 'pending' : 'sheet'  // sheet | after | pending | ready | all
+  let lackFilter = ''
 
   async function loadData() {
     try { bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500) } catch {}
+    allBookings = bookings.filter(b => b && !b.deleted)
     bookings = bookings.filter(b => !b.deleted && !['ถอนจอง', 'ยกเลิก'].includes(b.status))
     bookings.forEach(b => { if (!b.pdItems) b.pdItems = buildItems() })
     render()
@@ -64,14 +69,19 @@ export default async function PreDeliveryPage(container) {
   function render() {
     const pending = bookings.filter(isPending).length
     const ready = bookings.filter(b => b.pdReady).length
+    const today = todayBangkok()
+    const prep = deliveryPrepRows(allBookings, { today, ahead: 14 })
+    const after = afterDeliveryRows(allBookings, { today })
 
     container.innerHTML =
       '<div class="page-content animate-slide">' +
         '<div class="page-header"><div>' +
-          '<div class="page-title">✅ เซลล์ตรวจรถก่อนส่งมอบ</div>' +
-          '<div class="page-subtitle">ตรวจความพร้อมก่อนส่งมอบลูกค้า (อิงใบจอง) · ' + flat(buildItems()).length + ' ข้อ/คัน</div>' +
+          '<div class="page-title">🚗 เตรียมส่งมอบ & ตรวจรถ</div>' +
+          '<div class="page-subtitle">รถแต่ละคันถึงขั้นไหน (ตามช่องใน Sheet) + เช็คลิสต์ตรวจรถ ' + flat(buildItems()).length + ' ข้อ/คัน</div>' +
         '</div></div>' +
         '<div class="chip-scroll mb-4" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
+          tab('sheet', '🚗 ขั้นตอนเตรียมส่งมอบ ' + prep.incomplete.length + '/' + prep.rows.length) +
+          tab('after', '📄 งานทะเบียนค้าง ' + after.rows.length) +
           tab('pending', '⏳ รอตรวจ ' + pending) + tab('ready', '✅ พร้อมส่งมอบ ' + ready) + tab('all', 'ทั้งหมด ' + bookings.length) +
         '</div>' +
         '<div id="pd-list" style="display:flex;flex-direction:column;gap:8px"></div>' +
@@ -79,7 +89,7 @@ export default async function PreDeliveryPage(container) {
 
     renderList()
     container.querySelectorAll('.pd-tab').forEach(b => b.addEventListener('click', () => {
-      filter = b.dataset.f
+      filter = b.dataset.f; lackFilter = ''
       container.querySelectorAll('.pd-tab').forEach(x => x.className = 'btn btn-sm pd-tab ' + (x.dataset.f === filter ? 'btn-primary' : 'btn-secondary'))
       renderList()
     }))
@@ -90,6 +100,7 @@ export default async function PreDeliveryPage(container) {
   function renderList() {
     const wrap = container.querySelector('#pd-list')
     if (!wrap) return
+    if (filter === 'sheet' || filter === 'after') { renderSteps(wrap); return }
     const list = getList()
     if (!list.length) { wrap.innerHTML = '<div class="empty-state" style="padding:48px"><div class="empty-icon">✅</div><div class="empty-title">ไม่มีรายการ</div></div>'; return }
     wrap.innerHTML = list.map(b => {
@@ -120,6 +131,47 @@ export default async function PreDeliveryPage(container) {
 
     wrap.querySelectorAll('.pd-open').forEach(btn => btn.addEventListener('click', () => openChecklist(bookings.find(b => b.id === btn.dataset.id))))
     wrap.querySelectorAll('.pd-print').forEach(btn => btn.addEventListener('click', () => printHandover(bookings.find(b => b.id === btn.dataset.id))))
+  }
+
+  // ขั้นตอนตาม Sheet: แต่ละคันเห็นชิป ✅ ทำแล้ว / ⬜ ยังไม่ทำ ทุกขั้น + ปุ่มกรอง "ยังไม่…"
+  function renderSteps(wrap) {
+    const today = todayBangkok()
+    const isAfter = filter === 'after'
+    const { steps, rows } = isAfter ? afterDeliveryRows(allBookings, { today }) : deliveryPrepRows(allBookings, { today, ahead: 14 })
+    if (!steps.length) {
+      wrap.innerHTML = '<div class="empty-state" style="padding:40px 16px"><div class="empty-icon">📋</div><div class="empty-title">ยังไม่มีข้อมูลขั้นตอนใน Sheet</div>' +
+        '<div class="empty-desc">ช่อง ' + (isAfter ? 'จดทะเบียน / ป้ายขาว / ส่งมอบ DMS' : 'Allocate / แจ้งประกัน / เลขรับแจ้ง / ป้ายแดง') + ' ยังว่างทุกใบ — กรอกใน Sheet แล้วกด 🔄 ซิงก์ Sheet ที่หน้าลูกค้า</div></div>'
+      return
+    }
+    const cnt = missingCounts(rows)
+    const shown = lackFilter ? rows.filter(r => r.missing.includes(lackFilter)) : rows
+    const lackBtn = (k, label) => '<button class="btn btn-xs pd-lack ' + (lackFilter === k ? 'btn-primary' : 'btn-secondary') + '" data-k="' + esc(k) + '">' + label + '</button>'
+    const whenTxt = r => isAfter ? 'ส่งมอบ ' + formatDate(r.dd) + ' (' + r.days + ' วันก่อน)'
+      : r.days == null ? 'ยังไม่นัดวันส่ง' : r.days < 0 ? '<span style="color:var(--danger);font-weight:600">⚠️ เลยวันส่ง ' + (-r.days) + ' วัน</span>'
+      : r.days === 0 ? '<span style="color:var(--warning);font-weight:600">ส่งวันนี้</span>' : r.days === 1 ? 'ส่งพรุ่งนี้' : 'ส่ง ' + formatDate(r.dd)
+    const chip = s => '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:0.72rem;white-space:nowrap;' +
+      (s.done ? 'background:color-mix(in srgb,var(--success) 15%,transparent);color:var(--success)' : 'background:color-mix(in srgb,var(--danger) 12%,transparent);color:var(--danger);font-weight:600') + '">' +
+      (s.done ? '✅ ' : '⬜ ') + esc(s.label) + '</span>'
+    wrap.innerHTML =
+      '<div style="font-size:0.78rem;color:var(--text-muted)">' + (isAfter ? 'ส่งมอบแล้วใน 60 วันแต่งานทะเบียน/ระบบยังไม่ครบ' : 'รถที่รอส่งมอบหรือนัดส่งภายใน 14 วัน') + ' · ตรวจเฉพาะช่องที่มีกรอกใน Sheet · แก้ข้อมูลใน Sheet แล้วซิงก์</div>' +
+      '<div style="display:flex;gap:4px;flex-wrap:wrap">' + lackBtn('', 'ทั้งหมด ' + rows.length) +
+        steps.filter(s => cnt[s.label]).map(s => lackBtn(s.label, (s.yn ? 'ยังไม่' : 'ยังไม่มี') + s.label + ' ' + cnt[s.label])).join('') + '</div>' +
+      (shown.length ? shown.map(r => {
+        const b = r.b
+        const flags = stepFlags(b, steps)
+        const done = flags.filter(x => x.done).length
+        return '<div class="card" style="padding:12px 14px;border-left:3px solid ' + (r.missing.length ? 'var(--warning)' : 'var(--success)') + '">' +
+          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+            '<span style="font-weight:700">' + esc(b.custName || b.customerName || 'ลูกค้า') + '</span>' +
+            (b.bookingNo ? '<span style="font-size:0.75rem;color:var(--text-muted)">' + esc(b.bookingNo) + '</span>' : '') +
+            '<span class="badge ' + (r.missing.length ? 'badge-warning' : 'badge-success') + '">' + done + '/' + flags.length + ' ขั้น</span>' +
+          '</div>' +
+          '<div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;overflow-wrap:anywhere">' + esc(carOf(b, true)) + ' · ' + whenTxt(r) + (b.salesName ? ' · ' + esc(b.salesName) : '') + (b.status ? ' · ' + esc(b.status) : '') + '</div>' +
+          '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">' + flags.map(chip).join('') + '</div>' +
+          (r.missing.length ? '<div style="font-size:0.78rem;margin-top:6px;color:var(--warning);font-weight:600">ขั้นต่อไป: ' + esc(r.missing[0]) + '</div>' : '') +
+        '</div>'
+      }).join('') : '<div class="empty-state" style="padding:32px"><div class="empty-icon">✅</div><div class="empty-title">' + (lackFilter ? lackFilter + 'ครบทุกคันแล้ว' : 'ไม่มีรถในช่วงนี้') + '</div></div>')
+    wrap.querySelectorAll('.pd-lack').forEach(btn => btn.addEventListener('click', () => { lackFilter = btn.dataset.k; renderSteps(wrap) }))
   }
 
   function openChecklist(b) {

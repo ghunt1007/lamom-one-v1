@@ -2015,7 +2015,7 @@ export const OPS_LINKS = {
   boothshift: { path: '/marketing/events', label: '🎪 เปิดหน้าออกบูธ/อีเวนต์' },
   notesearch: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
   schedposts: { path: '/marketing/channels', label: '🔗 เปิดหน้าช่องทางโซเชียล' },
-  prep: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
+  prep: { path: '/crm/predelivery', label: '🚗 เปิดหน้าเตรียมส่งมอบ' },
   aftersales: { path: '/crm/followup', label: '📞 เปิดหน้าติดตามลูกค้า' },
   payroll: { path: '/finance/payroll', label: '💳 เปิดหน้าเงินเดือน' },
   mylink: { path: '/crm/my-day', label: '📇 เปิด My Day (QR ของฉัน)' },
