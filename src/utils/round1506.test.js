@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseOpsSpec, weekSummaryAnswer, upgradeAnswer } from './opsQuestions.js'
+import { parseOpsSpec, weekSummaryAnswer, upgradeAnswer, bookDayAnswer } from './opsQuestions.js'
 import { periodSpec, periodStats, periodBriefText } from './monthBrief.js'
 import { isCallListQuestion } from './callList.js'
 import { parseBookingListSpec } from './bookingQuestions.js'
@@ -56,5 +56,14 @@ describe('v1.0.1506 LAMI routes', () => {
     expect(t).toContain('KK — 60 งวด 2.5% · 72 งวด 2.9%')
     expect(t).toContain('60 งวด 2.3% (TB)')
     expect(parseOpsSpec('ลีดที่ยังไม่มีใครดูแล')).toEqual({ kind: 'unassigned' })
+  })
+  it('v1.0.1508 month booking list, ad spend, service month', () => {
+    expect(parseOpsSpec('ใครจองเดือนนี้บ้าง')).toEqual({ kind: 'bookday', day: 'month' })
+    expect(parseOpsSpec('ลูกค้าที่จองเดือนก่อนมีใครบ้าง')).toEqual({ kind: 'bookday', day: 'prevmonth' })
+    const r = bookDayAnswer([{ bookingDate: '2026-11-03', customerName: 'ก', salesName: 'A' }, { bookingDate: '2026-10-30', customerName: 'ข' }], { today: '2026-11-28', day: 'month' })
+    expect(r.n).toBe(1)
+    expect(r.text).toContain('เดือนนี้ (01/11/2569–28/11/2569) 1 ใบ')
+    expect(parseOpsSpec('โฆษณาเดือนนี้ใช้เงินเท่าไหร่').kind).toBe('mktspend')
+    expect(parseOpsSpec('รถเข้าซ่อมเดือนนี้กี่คัน')).toEqual({ kind: 'service', day: 'month' })
   })
 })
