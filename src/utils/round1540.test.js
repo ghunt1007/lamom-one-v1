@@ -28,3 +28,11 @@ describe('Y/N columns win over delivery appointments (v1.0.1541)', () => {
     expect(parseOpsSpec('ใครยังไม่ได้ส่งมอบ')?.kind).toBe('delivery')
   })
 })
+
+describe('ลูกค้าใหม่ตามช่องทางแบบสั้น (v1.0.1543)', () => {
+  it('routes', () => {
+    expect(parseOpsSpec('ลูกค้าแนะนำเดือนนี้')).toMatchObject({ kind: 'newcust', source: 'referral', period: 'month' })
+    expect(parseOpsSpec('ลีดเฟสบุ๊คสัปดาห์นี้')).toMatchObject({ kind: 'newcust', source: 'facebook', period: 'week' })
+    expect(parseOpsSpec('ลูกค้าที่ควรขอให้แนะนำเพื่อน')?.kind).not.toBe('newcust')
+  })
+})
