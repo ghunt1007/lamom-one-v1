@@ -233,6 +233,8 @@ export function parseOpsSpec(q) {
   // (v1.0.1494) "ใครมาสายบ่อยสุด" / "เดือนนี้ใครขาดงานกี่ครั้ง" → สรุปทั้งเดือนรายคน
   if (has(s, /มาสาย|เข้างานสาย|ขาดงาน|สาย/) && has(s, /บ่อย|เยอะ|มาก(?:สุด|ที่สุด)|กี่ครั้ง|กี่วัน|เดือนนี้|เดือนก่อน|เดือนที่แล้ว|ทั้งเดือน|สถิติ/) && !has(s, /ลูกค้า|^(?:บันทึก|แก้)/)) return { kind: 'latemonth', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
   if (has(s, /มาสาย|เข้างานสาย|ยังไม่(?:ได้)?\s*(?:ลงเวลา|เข้างาน|สแกน)|ขาดงาน|ใครไม่มาทำงาน|ใคร\s*(?:มา)?\s*(?:เข้างาน|มาทำงาน|ลงเวลา)(?:แล้ว)?\s*(?:บ้าง|วันนี้|แล้ว)|(?:เข้างาน|มาทำงาน|ลงเวลา)\s*(?:วันนี้)?\s*กี่คน|ลงเวลา(?:เข้างาน)?\s*(?:กี่คน|ครบ|ยัง)/) && !has(s, /ลูกค้า|ส่งมอบ|ไฟแนนซ์/)) return { kind: 'late' }
+  // (v1.0.1535) "พนักงานคนไหนลาเยอะสุดเดือนนี้" → การลาเดือนนี้ + อันดับคนที่ลาบ่อย
+  if (/(?:พนักงาน|ใคร|คน)\s*(?:คนไหน|ไหน)?\s*ลา(?:งาน)?\s*(?:เยอะ|บ่อย|มาก)/.test(s)) return { kind: 'leave', day: 'month', rank: true, ...(/เดือน\s*(?:ก่อน|ที่แล้ว)/.test(s) ? { prev: true } : {}) }
   if (has(s, /ลา(?:งาน|ป่วย|กิจ|พักร้อน|หยุด)|ใครลา|มีคนลา|ลากี่คน|ขอลา|หยุดงาน|พนักงาน\s*(?:ที่)?\s*ลา|ลา\s*(?:วันนี้|พรุ่งนี้|สัปดาห์นี้)\s*(?:มี)?\s*(?:ใคร|กี่)/) && !has(s, /^(?:ขอ)?ลา(?:งาน|ป่วย|กิจ)?\s*(?:พรุ่งนี้|วันที่|\d)/)) { const wd = weekdayOf(s); return wd >= 0 && !/พรุ่งนี้|เดือนนี้/.test(s) ? { kind: 'leave', day: 'wd', wd, next: /หน้า/.test(s) } : { kind: 'leave', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /เดือนนี้/.test(s) ? 'month' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' } }
   // (v1.0.1097) "รถที่กำลังจะมาถึงมีกี่คัน" / "รถสั่งไว้มาเมื่อไหร่"
   // (v1.0.1107) "รถเข้าใหม่สัปดาห์นี้" / "เดือนนี้รับรถเข้าสต็อกกี่คัน"
@@ -929,7 +931,9 @@ export function plateAnswer(bookings, { today, days = 180 }) {
 
 // (v1.0.1097) การลาของพนักงาน (อนุมัติแล้ว + รออนุมัติ) ที่ครอบวันนั้น
 const LEAVE_TH = { sick: '🤒 ลาป่วย', personal: '📋 ลากิจ', annual: '🏖 ลาพักร้อน', maternity: '👶 ลาคลอด', ordain: '🧡 ลาบวช', unpaid: '💔 ลาไม่รับค่าจ้าง' }
-export function leaveAnswer(rows, { today, day = 'today', wd = -1, next = false }) {
+export function leaveAnswer(rows, { today, day = 'today', wd = -1, next = false, rank = false, prev = false }) {
+  // เดือนก่อน: ถอยวันอ้างอิงไปวันสุดท้ายของเดือนก่อน
+  if (prev && day === 'month') today = addDays(today.slice(0, 8) + '01', -1)
   const from = apptDate(today, { day, wd, next })
   // (v1.0.1117) "ใครลางานเดือนนี้" → ทั้งเดือน (1 ถึงสิ้นเดือน)
   const mEnd = addDays(new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7), 1)).toISOString().slice(0, 10), -1)
@@ -937,9 +941,15 @@ export function leaveAnswer(rows, { today, day = 'today', wd = -1, next = false 
   const to = day === 'month' ? mEnd : day === 'week' ? addDays(today, 6) : from
   const list = alive(rows).filter(r => ['approved', 'pending'].includes(r.status) && ymd(r.from) <= to && (ymd(r.to) || ymd(r.from)) >= from0)
     .sort((a, b) => ymd(a.from).localeCompare(ymd(b.from)))
-  const word = day === 'month' ? `เดือนนี้ (${dmy(from0)}–${dmy(to)})` : day === 'week' ? `7 วันนี้ (${dmy(from)}–${dmy(to)})` : `${dayWord(day, wd)} ${dmy(from)}`
+  const word = day === 'month' ? `${prev ? 'เดือนก่อน' : 'เดือนนี้'} (${dmy(from0)}–${dmy(to)})` : day === 'week' ? `7 วันนี้ (${dmy(from)}–${dmy(to)})` : `${dayWord(day, wd)} ${dmy(from)}`
   if (!list.length) return { n: 0, text: `👥 ${word} ไม่มีพนักงานลา` }
   const pend = list.filter(r => r.status === 'pending').length
+  if (rank) {
+    const by = new Map()
+    list.forEach(r => { const k = r.staff || 'พนักงาน'; by.set(k, (by.get(k) || 0) + 1) })
+    const top = [...by.entries()].sort((a, b) => b[1] - a[1])
+    return { n: list.length, text: [`👥 การลา${word} — ${list.length} ใบ${pend ? ` (รออนุมัติ ${pend})` : ''}`, ...top.slice(0, MAX).map(([k, n], i) => `${i + 1}. ${k} — ${n} ครั้ง`)].join('\n') }
+  }
   return { n: list.length, text: [`👥 พนักงานลา${word} — ${list.length} คน${pend ? ` (รออนุมัติ ${pend})` : ''}`,
     ...list.slice(0, MAX).map(r => `• ${r.staff || 'พนักงาน'} · ${LEAVE_TH[r.type] || 'ลา'} · ${dmy(ymd(r.from))}${ymd(r.to) && ymd(r.to) !== ymd(r.from) ? '–' + dmy(ymd(r.to)) : ''}${r.status === 'pending' ? ' · ⏳ รออนุมัติ' : ''}`),
     ...more(list.length)].join('\n') }
