@@ -88,3 +88,16 @@ describe('v1.0.1529 quote command', () => {
     expect(parseLamiCommand('สมชายได้ใบเสนอราคาหรือยัง', cs, '2026-11-28')).toEqual([])
   })
 })
+
+describe('v1.0.1530 LINE chat command', () => {
+  const cs = [{ id: 'a', firstName: 'สมชาย', lastName: 'ดี', phone: '0811111111' }, { id: 'b', firstName: 'วิไล', lastName: 'ใจ', lineUserId: 'U12/3' }]
+  it('opens the LINE inbox or the customer page', () => {
+    const [w] = parseLamiCommand('ทักไลน์วิไล', cs, '2026-11-28')
+    expect(w.kind).toBe('linechat')
+    expect(commandHref(w)).toBe('/marketing/channels?tab=inbox&open=line_U123')
+    const [s] = parseLamiCommand('ส่งไลน์หาสมชาย', cs, '2026-11-28')
+    expect(s).toMatchObject({ kind: 'open', label: '👤 สมชาย ดี ยังไม่ผูก LINE' })
+    expect(parseLamiCommand('ส่งไลน์หาสมชายแล้ว', cs, '2026-11-28')[0].kind).toBe('log')
+    expect(parseLamiCommand('ส่งไลน์หาสมชายหรือยัง', cs, '2026-11-28')).toEqual([])
+  })
+})
