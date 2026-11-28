@@ -87,3 +87,14 @@ describe('ค่าใช้จ่ายรายหมวด/รายคน (v
     expect(moneyMonthAnswer({ opex: [], today: '2026-11-28', kind: 'expense', cat: 'fuel' }).text).toContain('ยังไม่มีรายการ')
   })
 })
+
+import { parseLamiCommand } from './lamiCommands.js'
+describe('เปลี่ยนเบอร์ (v1.0.1547)', () => {
+  const cs = [{ id: 'a', firstName: 'สมชาย', lastName: 'ดี', phone: '0811111111' }, { id: 'b', firstName: 'วิไล', lastName: 'ใจ' }]
+  it('name between เบอร์ and the new number', () => {
+    const r = parseLamiCommand('เปลี่ยนเบอร์สมชายเป็น 0899999999', cs, '2026-11-28')
+    expect(r[0]).toMatchObject({ kind: 'phone', phone: '0899999999' })
+    expect(r[0].customer.id).toBe('a')
+    expect(parseLamiCommand('แก้เบอร์ คุณวิไล เป็น 081-234-5678', cs, '2026-11-28')[0]).toMatchObject({ kind: 'phone', phone: '0812345678' })
+  })
+})

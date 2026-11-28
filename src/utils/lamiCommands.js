@@ -209,7 +209,8 @@ export function parseLamiCommand(q, customers = [], today) {
     reason = reason.replace(/(?:ลูกค้า|คุณ)\s*(?=\s|$)/g, ' ').replace(/^\s*(?:เป็น)?\s*(?:เสียดีล)?\s*[-:,]?\s*/, '').replace(/\s+/g, ' ').trim() || 'เสียดีล'
     return hits.filter(c => !c.isLost).map(c => ({ kind: 'lost', customer: c, reason: reason.slice(0, 120), label: `⬛ มาร์คเสียดีล ${fullName(c)}`, desc: `เหตุผล: ${reason.slice(0, 60)} · ปิดนัดอัตโนมัติที่ค้างให้` }))
   }
-  const phoneM = plain && s.match(/เบอร์(?:ใหม่|โทร|มือถือ)?\s*(?:คือ|เป็น|=|:)?\s*((?:\+66|0)[\d\s-]{8,13})/)
+  // (v1.0.1547) "เปลี่ยนเบอร์สมชายเป็น 08…" — ชื่ออยู่ระหว่างคำว่าเบอร์กับเบอร์ใหม่
+  const phoneM = plain && (s.match(/เบอร์(?:ใหม่|โทร|มือถือ)?\s*(?:คือ|เป็น|=|:)?\s*((?:\+66|0)[\d\s-]{8,13})/) || s.match(/(?:เปลี่ยน|แก้|อัปเดต|อัพเดท)\s*เบอร์(?:โทร|มือถือ)?\s*\S.{0,40}?\s*(?:เป็น|=|:|→)\s*((?:\+66|0)[\d\s-]{8,13})/))
   if (phoneM) {
     const ph = phoneM[1].replace(/[^\d+]/g, '').replace(/^\+66/, '0')
     if (/^0\d{8,9}$/.test(ph)) return hits.slice(0, 1).map(c => ({ kind: 'phone', customer: c, phone: ph, label: `📞 บันทึกเบอร์ ${fullName(c)} → ${ph}`, desc: c.phone ? `เดิม ${c.phone}` : 'ยังไม่มีเบอร์เดิม' }))
