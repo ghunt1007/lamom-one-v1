@@ -332,8 +332,8 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'tdconv') {
     const [drives, bks, customers] = await Promise.all([listDocs('test_drives', f, 'date', 'desc', 1000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), customersPromise || visibleCustomersForCommands()])
     res = oq.tdConvAnswer(drives.filter(t => mine(t.staff, t)), bks, customers || [], { today })
-  } else if (spec.kind === 'testdrive') res = oq.testDriveAnswer((await listDocs('test_drives', f, 'date', 'desc', 300).catch(() => [])).filter(t => mine(t.staff, t)), { today, day: spec.day })
-  else if (spec.kind === 'showroom') res = oq.showroomAnswer((await listDocs('appointments', f, 'date', 'desc', 300).catch(() => [])).filter(a => mine(a.salesperson, a)), { today, day: spec.day })
+  } else if (spec.kind === 'testdrive') res = oq.testDriveAnswer((await listDocs('test_drives', f, 'date', 'desc', 300).catch(() => [])).filter(t => mine(t.staff, t)), { today, day: spec.day, wd: spec.wd, next: spec.next })
+  else if (spec.kind === 'showroom') res = oq.showroomAnswer((await listDocs('appointments', f, 'date', 'desc', 300).catch(() => [])).filter(a => mine(a.salesperson, a)), { today, day: spec.day, wd: spec.wd, next: spec.next })
   else if (spec.kind === 'complaint') res = oq.complaintAnswer(await listDocs('complaints', f, 'createdAt', 'desc', 300).catch(() => []), { today })
   else if (spec.kind === 'metachat') res = oq.metaChatAnswer()
   else if (spec.kind === 'noservice') {

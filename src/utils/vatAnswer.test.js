@@ -106,3 +106,26 @@ describe('weekday deliveries + urgent (v1.0.1488)', () => {
     expect(isTodayQuestion('ลูกค้าด่วน')).toBe(false)
   })
 })
+
+import { testDriveAnswer, showroomAnswer } from './opsQuestions.js'
+describe('weekday test drives / showroom, walk-in today (v1.0.1489)', () => {
+  it('routes and answers', () => {
+    expect(parseOpsSpec('ทดลองขับวันอาทิตย์มีใครบ้าง')).toMatchObject({ kind: 'testdrive', day: 'wd', wd: 0 })
+    expect(parseOpsSpec('ลูกค้าที่มาโชว์รูมวันนี้')).toMatchObject({ kind: 'walkin', day: 'today' })
+    expect(parseOpsSpec('ใครนัดเข้าโชว์รูมวันจันทร์บ้าง')).toMatchObject({ kind: 'showroom', day: 'wd', wd: 1 })
+    const r = testDriveAnswer([{ date: '2026-11-29', time: '10:00', customerName: 'ก', model: 'S07' }, { date: '2026-11-28', customerName: 'ข' }], { today: '2026-11-28', day: 'wd', wd: 0 })
+    expect(r.n).toBe(1); expect(r.text).toContain('นัดทดลองขับวันอาทิตย์ 29/11/2569')
+    expect(showroomAnswer([], { today: '2026-11-28', day: 'wd', wd: 1 }).text).toContain('วันจันทร์ (30/11/2569)')
+  })
+})
+
+import { periodBriefText } from './monthBrief.js'
+describe('year brief honesty (v1.0.1489)', () => {
+  it('no compare with an empty previous year, average from first month with data', () => {
+    const pm = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11'].map((m, i) => ({ m: '2026-' + m, delivered: i >= 8 ? 3 : 0, booked: i >= 5 ? 2 : 0 }))
+    const t = periodBriefText({ label: 'ปี 2569', prevLabel: 'ปี 2568', partial: true, delivered: 9, booked: 12, withdrawn: 0, prevDelivered: 0, prevBooked: 0, perMonth: pm, board: [], models: [], colors: [] })
+    expect(t).not.toContain('ปี 2568 0')
+    expect(t).toContain('ปี 2568 ยังไม่มีข้อมูลในระบบ')
+    expect(t).toContain('เฉลี่ยส่งมอบเดือนละ 1.2 คัน') // (0+0+0+3+3)/5 = Jun–Oct
+  })
+})

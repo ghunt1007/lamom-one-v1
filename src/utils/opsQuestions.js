@@ -122,7 +122,7 @@ export function parseOpsSpec(q) {
   if (has(s, /ทดลองขับ|ลองขับ|test\s*drive|เทสไดร(?:ฟ|ว)์?/i) && has(s, /จอง|ปิด|ซื้อ/) && has(s, /กี่\s*%|กี่เปอร์เซ็นต์|เปอร์เซ็นต์|อัตรา|เท่าไหร่|เท่าไร|กี่คน|กี่ราย|เยอะสุด|มากสุด|ดีสุด|conversion/i) && !has(s, /ยังไม่(?:ได้)?(?:จอง|ซื้อ|ปิด)|ไม่จอง|ไม่ซื้อ/)) return { kind: 'tdconv' }
   if (has(s, /ช่องทาง|ที่มา|จากไหน|จากที่ไหน/) && has(s, /ปิด(?:ได้|การขาย)|ได้ผล|คุ้ม|ดีสุด|ดีที่สุด|อัตรา|กลายเป็นจอง/)) return { kind: 'closerate', prev: false }
   // (v1.0.1476) "ลูกค้าที่มาดูรถวันนี้" — คำว่า "ที่มา" ไม่ได้แปลว่าช่องทาง → walk-in
-  if (has(s, /(?:มา|เข้ามา)\s*ดู\s*รถ/) && !has(s, /นัด|ทดลองขับ|ลองขับ|ช่องทาง|มาจาก/)) return { kind: 'walkin', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : /เดือน/.test(s) ? 'month' : 'today' }
+  if (has(s, /(?:มา|เข้ามา)\s*ดู\s*รถ|(?:มา|เข้า(?:มา)?)\s*(?:ที่)?\s*โชว์รูม\s*(?:วันนี้|เมื่อวาน)/) && !has(s, /นัด|ทดลองขับ|ลองขับ|ช่องทาง|มาจาก/)) return { kind: 'walkin', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : /เดือน/.test(s) ? 'month' : 'today' }
   if (has(s, /ช่องทาง|ที่มา|มาจาก/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'newcust', ...(sourceOf(s) ? { source: sourceOf(s) } : {}), ...(NOFOLLOW.test(s) ? { nofollow: true } : {}), period: /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
   // (v1.0.1094) "เคลมประกันค้างกี่เรื่อง" (เคลมประกันภัยรถยนต์ ไม่ใช่เคลมรับประกันศูนย์)
   if (has(s, /เคลม/) && !has(s, /รับประกัน|วอร์แรนตี|warranty/i)) return { kind: 'claim' }
@@ -235,10 +235,10 @@ export function parseOpsSpec(q) {
   if (has(s, /ทดลองขับ|ลองขับ|test\s*drive|เทสไดร(?:ฟ|ว)์?/i) && has(s, /ยังไม่(?:ได้)?(?:จอง|ซื้อ|ปิด)|ไม่จอง|ไม่ซื้อ|แล้วไม่/)) return { kind: 'tdnobook', range: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : /3 เดือน|90 วัน/.test(s) ? 90 : 30 }
   // (v1.0.1117) "เดือนนี้มีเทสไดรฟ์กี่ครั้ง" → สรุปทั้งเดือน · "สัปดาห์นี้" → นัด 7 วันข้างหน้า
   if (has(s, /ทดลองขับ|ลองขับ|test\s*drive|เทสไดร(?:ฟ|ว)์?/i) && !(has(s, /แล้ว(?:หรือ)?ยัง|รึยัง|หรือยัง|เคย/) && !has(s, /ใคร|กี่|บ้าง|มีใคร/)))
-    return { kind: 'testdrive', day: /เดือนนี้/.test(s) ? 'month' : /สัปดาห์|อาทิตย์|7\s*วัน/.test(s) ? 'week' : day }
+    return weekdayOf(s) >= 0 && !/พรุ่งนี้|วันนี้/.test(s) ? { kind: 'testdrive', day: 'wd', wd: weekdayOf(s), next: /หน้า/.test(s) } : { kind: 'testdrive', day: /เดือนนี้/.test(s) ? 'month' : /สัปดาห์|อาทิตย์|7\s*วัน/.test(s) ? 'week' : day }
   // (v1.0.1091) "ลูกค้ามาโชว์รูมเดือนนี้กี่คน" → นับ walk-in ตามช่วง (นัดโชว์รูมดูได้ทีละวัน)
   if (has(s, /โชว์รูม|showroom/i) && has(s, /เดือน|สัปดาห์|อาทิตย์|7 วัน/) && !has(s, /นัด/)) return { kind: 'walkin', day: /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'month' }
-  if ((has(s, /โชว์รูม|showroom/i) && has(s, /นัด|เข้า|มา/)) || has(s, /นัด\s*(?:มา)?\s*ดูรถ|มาดูรถ/)) return { kind: 'showroom', day: /สัปดาห์|อาทิตย์|7\s*วัน/.test(s) ? 'week' : day }
+  if ((has(s, /โชว์รูม|showroom/i) && has(s, /นัด|เข้า|มา/)) || has(s, /นัด\s*(?:มา)?\s*ดูรถ|มาดูรถ/)) return weekdayOf(s) >= 0 && !/พรุ่งนี้|วันนี้/.test(s) ? { kind: 'showroom', day: 'wd', wd: weekdayOf(s), next: /หน้า/.test(s) } : { kind: 'showroom', day: /สัปดาห์|อาทิตย์|7\s*วัน/.test(s) ? 'week' : day }
   // (v1.0.1121) แชต Facebook/IG ไม่ได้เก็บในระบบ (ดึงสดในหน้าช่องทางโซเชียล) → บอกตรง ๆ แทนการตอบเป็น LINE
   if (has(s, /เฟซ|เฟส|facebook|\bfb\b|messenger|เมสเซนเจอร์|ไอจี|instagram|\big\b|inbox/i) && has(s, /แชท|แชต|ทัก|ข้อความ|inbox|ตอบ/i) && has(s, /รอ|ยังไม่(?:ได้)?ตอบ|ค้าง|ใคร|ไหม|มั้ย|กี่/) && !has(s, /ลูกค้าใหม่|ลีด|ค่าโฆษณา|ยอดขาย/)) return { kind: 'metachat' }
   if (has(s, /line|ไลน์|แชท|แชต|ทัก/i) && (has(s, /รอ|ยังไม่ตอบ|ค้าง|ตอบ/) || (has(s, /ลูกค้า|ใคร/) && has(s, /วันนี้|ทักมา|ทักเข้า|เข้ามา/)))) return { kind: 'line' }
@@ -314,7 +314,7 @@ export function apptDate(today, { day = 'today', wd = -1, next = false } = {}) {
   return addDays(today, ((wd - cur + 7) % 7) + (next ? 7 : 0))
 }
 
-export function testDriveAnswer(rows, { today, day = 'today' }) {
+export function testDriveAnswer(rows, { today, day = 'today', wd = -1, next = false }) {
   if (day === 'month') {
     const from = today.slice(0, 8) + '01'
     const ml = alive(rows).filter(t => ymd(t.date) >= from && ymd(t.date) <= today && !['cancelled', 'canceled'].includes(t.status))
@@ -333,14 +333,14 @@ export function testDriveAnswer(rows, { today, day = 'today' }) {
     if (!wl.length) return { n: 0, text: `🚗 7 วันนี้ (${dmy(today)}–${dmy(to)}) ไม่มีนัดทดลองขับ` }
     return { n: wl.length, text: [`🚗 นัดทดลองขับ 7 วันนี้ — ${wl.length} ราย`, ...wl.slice(0, MAX).map(t => `• ${dmy(ymd(t.date)).slice(0, 5)} ${t.time ? String(t.time).slice(0, 5) + ' ' : ''}${nm(t)}${t.model ? ' · ' + t.model : ''}`), ...more(wl.length)].join('\n') }
   }
-  const date = day === 'tomorrow' ? addDays(today, 1) : today
+  const date = apptDate(today, { day, wd, next })
   const list = alive(rows).filter(t => ymd(t.date) === date && ['scheduled', 'confirmed', 'in_progress', ''].includes(t.status || ''))
     .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
-  if (!list.length) return { text: `🚗 ${dayWord(day)} (${dmy(date)}) ไม่มีนัดทดลองขับ`, n: 0 }
-  return { n: list.length, text: [`🚗 นัดทดลองขับ${dayWord(day)} ${dmy(date)} — ${list.length} ราย`, ...list.slice(0, MAX).map(t => `• ${t.time ? t.time.slice(0, 5) + ' ' : ''}${nm(t)}${t.model ? ' · ' + t.model : ''}${t.staff ? ' · 👤 ' + t.staff : ''}`), ...more(list.length)].join('\n') }
+  if (!list.length) return { text: `🚗 ${dayWord(day, wd)} (${dmy(date)}) ไม่มีนัดทดลองขับ`, n: 0 }
+  return { n: list.length, text: [`🚗 นัดทดลองขับ${dayWord(day, wd)} ${dmy(date)} — ${list.length} ราย`, ...list.slice(0, MAX).map(t => `• ${t.time ? t.time.slice(0, 5) + ' ' : ''}${nm(t)}${t.model ? ' · ' + t.model : ''}${t.staff ? ' · 👤 ' + t.staff : ''}`), ...more(list.length)].join('\n') }
 }
 
-export function showroomAnswer(rows, { today, day = 'today' }) {
+export function showroomAnswer(rows, { today, day = 'today', wd = -1, next = false }) {
   if (day === 'week') {
     const to = addDays(today, 6)
     const wl = alive(rows).filter(a => ymd(a.date) >= today && ymd(a.date) <= to && ['scheduled', 'confirmed', ''].includes(a.status || ''))
@@ -348,11 +348,11 @@ export function showroomAnswer(rows, { today, day = 'today' }) {
     if (!wl.length) return { n: 0, text: `🏬 7 วันนี้ (${dmy(today)}–${dmy(to)}) ไม่มีนัดลูกค้าเข้าโชว์รูม` }
     return { n: wl.length, text: [`🏬 นัดเข้าโชว์รูม 7 วันนี้ — ${wl.length} ราย`, ...wl.slice(0, MAX).map(a => `• ${dmy(ymd(a.date)).slice(0, 5)} ${a.time ? String(a.time).slice(0, 5) + ' ' : ''}${nm(a)}${a.model ? ' · ' + a.model : ''}`), ...more(wl.length)].join('\n') }
   }
-  const date = day === 'tomorrow' ? addDays(today, 1) : today
+  const date = apptDate(today, { day, wd, next })
   const list = alive(rows).filter(a => ymd(a.date) === date && ['scheduled', 'confirmed', ''].includes(a.status || ''))
     .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
-  if (!list.length) return { text: `🏬 ${dayWord(day)} (${dmy(date)}) ไม่มีนัดลูกค้าเข้าโชว์รูม`, n: 0 }
-  return { n: list.length, text: [`🏬 นัดเข้าโชว์รูม${dayWord(day)} ${dmy(date)} — ${list.length} ราย`, ...list.slice(0, MAX).map(a => `• ${a.time ? a.time.slice(0, 5) + ' ' : ''}${nm(a)}${a.purpose ? ' · ' + a.purpose : ''}${a.salesperson ? ' · 👤 ' + a.salesperson : ''}`), ...more(list.length)].join('\n') }
+  if (!list.length) return { text: `🏬 ${dayWord(day, wd)} (${dmy(date)}) ไม่มีนัดลูกค้าเข้าโชว์รูม`, n: 0 }
+  return { n: list.length, text: [`🏬 นัดเข้าโชว์รูม${dayWord(day, wd)} ${dmy(date)} — ${list.length} ราย`, ...list.slice(0, MAX).map(a => `• ${a.time ? a.time.slice(0, 5) + ' ' : ''}${nm(a)}${a.purpose ? ' · ' + a.purpose : ''}${a.salesperson ? ' · 👤 ' + a.salesperson : ''}`), ...more(list.length)].join('\n') }
 }
 
 // ห้องแชต LINE ที่ลูกค้าทักมาล่าสุดและยังไม่มีใครอ่าน/ตอบ (เงื่อนไขเดียวกับหน้างานวันนี้)
