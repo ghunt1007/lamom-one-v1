@@ -356,7 +356,7 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.newCustomerAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, period: spec.period, source: spec.source, nofollow: !!spec.nofollow, sourceLabel: { event: '🎪 ออกบูธ/อีเวนต์', ...Object.fromEntries(QUICK_SOURCES) } })
   } else if (spec.kind === 'lost') {
     const customers = await (customersPromise || visibleCustomersForCommands())
-    res = oq.lostAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, prev: spec.prev })
+    res = oq.lostAnswer((customers || []).filter(c => mine(c.assignedTo, c)), { today, prev: spec.prev, comp: spec.comp })
   } else if (spec.kind === 'claim') {
     res = oq.claimAnswer(await listDocs('insurance_claims', [], 'reported', 'desc', 300).catch(() => []), { today })
   } else if (spec.kind === 'parts') {
