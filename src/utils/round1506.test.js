@@ -8,6 +8,7 @@ import { isRateQuestion, ratesAnswer } from './payQuestions.js'
 import { parseStockSpec } from './stockQuestions.js'
 import { briefTarget, customerBrief } from './customerBrief.js'
 import { parseLamiCommand } from './lamiCommands.js'
+import { mapBookingRow } from './bookingImport.js'
 
 describe('v1.0.1506 LAMI routes', () => {
   it('weekly summary is not a walk-in count', () => {
@@ -133,5 +134,12 @@ describe('v1.0.1506 LAMI routes', () => {
     expect(r.text).toContain('เงินจองที่ร้านถืออยู่ ฿8,000')
     expect(r.text).toContain('ยังไม่กรอกยอด 1 ใบ')
     expect(depositsAnswer([{ status: 'จองแล้ว' }]).text).toContain('ยังไม่ได้กรอกยอดเงินจอง')
+  })
+  it('v1.0.1516 optional Sheet columns for withdraw / refund dates', () => {
+    const m = mapBookingRow({ 'เลขที่ใบจอง': 'B1', 'ชื่อลูกค้า': 'ก', 'วันที่ถอนจอง': '2026-11-20', 'วันที่คืนเงิน': '2026-11-25' })
+    expect(m.cancelDate).toBe('2026-11-20')
+    expect(m.refundedAt).toBe('2026-11-25')
+    const none = mapBookingRow({ 'เลขที่ใบจอง': 'B1', 'ชื่อลูกค้า': 'ก' })
+    expect(none.cancelDate).toBe('')
   })
 })
