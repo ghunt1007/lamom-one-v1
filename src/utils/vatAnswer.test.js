@@ -21,3 +21,30 @@ describe('LAMI vat (v1.0.1483)', () => {
     expect(r.n).toBe(0); expect(r.text).not.toContain('฿0'); expect(r.text).toContain('ยังคำนวณ VAT ไม่ได้')
   })
 })
+
+import { apptDate, apptDayAnswer } from './opsQuestions.js'
+describe('LAMI weekday appointments (v1.0.1484)', () => {
+  it('routes weekday questions', () => {
+    expect(parseOpsSpec('ใครมีนัดวันเสาร์นี้')).toMatchObject({ kind: 'apptday', day: 'wd', wd: 6 })
+    expect(parseOpsSpec('นัดลูกค้าวันจันทร์มีใครบ้าง')).toMatchObject({ kind: 'apptday', wd: 1 })
+    expect(parseOpsSpec('นัดคุณเอ วันจันทร์ 10 โมง')?.kind).not.toBe('apptday')
+  })
+  it('picks the coming weekday (today counts)', () => {
+    // 28/11/2026 = Saturday
+    expect(apptDate('2026-11-28', { day: 'wd', wd: 6 })).toBe('2026-11-28')
+    expect(apptDate('2026-11-28', { day: 'wd', wd: 1 })).toBe('2026-11-30')
+    expect(apptDate('2026-11-28', { day: 'wd', wd: 1, next: true })).toBe('2026-12-07')
+    const r = apptDayAnswer([{ date: '2026-11-30', time: '10:00', customerName: 'ก', status: 'scheduled' }], [], { today: '2026-11-28', day: 'wd', wd: 1 })
+    expect(r.text).toContain('นัดลูกค้าวันจันทร์ 30/11/2569 — 1 นัด')
+  })
+})
+
+import { leaveAnswer } from './opsQuestions.js'
+describe('leave on a weekday (v1.0.1484)', () => {
+  it('ใครลาวันศุกร์ → coming Friday', () => {
+    expect(parseOpsSpec('ใครลาวันศุกร์')).toMatchObject({ kind: 'leave', day: 'wd', wd: 5 })
+    const r = leaveAnswer([{ staff: 'ก', status: 'approved', from: '2026-12-04', to: '2026-12-04' }], { today: '2026-11-28', day: 'wd', wd: 5 })
+    expect(r.text).toContain('วันศุกร์ 04/12/2569')
+    expect(r.text).toContain('ก')
+  })
+})

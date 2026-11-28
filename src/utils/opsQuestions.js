@@ -77,6 +77,10 @@ export function parseOpsSpec(q) {
   // (v1.0.1092) "ลูกค้าที่ยังไม่มีเบอร์โทร" → ข้อมูลที่ต้องเติม
   // (v1.0.1126) "ลูกค้าที่ยังไม่ได้ใส่รุ่นที่สนใจ" · "ลูกค้าที่นัดวันนี้มีใครบ้าง" (รวมนัดโชว์รูม + ทดลองขับ)
   if (has(s, /(?:ไม่มี|ยังไม่มี|ไม่ได้ใส่|ยังไม่ได้ใส่|ไม่ได้ระบุ|ยังไม่ได้ระบุ|ขาด)\s*(?:รุ่น|รถที่สนใจ)/) && !has(s, /^(?:เพิ่ม|ใส่|แก้)/)) return { kind: 'nomodel' }
+  // (v1.0.1484) "ใครมีนัดวันเสาร์นี้" / "นัดลูกค้าวันจันทร์มีใครบ้าง" → วันนั้นที่จะถึง (รวมวันนี้)
+  { const wd = weekdayOf(s)
+    if (wd >= 0 && has(s, /นัด/) && has(s, /ใคร|กี่|บ้าง|ไหม|มั้ย|มี/) && !has(s, /ทดลองขับ|ลองขับ|โชว์รูม|ส่งมอบ|ศูนย์|ซ่อม|เซอร์วิส|ยังไม่|ไม่มีนัด|ติดตาม|โทร|ลา|^(?:เพิ่ม|บันทึก)/) && !(has(s, /^นัด/) && !has(s, /ใคร|กี่|บ้าง/)))
+      return { kind: 'apptday', day: 'wd', wd, next: /หน้า/.test(s) } }
   if (has(s, /(?:ลูกค้า|ใคร)\s*(?:ที่)?\s*(?:มี)?\s*นัด\s*(?:มา|ไว้)?\s*(?:วันนี้|พรุ่งนี้)|นัด(?:ลูกค้า)?\s*(?:วันนี้|พรุ่งนี้)\s*(?:มี)?\s*(?:ใคร|กี่)|(?:วันนี้|พรุ่งนี้)\s*มี\s*(?:ลูกค้า)?\s*(?:มา)?\s*นัด\s*(?:กี่|ใคร|ไหม|มั้ย|บ้าง)/) && !has(s, /ทดลองขับ|ลองขับ|โชว์รูม|ส่งมอบ|ศูนย์|ซ่อม|เซอร์วิส|ยังไม่|ไม่มีนัด|ติดตาม|โทร/)) return { kind: 'apptday', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : 'today' }
   if (has(s, /(?:ไม่มี|ยังไม่มี|ไม่ได้ใส่|ยังไม่ได้ใส่|ขาด)\s*เบอร์|เบอร์\s*(?:ว่าง|หาย)/) && !has(s, /^(?:เพิ่ม|ใส่|แก้)/)) return { kind: 'nophone' }
   // (v1.0.1092) "ลูกค้าคนไหนมีโอกาสปิดสูงสุด"
@@ -184,7 +188,7 @@ export function parseOpsSpec(q) {
   if (has(s, /floor\s*plan|ฟลอร์\s*แพลน|ฟลอแพลน|ดอกเบี้ย(?:รถ)?\s*(?:ใน)?\s*สต็อก|ดอกเบี้ยสต็อก/i)) return { kind: 'floorplan' }
   // (v1.0.1112) "ใครมาสายวันนี้" / "วันนี้ใครยังไม่ลงเวลา" → ตารางลงเวลาวันนี้
   if (has(s, /มาสาย|เข้างานสาย|ยังไม่(?:ได้)?\s*(?:ลงเวลา|เข้างาน|สแกน)|ขาดงาน|ใครไม่มาทำงาน|ใคร\s*(?:มา)?\s*(?:เข้างาน|มาทำงาน|ลงเวลา)(?:แล้ว)?\s*(?:บ้าง|วันนี้|แล้ว)|(?:เข้างาน|มาทำงาน|ลงเวลา)\s*(?:วันนี้)?\s*กี่คน|ลงเวลา(?:เข้างาน)?\s*(?:กี่คน|ครบ|ยัง)/) && !has(s, /ลูกค้า|ส่งมอบ|ไฟแนนซ์/)) return { kind: 'late' }
-  if (has(s, /ลา(?:งาน|ป่วย|กิจ|พักร้อน|หยุด)|ใครลา|มีคนลา|ลากี่คน|ขอลา|หยุดงาน|พนักงาน\s*(?:ที่)?\s*ลา|ลา\s*(?:วันนี้|พรุ่งนี้|สัปดาห์นี้)\s*(?:มี)?\s*(?:ใคร|กี่)/) && !has(s, /^(?:ขอ)?ลา(?:งาน|ป่วย|กิจ)?\s*(?:พรุ่งนี้|วันที่|\d)/)) return { kind: 'leave', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /เดือนนี้/.test(s) ? 'month' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
+  if (has(s, /ลา(?:งาน|ป่วย|กิจ|พักร้อน|หยุด)|ใครลา|มีคนลา|ลากี่คน|ขอลา|หยุดงาน|พนักงาน\s*(?:ที่)?\s*ลา|ลา\s*(?:วันนี้|พรุ่งนี้|สัปดาห์นี้)\s*(?:มี)?\s*(?:ใคร|กี่)/) && !has(s, /^(?:ขอ)?ลา(?:งาน|ป่วย|กิจ)?\s*(?:พรุ่งนี้|วันที่|\d)/)) { const wd = weekdayOf(s); return wd >= 0 && !/พรุ่งนี้|เดือนนี้/.test(s) ? { kind: 'leave', day: 'wd', wd, next: /หน้า/.test(s) } : { kind: 'leave', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /เดือนนี้/.test(s) ? 'month' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' } }
   // (v1.0.1097) "รถที่กำลังจะมาถึงมีกี่คัน" / "รถสั่งไว้มาเมื่อไหร่"
   // (v1.0.1107) "รถเข้าใหม่สัปดาห์นี้" / "เดือนนี้รับรถเข้าสต็อกกี่คัน"
   if (has(s, /รถ(?:เข้า|มา)(?:ใหม่|แล้ว)|รถ(?:ที่)?เพิ่ง(?:เข้า|มา)|รับรถเข้า(?:สต็อก|สต๊อก)?|เข้าสต็อก|เข้าสต๊อก|รถล็อตใหม่/) && !has(s, /ลูกค้า|ศูนย์|ซ่อม|เมื่อไหร่|กำลัง/)) return { kind: 'arrived', days: /เดือน/.test(s) ? 'month' : /วันนี้/.test(s) ? 1 : 7 }
@@ -294,7 +298,16 @@ export function sboardAnswer(bookings, { today, status = '', group = '', mine = 
 }
 const more = (n) => n > MAX ? [`…และอีก ${n - MAX} ราย`] : []
 const nm = c => String(c?.name || [c?.firstName, c?.lastName].filter(Boolean).join(' ') || c?.customerName || c?.custName || 'ลูกค้า').trim()
-const dayWord = day => day === 'tomorrow' ? 'พรุ่งนี้' : 'วันนี้'
+const WEEKDAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์']
+function weekdayOf(s) { const m = String(s || '').match(/วัน\s*(จันทร์|อังคาร|พุธ|พฤหัส(?:บดี)?|ศุกร์|เสาร์|อาทิตย์)|(?<!วัน)(จันทร์|อังคาร|พุธ|พฤหัส(?:บดี)?|ศุกร์|เสาร์)\s*(?:นี้|หน้า)/); return m ? WEEKDAYS.findIndex(w => (m[1] || m[2]).startsWith(w)) : -1 }
+const dayWord = (day, wd) => day === 'tomorrow' ? 'พรุ่งนี้' : day === 'wd' ? `วัน${WEEKDAYS[wd] || ''}` : 'วันนี้'
+// (v1.0.1484) วันที่ของนัดที่ถาม: วันนี้ / พรุ่งนี้ / วัน X ที่จะถึง (รวมวันนี้ · "หน้า" = ถัดไปอีกสัปดาห์)
+export function apptDate(today, { day = 'today', wd = -1, next = false } = {}) {
+  if (day === 'tomorrow') return addDays(today, 1)
+  if (day !== 'wd' || wd < 0) return today
+  const cur = new Date(Date.parse(today + 'T00:00:00Z')).getUTCDay()
+  return addDays(today, ((wd - cur + 7) % 7) + (next ? 7 : 0))
+}
 
 export function testDriveAnswer(rows, { today, day = 'today' }) {
   if (day === 'month') {
@@ -519,15 +532,16 @@ export function noModelAnswer(customers) {
 }
 
 // (v1.0.1126) นัดลูกค้าของวัน: นัดเข้าโชว์รูม + นัดทดลองขับ รวมกัน เรียงตามเวลา
-export function apptDayAnswer(appts, drives, { today, day = 'today', fuDue = 0 }) {
-  const date = day === 'tomorrow' ? addDays(today, 1) : today
+export function apptDayAnswer(appts, drives, { today, day = 'today', wd = -1, next = false, fuDue = 0 }) {
+  const date = apptDate(today, { day, wd, next })
+  const dw = day === 'wd' ? dayWord(day, wd) + (date === today ? 'นี้ (วันนี้)' : '') : dayWord(day)
   const rows = [
     ...alive(appts).filter(a => ymd(a.date) === date && ['scheduled', 'confirmed', ''].includes(a.status || '')).map(a => ({ t: String(a.time || '').slice(0, 5), name: nm(a), what: '🏬 ' + (a.purpose || 'เข้าโชว์รูม'), staff: a.salesperson, phone: a.phone })),
     ...alive(drives).filter(t => ymd(t.date) === date && !['cancelled', 'canceled', 'no_show', 'noshow', 'completed', 'done'].includes(t.status)).map(t => ({ t: String(t.time || '').slice(0, 5), name: nm(t), what: '🚗 ทดลองขับ' + (t.model ? ' ' + t.model : ''), staff: t.staff, phone: t.phone })),
   ].sort((a, b) => (a.t || '99').localeCompare(b.t || '99'))
-  const fu = fuDue ? `📞 นัดโทรติดตาม${dayWord(day)}อีก ${fuDue} ราย — ถาม "${day === 'tomorrow' ? 'พรุ่งนี้ต้องตามใครบ้าง' : 'วันนี้ควรโทรหาใคร'}"` : ''
-  if (!rows.length) return { n: 0, text: [`📅 ${dayWord(day)} (${dmy(date)}) ไม่มีนัดลูกค้าเข้าโชว์รูมหรือทดลองขับ`, fu].filter(Boolean).join('\n') }
-  return { n: rows.length, text: [`📅 นัดลูกค้า${dayWord(day)} ${dmy(date)} — ${rows.length} นัด`,
+  const fu = fuDue ? `📞 นัดโทรติดตาม${dw}อีก ${fuDue} ราย — ถาม "${day === 'tomorrow' ? 'พรุ่งนี้ต้องตามใครบ้าง' : 'วันนี้ควรโทรหาใคร'}"` : ''
+  if (!rows.length) return { n: 0, text: [`📅 ${dw} (${dmy(date)}) ไม่มีนัดลูกค้าเข้าโชว์รูมหรือทดลองขับ`, fu].filter(Boolean).join('\n') }
+  return { n: rows.length, text: [`📅 นัดลูกค้า${dw} ${dmy(date)} — ${rows.length} นัด`,
     ...rows.slice(0, MAX).map(r => `• ${r.t ? r.t + ' ' : ''}${r.name} · ${r.what}${r.staff ? ' · 👤 ' + r.staff : ''}${r.phone ? ' · 📞 ' + r.phone : ''}`), ...more(rows.length), fu].filter(Boolean).join('\n') }
 }
 
@@ -742,15 +756,15 @@ export function plateAnswer(bookings, { today, days = 180 }) {
 
 // (v1.0.1097) การลาของพนักงาน (อนุมัติแล้ว + รออนุมัติ) ที่ครอบวันนั้น
 const LEAVE_TH = { sick: '🤒 ลาป่วย', personal: '📋 ลากิจ', annual: '🏖 ลาพักร้อน', maternity: '👶 ลาคลอด', ordain: '🧡 ลาบวช', unpaid: '💔 ลาไม่รับค่าจ้าง' }
-export function leaveAnswer(rows, { today, day = 'today' }) {
-  const from = day === 'tomorrow' ? addDays(today, 1) : today
+export function leaveAnswer(rows, { today, day = 'today', wd = -1, next = false }) {
+  const from = apptDate(today, { day, wd, next })
   // (v1.0.1117) "ใครลางานเดือนนี้" → ทั้งเดือน (1 ถึงสิ้นเดือน)
   const mEnd = addDays(new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7), 1)).toISOString().slice(0, 10), -1)
   const from0 = day === 'month' ? today.slice(0, 8) + '01' : from
   const to = day === 'month' ? mEnd : day === 'week' ? addDays(today, 6) : from
   const list = alive(rows).filter(r => ['approved', 'pending'].includes(r.status) && ymd(r.from) <= to && (ymd(r.to) || ymd(r.from)) >= from0)
     .sort((a, b) => ymd(a.from).localeCompare(ymd(b.from)))
-  const word = day === 'month' ? `เดือนนี้ (${dmy(from0)}–${dmy(to)})` : day === 'week' ? `7 วันนี้ (${dmy(from)}–${dmy(to)})` : `${dayWord(day)} ${dmy(from)}`
+  const word = day === 'month' ? `เดือนนี้ (${dmy(from0)}–${dmy(to)})` : day === 'week' ? `7 วันนี้ (${dmy(from)}–${dmy(to)})` : `${dayWord(day, wd)} ${dmy(from)}`
   if (!list.length) return { n: 0, text: `👥 ${word} ไม่มีพนักงานลา` }
   const pend = list.filter(r => r.status === 'pending').length
   return { n: list.length, text: [`👥 พนักงานลา${word} — ${list.length} คน${pend ? ` (รออนุมัติ ${pend})` : ''}`,
