@@ -101,6 +101,7 @@ export function commandHelpText(n = 'สมชาย') {
     `• 🚗 วันส่งมอบ: "นัดส่งมอบ${n} ศุกร์นี้ 10 โมง" · "เลื่อนส่งมอบ${n}ไป 20/11"`,
     `• 📅 เลื่อน/ยกเลิกนัด: "เลื่อนนัด${n}ไปศุกร์ 10 โมง" · "ยกเลิกนัด${n}"`,
     `• 📞 โทร: "โทรหา ${n}"`,
+    `• 📄 ใบเสนอราคา/LINE: "ทำใบเสนอราคาให้${n} S07" · "ส่งไลน์หา${n}" · "${n}มาโชว์รูมแล้ว" · "${n}ทดลองขับแล้ว"`,
     `• ✏️ แก้ข้อมูลลูกค้า: "${n}เบอร์ 0812345678" · "${n}สนใจ AION V" · "${n}เสียดีล ซื้อยี่ห้ออื่น" · "มอบ${n}ให้เซลส์ สอง"`,
     `• 👤 ถามถึงลูกค้า: "${n}ถึงไหนแล้ว" · "สรุป${n}" (ขั้น ความสนใจ ติดต่อล่าสุด นัดถัดไป ใบจอง + คำแนะนำ)`,
     '• ☀️ งานวันนี้: "วันนี้มีอะไรบ้าง" · "สรุปวันนี้" (นัดวันนี้ เลยกำหนด ส่งมอบ ลีดใหม่ + ปุ่มถามต่อ)',
@@ -139,7 +140,7 @@ export function parseLamiCommand(q, customers = [], today) {
   const delivRest = s.replace(/^[^]*?(?:ส่งมอบ|ส่งรถ|รับรถ)(?:รถ)?/, '')
   const isDeliv = /(?:นัด|เลื่อน|กำหนด|ลง)?\s*(?:วัน)?(?:ส่งมอบ|ส่งรถ|รับรถ)/.test(s) && !/แล้ว|ยกเลิก/.test(s) && WHEN.test(delivRest)
   // ยกเลิก/เลื่อน/ลบ แบบอื่น → ให้ AI ตอบ (กันสร้างนัดผิดจาก "ยกเลิก…")
-  if (!isMove && !isUnfu && !isDeliv && !/ยกเลิกจอง/.test(s) && /ยกเลิก|เลื่อน|ไม่ต้อง|ไม่นัด|ลบ|cancel/i.test(s)) return []
+  if (!isMove && !isUnfu && !isDeliv && !/ยกเลิกจอง|ยกเลิก\s*(?:สถานะ)?\s*เสียดีล/.test(s) && /ยกเลิก|เลื่อน|ไม่ต้อง|ไม่นัด|ลบ|cancel/i.test(s)) return []
   const hits = mentionedCustomers(s, customers, 3)
   // (v1.0.1032) ลูกค้าใหม่: ขึ้นต้นด้วย ลีดใหม่/เพิ่มลูกค้า… หรือ เบอร์ใหม่+ชื่อที่ยังไม่มีในระบบ → เปิดฟอร์ม Lead ที่กรอกให้แล้ว
   const known = new Set(customers.map(c => String(c?.phone || '').replace(/\D/g, '')).filter(Boolean))
@@ -195,6 +196,13 @@ export function parseLamiCommand(q, customers = [], today) {
   // (v1.0.1094) คำสั่งแก้ข้อมูลลูกค้าในประโยคเดียว: เสียดีล · เบอร์ · รุ่นที่สนใจ · มอบให้เซลส์ดูแล
   const plain = !isNote && !isLog && !stage && !isBook && !isTd && !isFu
   const LOST = /เสียดีล|(?:ไป)?ซื้อ(?:ที่|กับ|ยี่ห้อ|เจ้า|ค่าย|ของ|รถ)?\s*(?:อื่น|คู่แข่ง)(?:ไป)?(?:แล้ว)?|ไม่ซื้อแล้ว|ไม่เอาแล้ว|ไม่สนใจแล้ว|ปิดไม่ได้แล้ว|ยกเลิกความสนใจ/
+  // (v1.0.1531) "สมชายกลับมาสนใจอีกครั้ง" / "ยกเลิกเสียดีลสมชาย" → ดึงลูกค้าเสียดีลกลับมาติดตาม (ปุ่มเดียวกับ ↩️ ในหน้าลูกค้า)
+  if (plain && /กลับมา\s*(?:สนใจ|คุย|ติดต่อ|ทัก)|สนใจ\s*อีก\s*(?:ครั้ง|รอบ)|ยกเลิก\s*(?:สถานะ)?\s*เสียดีล|ไม่ได้\s*เสียดีล|ดึง\S{0,4}\s*กลับมา/.test(s) && !/หรือยัง|รึยัง|ไหม|มั้ย|ใคร|บ้าง|กี่|[?？]/.test(s)) {
+    const lost = hits.filter(c => c.isLost)
+    // ไม่มีใครเสียดีลอยู่: "ยกเลิกเสียดีล" → ไม่ทำอะไร (ห้ามตกไปเป็นคำสั่งมาร์คเสียดีล) · "กลับมาสนใจ S07" → ไปบันทึกรุ่นต่อ
+    if (!lost.length && /เสียดีล/.test(s)) return []
+    if (lost.length) return lost.map(c => ({ kind: 'revive', customer: c, label: `↩️ ดึง ${fullName(c)} กลับมาติดตาม`, desc: `ยกเลิกสถานะเสียดีล${c.lostReason ? ` (เดิม: ${String(c.lostReason).slice(0, 40)})` : ''} · ตั้งความสนใจ 🟡 Warm` }))
+  }
   if (plain && LOST.test(s)) {
     let reason = s.replace(/^(?:ช่วย\s*)?(?:มาร์ค|ตั้ง|บันทึก)?\s*/, '')
     hits.flatMap(c => [[c.firstName, c.lastName].filter(Boolean).join(' '), c.firstName, c.nickname]).filter(n => n && n.length >= 2).sort((a, b) => b.length - a.length).forEach(n => { reason = reason.split(n).join(' ') })
@@ -206,8 +214,9 @@ export function parseLamiCommand(q, customers = [], today) {
     const ph = phoneM[1].replace(/[^\d+]/g, '').replace(/^\+66/, '0')
     if (/^0\d{8,9}$/.test(ph)) return hits.slice(0, 1).map(c => ({ kind: 'phone', customer: c, phone: ph, label: `📞 บันทึกเบอร์ ${fullName(c)} → ${ph}`, desc: c.phone ? `เดิม ${c.phone}` : 'ยังไม่มีเบอร์เดิม' }))
   }
-  const modelM = plain && !WHEN.test(s) && s.match(/(?:สนใจ|อยากได้|เล็ง)\s*(?:รุ่น|รถ)?\s*([A-Za-z0-9ก-๙][A-Za-z0-9ก-๙ .\-]{1,24})$/)
-  if (modelM && !/ผ่อน|ดาวน์|ราคา|โปร|ไหน|อะไร|ใด|บ้าง|หรือ/.test(modelM[1])) {
+  const modelM = plain && !WHEN.test(s) && s.match(/.*(?:สนใจ|อยากได้|เล็ง)\s*(?:รุ่น|รถ)?\s*([A-Za-z0-9ก-๙][A-Za-z0-9ก-๙ .\-]{1,24})$/)
+  // (v1.0.1531) "สนใจอีกครั้ง" / "สนใจมาก" ไม่ใช่ชื่อรุ่น
+  if (modelM && !/ผ่อน|ดาวน์|ราคา|โปร|ไหน|อะไร|ใด|บ้าง|หรือ/.test(modelM[1]) && !/^(?:อีก|มาก|แล้ว|น้อย|เลย|ไม่|จริง|นะ|ค่ะ|ครับ|คะ|อยู่|เหมือนเดิม)/.test(modelM[1].trim())) {
     const model = modelM[1].trim()
     return hits.slice(0, 1).map(c => ({ kind: 'model', customer: c, model, label: `🚗 ${fullName(c)} สนใจ ${model}`, desc: c.interestedModel ? `เดิม ${c.interestedModel}` : 'บันทึกรุ่นที่สนใจ' }))
   }
@@ -378,6 +387,13 @@ export async function runLamiCommand(cmd, { me = '', db, companyId, followupFilt
   if (cmd.kind === 'note') {
     await db.createDoc('customer_notes', { customerId: c.id, customer: fullName(c), type: cmd.type || 'internal', text: cmd.text, staff: me, time: new Date().toISOString(), pinned: false, companyId: c.companyId ?? companyId ?? null })
     return `📝 จดไว้ที่ ${fullName(c)} แล้ว`
+  }
+  if (cmd.kind === 'revive') {
+    const now = new Date().toISOString()
+    const patch = { isLost: false, lostReason: '', lostAt: null, stageChangedAt: now, prevLostReason: c.lostReason || '', revivedAt: now, temperature: 'warm' }
+    await db.updateDocData('customers', c.id, patch)
+    Object.assign(c, patch)
+    return `↩️ ดึง ${fullName(c)} กลับมาติดตามแล้ว (🟡 Warm) · นัดโทรต่อได้เลย เช่น "นัด${c.firstName || ''} พรุ่งนี้ 10 โมง"`
   }
   if (cmd.kind === 'lost') {
     const patch = { isLost: true, lostReason: cmd.reason, lostAt: new Date().toISOString() }

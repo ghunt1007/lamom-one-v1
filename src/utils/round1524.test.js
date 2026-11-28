@@ -101,3 +101,17 @@ describe('v1.0.1530 LINE chat command', () => {
     expect(parseLamiCommand('ส่งไลน์หาสมชายหรือยัง', cs, '2026-11-28')).toEqual([])
   })
 })
+
+describe('v1.0.1531 revive lost customer + model words', () => {
+  const cs = [{ id: 'a', firstName: 'สมชาย', lastName: 'ดี', isLost: true, lostReason: 'ซื้อคู่แข่ง' }, { id: 'b', firstName: 'วิไล', lastName: 'ใจ' }]
+  it('revives only lost customers and never marks lost by mistake', () => {
+    expect(parseLamiCommand('สมชายกลับมาสนใจอีกครั้ง', cs, '2026-11-28').map(x => x.kind)).toEqual(['revive'])
+    expect(parseLamiCommand('ยกเลิกเสียดีลสมชาย', cs, '2026-11-28').map(x => x.kind)).toEqual(['revive'])
+    expect(parseLamiCommand('ยกเลิกเสียดีลวิไล', cs, '2026-11-28')).toEqual([])
+    expect(parseLamiCommand('สมชายกลับมาสนใจไหม', cs, '2026-11-28')).toEqual([])
+  })
+  it('does not save filler words as a model', () => {
+    expect(parseLamiCommand('วิไลสนใจมาก', cs, '2026-11-28')).toEqual([])
+    expect(parseLamiCommand('วิไลสนใจมากๆ อยากได้ S07', cs, '2026-11-28')[0]).toMatchObject({ kind: 'model', model: 'S07' })
+  })
+})
