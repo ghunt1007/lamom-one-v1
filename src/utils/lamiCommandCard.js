@@ -436,6 +436,16 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'floorplan') {
     if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🏦 ข้อมูล floor plan ดูได้เฉพาะผู้บริหาร/บัญชี' }
     else res = oq.floorPlanAnswer(await listDocs('floor_plan', f, 'drawDate', 'desc', 300).catch(() => []), { today })
+  } else if (spec.kind === 'latemonth') {
+    const whole = !!(vis.unrestricted || vis.companyOnly)
+    if (!whole && !vis.hasSubordinates) res = { n: 0, locked: true, text: '🕘 ข้อมูลลงเวลาของพนักงานดูได้เฉพาะหัวหน้าทีมและผู้จัดการ — ดูของตัวเองได้ที่หน้า "ลงเวลา"' }
+    else {
+      const ym = spec.prev ? (() => { const [y, m] = today.slice(0, 7).split('-').map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}` })() : today.slice(0, 7)
+      const [rows, staff] = await Promise.all([listDocs('attendance', [['date', '>=', ym + '-01'], ['date', '<=', ym + '-31']], 'date', 'desc', 3000).catch(() => []), whole ? Promise.resolve([]) : listDocs('staff', f, 'firstName', 'asc', 500).catch(() => [])])
+      let mineRows = rows
+      if (!whole) { const { scopeIncludesStaff } = await import('../core/hierarchy.js'); const ids = new Set(staff.filter(x => scopeIncludesStaff(vis, x)).map(x => x.id)); mineRows = rows.filter(r => ids.has(r.staffId)) }
+      res = oq.lateMonthAnswer(mineRows, { today, prev: spec.prev })
+    }
   } else if (spec.kind === 'late') {
     const whole = !!(vis.unrestricted || vis.companyOnly)
     if (!whole && !vis.hasSubordinates) res = { n: 0, locked: true, text: '🕘 ข้อมูลลงเวลาของพนักงานดูได้เฉพาะหัวหน้าทีมและผู้จัดการ — ดูของตัวเองได้ที่หน้า "ลงเวลา"' }
