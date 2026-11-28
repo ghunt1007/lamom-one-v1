@@ -488,9 +488,15 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = { n: r?.risky?.filter(x => mine(x.b.salesName, x.b)).length || 0, text: cancelRiskText(r, { mine }) }
   } else if (spec.kind === 'modelfunnel') {
     // (v1.0.1447) ทั้งร้าน — รุ่นที่สนใจ vs ปิดได้จริง (ไม่มีชื่อลูกค้า)
-    const { modelFunnel, modelFunnelText } = await import('./modelFunnel.js')
+    const { modelFunnel, modelFunnelText, modelInterestText } = await import('./modelFunnel.js')
+    if (spec.period) {
+      const from = spec.period === 'today' ? today : spec.period === 'week' ? oq.addDaysIso(today, -6) : spec.period === 'prevmonth' ? oq.addDaysIso(today.slice(0, 7) + '-01', -1).slice(0, 7) + '-01' : today.slice(0, 7) + '-01'
+      const to = spec.period === 'prevmonth' ? oq.addDaysIso(today.slice(0, 7) + '-01', -1) : today
+      res = modelInterestText((await listDocs('customers', f, 'createdAt', 'desc', 5000).catch(() => [])).filter(c => mine(c.assignedTo, c)), { fromYmd: from, toYmd: to, label: { today: 'วันนี้', week: 'ใน 7 วัน', prevmonth: 'เดือนก่อน', month: 'เดือนนี้' }[spec.period] })
+    } else {
     const r = modelFunnel(await listDocs('customers', f, 'createdAt', 'desc', 5000).catch(() => []))
     res = { n: r ? r.n : 0, text: modelFunnelText(r) }
+    }
   } else if (spec.kind === 'speedimpact') {
     // (v1.0.1446) ทั้งร้าน — % ปิดการขายตามความเร็วโทรครั้งแรก (ไม่มีชื่อลูกค้า)
     const { speedImpact, speedImpactText } = await import('./speedImpact.js')
