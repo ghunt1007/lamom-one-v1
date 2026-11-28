@@ -193,16 +193,20 @@ export function periodStats({ bookings = [], today, period, prev = false }) {
 }
 export function periodBriefText(s, { scope = '', colors = false } = {}) {
   const lines = [`📊 ยอด${s.label}${scope ? ` — ${scope}` : ''}${s.partial ? ' (ถึงวันนี้)' : ''}`,
-    `🚗 ส่งมอบ ${s.delivered} คัน · ${s.prevLabel} ${s.prevDelivered} คัน${s.partial ? '' : ` (${diff(s.delivered, s.prevDelivered)})`}`,
-    `📝 จองใหม่ ${s.booked} ใบ${s.withdrawn ? ` · ถอน ${s.withdrawn} ใบ` : ''} · ${s.prevLabel} ${s.prevBooked} ใบ`]
+    // (v1.0.1489) ช่วงก่อนหน้าไม่มีข้อมูลเลย (ยังไม่ได้ใช้ระบบ) → ไม่เทียบกับ 0
+    ...(s.prevDelivered || s.prevBooked ? [`🚗 ส่งมอบ ${s.delivered} คัน · ${s.prevLabel} ${s.prevDelivered} คัน${s.partial ? '' : ` (${diff(s.delivered, s.prevDelivered)})`}`,
+      `📝 จองใหม่ ${s.booked} ใบ${s.withdrawn ? ` · ถอน ${s.withdrawn} ใบ` : ''} · ${s.prevLabel} ${s.prevBooked} ใบ`]
+      : [`🚗 ส่งมอบ ${s.delivered} คัน · 📝 จองใหม่ ${s.booked} ใบ${s.withdrawn ? ` · ถอน ${s.withdrawn} ใบ` : ''}`, `ℹ️ ${s.prevLabel} ยังไม่มีข้อมูลในระบบ จึงยังไม่เทียบ`])]
   const shown = s.perMonth.filter(r => r.delivered || r.booked)
   if (shown.length) lines.push('📅 รายเดือน', ...shown.map(r => `• ${TH_M[+r.m.slice(5, 7) - 1]} — ส่งมอบ ${r.delivered} · จอง ${r.booked}`))
   if (s.board.length) lines.push('🏆 เซลส์', ...s.board.map((r, i) => `${i + 1}. ${r.name} — ส่งมอบ ${r.delivered} · จอง ${r.booked}`))
   if (colors) lines.push(...colorLines(s, ''))
   if (s.models.length && !colors) lines.push('🚘 รุ่นขายดี', ...s.models.map((r, i) => `${i + 1}. ${r.name} — จอง ${r.booked} · ส่งมอบ ${r.delivered}`))
   if (s.partial && s.perMonth.length > 1) {
-    const done = s.perMonth.slice(0, -1), avg = done.reduce((a, r) => a + r.delivered, 0) / done.length
-    lines.push(`💡 เฉลี่ยส่งมอบเดือนละ ${Math.round(avg * 10) / 10} คัน${s.perMonth.at(-1).delivered < avg ? ' — เดือนนี้ยังต่ำกว่าค่าเฉลี่ย เร่งรถที่พร้อมส่ง' : ''}`)
+    // (v1.0.1489) เฉลี่ยเฉพาะเดือนตั้งแต่เริ่มมีข้อมูล (ไม่เอาเดือนก่อนเริ่มใช้ระบบมาหาร)
+    const first = s.perMonth.findIndex(r => r.delivered || r.booked)
+    const done = s.perMonth.slice(Math.max(0, first), -1), avg = done.length ? done.reduce((a, r) => a + r.delivered, 0) / done.length : 0
+    if (first >= 0 && done.length && avg > 0) lines.push(`💡 เฉลี่ยส่งมอบเดือนละ ${Math.round(avg * 10) / 10} คัน${s.perMonth.at(-1).delivered < avg ? ' — เดือนนี้ยังต่ำกว่าค่าเฉลี่ย เร่งรถที่พร้อมส่ง' : ''}`)
   }
   return lines.join('\n')
 }
