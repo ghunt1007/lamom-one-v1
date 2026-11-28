@@ -163,7 +163,9 @@ export function parseLamiCommand(q, customers = [], today) {
   const isBook = !isNote && !stage && /^(?:ช่วย\s*)?(?:จอง(?!ลองขับ)|ทำใบจอง|ออกใบจอง|เปิดใบจอง|สร้างใบจอง)|(?:ตกลง|ขอ)?จองแล้ว|ปิดการขาย(?:ได้)?แล้ว|ปิดดีล(?:ได้)?แล้ว|ตกลงจอง|จะจอง(?:วันนี้|เลย)/.test(s)
   // (v1.0.1529) "ทำใบเสนอราคาให้สมชาย" / "สมชายขอใบเสนอราคา S07" → เปิดฟอร์มใบเสนอราคาที่กรอกชื่อ/เบอร์/รุ่นให้ (ยังไม่บันทึกเอง)
   const isQuote = !isNote && !isLog && !isBook && !stage && /ใบเสนอราคา|quotation/i.test(s) && !/หรือยัง|รึยัง|ไหม|มั้ย|กี่|บ้าง|ใคร|[?？]/.test(s)
-  const isTd = !isNote && !isLog && !isBook && !isQuote && /ลองขับ|ทดลองขับ|test\s*drive/i.test(s)
+  // (v1.0.1530) "ส่งไลน์หาสมชาย" / "ทักไลน์มานี" → เปิดแชท LINE ของลูกค้า (ผูกแล้ว) หรือหน้าลูกค้าให้ส่ง QR ผูก LINE · ไม่ส่งข้อความเอง
+  const isLineChat = !isNote && !isLog && !isBook && !isQuote && /^(?:ช่วย\s*)?(?:ส่ง\s*(?:ไลน์|line|ข้อความ|แชท|แชต)|ทัก\s*(?:ไลน์|line)?|แชท\s*(?:ไลน์|line)?|แชต)\s*(?:หา|ถึง|กับ|ให้)?/i.test(s) && !/หรือยัง|รึยัง|ไหม|มั้ย|กี่|บ้าง|ใคร|[?？]/.test(s)
+  const isTd = !isNote && !isLog && !isBook && !isQuote && !isLineChat && /ลองขับ|ทดลองขับ|test\s*drive/i.test(s)
   const tempHit = TEMP.find(([re]) => re.test(s))
   const isTempOnly = !isNote && !isLog && !isBook && tempHit && (/^(?:ปรับ|ตั้ง|เปลี่ยน|ให้)|เป็น\s*(?:hot|warm|cold|ร้อน|อุ่น|เย็น)/i.test(s) || (!WHEN.test(s) && s.replace(/hot|warm|cold/i, '').trim().split(/\s+/).length <= 2))
   const hasWhen = WHEN.test(s)
@@ -219,6 +221,9 @@ export function parseLamiCommand(q, customers = [], today) {
       return targets.map(c => ({ kind: 'assign', customer: c, to: seller, label: `👤 ให้ ${seller} ดูแล ${fullName(c)}`, desc: c.assignedTo ? `เดิม ${c.assignedTo}` : 'ยังไม่มีผู้ดูแล' }))
     }
   }
+  if (isLineChat) return hits.map(c => c.lineUserId
+    ? { kind: 'linechat', customer: c, label: `💚 แชท LINE ${fullName(c)}`, desc: 'เปิดกล่องแชท LINE ของลูกค้าคนนี้ พิมพ์แล้วกดส่งเองในหน้านั้น' }
+    : { kind: 'open', customer: c, label: `👤 ${fullName(c)} ยังไม่ผูก LINE`, desc: `เปิดหน้าลูกค้าเพื่อส่ง QR ผูก LINE${c.phone ? ' หรือโทร ' + c.phone : ''}` })
   if (isQuote) {
     const mm = s.replace(/line|hot|warm|cold/ig, ' ').match(/[A-Za-z]+(?:\s?[A-Za-z]*\d+[A-Za-z]?|\s[A-Za-z]{1,2}(?![A-Za-z]))|[A-Za-z]\d{1,3}/)
     return hits.map(c => { const model = mm ? mm[0].trim() : (c.interestedModel || '')
@@ -286,6 +291,7 @@ export function commandHref(cmd) {
   if (cmd?.kind === 'stage') return `/crm/bookings?id=${encodeURIComponent(cmd.customer.bookingId)}&status=${encodeURIComponent(cmd.status)}`
   if (cmd?.kind === 'book') return `/crm/customers?id=${id}&book=1`
   if (cmd?.kind === 'quote') return '/crm/quotation'
+  if (cmd?.kind === 'linechat') return `/marketing/channels?tab=inbox&open=${encodeURIComponent('line_' + String(cmd.customer?.lineUserId || '').replace(/[^A-Za-z0-9-]/g, ''))}`
   if (cmd?.kind === 'open') return `/crm/customers?id=${id}`
   if (cmd?.kind === 'bk') return `/crm/bookings?id=${encodeURIComponent(cmd.bookingId || '')}` // (v1.0.1046) เปิดใบจองนั้นเลย
   return ''
