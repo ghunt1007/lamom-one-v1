@@ -202,7 +202,7 @@ export function parseLamiCommand(q, customers = [], today) {
     const model = modelM[1].trim()
     return hits.slice(0, 1).map(c => ({ kind: 'model', customer: c, model, label: `🚗 ${fullName(c)} สนใจ ${model}`, desc: c.interestedModel ? `เดิม ${c.interestedModel}` : 'บันทึกรุ่นที่สนใจ' }))
   }
-  if (plain && /^(?:ช่วย\s*)?(?:มอบ|ย้าย|โอน|ส่งต่อ|เปลี่ยน(?:คน|เซลส์)?ดูแล)|ให้\s*.{2,30}?\s*(?:ดูแล|รับผิดชอบ)/.test(s)) {
+  if (plain && /^(?:ช่วย\s*)?(?:มอบ|ย้าย|โอน|ส่งต่อ|เปลี่ยน\s*(?:คน|เซลส์|ผู้)?\s*ดูแล)|ให้\s*.{2,30}?\s*(?:ดูแล|รับผิดชอบ)/.test(s)) {
     const sq = v => String(v || '').replace(/\s+/g, '').toLowerCase()
     const sellers = [...new Set(customers.map(c => String(c?.assignedTo || '').trim()).filter(Boolean))]
     const ss = sq(s)
