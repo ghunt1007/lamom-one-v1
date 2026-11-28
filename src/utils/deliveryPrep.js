@@ -39,6 +39,14 @@ export function stepStatus(b, steps) {
   steps.forEach(s => (stepDone(b, s) ? done : missing).push(s.label))
   return { done, missing, next: missing[0] || '', pct: steps.length ? Math.round(done.length / steps.length * 100) : 100 }
 }
+// ป้ายทีละขั้น (สำหรับแสดงเป็นชิปในหน้าเตรียมส่งมอบ)
+export function stepFlags(b, steps) { return (steps || []).map(s => ({ f: s.f, label: s.label, done: stepDone(b, s) })) }
+// นับว่าแต่ละขั้นขาดกี่คัน → ใช้ทำปุ่มกรอง "ยังไม่แจ้งประกัน 3"
+export function missingCounts(rows = []) {
+  const c = {}
+  rows.forEach(r => r.missing.forEach(m => { c[m] = (c[m] || 0) + 1 }))
+  return c
+}
 const dayNum = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 86400000
 const isDate = d => /^\d{4}-\d{2}-\d{2}/.test(String(d || ''))
 const name = b => String(b.custName || b.customerName || 'ลูกค้า').trim()

@@ -49,3 +49,12 @@ describe('ติดตามงานเตรียมส่งมอบ (v1.0.
     expect(topPriorities(d, 10).some(p => p.key === 'prep:a')).toBe(true)
   })
 })
+
+import { stepFlags, missingCounts } from './deliveryPrep.js'
+describe('prep board helpers', () => {
+  it('stepFlags marks each step and missingCounts tallies', () => {
+    const steps = [{ f: 'allocated', label: 'Allocate', yn: true }, { f: 'noticeNo', label: 'เลขรับแจ้ง' }]
+    expect(stepFlags({ allocated: 'Y', noticeNo: '' }, steps).map(s => s.done)).toEqual([true, false])
+    expect(missingCounts([{ missing: ['เลขรับแจ้ง'] }, { missing: ['เลขรับแจ้ง', 'Allocate'] }])).toEqual({ 'เลขรับแจ้ง': 2, Allocate: 1 })
+  })
+})

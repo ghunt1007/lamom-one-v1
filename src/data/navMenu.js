@@ -22,7 +22,7 @@ export const NAV = [
       { icon: '💰', label: 'รายได้รายเซลส์', labelEn: 'Sales Income', labelZh: '销售收入', path: '/crm/sales-income' },
       { icon: '🎯', label: 'โปร ดอกเบี้ย & เงินพิเศษเดือนนี้', labelEn: 'Campaigns & Finance Rates', labelZh: '本月活动与利率', path: '/crm/programs' },
       { icon: '🗂️', label: 'แผนงานขาย', labelEn: 'Action Plan', path: '/crm/action-plan' },
-      { icon: '✅', label: 'ตรวจรถก่อนส่งมอบ', labelEn: 'Pre-Delivery Inspection', labelZh: '交车前检查', path: '/crm/predelivery' },
+      { icon: '✅', label: 'เตรียมส่งมอบ / ตรวจรถ', labelEn: 'Delivery prep & inspection', labelZh: '交车前检查', path: '/crm/predelivery' },
       { icon: '🚗', label: 'ทดลองขับ', labelEn: 'Test Drive', path: '/crm/testdrive' },
       { icon: '🌐', label: 'พอร์ทัลลูกค้า', labelEn: 'Customer Portal', path: '/crm/portal' },
       { icon: '📢', label: 'ร้องเรียน', labelEn: 'Complaints', labelZh: '投诉', path: '/crm/complaints' },
