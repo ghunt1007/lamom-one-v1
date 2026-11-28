@@ -164,3 +164,15 @@ describe('per-seller close rate (v1.0.1493)', () => {
     expect(f.text.indexOf('บี —')).toBeLessThan(f.text.indexOf('เอ —'))
   })
 })
+
+import { lateMonthAnswer } from './opsQuestions.js'
+describe('late this month (v1.0.1494)', () => {
+  it('ranks by late/absent, honest when empty', () => {
+    const r = lateMonthAnswer([{ date: '2026-11-02', staffName: 'เอ', status: 'late' }, { date: '2026-11-03', staffName: 'เอ', status: 'late' }, { date: '2026-11-03', staffName: 'บี', status: 'absent' }, { date: '2026-11-03', staffName: 'ซี', status: 'present' }, { date: '2026-10-03', staffName: 'ซี', status: 'late' }], { today: '2026-11-28' })
+    expect(r.text).toContain('จากที่ลงเวลา 2 วัน · 3 คน')
+    expect(r.text).toContain('1. เอ — ⏰ สาย 2 ครั้ง')
+    expect(r.text).toContain('บี — ❌ ขาด 1 วัน')
+    expect(r.text).not.toContain('ซี —')
+    expect(lateMonthAnswer([], { today: '2026-11-28' }).text).toContain('ยังไม่มีข้อมูลลงเวลา')
+  })
+})
