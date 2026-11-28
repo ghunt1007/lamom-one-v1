@@ -237,3 +237,13 @@ describe('list by source only (v1.0.1498)', async () => {
     expect(parseListSpec('ลูกค้าจากไลน์เดือนนี้กี่คน')).toBe(null)
   })
 })
+
+describe('routing v1.0.1499', async () => {
+  const oq = await import('./opsQuestions.js')
+  it('installments mostly → downavg; รอรถนาน → not waiteta', () => {
+    expect(oq.parseOpsSpec('ส่วนใหญ่ลูกค้าผ่อนกี่งวด')).toEqual({ kind: 'downavg' })
+    expect(oq.parseOpsSpec('ปกติลูกค้าดาวน์เท่าไหร่')).toEqual({ kind: 'downavg' })
+    expect(oq.parseOpsSpec('ใครรอรถนานสุด')).toBe(null)
+    expect(oq.parseOpsSpec('ใครรอรถบ้าง')).toEqual({ kind: 'waiteta' })
+  })
+})
