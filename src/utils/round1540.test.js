@@ -43,3 +43,23 @@ describe('รถซ่อมเสร็จรอรับ (v1.0.1544)', () => {
     expect(parseOpsSpec('งานซ่อมวันนี้กี่งาน')?.kind).toBe('service')
   })
 })
+
+import { afterSalesAnswer } from './opsQuestions.js'
+describe('นัดดูแลหลังการขาย (v1.0.1545)', () => {
+  it('routes', () => {
+    expect(parseOpsSpec('ใครควรโทรหลังส่งมอบ')?.kind).toBe('aftersales')
+    expect(parseOpsSpec('ลูกค้าส่งมอบแล้วยังไม่โทรหลังขาย')?.kind).toBe('aftersales')
+  })
+  it('lists pending after-sales follow-ups due soon', () => {
+    const r = afterSalesAnswer([
+      { customerName: 'ก', purpose: 'หลังส่งมอบรถ', status: 'pending', dueDate: '2026-11-25', afterSales: true },
+      { customerName: 'ข', purpose: 'ตรวจสอบความพึงพอใจ', status: 'pending', dueDate: '2026-12-20', afterSales: true },
+      { customerName: 'ค', purpose: 'หลังส่งมอบรถ', status: 'done', dueDate: '2026-11-27' },
+      { customerName: 'ง', purpose: 'ติดตาม Lead ใหม่', status: 'pending', dueDate: '2026-11-28' },
+    ], { today: '2026-11-28' })
+    expect(r.n).toBe(1)
+    expect(r.text).toContain('เลยกำหนด 1')
+    expect(r.text).toContain('25/11/2569')
+    expect(afterSalesAnswer([], { today: '2026-11-28' }).n).toBe(0)
+  })
+})
