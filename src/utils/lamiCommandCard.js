@@ -497,7 +497,7 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'leave') {
     const whole = !!(vis.unrestricted || vis.companyOnly)
     if (!whole && !vis.hasSubordinates) res = { n: 0, locked: true, text: '👥 ข้อมูลการลาของพนักงานดูได้เฉพาะหัวหน้าทีมและผู้จัดการ — เปิดหน้าการลาเพื่อดูของตัวเอง' }
-    else { const rows = await listDocs('leave_requests', f, 'from', 'desc', 500).catch(() => []); res = oq.leaveAnswer(whole ? rows : rows.filter(r => mine(r.staff, r)), { today, day: spec.day, wd: spec.wd, next: spec.next }) }
+    else { const rows = await listDocs('leave_requests', f, 'from', 'desc', 500).catch(() => []); res = oq.leaveAnswer(whole ? rows : rows.filter(r => mine(r.staff, r)), { today, day: spec.day, wd: spec.wd, next: spec.next, rank: !!spec.rank, prev: !!spec.prev }) }
   } else if (spec.kind === 'arrived') {
     res = oq.arrivedAnswer(await listDocs('vehicles', f, 'createdAt', 'desc', 3000).catch(() => []), { today, days: spec.days })
   } else if (spec.kind === 'incoming') {
