@@ -140,3 +140,11 @@ describe('ลีดที่ยังไม่มีคนรับ (v1.0.1552)'
     expect(parseOpsSpec('ลูกค้าที่ยังไม่มีคนรับสาย')?.kind).not.toBe('unassigned')
   })
 })
+
+describe('รถที่จองยังไม่มา (v1.0.1553)', () => {
+  it('routes to the รอรถ booking list, not no-shows', () => {
+    expect(parseOpsSpec('รถที่ลูกค้าจองยังไม่มา')).toBeNull()
+    expect(parseBookingListSpec('รถที่ลูกค้าจองยังไม่มา')?.statuses).toEqual(['รอรถ'])
+    expect(parseOpsSpec('ลูกค้าที่นัดแล้วไม่มา')?.kind).toBe('noshow')
+  })
+})
