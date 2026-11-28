@@ -21,7 +21,8 @@ export function parseListSpec(q) {
   // (v1.0.1115) "ลูกค้าที่ยังไม่ได้โทรหาวันนี้" = รายการโทรวันนี้ ไม่ใช่ลูกค้าเงียบ 7 วัน
   if (/ยังไม่(?:ได้)?\s*โทร/.test(s) && /วันนี้/.test(s)) return null
   // (v1.0.1117) "ลูกค้า hot ของเซลส์หนึ่ง" → กรองตามผู้ดูแล (หาชื่อจริงตอนโหลด ถ้าหาไม่เจอให้ AI ตอบ)
-  const seller = /(?:ของ|ที่)\s*(?:เซลส์|เซล|คุณ|พี่|น้อง)\s*\S/.test(s) && !/ทีม|ทุกคน|แต่ละ/.test(s)
+  // (v1.0.1495) "ลูกค้า hot ของวิภา" (ชื่อเปล่า) ก็นับ — ชื่อจริงตรวจกับผู้ดูแลอีกชั้น (findSeller) ไม่เจอ = ไม่ใช่คำถามนี้
+  const seller = (/(?:ของ|ที่)\s*(?:เซลส์|เซล|คุณ|พี่|น้อง)\s*\S/.test(s) || /ของ\s*(?!ฉัน|ผม|เรา|หนู|ตัวเอง|ทีม|ร้าน|โชว์รูม|เดือน|สัปดาห์|อาทิตย์|วันนี้|ปี|ใคร|แต่ละ)[ก-๙A-Za-z]{2,}/.test(s)) && !/ทีม|ทุกคน|แต่ละ/.test(s)
   if (/(?:ควร|ต้อง)\s*(?:โทร|ตาม|ติดต่อ)|ทุกคน|ทั้งหมด|ยอด|เป้า|พนักงาน|ทีม|ที่สุด|ยังไง|อย่างไร|ทำไม|เพราะ/.test(s) || (!seller && /เซลส์/.test(s))) return null
   const temp = /hot|ร้อน|🔥/i.test(s) ? 'hot' : /warm|อุ่น/i.test(s) ? 'warm' : /\bcold\b|เย็น/i.test(s) ? 'cold' : null
   const qm = s.match(/(?:เงียบ|ไม่ได้(?:ติดต่อ|คุย|โทร|ติดตาม|ตาม)|หาย)\s*(?:ไป)?\s*(?:เกิน|มา|นาน)?\s*(\d{1,3})?\s*(?:วัน)?/)
@@ -41,7 +42,7 @@ export function parseListSpec(q) {
   // (v1.0.1120) "ลีดจากเฟซบุ๊กที่ยังไม่มีนัด" → กรองช่องทางด้วย (เดิมไม่กรอง ได้ลีดทุกช่องทาง)
   const SRC = [['facebook', /เฟส|เฟซ|facebook|\bfb\b/i], ['line', /ไลน์|\bline\b/i], ['tiktok', /ติ๊?กต็?อก|tiktok/i], ['instagram', /ไอจี|instagram|\big\b/i], ['phone', /โทรเข้า/], ['referral', /แนะนำ|บอกต่อ/], ['event', /บูธ|อีเวนต์|event/i]]
   const source = /จาก|ช่องทาง|ที่มา/.test(s) ? (SRC.find(([, re]) => re.test(s)) || [])[0] || null : null
-  if (!temp && !quietDays && !newToday && !noFu && !model && !fuel) return null
+  if (!temp && !quietDays && !newToday && !noFu && !model && !fuel && !(seller && /ลูกค้า|ลีด/.test(s))) return null
   return { temp, quietDays, newToday, noFu, model, ...(fuel ? { fuel } : {}), ...(source ? { source } : {}), ...(seller ? { seller: true } : {}), leadsOnly, countOnly: /กี่คน|กี่ราย/.test(s) }
 }
 
@@ -89,7 +90,10 @@ export function listCommands(list) {
 
 export function listIntro(spec, { list, total }) {
   const who = listLabel(spec)
-  if (!total) return `ไม่มีใครตรงเงื่อนไข "${who}" ในรายชื่อที่คุณดูแลตอนนี้`
+  // (v1.0.1495) ถามแค่ "ลูกค้าของ X" → บอกให้ชัดว่านับเฉพาะคนที่ยังคุยอยู่
+  const onlySeller = spec.sellerName && !spec.temp && !spec.quietDays && !spec.newToday && !spec.noFu && !spec.model && !spec.fuel && !spec.source
+  if (!total) return onlySeller ? `👥 ${spec.sellerName} ยังไม่มีลูกค้าที่กำลังคุยอยู่ (ไม่นับที่จอง/ส่งมอบแล้ว หรือเสียดีล)` : `ไม่มีใครตรงเงื่อนไข "${who}" ในรายชื่อที่คุณดูแลตอนนี้`
+  if (onlySeller) return `👥 ลูกค้าที่ ${spec.sellerName} กำลังคุยอยู่ — ${total} คน (ไม่นับที่จอง/ส่งมอบแล้ว)${total > list.length ? ` · แสดง ${list.length} คนแรก` : ''}${spec.countOnly ? '' : ' · กดโทรหรือเปิดได้เลย'}`
   return `👥 ${who} — ${total} คน${total > list.length ? ` (แสดง ${list.length} คนแรก เรียงจากร้อนและเงียบนานสุด)` : ''}${spec.countOnly ? '' : ' · กดโทรหรือเปิดได้เลย'}`
 }
 
