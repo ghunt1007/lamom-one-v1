@@ -207,3 +207,13 @@ describe('list row wording (v1.0.1496)', () => {
     expect(listCommands([{ c: { id: 'a', lastContactAt: '2026-11-20' }, quiet: 8, hasFu: false }])[0].desc).toContain('เงียบ 8 วัน')
   })
 })
+
+describe('bookings by source fallback (v1.0.1497)', () => {
+  it('counts linked bookings by customer source when conversion data is thin', () => {
+    expect(parseOpsSpec('ลูกค้าจองมาจากช่องทางไหนมากสุด')).toMatchObject({ kind: 'closerate', bySource: true })
+    const cs = [{ id: 'a', source: 'facebook', bookingId: 'b1', createdAt: '2026-11-01' }, { id: 'b', source: 'line', bookingId: 'b2', createdAt: '2026-11-01' }, { id: 'c', source: 'facebook', bookingId: 'b3', createdAt: '2026-11-01' }]
+    const bks = [{ id: 'b1', bookingDate: '2026-11-05' }, { id: 'b2', bookingDate: '2026-11-06' }, { id: 'b3', bookingDate: '2026-11-07' }]
+    const r = closeRateAnswer(cs, bks, { today: '2026-11-28', bySource: true, sourceLabel: { facebook: 'Facebook' } })
+    expect(r.text).toContain('• Facebook 2 คน (67%)')
+  })
+})

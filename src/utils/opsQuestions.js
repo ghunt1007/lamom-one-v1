@@ -122,7 +122,7 @@ export function parseOpsSpec(q) {
   // (v1.0.1420) "ช่องทางไหนปิดได้ดีสุด" / "ลีดจากไหนปิดได้จริง" → อัตราปิด + ช่องทางที่ปิดได้จริง
   // (v1.0.1432) "ทดลองขับแล้วจองกี่ %" / "รุ่นไหนทดลองขับแล้วจองเยอะสุด" → อัตราจองจริงจากใบจอง (ไม่ใช่นัดวันนี้)
   if (has(s, /ทดลองขับ|ลองขับ|test\s*drive|เทสไดร(?:ฟ|ว)์?/i) && has(s, /จอง|ปิด|ซื้อ/) && has(s, /กี่\s*%|กี่เปอร์เซ็นต์|เปอร์เซ็นต์|อัตรา|เท่าไหร่|เท่าไร|กี่คน|กี่ราย|เยอะสุด|มากสุด|ดีสุด|conversion/i) && !has(s, /ยังไม่(?:ได้)?(?:จอง|ซื้อ|ปิด)|ไม่จอง|ไม่ซื้อ/)) return { kind: 'tdconv' }
-  if (has(s, /ช่องทาง|ที่มา|จากไหน|จากที่ไหน/) && has(s, /ปิด(?:ได้|การขาย)|ได้ผล|คุ้ม|ดีสุด|ดีที่สุด|อัตรา|กลายเป็นจอง/)) return { kind: 'closerate', prev: false }
+  if (has(s, /ช่องทาง|ที่มา|จากไหน|จากที่ไหน/) && has(s, /ปิด(?:ได้|การขาย)|ได้ผล|คุ้ม|ดีสุด|ดีที่สุด|อัตรา|กลายเป็นจอง|(?:จอง|ซื้อ)\s*(?:มา)?\s*(?:จาก)?.{0,10}(?:มาก|เยอะ)|(?:มาก|เยอะ)\s*(?:สุด|ที่สุด).{0,6}(?:จอง|ซื้อ)/)) return { kind: 'closerate', prev: false, bySource: true }
   // (v1.0.1476) "ลูกค้าที่มาดูรถวันนี้" — คำว่า "ที่มา" ไม่ได้แปลว่าช่องทาง → walk-in
   if (has(s, /(?:มา|เข้ามา)\s*ดู\s*รถ|(?:มา|เข้า(?:มา)?)\s*(?:ที่)?\s*โชว์รูม\s*(?:วันนี้|เมื่อวาน)/) && !has(s, /นัด|ทดลองขับ|ลองขับ|ช่องทาง|มาจาก/)) return { kind: 'walkin', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : /เดือน/.test(s) ? 'month' : 'today' }
   if (has(s, /ช่องทาง|ที่มา|มาจาก/) && has(s, /ลูกค้า|ลีด|lead/i)) return { kind: 'newcust', ...(sourceOf(s) ? { source: sourceOf(s) } : {}), ...(NOFOLLOW.test(s) ? { nofollow: true } : {}), period: /สัปดาห์|อาทิตย์/.test(s) ? 'week' : /เดือนก่อน|เดือนที่แล้ว/.test(s) ? 'prevmonth' : 'month' }
@@ -673,7 +673,7 @@ export function tradeInAnswer(items, { today, month = false }) {
 }
 
 // (v1.0.1096) อัตราปิดการขาย: ลูกค้าใหม่ในเดือน → จองแล้วกี่คน · เวลาเฉลี่ยจากเข้ามาถึงวันจอง (ใบจองที่ผูกลูกค้า)
-export function closeRateAnswer(customers, bookings, { today, prev = false, bySeller = false, fast = false }) {
+export function closeRateAnswer(customers, bookings, { today, prev = false, bySeller = false, fast = false, bySource = false, sourceLabel = {} }) {
   let ym = today.slice(0, 7)
   if (prev) { const [y, m] = ym.split('-').map(Number); ym = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}` }
   const cs = alive(customers)
@@ -717,6 +717,15 @@ export function closeRateAnswer(customers, bookings, { today, prev = false, bySe
   }
   // (v1.0.1420) ช่องทางไหนปิดได้จริง (ลูกค้าที่เข้ามา 1–12 เดือนก่อน) — ข้อมูลไม่พอไม่แสดง
   const conv = sourceConversion(cs, Date.parse(today + 'T12:00:00Z'))
+  // (v1.0.1497) "ลูกค้าจองมาจากช่องทางไหนมากสุด" แต่ข้อมูลยังไม่พอคิดอัตรา → นับลูกค้าที่จองแล้ว (เข้ามาใน 180 วัน) ตามช่องทาง
+  if (bySource && !conv) {
+    const from = addDays(today, -180), by = {}
+    const wonC = cs.filter(c => created(c) >= from && created(c) <= today && (bookedIds.has(c.id) || ['booking', 'booked', 'delivered'].includes(c.stage)))
+    wonC.forEach(c => { const raw = String(c.source || '').trim(); const k = sourceLabel[raw] || raw || 'ไม่ระบุช่องทาง'; by[k] = (by[k] || 0) + 1 })
+    const rows = Object.entries(by).sort((a, b) => b[1] - a[1])
+    if (rows.length) lines.push('', `📣 ลูกค้าที่จองแล้ว แยกตามช่องทาง (เข้ามาใน 180 วัน · ${wonC.length} คน)`, ...rows.slice(0, 6).map(([k, v]) => `• ${k} ${v} คน (${Math.round(v / wonC.length * 100)}%)`))
+    else lines.push('', '📣 ยังไม่มีลูกค้าที่จองแล้วใน 180 วัน จึงยังแยกตามช่องทางไม่ได้')
+  }
   if (conv) {
     const list = [...conv.bySource.values()].sort((a, b) => b.rate - a.rate)
     lines.push(`📣 ช่องทางที่ปิดได้จริง (ลูกค้า 1–12 เดือนก่อน · เฉลี่ย ${Math.round(conv.overall * 100)}%)`)
