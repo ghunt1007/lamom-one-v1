@@ -396,6 +396,10 @@ export async function loadOpsAnswer(q, customersPromise) {
     const [bks, comps] = await Promise.all([listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('complaints', f, 'createdAt', 'desc', 300).catch(() => [])])
     const complainedNames = new Set(comps.map(c => String(c.customerName || c.customer || c.name || '').replace(/\s+/g, '')).filter(Boolean))
     res = oq.referAskAnswer(bks.filter(b => mine(b.salesName, b)), { today, complainedNames })
+  } else if (spec.kind === 'aftersales') {
+    const { followupWindowFilters } = await import('./customerFollowups.js')
+    const fus = await listDocs('followups', [...f, ...followupWindowFilters(today)], 'dueDate', 'asc', 2000).catch(() => [])
+    res = oq.afterSalesAnswer(fus.filter(x => mine(x.salesperson, x)), { today })
   } else if (spec.kind === 'payroll') {
     const { getState } = await import('../core/store.js')
     const role = getState('role') || getState('user')?.role || 'staff'
