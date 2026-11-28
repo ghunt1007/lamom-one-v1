@@ -169,9 +169,11 @@ export function periodSpec(q) {
   const s = String(q || '').trim().replace(/[?？]+$/, '').trim()
   if (!s || s.length > 60) return null
   if (!/ยอด|ขาย|ส่งมอบ|จอง|สรุป|กี่คัน|เป้า/.test(s) || /โทร|นัด|ค่าคอม|รายได้|กำไร|ค่าใช้จ่าย|ภาษี|ผ่อน|ดาวน์/.test(s)) return null
-  const period = /ไตรมาส|quarter|\bQ[1-4]\b/i.test(s) ? 'quarter' : /ปี(?:นี้|ที่แล้ว|ก่อน|\s*25\d\d|\s*20\d\d)/.test(s) ? 'year' : null
+  // (v1.0.1506) "เดือนไหนขายดีที่สุด(ปีนี้)" → สรุปทั้งปี + บอกเดือนที่ดีที่สุด
+  const best = /เดือน\s*(?:ไหน|อะไร)/.test(s) && /ดี|เยอะ|มาก|สูง|สุด/.test(s)
+  const period = /ไตรมาส|quarter|\bQ[1-4]\b/i.test(s) ? 'quarter' : /ปี(?:นี้|ที่แล้ว|ก่อน|\s*25\d\d|\s*20\d\d)/.test(s) || best ? 'year' : null
   if (!period) return null
-  return { period, prev: new RegExp((period === 'year' ? 'ปี' : 'ไตรมาส') + '\\s*(?:ที่แล้ว|ก่อน)').test(s) }
+  return { period, prev: new RegExp((period === 'year' ? 'ปี' : 'ไตรมาส') + '\\s*(?:ที่แล้ว|ก่อน)').test(s), ...(best ? { best: true } : {}) }
 }
 
 const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
@@ -191,8 +193,10 @@ export function periodStats({ bookings = [], today, period, prev = false }) {
     colors: modelBoard(rows, months, undefined, colorOf),
   }
 }
-export function periodBriefText(s, { scope = '', colors = false } = {}) {
+export function periodBriefText(s, { scope = '', colors = false, best = false } = {}) {
+  const top = best ? s.perMonth.filter(r => r.delivered || r.booked).sort((a, b) => b.delivered - a.delivered || b.booked - a.booked)[0] : null
   const lines = [`📊 ยอด${s.label}${scope ? ` — ${scope}` : ''}${s.partial ? ' (ถึงวันนี้)' : ''}`,
+    ...(best ? [top ? `🏅 เดือนที่ขายดีสุด: ${TH_M[+top.m.slice(5, 7) - 1]} — ส่งมอบ ${top.delivered} คัน · จอง ${top.booked} ใบ` : `ℹ️ ${s.label} ยังไม่มีใบจองหรือการส่งมอบในระบบ จึงยังบอกเดือนที่ขายดีสุดไม่ได้`] : []),
     // (v1.0.1489) ช่วงก่อนหน้าไม่มีข้อมูลเลย (ยังไม่ได้ใช้ระบบ) → ไม่เทียบกับ 0
     ...(s.prevDelivered || s.prevBooked ? [`🚗 ส่งมอบ ${s.delivered} คัน · ${s.prevLabel} ${s.prevDelivered} คัน${s.partial ? '' : ` (${diff(s.delivered, s.prevDelivered)})`}`,
       `📝 จองใหม่ ${s.booked} ใบ${s.withdrawn ? ` · ถอน ${s.withdrawn} ใบ` : ''} · ${s.prevLabel} ${s.prevBooked} ใบ`]
