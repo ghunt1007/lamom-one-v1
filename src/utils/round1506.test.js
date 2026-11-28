@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { parseOpsSpec, weekSummaryAnswer, upgradeAnswer, bookDayAnswer, custBySellerAnswer } from './opsQuestions.js'
+import { parseOpsSpec, weekSummaryAnswer, upgradeAnswer, bookDayAnswer, custBySellerAnswer, vipAnswer } from './opsQuestions.js'
 import { parseListSpec } from './listQuestions.js'
 import { periodSpec, periodStats, periodBriefText, isSellerSummaryAsk } from './monthBrief.js'
 import { isCallListQuestion } from './callList.js'
 import { parseBookingListSpec } from './bookingQuestions.js'
 import { isRateQuestion, ratesAnswer } from './payQuestions.js'
 import { parseStockSpec } from './stockQuestions.js'
+import { briefTarget, customerBrief } from './customerBrief.js'
 
 describe('v1.0.1506 LAMI routes', () => {
   it('weekly summary is not a walk-in count', () => {
@@ -91,5 +92,17 @@ describe('v1.0.1506 LAMI routes', () => {
     expect(parseBookingListSpec('ใบจองที่ยังไม่มีวันส่งมอบ').noDate).toBe(true)
     expect(parseBookingListSpec('ใบจองที่ยังไม่ส่งมอบ').noDate).toBe(false)
     expect(parseListSpec('ลูกค้าที่สนใจ S07 แต่ยังไม่จอง').model).toBe('s07')
+  })
+  it('v1.0.1512 VIP customers', () => {
+    expect(parseOpsSpec('ลูกค้า VIP มีใครบ้าง')).toEqual({ kind: 'vip' })
+    expect(vipAnswer([{ status: 'ส่งมอบแล้ว', customerName: 'ก' }]).text).toContain('ยังไม่มีราคารถ')
+    const r = vipAnswer([{ status: 'ส่งมอบแล้ว', customerName: 'ก', price: 900000 }, { status: 'ส่งมอบแล้ว', customerName: 'ก', price: 900000 }, { status: 'ส่งมอบแล้ว', customerName: 'ข', price: 500000 }])
+    expect(r.n).toBe(1)
+    expect(r.text).toContain('ก · 🥇 Gold · ฿1,800,000 · 2 คัน')
+  })
+  it('v1.0.1512 customer stage question + booking stage label', () => {
+    const cs = [{ id: 'a', firstName: 'มานะ', lastName: 'ดี', stage: 'booking' }]
+    expect(briefTarget('มานะอยู่ขั้นไหน', cs)?.id).toBe('a')
+    expect(customerBrief({ customer: cs[0], today: '2026-11-28' })).toContain('📝 จองแล้ว')
   })
 })
