@@ -235,7 +235,7 @@ export async function loadMonthBrief(q) {
   if (model) bookings = bookings.filter(b => mb.sameModel(b, model))
   const target = model ? 0 : Object.entries(tdoc?.targets || {}).reduce((s, [n, v]) => s + ((seller ? normName(n) === normName(seller) : whole || vis.names?.has(normName(n))) ? Number(v) || 0 : 0), 0)
   const scopeLabel = (seller ? `👤 ${seller}` : whole ? 'ทั้งโชว์รูม' : vis.hasSubordinates ? 'คุณและทีม' : 'ของคุณ') + (model ? ` · 🚗 ${model}` : '')
-  if (per) return { text: mb.periodBriefText(mb.periodStats({ bookings, today, period: per.period, prev: per.prev }), { scope: scopeLabel, colors: mb.isColorRankQuestion(q) }), next: ['ยอดเดือนนี้เป็นไง', per.period === 'year' ? 'ยอดไตรมาสนี้' : 'ปีนี้ขายได้กี่คัน', 'รถรุ่นไหนขายดีสุดเดือนนี้'] }
+  if (per) return { text: mb.periodBriefText(mb.periodStats({ bookings, today, period: per.period, prev: per.prev }), { scope: scopeLabel, colors: mb.isColorRankQuestion(q), best: !!per.best }), next: ['ยอดเดือนนี้เป็นไง', per.period === 'year' ? 'ยอดไตรมาสนี้' : 'ปีนี้ขายได้กี่คัน', 'รถรุ่นไหนขายดีสุดเดือนนี้'] }
   const st = mb.monthStats({ bookings, today, target })
   if (past) return { text: mb.monthBriefText(st, { scope: scopeLabel, past: true, models: mb.isModelRankQuestion(q), colors: mb.isColorRankQuestion(q), value: mb.isValueQuestion(q) }), next: ['ยอดเดือนนี้เป็นไง', 'ค่าคอมเดือนก่อนเท่าไหร่', 'ลูกค้าเสียดีลเดือนก่อนมีใครบ้าง'] }
   return { text: mb.monthBriefText(st, { scope: scopeLabel, models: !model && mb.isModelRankQuestion(q), colors: mb.isColorRankQuestion(q), value: mb.isValueQuestion(q), noTarget: !!model }), next: mb.monthFollowUps(st) }
@@ -369,6 +369,11 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'yesterday') {
     const [customers, bks, walkins, drives] = await Promise.all([customersPromise || visibleCustomersForCommands(), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('walk_ins', [], 'visitTime', 'desc', 300).catch(() => []), listDocs('test_drives', f, 'date', 'desc', 300).catch(() => [])])
     res = oq.yesterdayAnswer({ customers: (customers || []).filter(c => mine(c.assignedTo, c)), bookings: bks.filter(b => mine(b.salesName, b)), walkins: walkins.filter(w => mine(w.staff, w)), drives: drives.filter(t => mine(t.staff, t)) }, { today })
+  } else if (spec.kind === 'weeksum') {
+    const [customers, bks, walkins, drives] = await Promise.all([customersPromise || visibleCustomersForCommands(), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('walk_ins', [], 'visitTime', 'desc', 1000).catch(() => []), listDocs('test_drives', f, 'date', 'desc', 1000).catch(() => [])])
+    res = oq.weekSummaryAnswer({ customers: (customers || []).filter(c => mine(c.assignedTo, c)), bookings: bks.filter(b => mine(b.salesName, b)), walkins: walkins.filter(w => mine(w.staff, w)), drives: drives.filter(t => mine(t.staff, t)) }, { today, prev: spec.prev })
+  } else if (spec.kind === 'upgrade') {
+    res = oq.upgradeAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today })
   } else if (spec.kind === 'referask') {
     const [bks, comps] = await Promise.all([listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('complaints', f, 'createdAt', 'desc', 300).catch(() => [])])
     const complainedNames = new Set(comps.map(c => String(c.customerName || c.customer || c.name || '').replace(/\s+/g, '')).filter(Boolean))
