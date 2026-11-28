@@ -403,6 +403,10 @@ export async function loadOpsAnswer(q, customersPromise) {
         listDocs('staff', f, 'firstName', 'asc', 1000).catch(() => []), listDocs('users', [], 'createdAt', 'desc', 1000).catch(() => []), import('./bookingDataCheck.js')])
       res = oq.dataCheckAnswer(bks, { today, knownNames: staffRows.length || userRows.length ? knownPeopleNames(staffRows, userRows) : null })
     }
+  } else if (spec.kind === 'mylink') {
+    const [{ getState }, { sellerCardUrl }] = await Promise.all([import('../core/store.js'), import('./publicLinks.js')])
+    const u = getState('user') || {}
+    res = oq.myLinkAnswer({ uid: u.uid, name: u.displayName, url: u.uid ? sellerCardUrl(u.uid, u.displayName) : '' })
   } else if (spec.kind === 'schedposts') {
     const [broadcasts, posts] = await Promise.all([listDocs('broadcasts', [], 'sentAt', 'desc', 200).catch(() => []),
       import('./socialApi.js').then(m => m.metaPostScheduled()).then(d => d?.pending || []).catch(() => null)])
@@ -672,7 +676,7 @@ export async function loadOpsAnswer(q, customersPromise) {
   if (res.locked) return { text: res.text, next: ['ค่าคอมเดือนนี้เท่าไหร่', 'วันนี้มีอะไรบ้าง'] }
   // (v1.0.1103) ไม่เสนอปุ่มถามซ้ำคำถามเดิม
   const same = x => String(x).replace(/\s+/g, '').toLowerCase() === String(q || '').replace(/[?？\s]+/g, '').toLowerCase()
-  return { text: res.text, next: oq.opsFollowUps(spec).filter(x => !same(x)), go: oq.OPS_LINKS[spec.kind] }
+  return { text: res.text, next: oq.opsFollowUps(spec).filter(x => !same(x)), copy: res.copy || undefined, go: oq.OPS_LINKS[spec.kind] }
 }
 
 // (v1.0.1070) "รถไฟฟ้าไม่เกิน 1 ล้าน / SUV 7 ที่นั่ง งบ 1.2 ล้าน" → null ถ้าไม่ใช่ · คืน { text, next, go, copy }
