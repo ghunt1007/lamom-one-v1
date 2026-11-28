@@ -213,7 +213,8 @@ export async function loadMonthBrief(q) {
   const mb = await import('./monthBrief.js')
   const past = mb.isPrevMonthQuestion(q)
   const per = !past ? mb.periodSpec(q) : null
-  if (!past && !per && !mb.isMonthQuestion(q)) return null
+  const sellerAsk = !past && !per && !mb.isMonthQuestion(q) && mb.isSellerSummaryAsk(q)
+  if (!past && !per && !sellerAsk && !mb.isMonthQuestion(q)) return null
   const [{ listAllDocs, readDoc }, { companyScopeFilters }, { getVisibilityScope, scopeIncludesRecord, normName }, { todayBangkok }, { SALES_TARGETS_COLLECTION }] = await Promise.all([
     import('../core/db.js'), import('../core/companyScope.js'), import('../core/hierarchy.js'), import('./format.js'), import('./salesTargets.js')])
   const today = past ? mb.prevMonthEnd(todayBangkok()) : todayBangkok()
@@ -229,6 +230,7 @@ export async function loadMonthBrief(q) {
   const seller = mb.findSeller(q, bookings.map(b => b.salesName))
   // (v1.0.1109) ถามยอดของเซลส์ที่อยู่นอกทีม → บอกตรงๆ แทนการตอบยอดของทีมตัวเอง (ซึ่งดูเหมือนเป็นยอดของคนนั้น)
   const outside = !seller && !whole && mb.findSeller(q, all.map(b => b.salesName))
+  if (sellerAsk && !seller && !outside) return null
   if (outside) return { text: `🔒 ดูยอดของ ${outside} ไม่ได้ — คุณดูได้เฉพาะยอดของตัวเอง${vis.hasSubordinates ? 'และลูกทีม' : ''}`, next: ['ยอดเดือนนี้เป็นไง', 'ทีมวันนี้เป็นไง'] }
   if (seller) bookings = bookings.filter(b => normName(b.salesName) === normName(seller))
   const model = mb.findModel(q, bookings) // (v1.0.1479) ถามเจาะรุ่น → นับเฉพาะรุ่นนั้น (ไม่มีเป้ารายรุ่น)

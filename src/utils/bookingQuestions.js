@@ -17,7 +17,9 @@ const WAIT_DELIV = ['รอส่งมอบ', 'ตัดตัวเลขร�
 export function parseBookingListSpec(q) {
   const s = thaiNumerals(String(q || '').trim()).replace(/[?？]+$/, '').trim()
   // (v1.0.1465) "รอไฟแนนซ์นาน" / "ลูกค้าที่รอไฟแนนซ์นานเกินไป" — ไม่มีคำถาม แต่ชัดว่าอยากเห็นรายการ
-  if (!s || s.length > 120 || !(ASK.test(s) || /^(?:ลูกค้า|ใบจอง)?\s*(?:ที่)?\s*(?:รอ(?:ผล)?\s*ไฟแนนซ์|รอรถ|รอส่งมอบ)\s*(?:นาน|ค้างนาน)/.test(s))) return null
+  // (v1.0.1510) "ลูกค้าที่จองรุ่น S07" → ใบจองที่ยังเปิดของรุ่นนั้น
+  const modelAsk = /^(?:ลูกค้า|ใคร)\s*(?:ที่)?\s*จอง\s*(?:รุ่น|รถ)?\s*[A-Za-z]/.test(s)
+  if (!s || s.length > 120 || !(ASK.test(s) || modelAsk || /^(?:ลูกค้า|ใบจอง)?\s*(?:ที่)?\s*(?:รอ(?:ผล)?\s*ไฟแนนซ์|รอรถ|รอส่งมอบ)\s*(?:นาน|ค้างนาน)/.test(s))) return null
   // (v1.0.1116) "ทีมฉันมีใบจองค้างกี่ใบ" — คำว่าทีมใช้ได้ถ้าถามเรื่องใบจอง (ขอบเขตทีมจัดการโดยสิทธิ์อยู่แล้ว)
   if (/ทีม/.test(s) && !/ใบจอง/.test(s)) return null
   // (v1.0.1118) "ใบจองของเซลส์สอง" → กรองตามเซลส์ (หาชื่อจริงตอนโหลด)
@@ -59,7 +61,7 @@ export function parseBookingListSpec(q) {
   // (v1.0.1505) "ใบจองที่ยังไม่ได้ส่งเคสไฟแนนซ์" → ใบผ่อนที่ยังเปิด ยังไม่มีวันที่ส่งเคส และยังไม่ผ่านไฟแนนซ์
   const noSubmit = /ยัง\s*ไม่(?:ได้)?\s*(?:ส่ง|ยื่น)\s*(?:เคส|เอกสาร)?\s*(?:ไฟแนนซ์|แบงค์|แบงก์|ธนาคาร)|ยัง\s*ไม่(?:ได้)?\s*ส่ง\s*เคส/.test(s)
   const none = !statuses && !when && !stuck && !noVin && !noDeposit && !noDown && !noColor && !noDocs && !finFail && !allOpen && !late && !noLine && !noSubmit
-  if (none && !(seller && /ใบจอง/.test(s))) return null
+  if (none && !(seller && /ใบจอง/.test(s)) && !modelAsk) return null
   // (v1.0.1478) "ลูกค้าที่จอง S07 ยังไม่ได้รถ" → กรองตามรุ่นที่พิมพ์ (คำภาษาอังกฤษที่มีตัวเลข เช่น S07 / L07 / ATTO 3 / AION V)
   const mt = s.replace(/line|vin|hot|warm|cold|lead|sms|dms/ig, ' ').match(/[A-Za-z]+(?:\s?[A-Za-z]*\d+[A-Za-z]?|\s[A-Za-z]{1,2}(?![A-Za-z]))|[A-Za-z]\d{1,3}/)
   const modelQ = mt ? mt[0].trim() : ''
