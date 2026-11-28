@@ -3,7 +3,7 @@
 const DAY = 86400e3
 const dnum = d => /^\d{4}-\d{2}-\d{2}/.test(d || '') ? Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / DAY : null
 export const PLATE_LATE_DAYS = 45
-export const deliveredOn = b => String(b?.actualDeliveryDate || b?.deliveryDate || '').slice(0, 10)
+export const deliveredOn = b => String(b?.actualDeliveryDate || b?.cutDate || b?.deliveryDate || '').slice(0, 10)
 const isDelivered = b => b && !b.deleted && (b.status === 'ส่งมอบแล้ว' || b.status === 'delivered')
 const clean = v => String(v || '').trim()
 const plateKey = v => clean(v).replace(/[\s-]/g, '')
