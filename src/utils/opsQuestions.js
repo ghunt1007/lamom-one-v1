@@ -8,6 +8,7 @@ import { dmy, toDate } from './format.js'
 import { plateRows, deliveredOn, PLATE_LATE_DAYS } from './plateList.js'
 import { carOf } from './carLabel.js'
 import { statusBoard, STATUS_GROUPS } from './statusBoard.js'
+import { isDelivered } from './bookingStatus.js'
 import { nextAnniversary } from './anniversary.js'
 import { lostBySeller, classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
 import { entryPointOf, ENTRY_INFO } from './entryPoints.js'
@@ -178,7 +179,7 @@ export function parseOpsSpec(q) {
   if (has(s, /ลูกค้า\s*(?:คน)?ไหน|ใคร|รถคันไหน/) && has(s, /เข้าศูนย์|ซ่อม|เซอร์วิส/) && has(s, /บ่อย|เยอะ|มากสุด|ประจำ/)) return { kind: 'servicetop', by: 'customer' }
   if (has(s, /เข้าศูนย์|นัดซ่อม|นัดเซอร์วิส|นัดเช็คระยะ|เช็คระยะ|งานซ่อม|ใบสั่งซ่อม|job\s*card|รถซ่อม|ซ่อมค้าง|รออะไหล่|ซ่อมเสร็จ|ซ่อมนาน|ศูนย์\s*(?:บริการ)?\s*รับรถ|รับรถ\s*เข้าศูนย์/i) && !has(s, /ราคา|ค่าซ่อม|กี่บาท|เท่าไหร่/)) return { kind: 'service', day: /เดือนนี้/.test(s) ? 'month' : /สัปดาห์นี้|อาทิตย์นี้|7\s*วัน/.test(s) ? 'week' : day }
   // (v1.0.1082) "ลูกค้าที่ยังไม่มีผู้ดูแลมีใครบ้าง"
-  if (has(s, /(?:ยังไม่มี|ไม่มี|ไร้)\s*(?:ผู้ดูแล|คนดูแล|เซลส์ดูแล|เซลส์)|ยังไม่(?:ได้)?(?:มอบ|แจก|แบ่ง)|ยังไม่มีเจ้าของ/) && has(s, /ลูกค้า|ลีด|lead|^ใคร|คนไหน/i)) return { kind: 'unassigned' }
+  if (has(s, /(?:ยังไม่มี|ไม่มี|ไร้)\s*(?:ใคร|คน)?\s*(?:ผู้ดูแล|คนดูแล|ดูแล|เซลส์ดูแล|เซลส์)|ยังไม่(?:ได้)?(?:มอบ|แจก|แบ่ง)|ยังไม่มีเจ้าของ/) && has(s, /ลูกค้า|ลีด|lead|^ใคร|คนไหน/i)) return { kind: 'unassigned' }
   // (v1.0.1087) "วันนี้มีลูกค้า walk in กี่คน" / "เมื่อวานมีคนเดินเข้าโชว์รูมกี่คน"
   if (has(s, /walk\s*-?\s*in|วอล์?คอิน|เดินเข้า|(?:มา|เข้ามา)\s*ดู\s*รถ|เข้า\s*(?:มา)?\s*(?:ที่)?\s*โชว์รูม(?!.*นัด)/i) && !has(s, /นัด|ทดลองขับ|ลองขับ/)) return { kind: 'walkin', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : /เดือน/.test(s) ? 'month' : 'today' }
   // (v1.0.1099) "ความพึงพอใจลูกค้าเดือนนี้" / "ลูกค้าคนไหนให้คะแนนต่ำ" / "NPS เดือนนี้"
@@ -215,7 +216,7 @@ export function parseOpsSpec(q) {
   // (v1.0.1499) "ใครรอรถนานสุด" → รายการใบจองรอรถค้างนาน (bookingQuestions stuck)
   // (v1.0.1233) "คาดการณ์สั่งรถ" / "เดือนหน้าควรสั่งรถกี่คัน" → คาดการณ์ล่วงหน้า (จังหวะจอง + ลีดร้อน)
   if (has(s, /คาดการณ์|พยากรณ์|ล่วงหน้า|forecast|เดือนหน้า(?:ควร|ต้อง)?สั่ง|ควรสั่ง(?:รถ)?(?:เดือนหน้า|ล่วงหน้า)/i) && has(s, /สั่ง(?:รถ)?|order/i) && !has(s, /อะไหล่|ยอดขาย(?!.*สั่ง)/)) return { kind: 'forecast' }
-  if (has(s, /กำลัง(?:จะ)?มา(?:ถึง)?|กำลังขนส่ง|ระหว่างขนส่ง|รถ(?:ที่)?สั่ง(?:ไว้)?|รถจะเข้า|รถเข้าเมื่อไหร่|รถมาเมื่อไหร่|ใบสั่ง(?:ซื้อ)?รถ|สั่งรถ(?:ไป)?กี่คัน/) && !has(s, /ลูกค้า|ใคร(?:รอ|จอง)|อะไหล่/)) return { kind: 'incoming' }
+  if (has(s, /กำลัง(?:จะ)?มา(?:ถึง)?|(?:รถ|คัน)\s*(?:ที่)?\s*จะ\s*(?:มา|เข้า)(?:ถึง)?|กำลังขนส่ง|ระหว่างขนส่ง|รถ(?:ที่)?สั่ง(?:ไว้)?|รถจะเข้า|รถเข้าเมื่อไหร่|รถมาเมื่อไหร่|ใบสั่ง(?:ซื้อ)?รถ|สั่งรถ(?:ไป)?กี่คัน/) && !has(s, /ลูกค้า|ใคร(?:รอ|จอง)|อะไหล่/)) return { kind: 'incoming' }
   // (v1.0.1241) "รถว่างคันไหนให้ใคร" / "จับคู่รถกับลูกค้า" → คำตอบเดียวกับรุ่นที่ต้องสั่ง (ขึ้นต้นด้วยคู่รถ-ลูกค้า)
   if (has(s, /จับคู่รถ|รถ(?:ว่าง)?(?:คันไหน)?(?:ควร)?ให้ใคร|ลูกค้าคนไหนได้รถ|ใครได้รถ(?:คันไหน)?|รถว่างตรงกับ/) && !has(s, /อะไหล่|ทดลองขับ/)) return { kind: 'lowstock' }
   // (v1.0.1097) "รถรุ่นไหนเหลือน้อย" / "รุ่นไหนควรสั่งเพิ่ม"
@@ -1269,7 +1270,7 @@ function rangeCounts({ customers = [], bookings = [], walkins = [], drives = [] 
     nc: alive(customers).filter(c => inR(c.createdAt)),
     bk: alive(bookings).filter(b => inS(b.bookingDate) && !CANCEL.test(b.status || '')),
     wd: alive(bookings).filter(b => CANCEL.test(b.status || '') && inS(b.cancelDate)),
-    dv: alive(bookings).filter(b => (b.status === 'ส่งมอบแล้ว' || b.status === 'delivered') && inS(b.actualDeliveryDate || b.deliveryDate)),
+    dv: alive(bookings).filter(b => isDelivered(b) && inS(b.cutDate || b.actualDeliveryDate || b.deliveryDate)),
     wi: alive(walkins).filter(w => inR(w.visitTime || w.createdAt)),
     td: alive(drives).filter(t => inS(t.date) && !['cancelled', 'no_show', 'noshow'].includes(t.status)),
   }
@@ -1312,8 +1313,8 @@ export function weekSummaryAnswer(data, { today, prev = false }) {
 
 // (v1.0.1506) ลูกค้าที่รับรถไปนานที่สุด (≥ 2 ปี) → ชวนเปลี่ยนคันใหม่ / เทิร์นรถ · ไม่มีใครครบ 2 ปี = บอกตรงๆ ว่าข้อมูลเริ่มเมื่อไร
 export function upgradeAnswer(bookings, { today, minYears = 2 }) {
-  const dl = alive(bookings).filter(b => b.status === 'ส่งมอบแล้ว' || b.status === 'delivered').map(b => {
-    const d = String(b.actualDeliveryDate || b.deliveryDate || '').slice(0, 10)
+  const dl = alive(bookings).filter(isDelivered).map(b => {
+    const d = String(b.cutDate || b.actualDeliveryDate || b.deliveryDate || '').slice(0, 10)
     return { b, d, days: /^\d{4}-\d{2}-\d{2}$/.test(d) ? Math.round((Date.parse(today) - Date.parse(d)) / 86400000) : -1 }
   }).filter(x => x.days >= 0)
   if (!dl.length) return { n: 0, text: '🔁 ยังไม่มีใบจองที่ส่งมอบแล้วและมีวันที่ส่งมอบในระบบ จึงยังหาลูกค้าที่ควรเสนอเปลี่ยนรถไม่ได้' }

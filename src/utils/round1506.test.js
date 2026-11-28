@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { parseOpsSpec, weekSummaryAnswer, upgradeAnswer } from './opsQuestions.js'
 import { periodSpec, periodStats, periodBriefText } from './monthBrief.js'
 import { isCallListQuestion } from './callList.js'
+import { parseBookingListSpec } from './bookingQuestions.js'
+import { isRateQuestion, ratesAnswer } from './payQuestions.js'
 
 describe('v1.0.1506 LAMI routes', () => {
   it('weekly summary is not a walk-in count', () => {
@@ -38,5 +40,21 @@ describe('v1.0.1506 LAMI routes', () => {
     const r2 = upgradeAnswer([{ status: 'ส่งมอบแล้ว', deliveryDate: '2023-05-01', customerName: 'ข' }], { today: '2026-11-28' })
     expect(r2.n).toBe(1)
     expect(r2.text).toContain('ข')
+  })
+  it('v1.0.1507 deposit / incoming / delivered via cutDate', () => {
+    expect(parseBookingListSpec('ใบจองที่ยังไม่ได้เงินจอง').noDeposit).toBe(true)
+    expect(parseBookingListSpec('ลูกค้าที่ยังไม่ได้จอง')).toBeNull()
+    expect(parseOpsSpec('รถที่จะมาถึงสัปดาห์หน้า')).toEqual({ kind: 'incoming' })
+    const r = upgradeAnswer([{ status: 'ส่งมอบแล้ว', cutDate: '2023-01-10', customerName: 'ค' }], { today: '2026-11-28' })
+    expect(r.n).toBe(1)
+  })
+  it('v1.0.1507 finance rate table', () => {
+    expect(isRateQuestion('ดอกเบี้ยไฟแนนซ์เท่าไหร่')).toBe(true)
+    expect(isRateQuestion('ผ่อน S07 60 งวด ดอกเบี้ย 2.5%')).toBe(false)
+    expect(ratesAnswer([])).toContain('ยังไม่ได้ตั้งเรท')
+    const t = ratesAnswer([{ name: 'KK', rates: { 60: 2.5, 72: 2.9 } }, { name: 'TB', rates: { 60: 2.3 } }])
+    expect(t).toContain('KK — 60 งวด 2.5% · 72 งวด 2.9%')
+    expect(t).toContain('60 งวด 2.3% (TB)')
+    expect(parseOpsSpec('ลีดที่ยังไม่มีใครดูแล')).toEqual({ kind: 'unassigned' })
   })
 })
