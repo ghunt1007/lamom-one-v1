@@ -563,7 +563,7 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.bookDayAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today, day: spec.day })
   } else if (spec.kind === 'delivery' || spec.kind === 'income') {
     const bks = (await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b))
-    res = spec.kind === 'delivery' ? oq.deliveryAnswer(bks, { today, day: spec.day }) : oq.incomeMissingAnswer(bks, { today })
+    res = spec.kind === 'delivery' ? oq.deliveryAnswer(bks, { today, day: spec.day, wd: spec.wd, next: spec.next }) : oq.incomeMissingAnswer(bks, { today })
   } else if (spec.kind === 'walkin') {
     res = oq.walkinAnswer((await listDocs('walk_ins', [], 'visitTime', 'desc', 500).catch(() => [])).filter(w => mine(w.staff, w)), { today, day: spec.day })
   } else if (spec.kind === 'insurance') {

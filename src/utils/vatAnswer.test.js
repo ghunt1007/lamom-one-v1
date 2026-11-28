@@ -90,3 +90,19 @@ describe('lost to competitor (v1.0.1487)', () => {
     expect(r.text).toContain('BYD ถูกกว่า')
   })
 })
+
+import { deliveryAnswer } from './opsQuestions.js'
+import { isTodayQuestion } from './todayBrief.js'
+describe('weekday deliveries + urgent (v1.0.1488)', () => {
+  it('ส่งมอบวันจันทร์ → coming Monday with full car name', () => {
+    expect(parseOpsSpec('ส่งมอบวันจันทร์มีใครบ้าง')).toMatchObject({ kind: 'delivery', day: 'wd', wd: 1 })
+    expect(parseOpsSpec('ส่งมอบอาทิตย์นี้')).toMatchObject({ kind: 'delivery', day: 'week' })
+    const r = deliveryAnswer([{ id: 'b', custName: 'ก', brand: 'JAECOO', model: '6', status: 'รอส่งมอบ', deliveryDate: '2026-11-30' }], { today: '2026-11-28', day: 'wd', wd: 1 })
+    expect(r.text).toContain('นัดส่งมอบวันจันทร์ 30/11/2569 — 1 คัน')
+    expect(r.text).toContain('JAECOO 6')
+  })
+  it('งานด่วนวันนี้ → today brief', () => {
+    expect(isTodayQuestion('งานด่วนวันนี้')).toBe(true)
+    expect(isTodayQuestion('ลูกค้าด่วน')).toBe(false)
+  })
+})

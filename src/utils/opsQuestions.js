@@ -110,7 +110,7 @@ export function parseOpsSpec(q) {
   if (has(s, /ส่งมอบ|จะ\s*ส่ง(?:รถ)?\s*ได้/) && has(s, /เดือนหน้า/) && !has(s, /ยอด|เป้า/)) return { kind: 'delivery', day: 'nextmonth' }
   // (v1.0.1117) "ใครจะส่งมอบเดือนนี้" / "ลูกค้าที่จะออกรถเดือนนี้" → นัดส่งมอบที่เหลือของเดือนนี้ (ไม่ใช่ยอดที่ส่งไปแล้ว)
   if (has(s, /ส่งมอบ|ออกรถ|รับรถ/) && has(s, /เดือนนี้/) && has(s, /จะ|นัด|กำหนด|ที่เหลือ/) && !has(s, /ยอด|เป้า|แล้ว(?!ยัง)/)) return { kind: 'delivery', day: 'restmonth' }
-  if (has(s, /ส่งมอบ/) && !has(s, /ยอด|เป้า|เดือน|ปีนี้|ทั้งปี|ปีก่อน|ปีที่แล้ว|ประเมิน|พึงพอใจ|แบบสอบถาม|รีวิว|ยังไม่(?:ได้)?\s*นัด|ไม่ได้นัด/) && has(s, /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์|นัด|ใคร|กี่คัน|ไหม/)) return { kind: 'delivery', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /สัปดาห์หน้า|อาทิตย์หน้า/.test(s) ? 'nextweek' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
+  if (has(s, /ส่งมอบ/) && !has(s, /ยอด|เป้า|เดือน|ปีนี้|ทั้งปี|ปีก่อน|ปีที่แล้ว|ประเมิน|พึงพอใจ|แบบสอบถาม|รีวิว|ยังไม่(?:ได้)?\s*นัด|ไม่ได้นัด/) && (has(s, /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์|นัด|ใคร|กี่คัน|ไหม/) || weekdayOf(s) >= 0)) return weekdayOf(s) >= 0 && !/พรุ่งนี้|วันนี้/.test(s) ? { kind: 'delivery', day: 'wd', wd: weekdayOf(s), next: /หน้า/.test(s) } : { kind: 'delivery', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /สัปดาห์หน้า|อาทิตย์หน้า/.test(s) ? 'nextweek' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
   // (v1.0.1210) "ใครทักกลับมาบ้าง" / "ลูกค้าเดิมที่ติดต่อมาอีกครั้ง" → ลูกค้าเดิมกรอกฟอร์ม/สแกน QR ซ้ำ (reEnquiredAt)
   if (has(s, /ทักกลับมา|ติดต่อกลับมา|กลับมาทัก|ทักมาอีก(?:ครั้ง|รอบ)|ติดต่อมาอีก(?:ครั้ง|รอบ)|ลูกค้าเก่า.*(?:ทัก|ติดต่อ|กรอก|สแกน)|ลูกค้าเดิม.*(?:ทัก|ติดต่อ|กรอก|สแกน)/) && !has(s, /สร้าง|เพิ่ม|ส่งข้อความ|ร่าง/))
     return { kind: 'back', days: /วันนี้/.test(s) ? 1 : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : /เดือน/.test(s) ? 30 : 7 }
@@ -1292,17 +1292,17 @@ export function annivAnswer(bookings, { today, range = 0, asked = '', nextMonth 
 
 const DONE = ['ส่งมอบแล้ว', 'ถอนจอง', 'ยกเลิก']
 // นัดส่งมอบ วันนี้/พรุ่งนี้/7 วัน (ยังไม่ได้ส่งจริง · ไม่นับใบที่ถอนจอง)
-export function deliveryAnswer(bookings, { today, day = 'today' }) {
+export function deliveryAnswer(bookings, { today, day = 'today', wd = -1, next = false }) {
   // (v1.0.1095) สัปดาห์หน้า = จันทร์–อาทิตย์ถัดไป
   const dow = new Date(today + 'T00:00:00Z').getUTCDay()
   const nm1 = (() => { const y = +today.slice(0, 4), m = +today.slice(5, 7); return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}` })()
-  const from = day === 'tomorrow' ? addDays(today, 1) : day === 'nextweek' ? addDays(today, ((8 - dow) % 7) || 7) : day === 'nextmonth' ? nm1 + '-01' : today
+  const from = day === 'wd' ? apptDate(today, { day, wd, next }) : day === 'tomorrow' ? addDays(today, 1) : day === 'nextweek' ? addDays(today, ((8 - dow) % 7) || 7) : day === 'nextmonth' ? nm1 + '-01' : today
   const to = day === 'restmonth' ? addDays(nm1 + '-01', -1) : day === 'week' ? addDays(today, 6) : day === 'nextweek' ? addDays(from, 6) : day === 'nextmonth' ? addDays((() => { const [y, m] = nm1.split('-').map(Number); return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01` })(), -1) : from
   const list = alive(bookings).filter(b => !DONE.includes(b.status) && ymd(b.deliveryDate) >= from && ymd(b.deliveryDate) <= to)
     .sort((a, b) => ymd(a.deliveryDate).localeCompare(ymd(b.deliveryDate)) || String(a.deliveryTime || '').localeCompare(String(b.deliveryTime || '')))
-  const when = day === 'restmonth' ? `ที่เหลือเดือนนี้ (${dmy(from)}–${dmy(to)})` : day === 'week' ? ` 7 วันนี้ (${dmy(from)}–${dmy(to)})` : day === 'nextweek' ? `สัปดาห์หน้า (${dmy(from)}–${dmy(to)})` : day === 'nextmonth' ? `เดือนหน้า (${dmy(from)}–${dmy(to)})` : `${dayWord(day)} ${dmy(from)}`
+  const when = day === 'restmonth' ? `ที่เหลือเดือนนี้ (${dmy(from)}–${dmy(to)})` : day === 'week' ? ` 7 วันนี้ (${dmy(from)}–${dmy(to)})` : day === 'nextweek' ? `สัปดาห์หน้า (${dmy(from)}–${dmy(to)})` : day === 'nextmonth' ? `เดือนหน้า (${dmy(from)}–${dmy(to)})` : `${dayWord(day, wd)} ${dmy(from)}`
   if (!list.length) return { text: `🚗 ไม่มีนัดส่งมอบ${when}`, n: 0 }
-  return { n: list.length, text: [`🚗 นัดส่งมอบ${when} — ${list.length} คัน`, ...list.slice(0, MAX).map(b => `• ${['week', 'nextweek', 'nextmonth', 'restmonth'].includes(day) ? dmy(b.deliveryDate) + ' ' : ''}${b.deliveryTime ? String(b.deliveryTime).slice(0, 5) + ' ' : ''}${nm(b)}${b.model ? ' · ' + b.model : ''}${b.status ? ' · ' + b.status : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''}`), ...more(list.length)].join('\n') }
+  return { n: list.length, text: [`🚗 นัดส่งมอบ${when} — ${list.length} คัน`, ...list.slice(0, MAX).map(b => `• ${['week', 'nextweek', 'nextmonth', 'restmonth'].includes(day) ? dmy(b.deliveryDate) + ' ' : ''}${b.deliveryTime ? String(b.deliveryTime).slice(0, 5) + ' ' : ''}${nm(b)}${carOf(b) ? ' · ' + carOf(b) : ''}${b.status ? ' · ' + b.status : ''}${b.salesName ? ' · 👤 ' + b.salesName : ''}`), ...more(list.length)].join('\n') }
 }
 
 // ส่งมอบแล้วเดือนนี้แต่ยังไม่กรอกรายได้ (นิยามเดียวกับหน้างานวันนี้/รายงาน 18:00)
