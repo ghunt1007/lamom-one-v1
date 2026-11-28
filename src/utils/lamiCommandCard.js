@@ -2,7 +2,10 @@
 import { runLamiCommand, commandHref } from './lamiCommands.js'
 import { escHtml as esc } from './escape.js'
 
+const OPEN_ONLY = new Set(['tel', 'open', 'quote', 'linechat', 'book', 'bk', 'stage', 'td', 'lead'])
 export function commandIntro(cmds) {
+  // (v1.0.1534) การ์ดที่แค่เปิดหน้า/ฟอร์ม (ไม่ได้บันทึกอะไร) ไม่ต้องบอกให้กด ✅ ทำเลย
+  if (cmds.length === 1 && OPEN_ONLY.has(cmds[0]?.kind)) return '🪄 เข้าใจว่าจะทำแบบนี้ครับ — กดปุ่มด้านล่างเพื่อเปิด'
   return cmds.length === 1 ? '🪄 เข้าใจว่าให้ทำแบบนี้ครับ — กด ✅ ทำเลย เพื่อยืนยัน' : '🪄 เจอลูกค้าชื่อคล้ายกันหลายคน — เลือกคนที่ใช่ แล้วกด ✅ ทำเลย'
 }
 
