@@ -16,6 +16,7 @@ import { sourceConversion } from './leadScore.js'
 import { refundStatusOf, refundDocsSent } from './financeQueue.js'
 import { testDriveConversion } from './testDriveConversion.js'
 import { isOverviewForecastQuestion } from './forecastOverview.js'
+import { bookingDataIssues, issueCount, rowLabel } from './bookingDataCheck.js'
 
 const has = (s, re) => re.test(s)
 // คำสั่งให้ทำ (นัด/บันทึก/สร้าง) ไม่ใช่คำถาม → ปล่อยให้ตัวสั่งงานจัดการ
@@ -35,6 +36,8 @@ export function parseOpsSpec(q) {
   if (s.length < 4 || s.length > 80 || (COMMAND.test(s) && !topicOnly)) return null
   // (v1.0.1526) ค้นโน้ตลูกค้า: "ลูกค้าที่จดไว้ว่ารอโบนัส" · "ใครบอกว่าแพง" · "หาโน้ต สีขาว" · "ลูกค้าที่รอโบนัส"
   { const t = noteSearchTerm(s); if (t) return { kind: 'notesearch', term: t } }
+  // (v1.0.1527) "ใบจองที่ข้อมูลไม่ครบ" / "ต้องแก้อะไรใน Sheet" → ตรวจข้อมูลใบจองแบบปุ่ม 🧹 หน้าใบจอง
+  if (/ข้อมูล\s*(?:ใบจอง|ลูกค้า)?\s*(?:ยัง)?\s*(?:ไม่ครบ|ผิด|ขาด|หาย|ตกหล่น)|(?:ต้อง|ควร)\s*แก้\s*(?:อะไร|ข้อมูล|ตรงไหน|แถวไหน)?\s*(?:ใน)?\s*(?:sheet|ชีท|ชีต)|ตรวจ\s*(?:สอบ)?\s*ข้อมูล\s*(?:ใบจอง|ใน\s*(?:sheet|ชีท|ชีต))|ใบจอง\s*(?:ที่)?\s*(?:ต้อง|ควร)\s*แก้/i.test(s) && !/เบอร์\s*(?:โทร)?\s*$|ไม่มีเบอร์/.test(s)) return { kind: 'datacheck' }
   // (v1.0.1437) "ควรโทรช่วงไหน" / "โทรเวลาไหนลูกค้ารับสาย" → อัตรารับสายตามช่วงเวลา
   // (v1.0.1443) ส่วนลดเพิ่มเติม (นอกแคมเปญ) เฉลี่ย/รายเซลส์/เกินปกติ — ไม่ใช่ถามโปร
   if (has(s, /ส่วนลด/) && has(s, /เฉลี่ย|เยอะ|มากสุด|เกิน|ใคร|รุ่นไหน|สูง|รั่ว|ปกติ/) && !has(s, /โปร|แคมเปญ|ได้ส่วนลด/)) return { kind: 'discount' }
@@ -1925,6 +1928,7 @@ export const OPS_LINKS = {
   eventbest: { path: '/marketing/events', label: '🎪 เปิดหน้าออกบูธ/อีเวนต์' },
   boothshift: { path: '/marketing/events', label: '🎪 เปิดหน้าออกบูธ/อีเวนต์' },
   notesearch: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
+  datacheck: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   campaignbest: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   mycust: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
   nophone: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
@@ -2051,4 +2055,21 @@ export function noteSearchAnswer({ customers = [], notes = [], term = '' } = {})
   return { n: rows.length, text: [`📝 ลูกค้าที่โน้ตมีคำว่า "${term}" — ${rows.length} คน`,
     ...rows.slice(0, 10).map(r => `• ${nm(r.c)}${r.c.interestedModel ? ` · 🚗 ${r.c.interestedModel}` : ''}${r.c.assignedTo ? ` · 👤 ${r.c.assignedTo}` : ''} — "${snip(r.text)}"${r.time ? ` (${dmy(String(r.time).slice(0, 10))})` : ''}`),
     rows.length > 10 ? `…และอีก ${rows.length - 10} คน` : '', '💡 ถามต่อด้วยชื่อลูกค้า เช่น "สรุป' + nm(rows[0].c).split(' ')[0] + '"'].filter(Boolean).join('\n') }
+}
+
+// (v1.0.1527) สรุปใบจองที่ข้อมูลขาด/ผิดรูป (ตัวเดียวกับปุ่ม 🧹 หน้าใบจอง) · บอกคอลัมน์ Sheet ที่ต้องแก้ + ตัวอย่างแถว
+export function dataCheckAnswer(bookings = [], { today = '', knownNames = null } = {}) {
+  const live = (bookings || []).filter(b => b && !b.deleted)
+  if (!live.length) return { n: 0, text: '🧹 ยังไม่มีใบจองในระบบให้ตรวจ — ซิงก์จาก Sheet ก่อน (หน้าลูกค้า › 🔄 ซิงก์ Sheet)' }
+  const issues = bookingDataIssues(live, { today, knownNames })
+  const n = issueCount(issues)
+  if (!n) return { n: 0, text: `✅ ข้อมูลใบจองครบ — ไม่พบช่องสำคัญที่ว่างหรือผิดรูป (ตรวจ ${live.length} ใบ)` }
+  const icon = { high: '🔴', medium: '🟠', low: '🟡' }
+  const lines = [`🧹 ใบจองที่ต้องแก้ใน Sheet — ${n} จุด (ตรวจ ${live.length} ใบ)`]
+  issues.forEach(i => {
+    lines.push(`${icon[i.level] || '•'} ${i.title} — ${i.rows.length} ใบ${i.col ? ` · แก้คอลัมน์ "${i.col}"` : ''}`)
+    lines.push(`   เช่น ${i.rows.slice(0, 3).map(rowLabel).join(', ')}${i.rows.length > 3 ? ` +${i.rows.length - 3}` : ''}`)
+  })
+  lines.push('💡 แก้ใน Sheet แล้วกด 🔄 ซิงก์ Sheet · ดูรายการเต็มที่ปุ่ม 🧹 หน้าใบจอง')
+  return { n, text: lines.join('\n') }
 }
