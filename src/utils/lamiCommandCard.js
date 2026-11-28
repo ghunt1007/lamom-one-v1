@@ -392,6 +392,13 @@ export async function loadOpsAnswer(q, customersPromise) {
     const [bks, comps] = await Promise.all([listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('complaints', f, 'createdAt', 'desc', 300).catch(() => [])])
     const complainedNames = new Set(comps.map(c => String(c.customerName || c.customer || c.name || '').replace(/\s+/g, '')).filter(Boolean))
     res = oq.referAskAnswer(bks.filter(b => mine(b.salesName, b)), { today, complainedNames })
+  } else if (spec.kind === 'datacheck') {
+    if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 การตรวจข้อมูลใบจองทั้งร้านดูได้เฉพาะเจ้าของ/ผู้จัดการ' }
+    else {
+      const [bks, staffRows, userRows, { knownPeopleNames }] = await Promise.all([listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []),
+        listDocs('staff', f, 'firstName', 'asc', 1000).catch(() => []), listDocs('users', [], 'createdAt', 'desc', 1000).catch(() => []), import('./bookingDataCheck.js')])
+      res = oq.dataCheckAnswer(bks, { today, knownNames: staffRows.length || userRows.length ? knownPeopleNames(staffRows, userRows) : null })
+    }
   } else if (spec.kind === 'notesearch') {
     const customers = ((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c))
     const notes = await listDocs('customer_notes', [], 'time', 'desc', 3000).catch(() => [])

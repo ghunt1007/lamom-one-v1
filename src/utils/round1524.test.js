@@ -46,3 +46,20 @@ describe('v1.0.1526 note search', () => {
     expect(noteSearchAnswer({ customers, notes, term: 'แพง' }).n).toBe(0)
   })
 })
+
+import { dataCheckAnswer } from './opsQuestions.js'
+describe('v1.0.1527 booking data check in LAMI', () => {
+  it('routes', () => {
+    expect(parseOpsSpec('ใบจองที่ข้อมูลไม่ครบ')).toEqual({ kind: 'datacheck' })
+    expect(parseOpsSpec('ต้องแก้อะไรใน Sheet')).toEqual({ kind: 'datacheck' })
+    expect(parseOpsSpec('ลูกค้าคนไหนยังไม่มีเบอร์')?.kind).toBe('nophone')
+  })
+  it('summarises issues with the Sheet column', () => {
+    const r = dataCheckAnswer([{ bookingNo: '1', custName: 'ก', status: 'รอรถ', bookingDate: '2026-11-01', price: 900000 }, { bookingNo: '2', custName: 'ข', salesName: 'หนึ่ง', status: 'รอรถ', bookingDate: '2026-11-02', price: 900000 }], { today: '2026-11-28' })
+    expect(r.n).toBe(1)
+    expect(r.text).toContain('🔴 ไม่มีชื่อเซลส์ — 1 ใบ · แก้คอลัมน์ "ชื่อเซลล์"')
+    expect(r.text).toContain('เช่น #1 ก')
+    expect(dataCheckAnswer([{ bookingNo: '2', custName: 'ข', salesName: 'หนึ่ง', status: 'รอรถ', bookingDate: '2026-11-02', price: 900000 }], { today: '2026-11-28' }).text).toBe('✅ ข้อมูลใบจองครบ — ไม่พบช่องสำคัญที่ว่างหรือผิดรูป (ตรวจ 1 ใบ)')
+    expect(dataCheckAnswer([]).text).toContain('ยังไม่มีใบจองในระบบ')
+  })
+})
