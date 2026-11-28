@@ -14,22 +14,8 @@ const ASK = /ใครบ้าง|มีใคร|คนไหน|กี่ค�
 const FIN = ['รอผลไฟแนนซ์', 'จัดไฟแนนซ์ก่อนจอง']
 const WAIT_DELIV = ['รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
 
-// (v1.0.1539) คอลัมน์ Y/N ของ Sheet ที่ถามได้ว่า "ใบไหนยังไม่ได้…"
-const YN_ASK = [
-  { re: /เบิก\s*สาย\s*ชาร์จ/, f: 'chargerRequested', h: 'เบิกสายชาร์จ', label: 'เบิกสายชาร์จ' },
-  { re: /สาย\s*ชาร์จ/, f: 'chargerGiven', h: 'ให้สายชาร์จ', label: 'ให้สายชาร์จ' },
-  { re: /(?:แจ้ง|ทำ|ส่ง)\s*ประกัน/, f: 'insuranceNotified', h: 'แจ้งประกัน', label: 'แจ้งประกัน', not: /ต่อ\s*ประกัน|หมด/ },
-  { re: /allocate|อัลโล\S*|แอลโล\S*/i, f: 'allocated', h: 'Allocate', label: ' Allocate' },
-  { re: /ชุด\s*ขาย/, f: 'salesKit', h: 'ชุดขาย', label: 'ให้ชุดขาย' },
-  { re: /เช็ค\s*รายการ|checklist|เช็คลิสต์/i, f: 'checklistDone', h: 'เช็ครายการ', label: 'เช็ครายการ' },
-  { re: /(?:จอง|ลง|คีย์)\s*(?:ใน)?\s*dms/i, f: 'dmsBooked', h: 'จองDMS', label: 'จองใน DMS' },
-]
-export function bookingYnColumn(s) {
-  const m = String(s || '').match(/ยัง\s*ไม่(?:ได้)?\s*(?:มี|ให้|รับ|ได้|ทำ)?\s*(.{0,30})/)
-  if (!m) return null
-  const y = YN_ASK.find(x => x.re.test(m[1]) && !(x.not && x.not.test(s)))
-  return y ? { f: y.f, h: y.h, label: y.label } : null
-}
+import { bookingYnColumn } from './bookingYn.js'
+export { bookingYnColumn }
 export function parseBookingListSpec(q) {
   const s = thaiNumerals(String(q || '').trim()).replace(/[?？]+$/, '').trim()
   // (v1.0.1465) "รอไฟแนนซ์นาน" / "ลูกค้าที่รอไฟแนนซ์นานเกินไป" — ไม่มีคำถาม แต่ชัดว่าอยากเห็นรายการ

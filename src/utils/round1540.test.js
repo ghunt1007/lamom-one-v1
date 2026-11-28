@@ -17,3 +17,14 @@ describe('LAMI สรุปเงินเดือน (v1.0.1540)', () => {
     expect(r.text).toContain('ยังไม่จ่าย 1 คน ฿11,900 — ข')
   })
 })
+
+import { parseBookingListSpec } from './bookingQuestions.js'
+describe('Y/N columns win over delivery appointments (v1.0.1541)', () => {
+  it('routes', () => {
+    expect(parseOpsSpec('ใครยังไม่ได้เช็ครายการก่อนส่งมอบ')).toBeNull()
+    expect(parseBookingListSpec('ใครยังไม่ได้เช็ครายการก่อนส่งมอบ')?.ynCol?.f).toBe('checklistDone')
+    expect(parseBookingListSpec('ใบจองที่ยังไม่ส่งจอง')?.ynCol?.f).toBe('bookingSent')
+    expect(parseBookingListSpec('ใบจองไหนยังไม่ได้แจ้งลูกค้า')?.ynCol?.f).toBe('customerNotified')
+    expect(parseOpsSpec('ใครยังไม่ได้ส่งมอบ')?.kind).toBe('delivery')
+  })
+})
