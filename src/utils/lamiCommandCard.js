@@ -336,6 +336,8 @@ export async function loadOpsAnswer(q, customersPromise) {
   } else if (spec.kind === 'tdnobook') {
     const [drives, bks] = await Promise.all([listDocs('test_drives', f, 'date', 'desc', 500).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])])
     res = oq.tdNoBookAnswer(drives.filter(t => mine(t.staff, t)), bks, { today, range: spec.range })
+  } else if (spec.kind === 'deposits') {
+    res = oq.depositsAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)))
   } else if (spec.kind === 'tdmodel') {
     res = oq.tdModelAnswer((await listDocs('test_drives', f, 'date', 'desc', 1000).catch(() => [])).filter(t => mine(t.staff, t)), { today })
   } else if (spec.kind === 'tdconv') {
