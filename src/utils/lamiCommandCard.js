@@ -2,7 +2,7 @@
 import { runLamiCommand, commandHref } from './lamiCommands.js'
 import { escHtml as esc } from './escape.js'
 
-const OPEN_ONLY = new Set(['tel', 'open', 'quote', 'linechat', 'book', 'bk', 'stage', 'td', 'lead'])
+const OPEN_ONLY = new Set(['tel', 'open', 'quote', 'linechat', 'tradein', 'book', 'bk', 'stage', 'td', 'lead'])
 export function commandIntro(cmds) {
   // (v1.0.1534) การ์ดที่แค่เปิดหน้า/ฟอร์ม (ไม่ได้บันทึกอะไร) ไม่ต้องบอกให้กด ✅ ทำเลย
   if (cmds.length === 1 && OPEN_ONLY.has(cmds[0]?.kind)) return '🪄 เข้าใจว่าจะทำแบบนี้ครับ — กดปุ่มด้านล่างเพื่อเปิด'
@@ -27,7 +27,7 @@ export function mountCommandCard(slot, cmds, { onDone, multi = false } = {}) {
   slot.innerHTML = `<div class="lami-cmds">${cmds.map((c, i) => `
     <div class="lami-cmd" data-i="${i}">
       <div class="lami-cmd-t"><b>${esc(c.label)}</b>${c.desc ? `<small>${esc(c.desc)}</small>` : ''}</div>
-      <button type="button" class="btn btn-primary btn-sm lami-cmd-go" data-i="${i}">${c.kind === 'tel' ? '📞 โทรเลย' : c.kind === 'td' ? '🚗 เปิดฟอร์ม' : c.kind === 'lead' ? '➕ เปิดฟอร์ม' : c.kind === 'book' ? '📝 เปิดฟอร์มจอง' : c.kind === 'quote' ? '📄 เปิดฟอร์ม' : c.kind === 'linechat' ? '💚 เปิดแชท' : c.kind === 'open' ? '👤 เปิด' : c.kind === 'bk' ? '📝 เปิดใบจอง' : c.kind === 'stage' ? '📝 อัปเดตใบจอง' : '✅ ทำเลย'}</button>
+      <button type="button" class="btn btn-primary btn-sm lami-cmd-go" data-i="${i}">${c.kind === 'tel' ? '📞 โทรเลย' : c.kind === 'td' ? '🚗 เปิดฟอร์ม' : c.kind === 'lead' ? '➕ เปิดฟอร์ม' : c.kind === 'book' ? '📝 เปิดฟอร์มจอง' : c.kind === 'quote' ? '📄 เปิดฟอร์ม' : c.kind === 'linechat' ? '💚 เปิดแชท' : c.kind === 'tradein' ? '🔄 เปิดฟอร์ม' : c.kind === 'open' ? '👤 เปิด' : c.kind === 'bk' ? '📝 เปิดใบจอง' : c.kind === 'stage' ? '📝 อัปเดตใบจอง' : '✅ ทำเลย'}</button>
     </div>`).join('')}</div>${multi && cmds.length > 1 ? `<div class="lami-cmds-all"><button type="button" class="btn btn-primary lami-cmd-all">✅ ทำทั้งหมด ${cmds.length} คน</button></div>` : ''}`
   const done = new Set()
   // บันทึกใบที่ i (คำสั่งที่บันทึกได้ทันที) — คืน true ถ้าสำเร็จ
@@ -759,7 +759,7 @@ export async function loadTeamBrief(q, customersPromise) {
 // (v1.0.1513) คำสั่งที่เอ่ยชื่อลูกค้าชัดเจน ("มานะไม่สนใจแล้ว" / "มานะเป็น hot" / "ย้ายมานะให้วิภา") ต้องได้ปุ่ม ✅ ทำเลย
 // ก่อนคำตอบสรุป (เดิมไปตอบรายการเสียดีล / รายชื่อ hot ทั้งร้าน) · คืน [] ถ้าไม่ใช่
 // (v1.0.1528) + log: "มานะมาโชว์รูมแล้ว" / "มานะทดลองขับแล้ว" / "โทรหามานะแล้ว" (เดิมไปตอบรายการนัดโชว์รูม/ลองขับวันนี้)
-const PRIORITY_CMDS = new Set(['lost', 'temp', 'assign', 'log', 'quote', 'linechat', 'open', 'revive'])
+const PRIORITY_CMDS = new Set(['lost', 'temp', 'assign', 'log', 'quote', 'linechat', 'tradein', 'open', 'revive'])
 export async function priorityCommands(q, customersPromise) {
   if (/ไหม|มั้ย|มั๊ย|หรือเปล่า|หรือยัง|รึยัง|ใคร|บ้าง|กี่|[?？]/.test(String(q || ''))) return []
   const [{ parseLamiCommand }, { todayBangkok }] = await Promise.all([import('./lamiCommands.js'), import('./format.js')])
