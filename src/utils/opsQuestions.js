@@ -86,7 +86,7 @@ export function parseOpsSpec(q) {
   // (v1.0.1092) "ลูกค้าคนไหนมีโอกาสปิดสูงสุด"
   if (has(s, /โอกาส(?:ปิด)?(?:การขาย)?\s*(?:สูง|มาก|เยอะ|ดี)|ใกล้ปิด|น่าจะปิด|มีแวว(?:ปิด|ซื้อ)|ปิดง่าย|พร้อมซื้อ|ใกล้(?:จะ)?ตัดสินใจ|ใกล้(?:จะ)?ซื้อ/) || (has(s, /ลูกค้า|ใคร|คนไหน/) && has(s, /น่าจะ\s*(?:ซื้อ|จอง|ปิด)|จะ\s*(?:ซื้อ|จอง)\s*(?:เร็วๆ?\s*นี้|เร็ว\s*ๆ\s*นี้|ก่อน)/) && !has(s, /ถอน|ยกเลิก/))) return { kind: 'topscore' }
   // (v1.0.1111) "เหตุผลที่ลูกค้าไม่ซื้อ" / "ลูกค้าไม่ซื้อเพราะอะไร" = สรุปดีลที่หลุด
-  if (has(s, /(?:เหตุผล|สาเหตุ).{0,12}(?:ไม่ซื้อ|ไม่จอง|ไม่เอา|เสียดีล|หลุด)|(?:ไม่ซื้อ|ไม่จอง)\s*(?:เพราะ|เพราะอะไร|ทำไม)/) && !has(s, /บันทึก/)) return { kind: 'lost', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
+  if (has(s, /(?:เหตุผล|สาเหตุ).{0,12}(?:ไม่ซื้อ|ไม่จอง|ไม่เอา|เสียดีล|หลุด)|(?:ไม่ซื้อ|ไม่จอง)\s*(?:เพราะ|เพราะอะไร|ทำไม)|ทำไม\s*(?:ลูกค้า|ลีด)?\s*(?:ถึง)?\s*(?:ไม่ซื้อ|ไม่จอง|ไม่เอา|ไม่ปิด|หลุด)|(?:ลูกค้า|ลีด).{0,10}(?:ไปซื้อ\s*(?:ที่|กับ)?\s*(?:อื่น|คู่แข่ง|ยี่ห้ออื่น|เจ้าอื่น)|ไม่สนใจแล้ว|เลิกสนใจ)|คู่แข่ง.{0,12}(?:ลูกค้า|ไปซื้อ|แย่ง)|แพ้\s*คู่แข่ง/) && !has(s, /บันทึก|^(?:ปิด|ย้าย|ตั้ง)/)) return { kind: 'lost', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s), ...(has(s, /คู่แข่ง|ยี่ห้ออื่น|เจ้าอื่น|ไปซื้อ/) ? { comp: true } : {}) }
   if (has(s, /เสียดีล|เสียลูกค้า|lost|ปิดไม่ได้|หลุด/i) && !has(s, /บันทึก/) && has(s, /ใคร|กี่|บ้าง|เดือน|สัปดาห์|อาทิตย์|ปีนี้|สรุป|ทำไม|เหตุผล|เพราะ|รายชื่อ|ยอด/)) return { kind: 'lost', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
   // (v1.0.1090) "ยอดจองวันนี้" / "เมื่อวานปิดได้กี่คัน" / "สัปดาห์นี้มีใครจองบ้าง"
   if (has(s, /ยอดจอง|จองใหม่|ใบจองใหม่|เพิ่งจอง|ลูกค้า(?:ที่)?จอง(?!แล้วยัง)|ปิดการขาย|ปิดได้|ปิดดีล|ใครจอง|มีคนจอง|จองกี่|จองไป|จองได้/) && has(s, /วันนี้|เมื่อวาน|สัปดาห์|อาทิตย์|7 วัน/) && !has(s, /ส่งมอบ|ทดลองขับ|ลองขับ/)) return { kind: 'bookday', day: /เมื่อวาน/.test(s) ? 'yesterday' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
@@ -1316,7 +1316,20 @@ export function incomeMissingAnswer(bookings, { today }) {
 }
 
 // เสียดีลเดือนนี้ (ตามวันที่กดเสียดีล) · เหตุผลรวม + รายเซลส์
-export function lostAnswer(customers, { today, prev = false }) {
+// (v1.0.1487) "ลูกค้าไปซื้อคู่แข่ง" → ต่อท้ายด้วยเหตุผลจริงที่บันทึกไว้ (ซื้อคู่แข่ง) 90 วันล่าสุด
+function compLines(customers, today) {
+  const from = addDays(today, -90)
+  const list = alive(customers).filter(c => c.isLost && ymd(c.lostAt) >= from && classifyLostReason(c.lostReason) === 'competitor').sort((a, b) => ymd(b.lostAt).localeCompare(ymd(a.lostAt)))
+  if (!list.length) return ['', '🥊 90 วันล่าสุดยังไม่มีลูกค้าที่บันทึกว่าไปซื้อคู่แข่ง']
+  return ['', `🥊 ไปซื้อคู่แข่ง 90 วันล่าสุด ${list.length} ราย`, ...list.slice(0, 5).map(c => `• ${dmy(ymd(c.lostAt))} ${nm(c)}${c.interestedModel ? ' · สนใจ ' + c.interestedModel : ''} — "${String(c.lostReason || '').trim().slice(0, 60)}"`), ...(list.length > 5 ? [`…และอีก ${list.length - 5} ราย`] : [])]
+}
+
+export function lostAnswer(customers, { today, prev = false, comp = false }) {
+  const r = lostAnswer0(customers, { today, prev })
+  return comp ? { ...r, text: [r.text, ...compLines(customers, today)].join('\n') } : r
+}
+
+function lostAnswer0(customers, { today, prev = false }) {
   const d = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1 - (prev ? 1 : 0), 1))
   const month = d.toISOString().slice(0, 7)
   const rows = lostBySeller(customers, month)

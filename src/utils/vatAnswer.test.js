@@ -78,3 +78,15 @@ describe('routing fixes (v1.0.1486)', () => {
     expect(r.n).toBe(1); expect(r.text).toContain('เมื่อวาน 1 คัน (27/11/2569)')
   })
 })
+
+import { lostAnswer } from './opsQuestions.js'
+describe('lost to competitor (v1.0.1487)', () => {
+  it('routes why/competitor questions and lists real reasons', () => {
+    expect(parseOpsSpec('ทำไมลูกค้าไม่ซื้อ')?.kind).toBe('lost')
+    expect(parseOpsSpec('ลูกค้าที่ไม่สนใจแล้ว')?.kind).toBe('lost')
+    expect(parseOpsSpec('ลูกค้าไปซื้อยี่ห้ออื่นกี่คน')).toMatchObject({ kind: 'lost', comp: true })
+    const r = lostAnswer([{ id: 'a', firstName: 'เอ', isLost: true, lostAt: '2026-11-20', lostReason: 'ซื้อคู่แข่ง - BYD ถูกกว่า' }], { today: '2026-11-28', comp: true })
+    expect(r.text).toContain('ไปซื้อคู่แข่ง 90 วันล่าสุด 1 ราย')
+    expect(r.text).toContain('BYD ถูกกว่า')
+  })
+})
