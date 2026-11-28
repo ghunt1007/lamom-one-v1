@@ -130,7 +130,7 @@ export function parseOpsSpec(q) {
   if (has(s, /ส่งมอบ|ออกรถ|รับรถ/) && has(s, /เดือนนี้|สิ้นเดือน/) && has(s, /จะ|นัด|กำหนด|ที่เหลือ|ต้อง|ก่อน/) && !has(s, /ยอด|เป้า|แล้ว(?!ยัง)/)) return { kind: 'delivery', day: 'restmonth' }
   // (v1.0.1504) "มีรถพร้อมส่งมอบกี่คัน" = ใบจองสถานะรอส่งมอบ (รายการใบจอง) ไม่ใช่นัดส่งมอบวันนี้
   if (has(s, /พร้อม\s*ส่งมอบ|รอ\s*ส่งมอบ/) && !has(s, /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์|นัด/) && weekdayOf(s) < 0) return null
-  if (has(s, /ส่งมอบ/) && !has(s, /ยอด|เป้า|เดือน|ปีนี้|ทั้งปี|ปีก่อน|ปีที่แล้ว|ประเมิน|พึงพอใจ|แบบสอบถาม|รีวิว|ยังไม่(?:ได้)?\s*นัด|ไม่ได้นัด/) && (has(s, /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์|นัด|ใคร|กี่คัน|ไหม/) || weekdayOf(s) >= 0)) return weekdayOf(s) >= 0 && !/พรุ่งนี้|วันนี้/.test(s) ? { kind: 'delivery', day: 'wd', wd: weekdayOf(s), next: /หน้า/.test(s) } : { kind: 'delivery', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /สัปดาห์หน้า|อาทิตย์หน้า/.test(s) ? 'nextweek' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
+  if (has(s, /ส่งมอบ/) && !has(s, /รูป|ภาพ|ยอด|เป้า|เดือน|ปีนี้|ทั้งปี|ปีก่อน|ปีที่แล้ว|ประเมิน|พึงพอใจ|แบบสอบถาม|รีวิว|ยังไม่(?:ได้)?\s*นัด|ไม่ได้นัด/) && (has(s, /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์|นัด|ใคร|กี่คัน|ไหม/) || weekdayOf(s) >= 0)) return weekdayOf(s) >= 0 && !/พรุ่งนี้|วันนี้/.test(s) ? { kind: 'delivery', day: 'wd', wd: weekdayOf(s), next: /หน้า/.test(s) } : { kind: 'delivery', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /สัปดาห์หน้า|อาทิตย์หน้า/.test(s) ? 'nextweek' : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 'week' : 'today' }
   // (v1.0.1210) "ใครทักกลับมาบ้าง" / "ลูกค้าเดิมที่ติดต่อมาอีกครั้ง" → ลูกค้าเดิมกรอกฟอร์ม/สแกน QR ซ้ำ (reEnquiredAt)
   if (has(s, /ทักกลับมา|ติดต่อกลับมา|กลับมาทัก|ทักมาอีก(?:ครั้ง|รอบ)|ติดต่อมาอีก(?:ครั้ง|รอบ)|ลูกค้าเก่า.*(?:ทัก|ติดต่อ|กรอก|สแกน)|ลูกค้าเดิม.*(?:ทัก|ติดต่อ|กรอก|สแกน)/) && !has(s, /สร้าง|เพิ่ม|ส่งข้อความ|ร่าง/))
     return { kind: 'back', days: /วันนี้/.test(s) ? 1 : /สัปดาห์|อาทิตย์|7 วัน/.test(s) ? 7 : /เดือน/.test(s) ? 30 : 7 }
@@ -163,6 +163,12 @@ export function parseOpsSpec(q) {
   // (v1.0.1094) "ลูกค้าที่ควรขอให้แนะนำเพื่อน"
   if (has(s, /แนะนำ(?:เพื่อน|ต่อ|คนอื่น)|บอกต่อ|referral/i) && has(s, /ควร|ขอ|ใคร|ลูกค้า/) && !has(s, /มาจาก|จากการ|ใหม่/)) return { kind: 'referask' }
   // (v1.0.1094) "ออกบูธครั้งไหนได้ลีดเยอะสุด" / "อีเวนต์ไหนคุ้มสุด"
+  // (v1.0.1522) "บูธสัปดาห์นี้ใครเข้ากะ" / "พรุ่งนี้ใครเข้าบูธ" / "วันเสาร์มีออกบูธไหม" → เวรบูธตามวันจากหน้าออกบูธ
+  if (has(s, /บูธ|อีเวนต์|ออกงาน/) && (has(s, /กะ|เวร|ใคร\s*(?:เข้า|ไป|อยู่|ประจำ)|ประจำบูธ/) || (has(s, /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์|เสาร์|อาทิตย์|จันทร์|อังคาร|พุธ|พฤหัส|ศุกร์/) && has(s, /มี\S{0,6}(?:บูธ|งาน)|ออกบูธ|ไหม|มั้ย|ที่ไหน|อะไร/)))
+    && !has(s, /ไหน(?:ได้|คุ้ม|ดี)|อันดับ|ผล|คุ้ม|ลีด|ลูกค้าจาก|ค่า|งบ|เยอะ|มากสุด/)) {
+    const wd = weekdayOf(s)
+    return { kind: 'boothshift', day: /พรุ่งนี้/.test(s) ? 'tomorrow' : /วันนี้/.test(s) ? 'today' : wd >= 0 && !/สัปดาห์|อาทิตย์นี้|อาทิตย์หน้า/.test(s) ? 'wd' : 'week', ...(wd >= 0 ? { wd } : {}), next: /หน้า/.test(s) }
+  }
   if (has(s, /บูธ|อีเวนต์|event|งานแสดง|มอเตอร์โชว์|motor\s*(?:show|expo)/i) && has(s, /ไหน|อันดับ|เยอะ|มากสุด|คุ้ม|ดีสุด|สรุป|ผล/) && !has(s, /ลูกค้าจาก|ลีดจาก/)) return { kind: 'eventbest' }
   // (v1.0.1094) "แคมเปญไหนได้ลูกค้าเยอะสุด" (แคมเปญในใบจอง เช่น ดอกเบี้ยพิเศษ/ฟรีดาวน์)
   if (has(s, /แคมเปญ|campaign/i) && has(s, /ไหน|อันดับ|เยอะ|มากสุด|ดีสุด|สรุป|ได้ผล/)) return { kind: 'campaignbest' }
@@ -232,7 +238,7 @@ export function parseOpsSpec(q) {
   // (v1.0.1499) "ใครรอรถนานสุด" → รายการใบจองรอรถค้างนาน (bookingQuestions stuck)
   // (v1.0.1233) "คาดการณ์สั่งรถ" / "เดือนหน้าควรสั่งรถกี่คัน" → คาดการณ์ล่วงหน้า (จังหวะจอง + ลีดร้อน)
   if (has(s, /คาดการณ์|พยากรณ์|ล่วงหน้า|forecast|เดือนหน้า(?:ควร|ต้อง)?สั่ง|ควรสั่ง(?:รถ)?(?:เดือนหน้า|ล่วงหน้า)/i) && has(s, /สั่ง(?:รถ)?|order/i) && !has(s, /อะไหล่|ยอดขาย(?!.*สั่ง)/)) return { kind: 'forecast' }
-  if (has(s, /กำลัง(?:จะ)?มา(?:ถึง)?|(?:รถ|คัน)\s*(?:ที่)?\s*จะ\s*(?:มา|เข้า)(?:ถึง)?|กำลังขนส่ง|ระหว่างขนส่ง|รถ(?:ที่)?สั่ง(?:ไว้)?|รถจะเข้า|รถเข้าเมื่อไหร่|รถมาเมื่อไหร่|ใบสั่ง(?:ซื้อ)?รถ|สั่งรถ(?:ไป)?กี่คัน/) && !has(s, /ลูกค้า|ใคร(?:รอ|จอง)|อะไหล่/)) return { kind: 'incoming' }
+  if (has(s, /กำลัง(?:จะ)?มา(?:ถึง)?|(?:รถ|คัน)\s*(?:ที่)?\s*จะ\s*(?:มา|เข้า)(?:ถึง)?|กำลังขนส่ง|ระหว่างขนส่ง|รถ(?:ที่)?สั่ง(?:ไว้)?|รถจะเข้า|รถ\s*(?:จะ)?\s*เข้า\s*(?:เดือน|สัปดาห์|อาทิตย์)\s*(?:นี้|หน้า)|รถเข้าเมื่อไหร่|รถมาเมื่อไหร่|ใบสั่ง(?:ซื้อ)?รถ|สั่งรถ(?:ไป)?กี่คัน/) && !has(s, /ลูกค้า|ใคร(?:รอ|จอง)|อะไหล่/)) return { kind: 'incoming' }
   // (v1.0.1241) "รถว่างคันไหนให้ใคร" / "จับคู่รถกับลูกค้า" → คำตอบเดียวกับรุ่นที่ต้องสั่ง (ขึ้นต้นด้วยคู่รถ-ลูกค้า)
   if (has(s, /จับคู่รถ|รถ(?:ว่าง)?(?:คันไหน)?(?:ควร)?ให้ใคร|ลูกค้าคนไหนได้รถ|ใครได้รถ(?:คันไหน)?|รถว่างตรงกับ/) && !has(s, /อะไหล่|ทดลองขับ/)) return { kind: 'lowstock' }
   // (v1.0.1097) "รถรุ่นไหนเหลือน้อย" / "รุ่นไหนควรสั่งเพิ่ม"
@@ -1914,6 +1920,7 @@ export const OPS_LINKS = {
   daysum: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   referask: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   eventbest: { path: '/marketing/events', label: '🎪 เปิดหน้าออกบูธ/อีเวนต์' },
+  boothshift: { path: '/marketing/events', label: '🎪 เปิดหน้าออกบูธ/อีเวนต์' },
   campaignbest: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   mycust: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
   nophone: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
@@ -1984,4 +1991,27 @@ export function opsFollowUps(spec) {
   if (spec.kind === 'showroom' && spec.day === 'tomorrow') out[0] = 'นัดทดลองขับพรุ่งนี้มีใครบ้าง'
   out.push(spec.kind === 'newcust' ? 'ยอดเดือนนี้เป็นไง' : 'วันนี้ควรโทรหาใคร')
   return [...new Set(out)]
+}
+
+// (v1.0.1522) เวรบูธตามวัน: งานออกบูธ/อีเวนต์ที่ตรงกับวันที่ถาม + ชื่อคนเข้าเวร (shifts{YYYY-MM-DD:[ชื่อ]})
+export function boothShiftAnswer(events = [], { today, day = 'week', wd = -1, next = false } = {}) {
+  const days = day === 'week' ? Array.from({ length: 7 }, (_, i) => addDays(today, i)) : [apptDate(today, { day, wd, next })]
+  const label = day === 'week' ? ` 7 วันนี้ (${dmy(days[0])}–${dmy(days[6])})` : ` ${dayWord(day, wd)} (${dmy(days[0])})`
+  const live = (events || []).filter(e => e && !e.deleted && e.status !== 'cancelled' && /^\d{4}-\d{2}-\d{2}/.test(e.startDate || ''))
+  const out = []
+  let n = 0, noShift = 0
+  days.forEach(d => {
+    const hit = live.filter(e => e.startDate.slice(0, 10) <= d && String(e.endDate || e.startDate).slice(0, 10) >= d)
+    if (!hit.length) return
+    out.push(`📅 ${dmy(d)} (วัน${WEEKDAYS[new Date(d + 'T00:00:00Z').getUTCDay()]})`)
+    hit.forEach(e => {
+      n++
+      const who = Array.isArray(e.shifts?.[d]) ? e.shifts[d].filter(Boolean) : []
+      const staff = !who.length && Array.isArray(e.staff) ? e.staff.filter(Boolean) : []
+      if (!who.length && !staff.length) noShift++
+      out.push(`• ${e.title || 'งานออกบูธ'}${e.venue ? ` @${e.venue}` : ''}${e.startTime && e.startDate.slice(0, 10) === d ? ` · เริ่ม ${e.startTime}` : ''} · ${who.length ? `เวร: ${who.join(', ')}` : staff.length ? `ทีม: ${staff.join(', ')}` : 'ยังไม่ได้จัดเวร'}`)
+    })
+  })
+  if (!n) return { n: 0, text: `🎪 ไม่มีงานออกบูธ/อีเวนต์${label}` }
+  return { n, text: [`🎪 งานออกบูธ${label}`, ...out, noShift ? `💡 ยังไม่ได้จัดเวร ${noShift} งาน — กด “🔀 จัดเวรให้” ในงานนั้นที่หน้าออกบูธ` : ''].filter(Boolean).join('\n') }
 }

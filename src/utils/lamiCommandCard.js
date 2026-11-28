@@ -392,6 +392,8 @@ export async function loadOpsAnswer(q, customersPromise) {
     const [bks, comps] = await Promise.all([listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('complaints', f, 'createdAt', 'desc', 300).catch(() => [])])
     const complainedNames = new Set(comps.map(c => String(c.customerName || c.customer || c.name || '').replace(/\s+/g, '')).filter(Boolean))
     res = oq.referAskAnswer(bks.filter(b => mine(b.salesName, b)), { today, complainedNames })
+  } else if (spec.kind === 'boothshift') {
+    res = oq.boothShiftAnswer(await listDocs('marketing_events', [], 'startDate', 'desc', 300).catch(() => []), { today, day: spec.day, wd: spec.wd, next: spec.next })
   } else if (spec.kind === 'eventbest') {
     const [{ eventMetrics }, events, customers, bks, drives] = await Promise.all([import('./marketingEvents.js'), listDocs('marketing_events', [], 'startDate', 'desc', 300).catch(() => []), listDocs('customers', f, 'createdAt', 'desc', 3000).catch(() => []), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('test_drives', f, 'date', 'desc', 1000).catch(() => [])])
     res = oq.eventBestAnswer(events, e => eventMetrics(e, { customers, bookings: bks, testDrives: drives }), { today })
