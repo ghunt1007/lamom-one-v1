@@ -1,4 +1,5 @@
 import { isPhoneLayout } from '../../utils/phoneLayout.js'
+import { refundStatusOf, refundDocsSent } from '../../utils/financeQueue.js'
 import { scanIdCard, idCardSummary } from '../../utils/idCardScan.js'
 import { carOf, carLabel } from '../../utils/carLabel.js'
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, readDoc } from '../../core/db.js'
@@ -851,7 +852,7 @@ export default async function BookingsPage(container) {
       <td style="white-space:nowrap"><span style="font-weight:700;color:var(--primary);font-size:0.76rem">${escHtml(b.bookingNo)}</span></td>
       <td style="font-weight:600;font-size:0.8rem;min-width:150px">${escHtml(b.custName || '—')}${b.rightsOnly ? '<div style="font-size:0.6rem;color:var(--accent);font-weight:700">🎫 จองสิทธิ์</div>' : ''}</td>
       <td style="font-size:0.78rem">${br ? brandBadge(br) + '<br>' : ''}${escHtml(b.model || '—')}</td>
-      <td class="bk-status-cell" data-id="${b.id}" style="cursor:pointer">${statusBadge(b.status)}<span style="font-size:0.6rem;opacity:.4;margin-left:2px">▼</span>${(n => n && n.tone === 'warning' ? `<div style="font-size:0.62rem;color:var(--warning);margin-top:3px;max-width:190px;line-height:1.35;white-space:normal" title="${escHtml(n.text)}">🧭 ${escHtml(n.text.split(' — ')[0])}</div>` : '')(bookingNextStep(b, todayBangkok()))}${b.status === 'ถอนจอง' ? `<div style="font-size:0.6rem;font-weight:700;margin-top:2px;color:${(b.refundStatus || (depositAmt(b) > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน')) === 'คืนเงินแล้ว' ? 'var(--success)' : (b.refundStatus || (depositAmt(b) > 0 ? 'รอคืนเงิน' : '')) === 'รอคืนเงิน' ? 'var(--warning)' : 'var(--text-muted)'}">💸 ${escHtml(b.refundStatus || (depositAmt(b) > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน'))}</div>` : ''}</td>
+      <td class="bk-status-cell" data-id="${b.id}" style="cursor:pointer">${statusBadge(b.status)}<span style="font-size:0.6rem;opacity:.4;margin-left:2px">▼</span>${(n => n && n.tone === 'warning' ? `<div style="font-size:0.62rem;color:var(--warning);margin-top:3px;max-width:190px;line-height:1.35;white-space:normal" title="${escHtml(n.text)}">🧭 ${escHtml(n.text.split(' — ')[0])}</div>` : '')(bookingNextStep(b, todayBangkok()))}${b.status === 'ถอนจอง' ? (rs => `<div style="font-size:0.6rem;font-weight:700;margin-top:2px;color:${rs === 'คืนเงินแล้ว' ? 'var(--success)' : rs === 'รอคืนเงิน' ? 'var(--warning)' : 'var(--text-muted)'}">💸 ${escHtml(rs)}</div>`)(refundStatusOf(b)) : ''}</td>
       <td><span class="badge badge-primary" style="font-size:0.66rem">${escHtml(b.salesName || '')}</span></td>
       <td style="font-size:0.72rem;white-space:nowrap">${formatDate(b.bookingDate)}</td>
       <td style="font-size:0.72rem;white-space:nowrap">${deliveryCell(b)}${chanceChip(b) ? `<div style="margin-top:2px">${chanceChip(b)}</div>` : ''}</td>
@@ -1121,6 +1122,8 @@ export default async function BookingsPage(container) {
       const patch = {
         status: 'ถอนจอง', cancelDate, cancelReason: reason,
         refundAmount, refundStatus: refundAmount > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน',
+        // (v1.0.1501) ให้ตรงคอลัมน์ "คืนเงินจอง" ใน Sheet
+        depositRefunded: refundAmount > 0 ? 'N' : '',
         updatedAt: new Date().toISOString(),
       }
       const btn = el.querySelector('#wd-s'); btn.disabled = true
@@ -1507,12 +1510,13 @@ export default async function BookingsPage(container) {
         dRow('เซลส์', b.salesName || '-') +
         (b.rightsOnly ? '<div style="background:var(--accent)11;border:1px solid var(--accent)44;padding:8px 10px;border-radius:8px;font-size:0.78rem;margin-top:6px;color:var(--accent);font-weight:700">🎫 จองสิทธิ์ — ยังไม่ชำระเงินจอง</div>' : '') +
         (b.status === 'ถอนจอง' ? (function () {
-          const rs = b.refundStatus || ((depositAmt(b) > 0 && !b.rightsOnly) ? 'รอคืนเงิน' : 'ไม่ต้องคืน')
+          const rs = refundStatusOf(b)
           const rc = rs === 'คืนเงินแล้ว' ? 'var(--success)' : rs === 'รอคืนเงิน' ? 'var(--warning)' : 'var(--text-muted)'
           return sec('❌ ข้อมูลถอนจอง / การคืนเงินจอง') +
             dRow('วันที่ถอนจอง', formatDate(b.cancelDate) || '-') +
-            dRow('เหตุผล', b.cancelReason || '-') +
-            dRow('ยอดคืนเงินจอง', formatCurrency(b.refundAmount || 0)) +
+            dRow('เหตุผลที่ถอนจอง', b.cancelReason || b.refundReason || '-') +
+            dRow('ยอดคืนเงินจอง', formatCurrency(b.refundAmount || depositAmt(b) || 0)) +
+            dRow('ส่งเอกสารคืนจอง', refundDocsSent(b) ? '✅ ส่งแล้ว' + (b.refundDocsDate ? ' ' + formatDate(b.refundDocsDate) : '') : '⏳ ยังไม่ส่ง') +
             '<div style="display:flex;gap:6px;padding:4px 0;align-items:center"><span style="color:var(--text-muted);min-width:110px;flex-shrink:0;font-size:0.82rem">สถานะคืนเงิน</span>' +
             '<span style="font-size:0.74rem;font-weight:700;padding:2px 10px;border-radius:10px;background:' + rc + '22;color:' + rc + ';border:1px solid ' + rc + '55">💸 ' + escHtml(rs) + '</span></div>' +
             (b.refundedAt ? dRow('การเงินโอนคืนเมื่อ', formatDate(b.refundedAt)) : (rs === 'รอคืนเงิน' ? '<div style="font-size:0.72rem;color:var(--text-muted);padding:2px 0">⏳ รอฝ่ายการเงินโอนคืน — ติดตามที่หน้า การเงิน → คืนเงิน</div>' : ''))

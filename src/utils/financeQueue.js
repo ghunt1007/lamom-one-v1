@@ -3,11 +3,21 @@ import { FIN_PASSED_STATUSES } from './finance.js'
 // นิยามเดียวกับหน้า /finance/refund: เซลส์แจ้งตรวจยอดโอนแล้วรออยู่ · ถอนจองแล้วยังไม่คืนเงินจอง
 const DAY = 86400000
 export const depositOf = b => Number(b?.bookingDeposit) || Number(b?.down) || 0
+// (v1.0.1501) สถานะคืนเงินจองของใบที่ถอน — ใช้ทุกที่ (หน้าคืนเงิน ใบจอง LAMI รายงาน 09:00)
+// Sheet มีคอลัมน์ "คืนเงินจอง" (Y = คืนแล้ว) → ถือว่าคืนแล้วแม้ในแอปยังไม่ได้กด "โอนคืนลูกค้าแล้ว"
+export function refundStatusOf(b) {
+  if (!b) return 'ไม่ต้องคืน'
+  if (b.refundStatus === 'คืนเงินแล้ว' || String(b.depositRefunded || '').trim().toUpperCase() === 'Y') return 'คืนเงินแล้ว'
+  if (b.refundStatus) return b.refundStatus
+  return depositOf(b) > 0 && !b.rightsOnly ? 'รอคืนเงิน' : 'ไม่ต้องคืน'
+}
+// "ส่งเอกสารคืนจอง" (Sheet) — Y หรือมีวันที่ส่ง = ส่งแล้ว
+export const refundDocsSent = b => String(b?.refundDocsSent || '').trim().toUpperCase() === 'Y' || /^\d{4}-\d{2}-\d{2}/.test(String(b?.refundDocsDate || ''))
 
 export function financeQueue(bookings = [], today) {
   const live = bookings.filter(b => b && !b.deleted)
   const verify = live.filter(b => b.paymentVerifyStatus === 'รอการเงินยืนยัน')
-  const refund = live.filter(b => b.status === 'ถอนจอง' && (b.refundStatus || (depositOf(b) > 0 && !b.rightsOnly ? 'รอคืนเงิน' : '')) === 'รอคืนเงิน')
+  const refund = live.filter(b => b.status === 'ถอนจอง' && refundStatusOf(b) === 'รอคืนเงิน')
   const t0 = Date.parse(today + 'T00:00:00Z')
   const oldestDays = verify.reduce((m, b) => {
     const at = b.paymentVerifyRequestedAt ? Date.parse(String(b.paymentVerifyRequestedAt).slice(0, 10) + 'T00:00:00Z') : NaN

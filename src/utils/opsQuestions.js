@@ -12,6 +12,7 @@ import { nextAnniversary } from './anniversary.js'
 import { lostBySeller, classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
 import { entryPointOf, ENTRY_INFO } from './entryPoints.js'
 import { sourceConversion } from './leadScore.js'
+import { refundStatusOf } from './financeQueue.js'
 import { testDriveConversion } from './testDriveConversion.js'
 import { isOverviewForecastQuestion } from './forecastOverview.js'
 
@@ -869,8 +870,7 @@ export function debtAnswer(rows) {
 // (v1.0.1114) ถอนจองแล้ว มีเงินมัดจำ ยังไม่คืน (สูตรเดียวกับหน้าคืนเงิน)
 export function refundAnswer(bookings) {
   const dep = b => Number(b?.bookingDeposit) || Number(b?.down) || 0
-  const st = b => b.refundStatus || ((dep(b) > 0 && !b.rightsOnly) ? 'รอคืนเงิน' : 'ไม่ต้องคืน')
-  const list = alive(bookings).filter(b => b.status === 'ถอนจอง' && st(b) === 'รอคืนเงิน')
+  const list = alive(bookings).filter(b => b.status === 'ถอนจอง' && refundStatusOf(b) === 'รอคืนเงิน')
     .sort((a, b) => String(a.cancelDate || a.bookingDate || '').localeCompare(String(b.cancelDate || b.bookingDate || '')))
   if (!list.length) return { n: 0, text: '💵 ไม่มีลูกค้าที่ถอนจองแล้วรอคืนเงินมัดจำ 👍' }
   const total = list.reduce((a, b) => a + dep(b), 0)
