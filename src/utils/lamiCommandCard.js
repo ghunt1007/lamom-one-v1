@@ -521,7 +521,7 @@ export async function loadOpsAnswer(q, customersPromise) {
     res = oq.tradeInAnswer(await listDocs('trade_ins', f, 'date', 'desc', 300).catch(() => []), { today, month: !!spec.month })
   } else if (spec.kind === 'closerate') {
     const [customers, bks] = await Promise.all([customersPromise || visibleCustomersForCommands(), listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])])
-    res = oq.closeRateAnswer((customers || []).filter(c => mine(c.assignedTo, c)), bks.filter(b => mine(b.salesName, b)), { today, prev: spec.prev })
+    res = oq.closeRateAnswer((customers || []).filter(c => mine(c.assignedTo, c)), bks.filter(b => mine(b.salesName, b)), { today, prev: spec.prev, bySeller: spec.bySeller, fast: spec.fast })
   } else if (spec.kind === 'noquote') {
     const [customers, quotes] = await Promise.all([customersPromise || visibleCustomersForCommands(), listDocs('quotations', f, 'createdDate', 'desc', 3000).catch(() => [])])
     res = oq.noQuoteAnswer((customers || []).filter(c => mine(c.assignedTo, c)), quotes)

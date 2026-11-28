@@ -223,7 +223,9 @@ export function parseOpsSpec(q) {
   // (v1.0.1096) "ใครมีรถเก่ามาเทิร์น" / "รถเทิร์นค้างประเมินกี่คัน"
   if (has(s, /เทิร์น|trade\s*-?\s*in|รถเก่า(?:มา)?(?:แลก|เทิร์น|ขาย)/i) && !has(s, /ราคา|ประเมินราคา(?!.*(?:กี่|ใคร|ไหน))|เท่าไหร่|ได้กี่บาท/)) return { kind: 'tradein', ...(/เดือนนี้/.test(s) ? { month: true } : {}) }
   // (v1.0.1096) "อัตราปิดการขายเดือนนี้" / "ปิดการขายเฉลี่ยกี่วัน"
-  if (has(s, /อัตรา(?:การ)?(?:ปิด|จอง|ขาย)|conversion|close\s*rate|ปิด(?:การขาย|ได้)?\s*(?:เฉลี่ย|กี่\s*%|กี่เปอร์เซ็นต์)|เฉลี่ย(?:กี่วัน|.*วันปิด)|กี่วัน(?:ถึง|กว่าจะ)(?:ปิด|จอง)/i)) return { kind: 'closerate', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
+  if (has(s, /อัตรา(?:การ)?(?:ปิด|จอง|ขาย)|conversion|close\s*rate|ปิด(?:การขาย|ได้)?\s*(?:เฉลี่ย|กี่\s*%|กี่เปอร์เซ็นต์)|เฉลี่ย(?:กี่วัน|.*วันปิด)|กี่วัน(?:ถึง|กว่าจะ)(?:ปิด|จอง)/i)) return { kind: 'closerate', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s), ...(has(s, /แต่ละคน|รายคน|รายเซลส์|เซลส์|ใคร|คนไหน/) ? { bySeller: true } : {}) }
+  // (v1.0.1493) "เซลส์คนไหนปิดเร็วสุด" / "ใครปิดการขายเก่งสุด" → อัตราปิด/ระยะเวลาปิด รายเซลส์
+  if (has(s, /เซลส์|ใคร|คนไหน/) && has(s, /ปิด\s*(?:การขาย|ดีล|ลูกค้า)?\s*(?:ได้)?\s*(?:เร็ว|ไว|เก่ง|ดี)\s*(?:สุด|ที่สุด)/) && !has(s, /ลูกค้า\s*(?:คน)?ไหน|รุ่น|ช่องทาง/)) return { kind: 'closerate', bySeller: true, ...(has(s, /เร็ว|ไว/) ? { fast: true } : {}), prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
   // (v1.0.1095) "ลูกค้าคนไหนยังไม่ได้ทำใบเสนอราคา"
   if (has(s, /ใบเสนอ|quotation/i) && has(s, /ยังไม่(?:ได้|มี)?\s*(?:ทำ|ออก|มี|ให้|ส่ง)|ไม่มีใบเสนอ|ไม่เคย(?:ได้)?(?:ทำ|ออก)?\s*ใบเสนอ/) && has(s, /ลูกค้า|ใคร|คนไหน|รายชื่อ/)) return { kind: 'noquote' }
   // (v1.0.1095) "ใครจองรุ่น S05 บ้าง" / "เดือนนี้จอง AION V กี่ใบ"
@@ -669,7 +671,7 @@ export function tradeInAnswer(items, { today, month = false }) {
 }
 
 // (v1.0.1096) อัตราปิดการขาย: ลูกค้าใหม่ในเดือน → จองแล้วกี่คน · เวลาเฉลี่ยจากเข้ามาถึงวันจอง (ใบจองที่ผูกลูกค้า)
-export function closeRateAnswer(customers, bookings, { today, prev = false }) {
+export function closeRateAnswer(customers, bookings, { today, prev = false, bySeller = false, fast = false }) {
   let ym = today.slice(0, 7)
   if (prev) { const [y, m] = ym.split('-').map(Number); ym = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}` }
   const cs = alive(customers)
@@ -690,6 +692,27 @@ export function closeRateAnswer(customers, bookings, { today, prev = false }) {
     fresh.length ? `👥 ลูกค้าใหม่ ${fresh.length} คน → จองแล้ว ${won} คน (${Math.round(won / fresh.length * 100)}%)${lost ? ` · เสียดีล ${lost} คน` : ''}` : `👥 ${word}ยังไม่มีลูกค้าใหม่`,
     avg != null ? `⏱ ใบจอง${word} ${gaps.length} ใบ ใช้เวลาเฉลี่ย ${avg} วัน จากวันที่ลูกค้าเข้ามาถึงวันจอง` : bks.some(b => ymd(b.bookingDate).startsWith(ym)) ? `⏱ ใบจอง${word}ยังไม่ได้ผูกกับลูกค้า จึงคำนวณเวลาเฉลี่ยไม่ได้` : `⏱ ${word}ยังไม่มีใบจอง`]
   if (fresh.length && won / fresh.length < 0.2) lines.push('💡 ปิดได้ต่ำกว่า 20% — ชวนลูกค้าใหม่มาทดลองขับภายใน 7 วันแรก')
+  // (v1.0.1493) รายเซลส์ — ลูกค้าใหม่ 90 วัน (เดือนเดียวมีน้อยเกิน) → จองแล้วกี่ % · วันเฉลี่ยจากเข้ามาถึงจอง · ต้องมี ≥ 3 คนต่อเซลส์
+  if (bySeller) {
+    const from = addDays(today, -90)
+    const by = new Map()
+    cs.filter(c => created(c) >= from && created(c) <= today && String(c.assignedTo || '').trim()).forEach(c => {
+      const k = String(c.assignedTo).trim(); const r = by.get(k) || { name: k, n: 0, won: 0, days: [] }
+      r.n++; if (bookedIds.has(c.id) || ['booking', 'delivered'].includes(c.stage)) r.won++
+      by.set(k, r)
+    })
+    bks.filter(b => ymd(b.bookingDate) >= from && custOf(b)).forEach(b => {
+      const c = custOf(b), k = String(b.salesName || c.assignedTo || '').trim(), r = by.get(k), d = dnum(b.bookingDate) - dnum(created(c))
+      if (r && Number.isFinite(d) && d >= 0) r.days.push(d)
+    })
+    const rows = [...by.values()].filter(r => r.n >= 3).map(r => ({ ...r, rate: r.won / r.n, avg: r.days.length ? Math.round(r.days.reduce((a, x) => a + x, 0) / r.days.length) : null }))
+    if (fast) rows.sort((a, b) => (a.avg ?? 1e9) - (b.avg ?? 1e9) || b.rate - a.rate); else rows.sort((a, b) => b.rate - a.rate || b.won - a.won)
+    if (rows.length) {
+      lines.push('', `👤 รายเซลส์ — ลูกค้าใหม่ 90 วันล่าสุด${fast ? ' (ปิดเร็วสุดก่อน)' : ''}`)
+      rows.slice(0, 8).forEach((r, i) => lines.push(`${i + 1}. ${r.name} — ${r.won}/${r.n} คน (${Math.round(r.rate * 100)}%)${r.avg != null ? ` · เฉลี่ย ${r.avg} วันถึงจอง` : ''}`))
+      if (fast && !rows.some(r => r.avg != null)) lines.push('ℹ️ ใบจองยังไม่ได้ผูกกับลูกค้า จึงยังวัดความเร็วในการปิดไม่ได้ — เรียงตาม % แทน')
+    } else lines.push('', '👤 รายเซลส์: ข้อมูลยังน้อย (ต้องมีลูกค้าใหม่อย่างน้อย 3 คนต่อคนใน 90 วัน)')
+  }
   // (v1.0.1420) ช่องทางไหนปิดได้จริง (ลูกค้าที่เข้ามา 1–12 เดือนก่อน) — ข้อมูลไม่พอไม่แสดง
   const conv = sourceConversion(cs, Date.parse(today + 'T12:00:00Z'))
   if (conv) {
