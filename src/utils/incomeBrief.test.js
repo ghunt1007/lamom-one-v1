@@ -63,3 +63,12 @@ describe('incomeStats / text', () => {
     expect(t).toContain('ยังไม่มีรถส่งมอบในเดือนนี้')
   })
 })
+
+describe('no income entered yet (v1.0.1482)', () => {
+  it('does not show ฿0 totals', () => {
+    const s = { label: 'พ.ย. 2569', isPrev: false, total: { delivered: 3, income: 0, com70: 0, comFinance: 0, marginLeft: 0, missing: 3 }, before: { delivered: 0, income: 0 }, rows: [] }
+    const t = incomeBriefText(s)
+    expect(t).toContain('ยังไม่ได้กรอกรายได้ของคันที่ส่งมอบ')
+    expect(t).not.toContain('฿0')
+  })
+})

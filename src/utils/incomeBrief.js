@@ -37,6 +37,13 @@ export function incomeBriefText(s, { scope = '' } = {}) {
     if (!s.isPrev) lines.push('💡 รายได้นับเมื่อส่งมอบ/ตัดตัวเลขแล้ว — เร่งใบจองที่รถพร้อมให้ส่งมอบ')
     return lines.join('\n')
   }
+  // (v1.0.1482) ส่งมอบแล้วแต่ยังไม่กรอกรายได้เลยสักคัน → ไม่โชว์ ฿0 (ไม่ใช่ตัวเลขจริง)
+  if (t.missing >= t.delivered && !t.income) {
+    lines.push(`🚗 ส่งมอบ ${t.delivered} คัน · ⚠️ ยังไม่ได้กรอกรายได้ของคันที่ส่งมอบ จึงยังบอกยอดเงินไม่ได้`)
+    if (s.forecast) lines.push(incomeForecastLine(s.forecast))
+    lines.push('💡 กรอกรายได้ในหน้ารายได้รายเซลส์ (หรือใน Sheet แล้วซิงก์) ตัวเลขจะขึ้นทันที')
+    return lines.join('\n')
+  }
   const d = t.income - s.before.income
   lines.push(`🚗 ส่งมอบ ${t.delivered} คัน · รายได้รวม ${baht(t.income)}`)
   lines.push(`• คอมเซลส์ ${baht(t.com70)} · คอมไฟแนนซ์ ${baht(t.comFinance)} · มาร์จิ้นคงเหลือ ${baht(t.marginLeft)}`)
