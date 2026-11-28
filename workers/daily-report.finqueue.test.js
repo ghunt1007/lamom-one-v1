@@ -15,7 +15,7 @@ describe('financeQueueLine (v1.0.1009)', () => {
       { status: 'ถอนจอง', bookingDeposit: 5000 },
       { status: 'ถอนจอง', refundStatus: 'รอคืนเงิน', refundAmount: 3000 },
     ], today)
-    expect(line).toBe('💸 งานการเงินค้าง: รอยืนยันยอดโอน 2 ใบ (นานสุด 3 วัน) · รอคืนเงินจอง 2 ใบ 8,000 บาท')
+    expect(line).toBe('💸 งานการเงินค้าง: รอยืนยันยอดโอน 2 ใบ (นานสุด 3 วัน) · รอคืนเงินจอง 2 ใบ 8,000 บาท (ยังไม่ส่งเอกสาร 2)')
   })
   it('appears in the 09:00 reminder', () => {
     const text = buildMorningReminder({ bookings: [{ status: 'ถอนจอง', bookingDeposit: 1000 }], customers: [], followups: [], testDrives: [] }, { today })

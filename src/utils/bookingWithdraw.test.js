@@ -60,3 +60,24 @@ describe('withdrawnAnswer categories (v1.0.1502)', async () => {
     expect(withdrawnAnswer([{ status: 'ถอนจอง', bookingDate: '2026-11-05', cancelReason: 'other' }], { today: '2026-11-28' }).text).toContain('ยังไม่มีการระบุเหตุผล')
   })
 })
+
+describe('refund docs + wdcomp (v1.0.1503)', async () => {
+  const oq = await import('./opsQuestions.js')
+  const { financeQueue } = await import('./financeQueue.js')
+  const bs = [
+    { status: 'ถอนจอง', custName: 'ก', bookingDeposit: 4000, cancelDate: '2026-11-10', refundDocsSent: 'Y', cancelCategory: 'competitor', cancelCompetitor: 'BYD ATTO 3' },
+    { status: 'ถอนจอง', custName: 'ข', bookingDeposit: 4000, refundAmount: 3000, cancelDate: '2026-11-12', cancelCategory: 'competitor', cancelCompetitor: 'byd atto 3' },
+    { status: 'ถอนจอง', custName: 'ค', bookingDeposit: 4000, depositRefunded: 'Y', cancelDate: '2026-11-12', cancelCategory: 'finance' },
+  ]
+  it('refund docs list', () => {
+    expect(oq.refundAnswer(bs).text).toContain('รอคืนเงินมัดจำ 2 ราย · รวม ฿7,000 · ยังไม่ส่งเอกสาร 1 ใบ')
+    expect(oq.refundAnswer(bs, { docs: true }).text).toContain('📄 ยังไม่ส่งเอกสารคืนจอง 1 ใบ')
+    expect(financeQueue(bs, '2026-11-28').noDocs).toBe(1)
+  })
+  it('competitor brands', () => {
+    const t = oq.wdCompAnswer(bs, { today: '2026-11-28' }).text
+    expect(t).toContain('ถอนจองไปซื้อที่อื่น 2 จาก 3 ใบ')
+    expect(t).toContain('1. BYD ATTO 3 — 2 ใบ')
+    expect(oq.parseOpsSpec('ลูกค้าถอนจองไปซื้อยี่ห้ออะไร')).toEqual({ kind: 'wdcomp' })
+  })
+})

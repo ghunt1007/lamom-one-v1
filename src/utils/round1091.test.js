@@ -20,7 +20,7 @@ describe('v1.0.1091 manager questions', () => {
   })
   it('withdrawn list', () => {
     const r = withdrawnAnswer([{ custName: 'ก', bookingDate: '2026-11-02', status: 'ถอนจอง', salesName: 'หนึ่ง' }, { custName: 'ข', bookingDate: '2026-11-03', status: 'รอรถ' }], { today })
-    expect(r.n).toBe(1); expect(r.text).toContain('1 ใบ จาก 2 ใบ (50%)')
+    expect(r.n).toBe(1); expect(r.text).toContain('ถอนจองเดือนนี้ 1 ใบ · 01/11/2569–12/11/2569 · ใบจองใหม่เดือนนี้ 2 ใบ')
     expect(withdrawnAnswer([], { today }).text).toContain('ยังไม่มี')
   })
   it('no-show list', () => {

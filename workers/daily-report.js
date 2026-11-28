@@ -1413,7 +1413,7 @@ export const EVENING_CUSTOMER_FIELDS = ['stage', 'createdAt', 'source', 'assigne
 export const MORNING_CUSTOMER_FIELDS = ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId', 'autoLead', 'reEnquiredAt', 'reEnquiredModel', 'phone', 'wakeSentAt', 'lineOptOut', 'lineBlockedAt', 'marketingConsent', 'firstContactAt']
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads, pdis, complaints, leaves, vehicles, transit, orders, doneJobs, dueReminders] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'customerId', 'phone', 'brand', 'model', 'totalIncome', 'com70', 'comFinance', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'depositRefunded', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly', 'colorOut', 'color', 'vin', 'lineUserId', 'price', 'extraDiscount']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'customerId', 'phone', 'brand', 'model', 'totalIncome', 'com70', 'comFinance', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'depositRefunded', 'refundDocsSent', 'refundDocsDate', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly', 'colorOut', 'color', 'vin', 'lineUserId', 'price', 'extraDiscount']),
     runQuery(env, accessToken, 'customers', null, null, 5000, MORNING_CUSTOMER_FIELDS),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
@@ -1682,7 +1682,7 @@ export function financeQueueLine(bookings = [], today) {
   if (!q.total) return null
   const parts = []
   if (q.verify.length) parts.push(`รอยืนยันยอดโอน ${q.verify.length} ใบ${q.oldestDays > 0 ? ` (นานสุด ${q.oldestDays} วัน)` : ''}`)
-  if (q.refund.length) parts.push(`รอคืนเงินจอง ${q.refund.length} ใบ${q.refundAmt ? ` ${fmtBaht(q.refundAmt)}` : ''}`)
+  if (q.refund.length) parts.push(`รอคืนเงินจอง ${q.refund.length} ใบ${q.refundAmt ? ` ${fmtBaht(q.refundAmt)}` : ''}${q.noDocs ? ` (ยังไม่ส่งเอกสาร ${q.noDocs})` : ''}`)
   return `💸 งานการเงินค้าง: ${parts.join(' · ')}`
 }
 

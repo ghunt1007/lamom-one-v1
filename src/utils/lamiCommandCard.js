@@ -432,7 +432,9 @@ export async function loadOpsAnswer(q, customersPromise) {
     if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🔒 ยอดเงินสดย่อยดูได้เฉพาะผู้บริหาร/บัญชี' }
     else res = oq.pettyAnswer(await listDocs('petty_cash', f, 'time', 'desc', 500).catch(() => []), { today })
   } else if (spec.kind === 'refund') {
-    res = oq.refundAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)))
+    res = oq.refundAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { docs: !!spec.docs })
+  } else if (spec.kind === 'wdcomp') {
+    res = oq.wdCompAnswer((await listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => [])).filter(b => mine(b.salesName, b)), { today })
   } else if (spec.kind === 'floorplan') {
     if (!(vis.unrestricted || vis.companyOnly)) res = { n: 0, locked: true, text: '🏦 ข้อมูล floor plan ดูได้เฉพาะผู้บริหาร/บัญชี' }
     else res = oq.floorPlanAnswer(await listDocs('floor_plan', f, 'drawDate', 'desc', 300).catch(() => []), { today })
