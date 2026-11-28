@@ -125,3 +125,10 @@ describe('ส่งมอบใน DMS (v1.0.1550)', () => {
     expect(r.list.map(x => x.b.id)).toEqual(['a'])
   })
 })
+
+describe('ใบจองวันนี้ (v1.0.1551)', () => {
+  it('routes', () => {
+    expect(parseOpsSpec('ใบจองวันนี้มีใครบ้าง')).toMatchObject({ kind: 'bookday', day: 'today' })
+    expect(parseOpsSpec('ใบจองเมื่อวาน')).toMatchObject({ kind: 'bookday', day: 'yesterday' })
+  })
+})
