@@ -392,6 +392,10 @@ export async function loadOpsAnswer(q, customersPromise) {
     const [bks, comps] = await Promise.all([listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => []), listDocs('complaints', f, 'createdAt', 'desc', 300).catch(() => [])])
     const complainedNames = new Set(comps.map(c => String(c.customerName || c.customer || c.name || '').replace(/\s+/g, '')).filter(Boolean))
     res = oq.referAskAnswer(bks.filter(b => mine(b.salesName, b)), { today, complainedNames })
+  } else if (spec.kind === 'notesearch') {
+    const customers = ((await (customersPromise || visibleCustomersForCommands())) || []).filter(c => mine(c.assignedTo, c))
+    const notes = await listDocs('customer_notes', [], 'time', 'desc', 3000).catch(() => [])
+    res = oq.noteSearchAnswer({ customers, notes, term: spec.term })
   } else if (spec.kind === 'boothshift') {
     res = oq.boothShiftAnswer(await listDocs('marketing_events', [], 'startDate', 'desc', 300).catch(() => []), { today, day: spec.day, wd: spec.wd, next: spec.next })
   } else if (spec.kind === 'eventbest') {
