@@ -28,11 +28,11 @@ export const SHEET_COLUMNS = [
   { h: 'เซลล์', f: 'salesNick', t: 'text', extra: true },
   { h: 'จองDMS', f: 'dmsBooked', t: 'yn', extra: true },
   { h: 'ส่งจอง', f: 'bookingSent', t: 'yn', extra: true },
+  // (v1.0.962) เงินจอง แยกจาก "ดาวน์" · (v1.0.1501) Sheet เพิ่มคอลัมน์ "เงินจอง" แล้ว (หลังส่งจอง) → ซิงก์/ส่งออก/วางได้ตรงช่อง
+  { h: 'เงินจอง', f: 'bookingDeposit', t: 'num', extra: true },
   { h: 'ราคารถ', f: 'price', t: 'num' },
   { h: 'ส่วนลดตามแคมเปญ', f: 'campaignDiscount', t: 'num', extra: true },
   { h: 'ส่วนลดเพิ่มเติม', f: 'extraDiscount', t: 'num', extra: true },
-  // (v1.0.962) เงินจอง: ช่องของแอป (Sheet ไม่มี) แยกจาก "ดาวน์" — ไม่ส่งออก/ไม่วางทับจาก Sheet
-  { h: 'เงินจอง', f: 'bookingDeposit', t: 'num', app: true },
   { h: 'ดาวน์', f: 'down', t: 'num' },
   { h: 'ไฟแนนซ์', f: 'financeCo', t: 'list', opts: 'finance' },
   { h: 'แคมเปญดอกเบี้ย', f: 'campaign', t: 'list', opts: 'campaigns' },
@@ -78,8 +78,12 @@ export const SHEET_COLUMNS = [
   { h: 'รับป้ายขาว', f: 'whitePlateReceived', t: 'yn', extra: true },
   { h: 'เช็ครายการ', f: 'checklistDone', t: 'yn', extra: true },
   { h: 'ส่งมอบDMS', f: 'dmsDelivered', t: 'yn', extra: true },
-  { h: 'คืนจอง', f: 'depositRefunded', t: 'yn', extra: true },
-  { h: 'เหตุผล', f: 'refundReason', t: 'text', w: 160, extra: true },
+  // (v1.0.1501) Sheet แยกเรื่องถอนจองเป็น 4 คอลัมน์ (เดิม "คืนจอง" + "เหตุผล") — alias = หัวเดิม ไฟล์เก่ายังซิงก์ได้
+  { h: 'ส่งเอกสารคืนจอง', f: 'refundDocsSent', t: 'yn', extra: true },
+  { h: 'วันที่ส่งเอกสารคืนจอง', f: 'refundDocsDate', t: 'date', extra: true },
+  { h: 'คืนเงินจอง', f: 'depositRefunded', t: 'yn', extra: true, alias: ['คืนจอง'] },
+  // เหตุผลที่ถอนจอง = ช่องเดียวกับที่กรอกตอนกด ❌ ถอนจองในแอป (cancelReason) · "-" ใน Sheet = ว่าง
+  { h: 'เหตุผลที่ถอนจอง', f: 'cancelReason', t: 'text', w: 180, extra: true, alias: ['เหตุผล'], dash: true },
 ]
 
 export const EXTRA_COLUMNS = SHEET_COLUMNS.filter(c => c.extra)
@@ -189,10 +193,14 @@ export function sortRows(rows, col, dir = 1) {
 export function mapExtraColumns(r, { str, num, fmtDate }) {
   const out = {}
   for (const c of EXTRA_COLUMNS) {
-    if (!(c.h in r)) continue
-    if (c.t === 'num') out[c.f] = num(r[c.h])
-    else if (c.t === 'date') out[c.f] = fmtDate(r[c.h])
-    else out[c.f] = str(r[c.h])
+    const h = c.h in r ? c.h : (c.alias || []).find(a => a in r)
+    if (!h) continue
+    if (c.t === 'num') out[c.f] = num(r[h])
+    else if (c.t === 'date') out[c.f] = fmtDate(r[h])
+    else {
+      const v = str(r[h])
+      out[c.f] = c.dash && /^[-–—]+$/.test(v.trim()) ? '' : v
+    }
   }
   return out
 }

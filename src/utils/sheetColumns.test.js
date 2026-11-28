@@ -4,20 +4,20 @@ import { mapBookingRow } from './bookingImport.js'
 
 const col = f => SHEET_COLUMNS.find(c => c.f === f)
 
-// หัวคอลัมน์ของไฟล์ DATA Booking (แท็บ Booking แถว 3) ณ 3 พ.ย. 2569 — เรียงตามไฟล์
+// หัวคอลัมน์ของไฟล์ DATA Booking (แท็บ Booking แถว 3) ณ 28 พ.ย. 2569 — เรียงตามไฟล์ (เพิ่มเงินจอง + 4 คอลัมน์ถอนจอง)
 const SHEET_HEADERS = ['เลขใบจอง', 'สถานะ', 'วันที่จอง', 'ชื่อลูกค้า-นามสกุล', 'รุ่นรถ', 'สีภายนอก', 'สีภายใน', 'แหล่งที่มา',
-  'เลขประจำตัวประชาชน', 'ที่อยู่', 'หมายเลขโทรศัพท์', 'ชื่อเซลล์', 'เซลล์', 'จองDMS', 'ส่งจอง', 'ราคารถ', 'ส่วนลดตามแคมเปญ',
+  'เลขประจำตัวประชาชน', 'ที่อยู่', 'หมายเลขโทรศัพท์', 'ชื่อเซลล์', 'เซลล์', 'จองDMS', 'ส่งจอง', 'เงินจอง', 'ราคารถ', 'ส่วนลดตามแคมเปญ',
   'ส่วนลดเพิ่มเติม', 'ดาวน์', 'ไฟแนนซ์', 'แคมเปญดอกเบี้ย', 'จังหวัดที่เซ็นต์', 'สถานะเช่าซื้อ', 'วันที่ส่งเคส', 'วันที่เซ็นต์',
   'วันที่ผ่าน', 'กำหนดส่งมอบ', 'วันที่ตัดตัวเลข', 'วันที่รับจริง', 'ค่าคอม', 'มาจิ้น', 'งบที่ใช้', 'มาจิ้นเหลือ', 'เงินได้อุปกรณ์',
   'รายคัน', 'คอมไฟแนนซ์เซลล์', 'เงินเพิ่มพิเศษ', 'เงินได้รวม', 'แคมเปญ CODE', 'เหตุผลอื่น', 'Allocate', 'วันที่ Allocate', 'ชุดขาย',
   'แจ้งประกัน', 'คันที่', 'VIN', 'หมายเลขมอเตอร์', 'หมายเลขเครื่องยนต์', 'หมายเลขแบต', 'เบิกสายชาร์จ', 'ให้สายชาร์จ', 'LifeTime',
   'ฟิล์ม', 'สถานที่ส่งมอบ', 'เลขรับแจ้ง', 'ป้ายแดง', 'ทำป้ายแดง', 'การจดทะเบียน', 'ป้ายขาว', 'แจ้งลูกค้า', 'รับป้ายขาว', 'เช็ครายการ',
-  'ส่งมอบDMS', 'คืนจอง', 'เหตุผล']
+  'ส่งมอบDMS', 'ส่งเอกสารคืนจอง', 'วันที่ส่งเอกสารคืนจอง', 'คืนเงินจอง', 'เหตุผลที่ถอนจอง']
 
 describe('sheetColumns', () => {
   it('มีครบทุกคอลัมน์ของ Sheet เรียงเหมือนไฟล์ และชื่อฟิลด์ไม่ซ้ำ', () => {
     expect(SHEET_FILE_COLUMNS.map(c => c.h)).toEqual(SHEET_HEADERS)
-    expect(SHEET_COLUMNS.filter(c => c.app).map(c => c.h)).toEqual(['เงินจอง'])
+    expect(SHEET_COLUMNS.filter(c => c.app).map(c => c.h)).toEqual([])
     expect(new Set(SHEET_COLUMNS.map(c => c.f)).size).toBe(SHEET_COLUMNS.length)
   })
 
@@ -61,7 +61,7 @@ describe('sheetColumns', () => {
     expect(m).toMatchObject({ dmsBooked: 'Y', allocated: 'Y', allocateDate: '2026-04-07', unitNo: 523, perCarBonus: 3000, depositRefunded: 'N', lifetime: '1', deliveryPlace: 'โชว์รูม' })
     // หัวคอลัมน์ที่ไม่มีในไฟล์ → ไม่ใส่ฟิลด์ (ไม่ไปลบค่าที่มีในโปรแกรม)
     expect('salesKit' in m).toBe(false)
-    expect(EXTRA_COLUMNS.length).toBe(30)
+    expect(EXTRA_COLUMNS.length).toBe(33)
   })
 })
 
@@ -119,5 +119,20 @@ describe('patchForCell down ratio', () => {
   it('turns a Sheet-style 25% down into an amount', () => {
     const col = SHEET_COLUMNS.find(c => c.f === 'down')
     expect(patchForCell({ price: 1000000 }, col, 0.25)).toEqual({ down: 250000, financeAmount: 750000 })
+  })
+})
+
+describe('ถอนจอง columns (v1.0.1501)', async () => {
+  const { refundStatusOf, financeQueue } = await import('./financeQueue.js')
+  it('maps new withdraw columns, old headers still work, "-" = empty', () => {
+    const m = mapBookingRow({ 'เลขใบจอง': 'X1', 'เงินจอง': 4000, 'ส่งเอกสารคืนจอง': 'Y', 'วันที่ส่งเอกสารคืนจอง': '2026-11-20', 'คืนเงินจอง': 'Y', 'เหตุผลที่ถอนจอง': 'ไม่ผ่านไฟแนนซ์' })
+    expect(m).toMatchObject({ bookingDeposit: 4000, refundDocsSent: 'Y', refundDocsDate: '2026-11-20', depositRefunded: 'Y', cancelReason: 'ไม่ผ่านไฟแนนซ์' })
+    expect(mapBookingRow({ 'เลขใบจอง': 'X2', 'คืนจอง': 'N', 'เหตุผล': 'ซื้อที่อื่น' })).toMatchObject({ depositRefunded: 'N', cancelReason: 'ซื้อที่อื่น' })
+    expect(mapBookingRow({ 'เลขใบจอง': 'X3', 'เหตุผลที่ถอนจอง': '-' }).cancelReason).toBe('')
+  })
+  it('Sheet คืนเงินจอง Y = refunded', () => {
+    expect(refundStatusOf({ status: 'ถอนจอง', bookingDeposit: 4000, depositRefunded: 'Y' })).toBe('คืนเงินแล้ว')
+    expect(refundStatusOf({ status: 'ถอนจอง', bookingDeposit: 4000 })).toBe('รอคืนเงิน')
+    expect(financeQueue([{ status: 'ถอนจอง', bookingDeposit: 4000, depositRefunded: 'Y' }, { status: 'ถอนจอง', bookingDeposit: 4000 }], '2026-11-28').refund.length).toBe(1)
   })
 })
