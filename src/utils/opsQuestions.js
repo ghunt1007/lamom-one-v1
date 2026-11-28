@@ -33,6 +33,8 @@ export function parseOpsSpec(q) {
   // (v1.0.1103) "นัดเข้าศูนย์บริการพรุ่งนี้" (ไม่มีชื่อลูกค้า) = ถามรายการนัด ไม่ใช่คำสั่งนัด
   const topicOnly = /^นัด\s*(?:เข้าศูนย์(?:บริการ)?|ซ่อม|เซอร์วิส|เช็คระยะ|ส่งมอบ|ส่งรถ|ทดลองขับ|ลองขับ|เข้าโชว์รูม|โชว์รูม)\s*(?:วันนี้|พรุ่งนี้|สัปดาห์นี้|อาทิตย์นี้)$/.test(s)
   if (s.length < 4 || s.length > 80 || (COMMAND.test(s) && !topicOnly)) return null
+  // (v1.0.1526) ค้นโน้ตลูกค้า: "ลูกค้าที่จดไว้ว่ารอโบนัส" · "ใครบอกว่าแพง" · "หาโน้ต สีขาว" · "ลูกค้าที่รอโบนัส"
+  { const t = noteSearchTerm(s); if (t) return { kind: 'notesearch', term: t } }
   // (v1.0.1437) "ควรโทรช่วงไหน" / "โทรเวลาไหนลูกค้ารับสาย" → อัตรารับสายตามช่วงเวลา
   // (v1.0.1443) ส่วนลดเพิ่มเติม (นอกแคมเปญ) เฉลี่ย/รายเซลส์/เกินปกติ — ไม่ใช่ถามโปร
   if (has(s, /ส่วนลด/) && has(s, /เฉลี่ย|เยอะ|มากสุด|เกิน|ใคร|รุ่นไหน|สูง|รั่ว|ปกติ/) && !has(s, /โปร|แคมเปญ|ได้ส่วนลด/)) return { kind: 'discount' }
@@ -1922,6 +1924,7 @@ export const OPS_LINKS = {
   referask: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   eventbest: { path: '/marketing/events', label: '🎪 เปิดหน้าออกบูธ/อีเวนต์' },
   boothshift: { path: '/marketing/events', label: '🎪 เปิดหน้าออกบูธ/อีเวนต์' },
+  notesearch: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
   campaignbest: { path: '/crm/bookings', label: '📝 เปิดหน้าใบจอง' },
   mycust: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
   nophone: { path: '/crm/customers', label: '👥 เปิดหน้าลูกค้า' },
@@ -2015,4 +2018,37 @@ export function boothShiftAnswer(events = [], { today, day = 'week', wd = -1, ne
   })
   if (!n) return { n: 0, text: `🎪 ไม่มีงานออกบูธ/อีเวนต์${label}` }
   return { n, text: [`🎪 งานออกบูธ${label}`, ...out, noShift ? `💡 ยังไม่ได้จัดเวร ${noShift} งาน — กด “🔀 จัดเวรให้” ในงานนั้นที่หน้าออกบูธ` : ''].filter(Boolean).join('\n') }
+}
+
+// (v1.0.1526) คำค้นในโน้ตลูกค้า — เฉพาะรูปประโยคที่ชัดว่าถามหาโน้ต (ไม่เดาจากประโยคทั่วไป)
+export function noteSearchTerm(q) {
+  const s = String(q || '').trim().replace(/[?？]+$/, '')
+  const m = s.match(/^(?:ลูกค้า|ใคร|คน)\s*(?:ที่|คนไหน)?\s*(?:จด|โน้ต|โน๊ต|บันทึก)\s*(?:ไว้)?\s*ว่า\s*(.+)$/)
+    || s.match(/^(?:ค้น|หา)\s*(?:ใน)?\s*(?:โน้ต|โน๊ต|note)\s*(?:ลูกค้า)?\s*(?:ว่า|คำว่า)?\s*(.+)$/i)
+    || s.match(/^(?:ลูกค้า|ใคร)\s*(?:ที่|คนไหน)?\s*(?:พูด|บอก)\s*(?:ไว้)?\s*ว่า\s*(.+)$/)
+    || s.match(/^(?:ลูกค้า|ใคร)\s*(?:ที่|คนไหน)?\s*((?:ยัง)?รอ\s*(?:โบนัส|เงินเดือน|ขายรถ(?:คัน)?เก่า|ปรึกษา(?:แฟน|ครอบครัว|ที่บ้าน|ภรรยา|สามี)))/)
+  if (!m) return ''
+  const t = m[1].replace(/\s*(?:มีใครบ้าง|มีใคร|ใครบ้าง|บ้าง|กี่คน|มีกี่คน|ไหม|มั้ย|อยู่|ครับ|ค่ะ|คะ)+\s*$/g, '').replace(/^ยัง/, '').trim()
+  return t.length >= 2 && t.length <= 30 ? t : ''
+}
+
+export function noteSearchAnswer({ customers = [], notes = [], term = '' } = {}) {
+  const key = x => String(x || '').replace(/\s+/g, '').toLowerCase()
+  const k = key(term)
+  if (!k) return null
+  const byId = new Map()
+  ;(customers || []).forEach(c => { if (c && !c.deleted && c.id) byId.set(c.id, c) })
+  const hit = new Map()
+  const add = (c, text, time) => {
+    const prev = hit.get(c.id)
+    if (!prev || String(time || '') > String(prev.time || '')) hit.set(c.id, { c, text: String(text || ''), time })
+  }
+  byId.forEach(c => { if (key(c.notes).includes(k)) add(c, c.notes, '') })
+  ;(notes || []).forEach(n => { const c = n && !n.deleted && byId.get(n.customerId); if (c && key(n.text).includes(k)) add(c, n.text, n.time || '') })
+  const rows = [...hit.values()].sort((a, b) => String(b.time || '').localeCompare(String(a.time || '')))
+  if (!rows.length) return { n: 0, text: `📝 ไม่พบโน้ตที่มีคำว่า "${term}" ในลูกค้าที่คุณดูแล\n💡 จดโน้ตได้โดยพิมพ์ "จด ชื่อลูกค้า ข้อความ"` }
+  const snip = t => { const x = t.replace(/\s+/g, ' ').trim(); return x.length > 60 ? x.slice(0, 60) + '…' : x }
+  return { n: rows.length, text: [`📝 ลูกค้าที่โน้ตมีคำว่า "${term}" — ${rows.length} คน`,
+    ...rows.slice(0, 10).map(r => `• ${nm(r.c)}${r.c.interestedModel ? ` · 🚗 ${r.c.interestedModel}` : ''}${r.c.assignedTo ? ` · 👤 ${r.c.assignedTo}` : ''} — "${snip(r.text)}"${r.time ? ` (${dmy(String(r.time).slice(0, 10))})` : ''}`),
+    rows.length > 10 ? `…และอีก ${rows.length - 10} คน` : '', '💡 ถามต่อด้วยชื่อลูกค้า เช่น "สรุป' + nm(rows[0].c).split(' ')[0] + '"'].filter(Boolean).join('\n') }
 }

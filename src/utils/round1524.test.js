@@ -25,3 +25,24 @@ describe('v1.0.1524 more plain questions', () => {
     expect(parseOpsSpec('ขอเงินคืนได้ไหม')).toBeNull()
   })
 })
+
+import { noteSearchTerm, noteSearchAnswer } from './opsQuestions.js'
+describe('v1.0.1526 note search', () => {
+  it('parses only explicit note questions', () => {
+    expect(parseOpsSpec('ลูกค้าที่รอโบนัส')).toEqual({ kind: 'notesearch', term: 'รอโบนัส' })
+    expect(parseOpsSpec('ใครบอกว่าแพง')).toEqual({ kind: 'notesearch', term: 'แพง' })
+    expect(parseOpsSpec('ลูกค้าที่บอกว่าแพงมีใครบ้าง')).toEqual({ kind: 'notesearch', term: 'แพง' })
+    expect(parseOpsSpec('หาโน้ต สีขาว')).toEqual({ kind: 'notesearch', term: 'สีขาว' })
+    expect(noteSearchTerm('ลูกค้าที่รอไฟแนนซ์')).toBe('')
+    expect(noteSearchTerm('ใครรอส่งมอบ')).toBe('')
+  })
+  it('matches customer notes and timeline notes', () => {
+    const customers = [{ id: 'a', firstName: 'เอ', notes: 'รอ โบนัสสิ้นปี', assignedTo: 'กมล' }, { id: 'b', firstName: 'บี', interestedModel: 'S07' }, { id: 'c', firstName: 'ซี' }]
+    const notes = [{ customerId: 'b', text: 'ลูกค้ารอโบนัสเดือนธันวา', time: '2026-11-20T03:00:00Z' }, { customerId: 'x', text: 'รอโบนัส' }]
+    const r = noteSearchAnswer({ customers, notes, term: 'รอโบนัส' })
+    expect(r.n).toBe(2)
+    expect(r.text).toContain('• บี · 🚗 S07 — "ลูกค้ารอโบนัสเดือนธันวา" (20/11/2569)')
+    expect(r.text).toContain('• เอ · 👤 กมล')
+    expect(noteSearchAnswer({ customers, notes, term: 'แพง' }).n).toBe(0)
+  })
+})
