@@ -4,6 +4,7 @@ import { periodSpec, periodStats, periodBriefText } from './monthBrief.js'
 import { isCallListQuestion } from './callList.js'
 import { parseBookingListSpec } from './bookingQuestions.js'
 import { isRateQuestion, ratesAnswer } from './payQuestions.js'
+import { parseStockSpec } from './stockQuestions.js'
 
 describe('v1.0.1506 LAMI routes', () => {
   it('weekly summary is not a walk-in count', () => {
@@ -65,5 +66,11 @@ describe('v1.0.1506 LAMI routes', () => {
     expect(r.text).toContain('เดือนนี้ (01/11/2569–28/11/2569) 1 ใบ')
     expect(parseOpsSpec('โฆษณาเดือนนี้ใช้เงินเท่าไหร่').kind).toBe('mktspend')
     expect(parseOpsSpec('รถเข้าซ่อมเดือนนี้กี่คัน')).toEqual({ kind: 'service', day: 'month' })
+  })
+  it('v1.0.1509 unreserved stock, overdue calls, withdrawn to competitor', () => {
+    expect(parseStockSpec('รถที่ยังไม่มีคนจอง', [])).toBeTruthy()
+    expect(parseOpsSpec('ลูกค้าที่เลยนัดโทร')).toEqual({ kind: 'overdue' })
+    expect(parseOpsSpec('ลูกค้าที่ถอนจองไปซื้อยี่ห้ออื่น')).toEqual({ kind: 'wdcomp' })
+    expect(parseOpsSpec('ลูกค้าไปซื้อยี่ห้ออื่น').kind).toBe('lost')
   })
 })
