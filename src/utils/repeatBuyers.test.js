@@ -29,3 +29,24 @@ describe('walk-in / anniversary phrasing (v1.0.1476)', () => {
     expect(parseOpsSpec('ลูกค้าที่ซื้อไปครบ 1 ปี').kind).toBe('anniv')
   })
 })
+
+describe('service revenue vs sales income (v1.0.1481)', async () => {
+  const { isIncomeQuestion } = await import('./incomeBrief.js')
+  it('routes service-centre revenue away from sales income', () => {
+    expect(isIncomeQuestion('รายได้ศูนย์เดือนนี้เทียบเดือนก่อน')).toBe(false)
+    expect(isIncomeQuestion('รายได้เดือนนี้')).toBe(true)
+    expect(parseOpsSpec('รายได้ศูนย์เดือนนี้เทียบเดือนก่อน')).toEqual({ kind: 'servicerev', prev: false })
+    expect(parseOpsSpec('รายได้ศูนย์เดือนที่แล้ว')).toEqual({ kind: 'servicerev', prev: true })
+  })
+})
+
+describe('serviceRevAnswer without labour amounts (v1.0.1481)', async () => {
+  const { serviceRevAnswer } = await import('./opsQuestions.js')
+  it('says amounts are missing instead of ฿0', () => {
+    const jobs = [{ status: 'done', createdAt: '2026-11-10', updatedAt: '2026-11-11' }]
+    const t = serviceRevAnswer(jobs, { today: '2026-11-28' }).text
+    expect(t).toContain('ยังไม่มีงานไหนใส่ค่าแรง')
+    expect(t).not.toContain('฿0')
+    expect(serviceRevAnswer([{ ...jobs[0], labor: 1500 }], { today: '2026-11-28' }).text).toContain('1,500')
+  })
+})

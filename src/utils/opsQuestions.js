@@ -122,7 +122,7 @@ export function parseOpsSpec(q) {
   // (v1.0.1094) "รายได้ศูนย์บริการเดือนนี้"
   // (v1.0.1428) "เดือนหน้ารถเข้าศูนย์กี่คัน" / "คาดรายได้ศูนย์บริการเดือนหน้า" → คาดการณ์จากเตือนเช็คระยะ
   if (has(s, /เดือนหน้า/) && has(s, /ศูนย์|เช็คระยะ|เช็กระยะ|เซอร์วิส|service|ซ่อม/i) && !has(s, /นัดส่งมอบ|สั่งรถ/)) return { kind: 'svcfc' }
-  if (has(s, /รายได้|ยอด/) && has(s, /ศูนย์บริการ|งานซ่อม|เซอร์วิส|service|ซ่อม/i) && !has(s, /ค้าง|รอ/)) return { kind: 'servicerev', prev: /เดือนก่อน|เดือนที่แล้ว/.test(s) }
+  if (has(s, /รายได้|ยอด/) && has(s, /ศูนย์บริการ|งานซ่อม|เซอร์วิส|service|ซ่อม|รายได้\s*(?:ของ)?\s*ศูนย์/i) && !has(s, /ค้าง|รอ/)) return { kind: 'servicerev', prev: !/เทียบ/.test(s) && /เดือนก่อน|เดือนที่แล้ว/.test(s) }
   // (v1.0.1094) "เมื่อวานมีอะไรเกิดขึ้นบ้าง" / "สรุปเมื่อวาน"
   if (has(s, /เมื่อวาน/) && has(s, /มีอะไร|เกิดอะไร|สรุป|เป็นไง|ภาพรวม|ทำอะไร/) && !has(s, /walk|ร้องเรียน|จอง|ส่งมอบ/i)) return { kind: 'yesterday' }
   // (v1.0.1094) "ลูกค้าที่ควรขอให้แนะนำเพื่อน"
@@ -1080,6 +1080,8 @@ export function serviceRevAnswer(jobs, { today, prev = false }) {
   const opened = alive(jobs).filter(j => { const d = ymd(j.createdAt); return d >= from && d <= to }).length
   const labor = done.reduce((a, j) => a + (Number(j.labor) || 0), 0)
   if (!done.length) return { n: 0, text: `🔧 รายได้ศูนย์บริการ${label}: ยังไม่มีงานซ่อมที่ปิดงาน (${dmy(from)}–${dmy(to)}) · เปิดงานใหม่ ${opened} งาน` }
+  // (v1.0.1481) ปิดงานแล้วแต่ไม่มีงานไหนใส่ค่าแรง → บอกตรงๆ ไม่โชว์ ฿0
+  if (!done.some(j => Number(j.labor) > 0)) return { n: done.length, text: [`🔧 รายได้ศูนย์บริการ${label}: ปิดงาน ${done.length} งาน · เปิดงานใหม่ ${opened} งาน`, `⚠️ ยังไม่มีงานไหนใส่ค่าแรง จึงยังบอกยอดเงินไม่ได้ — ใส่ค่าแรงในใบสั่งซ่อมก่อนปิดงาน`, `📅 ${dmy(from)}–${dmy(to)}`].join('\n') }
   return { n: done.length, text: [`🔧 รายได้ศูนย์บริการ${label} ${fmt(labor)} (ค่าแรง)`, `✅ ปิดงาน ${done.length} งาน · เฉลี่ย ${fmt(labor / done.length)}/งาน · เปิดงานใหม่ ${opened} งาน`, `📅 ${dmy(from)}–${dmy(to)} · นับเหมือนหน้างานซ่อม (งานเสร็จ/ส่งคืนแล้ว)`].join('\n') }
 }
 
