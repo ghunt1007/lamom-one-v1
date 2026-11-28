@@ -172,3 +172,12 @@ describe('โทรเข้าวันนี้ (v1.0.1555)', () => {
     expect(parseOpsSpec('วันนี้ควรโทรหาใคร')).toBeNull()
   })
 })
+
+describe('ใบจองที่ยังไม่มีเซลส์/วันจอง (v1.0.1556)', () => {
+  it('routes', () => {
+    expect(parseBookingListSpec('ใบจองที่ยังไม่มีเซลส์')?.ynCol).toMatchObject({ f: 'salesName', missing: true })
+    expect(parseBookingListSpec('ใบจองที่ยังไม่ได้ใส่วันจอง')?.ynCol).toMatchObject({ f: 'bookingDate', missing: true })
+    expect(parseBookingListSpec('เซลส์คนไหนขายดีสุด')).toBeNull()
+    expect(parseOpsSpec('ใบจองที่ยังไม่มีเซลส์')).toBeNull()
+  })
+})
