@@ -176,3 +176,14 @@ describe('late this month (v1.0.1494)', () => {
     expect(lateMonthAnswer([], { today: '2026-11-28' }).text).toContain('ยังไม่มีข้อมูลลงเวลา')
   })
 })
+
+import { listIntro } from './listQuestions.js'
+describe('seller lists + lead periods (v1.0.1495)', () => {
+  it('parses bare seller names and lead periods', () => {
+    expect(parseListSpec('ลูกค้า hot ของวิภา')).toMatchObject({ temp: 'hot', seller: true })
+    expect(parseListSpec('ลูกค้าของกมลมีกี่คน')).toMatchObject({ seller: true, countOnly: true })
+    expect(parseListSpec('ลูกค้า hot ของเดือนนี้')?.seller).toBeUndefined()
+    expect(parseOpsSpec('ลีดเดือนก่อนกี่คน')).toMatchObject({ kind: 'newcust', period: 'prevmonth' })
+    expect(listIntro({ sellerName: 'กมล' }, { list: [], total: 0 })).toContain('กมล ยังไม่มีลูกค้าที่กำลังคุยอยู่')
+  })
+})
